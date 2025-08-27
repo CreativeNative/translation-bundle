@@ -33,22 +33,8 @@ class TmiTranslationExtension extends Extension implements PrependExtensionInter
     {
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
 
-        // Conditionally load sonata_admin.yaml
-        if ($container->hasExtension('sonata_admin')) {
-            $loader->load('sonata_admin.yaml');
-        }
-
         if ($container->hasExtension('tmi_doctrine_singleton')) {
             $loader->load('doctrine_singleton.yaml');
-        }
-
-        // Conditionnally override some templates from EasyAdmin
-        if ($container->hasExtension('easy_admin')) {
-            $thirdPartyBundlesViewFileLocator = new FileLocator(__DIR__.'/../Resources/views/bundles');
-
-            $container->loadFromExtension('twig', [
-                'paths' => [$thirdPartyBundlesViewFileLocator->locate('EasyAdminBundle') => 'EasyAdmin'],
-            ]);
         }
     }
 

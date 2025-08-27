@@ -35,7 +35,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "TMI\\TranslationBundle\\Test\\": "tests/TMI/TranslationBundle/Test/"
+            "TMI\\TranslationBundle\\Test\\": "tests/",
+            "TMI\\TranslationBundle\\Fixtures\\": "tests/Fixtures/"
         }
     },
     "require-dev": {
@@ -46,7 +47,8 @@
         "phpstan/phpstan": "^2.1.17",
         "phpstan/extension-installer": "^1.4.3",
         "phpstan/phpstan-deprecation-rules": "^2.0.3",
-        "phpstan/phpstan-strict-rules": "^2.0.4"
+        "phpstan/phpstan-strict-rules": "^2.0.4",
+        "rector/rector": "^2.1.2"
     },
     "scripts": {
         "test":  [
@@ -55,7 +57,11 @@
         ],
         "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --ansi -vvv",
         "stan-next": "vendor/bin/phpstan analyse -c phpstan.neon --level 2 --ansi -vvv",
-        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --ansi -vvv"
+        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --ansi -vvv",
+        "rector": [
+            "Composer\\Config::disableProcessTimeout",
+            "vendor/bin/rector process --dry-run"
+        ]
     },
     "config": {
         "allow-plugins": {
