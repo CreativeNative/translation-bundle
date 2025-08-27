@@ -13,8 +13,7 @@ class TranslatableOneToOneBidirectionalTest extends AbstractBaseTest
 {
     const TARGET_LOCALE = 'fr';
 
-    /** @test */
-    public function it_can_translate_simple_value()
+    public function testItCanTranslateSimpleValue(): void
     {
         $child  = new TranslatableOneToOneBidirectionalChild();
         $parent = new TranslatableOneToOneBidirectionalParent();
@@ -33,8 +32,7 @@ class TranslatableOneToOneBidirectionalTest extends AbstractBaseTest
         $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $parentTranslation->getSimpleChild());
     }
 
-    /** @test */
-    public function it_cannot_share_translatable_entity_value_amongst_translations()
+    public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
     {
         $this->expectException(\ErrorException::class);
 
@@ -47,8 +45,7 @@ class TranslatableOneToOneBidirectionalTest extends AbstractBaseTest
         $this->translator->translate($parent, self::TARGET_LOCALE);
     }
 
-    /** @test */
-    public function it_can_empty_translatable_entity_value()
+    public function testItCanEmptyTranslatableEntityValue(): void
     {
         $child  = new TranslatableOneToOneBidirectionalChild();
         $parent = new TranslatableOneToOneBidirectionalParent();
@@ -79,6 +76,6 @@ class TranslatableOneToOneBidirectionalTest extends AbstractBaseTest
     {
         $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
         $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotEquals(spl_object_hash($source), spl_object_hash($translation));
+        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 }

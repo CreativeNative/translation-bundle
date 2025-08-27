@@ -16,26 +16,21 @@ class TranslateEvent extends Event
      */
     public const POST_TRANSLATE = 'tmi_translation.post_translate';
 
-    /**
-     * The source entity being translated.
-     */
-    protected object $sourceEntity;
-
-    /**
-     * The translated entity.
-     */
-    protected ?object $translatedEntity;
-
-    /**
-     * The target locale
-     */
-    private string $locale;
-
-    public function __construct(object $sourceEntity, string $locale, object $translatedEntity = null)
+    public function __construct(
+        /**
+         * The source entity being translated.
+         */
+        protected object $sourceEntity,
+        /**
+         * The target locale
+         */
+        private readonly string $locale,
+        /**
+         * The translated entity.
+         */
+        protected ?object $translatedEntity = null
+    )
     {
-        $this->sourceEntity = $sourceEntity;
-        $this->locale = $locale;
-        $this->translatedEntity = $translatedEntity;
     }
 
     public function getSourceEntity(): object

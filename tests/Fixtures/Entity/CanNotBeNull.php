@@ -7,36 +7,24 @@ use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class CanNotBeNull implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
+    protected ?int $id = null;
 
     /**
-     * Scalar value.
-     *
-     * @var string
      * @EmptyOnTranslate()
-     * @ORM\Column(type="string")
      */
-    protected $empty_not_nullable;
+    #[ORM\Column(type: 'string')]
+    protected ?string $empty_not_nullable = null;
 
-    /**
-     * @param string $empty_not_nullable
-     *
-     * @return CanNotBeNull
-     */
-    public function setEmptyNotNullable(string $empty_not_nullable = null): CanNotBeNull
+    public function setEmptyNotNullable(?string $empty_not_nullable = null): CanNotBeNull
     {
         $this->empty_not_nullable = $empty_not_nullable;
 

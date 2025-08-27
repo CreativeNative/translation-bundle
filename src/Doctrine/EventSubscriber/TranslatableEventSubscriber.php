@@ -13,13 +13,11 @@ use TMI\TranslationBundle\Translation\EntityTranslator;
 
 class TranslatableEventSubscriber implements Common\EventSubscriber
 {
-    private ?string $defaultLocale;
     private EntityTranslator $translator;
     private array $alreadySyncedEntities = [];
 
-    public function __construct(string $defaultLocale = null)
+    public function __construct(private readonly ?string $defaultLocale = null)
     {
-        $this->defaultLocale = $defaultLocale;
     }
 
     public function setEntityTranslator(EntityTranslator $entityTranslator)
@@ -128,7 +126,7 @@ class TranslatableEventSubscriber implements Common\EventSubscriber
         if ($translatable instanceof TranslatableInterface) {
             $em = $args->getObjectManager();
             // Gets all translations
-            $repo = $em->getRepository(\get_class($translatable));
+            $repo = $em->getRepository($translatable::class);
 
             /** @var TranslatableInterface[] $translations */
             $translations = $repo->findBy(['tuuid' => $translatable->getTuuid()]);
@@ -152,7 +150,7 @@ class TranslatableEventSubscriber implements Common\EventSubscriber
         if ($translatable instanceof TranslatableInterface) {
             $em = $args->getObjectManager();
             // Gets all translations
-            $repo = $em->getRepository(\get_class($translatable));
+            $repo = $em->getRepository($translatable::class);
 
             /** @var TranslatableInterface[] $translations */
             $translations = $repo->findBy(['tuuid' => $translatable->getTuuid()]);
@@ -187,11 +185,9 @@ class TranslatableEventSubscriber implements Common\EventSubscriber
         }
 
         $em = $args->getObjectManager();
-        $properties = $em->getClassMetadata(\get_class($translatable))->getReflectionProperties();
+        $properties = $em->getClassMetadata($translatable::class)->getReflectionProperties();
 
-        $sharedAmongstTranslationsProperties = array_filter($properties, function ($property) {
-            return $this->isSharedAmongstTranslations($property);
-        });
+        $sharedAmongstTranslationsProperties = array_filter($properties, fn($property) => $this->isSharedAmongstTranslations($property));
 
         // Update the translations if any property is to be shared
         if (empty($sharedAmongstTranslationsProperties)) {
@@ -201,7 +197,7 @@ class TranslatableEventSubscriber implements Common\EventSubscriber
         $propertyAccessor = PropertyAccess::createPropertyAccessor();
         $em = $args->getObjectManager();
         $translations = $em
-            ->getRepository(\get_class($translatable))
+            ->getRepository($translatable::class)
             ->findBy(['tuuid' => $translatable->getTuuid()])
         ;
 
@@ -215,11 +211,11 @@ class TranslatableEventSubscriber implements Common\EventSubscriber
             foreach ($sharedAmongstTranslationsProperties as $property) {
                 $sourceValue = $propertyAccessor->getValue($translatable, $property->name);
 
-                $translationArgs = (new TranslationArgs(
+                $translationArgs = new TranslationArgs(
                     $sourceValue,
                     $translatable->getLocale(),
                     $translation->getLocale()
-                ))
+                )
                     ->setProperty($property)
                     ->setTranslatedParent($translation)
                 ;

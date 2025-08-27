@@ -9,49 +9,45 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class TranslatableOneToOneUnidirectional implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * Scalar value.
      *
      * @var Scalar
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
      */
-    protected $simple;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?\TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar $simple = null;
 
     /**
      * Scalar value.
      *
      * @var Scalar
      * @SharedAmongstTranslations()
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
      */
-    protected $shared;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?\TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar $shared = null;
 
     /**
      * Scalar value.
      *
      * @var Scalar
      * @EmptyOnTranslate()
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
      */
-    protected $empty;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?\TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar $empty = null;
 
     /**
      * @return Scalar
@@ -66,7 +62,7 @@ class TranslatableOneToOneUnidirectional implements TranslatableInterface
      *
      * @return $this
      */
-    public function setSimple(Scalar $simple = null)
+    public function setSimple(?Scalar $simple = null)
     {
         $this->simple = $simple;
 
@@ -86,7 +82,7 @@ class TranslatableOneToOneUnidirectional implements TranslatableInterface
      *
      * @return $this
      */
-    public function setShared(Scalar $shared = null)
+    public function setShared(?Scalar $shared = null)
     {
         $this->shared = $shared;
 
@@ -106,7 +102,7 @@ class TranslatableOneToOneUnidirectional implements TranslatableInterface
      *
      * @return $this
      */
-    public function setEmpty(Scalar $empty = null)
+    public function setEmpty(?Scalar $empty = null)
     {
         $this->empty = $empty;
 

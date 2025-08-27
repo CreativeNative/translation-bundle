@@ -10,19 +10,10 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 
 class EntityTranslator
 {
-    protected array $locales;
-    protected EventDispatcherInterface $eventDispatcher;
     protected array $handlers;
-    private AttributeHelper $attributeHelper;
 
-    public function __construct(
-        array $locales,
-        EventDispatcherInterface $eventDispatcher,
-        AttributeHelper $attributeHelper
-    ) {
-        $this->locales = $locales;
-        $this->eventDispatcher = $eventDispatcher;
-        $this->attributeHelper = $attributeHelper;
+    public function __construct(protected array $locales, protected EventDispatcherInterface $eventDispatcher, private readonly AttributeHelper $attributeHelper)
+    {
     }
 
     /**

@@ -15,18 +15,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-    private EntityTranslator $translator;
-    private EntityManagerInterface $em;
-
-    public function __construct(
-        AttributeHelper $attributeHelper,
-        EntityTranslator $translator,
-        EntityManagerInterface $em
-    ) {
-        $this->attributeHelper = $attributeHelper;
-        $this->translator = $translator;
-        $this->em = $em;
+    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityTranslator $translator, private readonly EntityManagerInterface $em)
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -42,7 +32,7 @@ class BidirectionalOneToManyHandler implements TranslationHandlerInterface
         return false;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    public function handleSharedAmongstTranslations(TranslationArgs $args): never
     {
         $data = $args->getDataToBeTranslated();
         $message =
@@ -52,7 +42,7 @@ class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 
         throw new \ErrorException(
             strtr($message, [
-                '%class%' => \get_class($data),
+                '%class%' => $data::class,
                 '%prop%'  => $args->getProperty()->name,
             ])
         );
@@ -70,19 +60,17 @@ class BidirectionalOneToManyHandler implements TranslationHandlerInterface
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
         // Get the owner's "mappedBy"
-        $associations = $this->em->getClassMetadata(\get_class($newOwner))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $mappedBy = $association['mappedBy'];
 
         // Iterate through collection and set
         // their owner to $newOwner
         foreach ($newCollection as $key => $item) {
-            $reflection = new \ReflectionProperty(\get_class($item), $mappedBy);
-
-            $reflection->setAccessible(true);
+            $reflection = new \ReflectionProperty($item::class, $mappedBy);
 
             // Translate the item
-            $subTranslationArgs = (new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale()))
+            $subTranslationArgs = new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale())
                 ->setTranslatedParent($newOwner)
                 ->setProperty($reflection)
             ;

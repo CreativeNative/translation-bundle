@@ -10,11 +10,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class PrimaryKeyHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-
-    public function __construct(AttributeHelper $attributeHelper)
+    public function __construct(private readonly AttributeHelper $attributeHelper)
     {
-        $this->attributeHelper = $attributeHelper;
     }
 
     public function supports(TranslationArgs $args): bool

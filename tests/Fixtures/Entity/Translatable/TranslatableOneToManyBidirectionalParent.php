@@ -8,31 +8,23 @@ use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * A Child has one Parent.
      *
      * @var ArrayCollection
-     * @ORM\OneToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableOneToManyBidirectionalChild",
-     *     cascade={"persist"},
-     *     mappedBy="parent"
-     * )
      */
+    #[ORM\OneToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild::class, cascade: ['persist'], mappedBy: 'parent')]
     protected $children;
 
     public function __construct()
@@ -49,7 +41,7 @@ class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild>
      */
     public function getChildren()
     {
@@ -61,7 +53,7 @@ class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
      *
      * @return self
      */
-    public function setChildren(Collection $children = null): self
+    public function setChildren(?Collection $children = null): self
     {
         $this->children = $children;
 

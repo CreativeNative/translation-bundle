@@ -4,6 +4,7 @@
     <option name="directories">
       <list>
         <option value="$PROJECT_DIR$/tests/TMI/TranslationBundle/Test" />
+        <option value="$PROJECT_DIR$/tests" />
       </list>
     </option>
   </component>

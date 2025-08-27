@@ -10,19 +10,15 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 class UmanitTranslationExtension extends AbstractExtension implements GlobalsInterface
 {
-    private array $locales;
-
-    public function __construct(array $locales)
+    public function __construct(private readonly array $locales)
     {
-        $this->locales = $locales;
     }
 
+    #[\Override]
     public function getTests(): array
     {
         return [
-            new TwigTest('translatable', function ($object) {
-                return $object instanceof TranslatableInterface;
-            }),
+            new TwigTest('translatable', fn($object) => $object instanceof TranslatableInterface),
         ];
     }
 

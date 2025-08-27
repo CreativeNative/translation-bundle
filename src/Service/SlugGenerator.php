@@ -4,7 +4,7 @@ namespace TMI\TranslationBundle\Service;
 
 use Symfony\Component\String\Slugger\AsciiSlugger;
 
-final class SlugGenerator
+final readonly class SlugGenerator
 {
     private AsciiSlugger $slugger;
 

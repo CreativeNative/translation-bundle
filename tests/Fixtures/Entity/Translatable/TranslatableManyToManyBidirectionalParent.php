@@ -10,54 +10,39 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- */
+#[ORM\Entity]
 class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * @var ArrayCollection
-     *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableManyToManyBidirectionalChild",
-     *     mappedBy="simpleParents"
-     * )
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
     private $simpleChildren;
 
     /**
      * @var ArrayCollection
      *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableManyToManyBidirectionalChild",
-     *     mappedBy="emptyParents"
-     * )
-     * @ORM\JoinTable(name="empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent")
      * @EmptyOnTranslate()
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild::class, mappedBy: 'emptyParents')]
+    #[ORM\JoinTable(name: 'empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
     private $emptyChildren;
 
 
     /**
      * @var ArrayCollection
      *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\ManyToManyBidirectionalChild",
-     *     mappedBy="sharedParents",
-     *     cascade={"persist"}
-     * )
-     * @ORM\JoinTable(name="shared_manytomanybidirectionalchild_translatablemanytomanybidirectionalparent")
      * @SharedAmongstTranslations()
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalChild::class, mappedBy: 'sharedParents', cascade: ['persist'])]
+    #[ORM\JoinTable(name: 'shared_manytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
     private $sharedChildren;
 
     public function __construct()
@@ -76,7 +61,7 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild>
      */
     public function getSimpleChildren()
     {
@@ -93,7 +78,7 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild>
      */
     public function getEmptyChildren()
     {
@@ -110,7 +95,7 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalChild>
      */
     public function getSharedChildren()
     {

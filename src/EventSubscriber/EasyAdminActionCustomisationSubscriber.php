@@ -15,15 +15,12 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 class EasyAdminActionCustomisationSubscriber implements EventSubscriberInterface
 {
-    private const TRANSLATION_EXISTS_ICON = 'fa-solid fa-check text-success';
-    private const ADD_TRANSLATION_ICON = 'fa-solid fa-plus';
+    private const string TRANSLATION_EXISTS_ICON = 'fa-solid fa-check text-success';
+    private const string ADD_TRANSLATION_ICON = 'fa-solid fa-plus';
+    private ?EntityRepository $repository = null;
 
-    private ?EntityManagerInterface $em;
-    private ?EntityRepository $repository;
-
-    public function __construct(EntityManagerInterface $em)
+    public function __construct(private readonly ?EntityManagerInterface $em)
     {
-        $this->em = $em;
     }
 
     public static function getSubscribedEvents(): array
@@ -66,7 +63,7 @@ class EasyAdminActionCustomisationSubscriber implements EventSubscriberInterface
         $actions = $entity->getActions();
 
         foreach ($actions as $offset => $action) {
-            if (str_contains($action->getName(), 'translate')) {
+            if (str_contains((string) $action->getName(), 'translate')) {
                 $translateInto = $action->getHtmlAttributes()['data-translate-into'];
 
                 // Same locale, no need for the "translate" action
@@ -77,7 +74,7 @@ class EasyAdminActionCustomisationSubscriber implements EventSubscriberInterface
                 }
 
                 $translationExists = in_array($translateInto, $object->getTranslations());
-                $url = parse_url($action->getLinkUrl());
+                $url = parse_url((string) $action->getLinkUrl());
                 parse_str($url['query'], $query);
 
                 // Update URL to edit existing translation

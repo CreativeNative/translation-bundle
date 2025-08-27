@@ -4,24 +4,20 @@ namespace  TMI\TranslationBundle\Fixtures\Entity\Embedded;
 
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- *
- * @ORM\Embeddable()
- */
+#[ORM\Embeddable]
 class Address
 {
-    /** @ORM\Column(type="string", nullable=true) */
-    private $street;
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $street = null;
 
-    /** @ORM\Column(type="string", nullable=true) */
-    private $postalCode;
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $postalCode = null;
 
-    /** @ORM\Column(type="string", nullable=true) */
-    private $city;
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $city = null;
 
-    /** @ORM\Column(type="string", nullable=true) */
-    private $country;
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $country = null;
 
     /**
      * @return mixed

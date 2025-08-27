@@ -16,13 +16,8 @@ use TMI\TranslationBundle\Translation\EntityTranslator;
  */
 class DoctrineObjectHandler implements TranslationHandlerInterface
 {
-    protected EntityManagerInterface $em;
-    protected EntityTranslator $translator;
-
-    public function __construct(EntityManagerInterface $em, EntityTranslator $translator)
+    public function __construct(protected EntityManagerInterface $em, protected EntityTranslator $translator)
     {
-        $this->em = $em;
-        $this->translator = $translator;
     }
 
     public function supports(TranslationArgs $args): bool
@@ -32,7 +27,7 @@ class DoctrineObjectHandler implements TranslationHandlerInterface
         if (\is_object($data)) {
             $data = ($data instanceof Proxy) ?
                 get_parent_class($data) :
-                \get_class($data);
+                $data::class;
         }
 
         return !$this->em->getMetadataFactory()->isTransient($data);
@@ -65,7 +60,7 @@ class DoctrineObjectHandler implements TranslationHandlerInterface
     {
         $translation = $args->getDataToBeTranslated();
         $accessor = PropertyAccess::createPropertyAccessor();
-        $reflect = new \ReflectionClass(\get_class($args->getDataToBeTranslated()));
+        $reflect = new \ReflectionClass($args->getDataToBeTranslated()::class);
         $properties = $reflect->getProperties();
 
         // Loop through all properties
@@ -77,7 +72,7 @@ class DoctrineObjectHandler implements TranslationHandlerInterface
             }
 
             $subTranslationArgs =
-                (new TranslationArgs($propValue, $args->getSourceLocale(), $args->getTargetLocale()))
+                new TranslationArgs($propValue, $args->getSourceLocale(), $args->getTargetLocale())
                     ->setTranslatedParent($translation)
                     ->setProperty($property)
             ;
@@ -86,10 +81,8 @@ class DoctrineObjectHandler implements TranslationHandlerInterface
 
             try {
                 $accessor->setValue($translation, $property->name, $propertyTranslation);
-            } catch (NoSuchPropertyException $e) {
-                $reflection = new \ReflectionProperty(\get_class($translation), $property->name);
-
-                $reflection->setAccessible(true);
+            } catch (NoSuchPropertyException) {
+                $reflection = new \ReflectionProperty($translation::class, $property->name);
 
                 $reflection->setValue($translation, $propertyTranslation);
             }

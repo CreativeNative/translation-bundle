@@ -11,9 +11,9 @@ use TMI\TranslationBundle\Translation\EntityTranslator;
 abstract class AbstractBaseTest extends KernelTestCase
 {
 
-    protected EntityTranslator|null $translator;
+    protected EntityTranslator|null $translator = null;
 
-    protected EntityManagerInterface|null $entityManager;
+    protected EntityManagerInterface|null $entityManager = null;
 
     /**
      * {@inheritDoc}
@@ -40,6 +40,7 @@ abstract class AbstractBaseTest extends KernelTestCase
         $this->initializeTranslator($container);
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         parent::tearDown();
@@ -60,7 +61,7 @@ abstract class AbstractBaseTest extends KernelTestCase
             try {
                 $this->entityManager = $container->get($service);
                 return;
-            } catch (ServiceNotFoundException $e) {
+            } catch (ServiceNotFoundException) {
                 continue;
             }
         }
@@ -83,18 +84,16 @@ abstract class AbstractBaseTest extends KernelTestCase
             try {
                 $this->translator = $container->get($service);
                 return;
-            } catch (ServiceNotFoundException $e) {
+            } catch (ServiceNotFoundException) {
                 continue;
             }
         }
 
         // Debug-Informationen sammeln
         $availableServices = array_keys($container->getServiceIds());
-        $translationServices = array_filter($availableServices, function ($service) {
-            return stripos($service, 'translation') !== false ||
-                stripos($service, 'translator') !== false ||
-                stripos($service, 'tmi') !== false;
-        });
+        $translationServices = array_filter($availableServices, fn($service) => stripos((string) $service, 'translation') !== false ||
+            stripos((string) $service, 'translator') !== false ||
+            stripos((string) $service, 'tmi') !== false);
 
         $this->fail(sprintf(
             'EntityTranslator service not found. Tried: %s. ' .

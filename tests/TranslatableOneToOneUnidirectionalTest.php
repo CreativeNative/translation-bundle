@@ -13,13 +13,12 @@ class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
 {
     const TARGET_LOCALE = 'fr';
 
-    /** @test */
-    public function it_can_translate_simple_value()
+    public function testItCanTranslateSimpleValue(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('simple');
+        $associatedEntity = new Scalar()->setTitle('simple');
 
         $entity =
-            (new TranslatableOneToOneUnidirectional())
+            new TranslatableOneToOneUnidirectional()
                 ->setSimple($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -33,10 +32,9 @@ class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
         $this->assertIsTranslation($entity, $translation);
     }
 
-    /** @test */
-    public function it_can_share_translatable_entity_value_amongst_translations()
+    public function testItCanShareTranslatableEntityValueAmongstTranslations(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('shared');
+        $associatedEntity = new Scalar()->setTitle('shared');
         $this->entityManager->persist($associatedEntity);
         $this->entityManager->flush();
 
@@ -48,7 +46,7 @@ class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
         $this->entityManager->flush();
 
         $entity =
-            (new TranslatableOneToOneUnidirectional())
+            new TranslatableOneToOneUnidirectional()
                 ->setShared($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -63,13 +61,12 @@ class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
         $this->assertIsTranslation($entity, $translation);
     }
 
-    /** @test */
-    public function it_can_empty_translatable_entity_value()
+    public function testItCanEmptyTranslatableEntityValue(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('empty');
+        $associatedEntity = new Scalar()->setTitle('empty');
 
         $entity =
-            (new TranslatableOneToOneUnidirectional())
+            new TranslatableOneToOneUnidirectional()
                 ->setEmpty($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -94,6 +91,6 @@ class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
     {
         $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
         $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotEquals(spl_object_hash($source), spl_object_hash($translation));
+        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 }

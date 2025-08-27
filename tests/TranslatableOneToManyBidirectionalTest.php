@@ -13,8 +13,7 @@ class TranslatableOneToManyBidirectionalTest extends AbstractBaseTest
 {
     const TARGET_LOCALE = 'fr';
 
-    /** @test */
-    public function it_can_translate_bidirectional_one_to_many()
+    public function testIt_can_translate_bidirectional_one_to_many(): void
     {
         $children = new ArrayCollection([
             new TranslatableOneToManyBidirectionalChild(),
@@ -22,7 +21,7 @@ class TranslatableOneToManyBidirectionalTest extends AbstractBaseTest
             new TranslatableOneToManyBidirectionalChild(),
         ]);
 
-        $parent = (new TranslatableOneToManyBidirectionalParent())->setChildren($children);
+        $parent = new TranslatableOneToManyBidirectionalParent()->setChildren($children);
         $this->entityManager->persist($parent);
         /** @var TranslatableOneToManyBidirectionalParent $parentTranslation */
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
@@ -37,8 +36,7 @@ class TranslatableOneToManyBidirectionalTest extends AbstractBaseTest
         );
     }
 
-    /** @test */
-    public function it_can_translate_bidirectional_many_to_one()
+    public function testIt_can_translate_bidirectional_many_to_one(): void
     {
         $parent = new TranslatableOneToManyBidirectionalParent();
         $child  = new TranslatableOneToManyBidirectionalChild();

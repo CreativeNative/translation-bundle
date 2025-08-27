@@ -6,32 +6,23 @@ use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class TranslatableOneToManyBidirectionalChild implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * Many Children have one Parent.
-     *
-     * @ORM\ManyToOne(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableOneToManyBidirectionalParent",
-     *     inversedBy="children",
-     *     cascade={"persist"}
-     * )
-     * @ORM\JoinColumn(referencedColumnName="id")
      */
-    private $parent;
+    #[ORM\ManyToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent::class, inversedBy: 'children', cascade: ['persist'])]
+    #[ORM\JoinColumn(referencedColumnName: 'id')]
+    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent $parent = null;
 
     /**
      * @return mixed

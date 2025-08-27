@@ -16,18 +16,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-    private EntityTranslator $translator;
-    private EntityManagerInterface $em;
-
-    public function __construct(
-        AttributeHelper $attributeHelper,
-        EntityTranslator $translator,
-        EntityManagerInterface $em
-    ) {
-        $this->attributeHelper = $attributeHelper;
-        $this->translator = $translator;
-        $this->em = $em;
+    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityTranslator $translator, private readonly EntityManagerInterface $em)
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -63,13 +53,11 @@ class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
         $newOwner = $args->getTranslatedParent();
 
         // Get the owner's fieldName
-        $associations = $this->em->getClassMetadata(\get_class($newOwner))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $fieldName = $association['fieldName'];
 
-        $reflection = new \ReflectionProperty(\get_class($newOwner), $fieldName);
-
-        $reflection->setAccessible(true);
+        $reflection = new \ReflectionProperty($newOwner::class, $fieldName);
 
         /** @var PersistentCollection $collection */
         $collection = $reflection->getValue($newOwner);

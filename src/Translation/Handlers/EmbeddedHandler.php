@@ -10,13 +10,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class EmbeddedHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-    private DoctrineObjectHandler $objectHandler;
-
-    public function __construct(AttributeHelper $attributeHelper, DoctrineObjectHandler $objectHandler)
+    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly DoctrineObjectHandler $objectHandler)
     {
-        $this->attributeHelper = $attributeHelper;
-        $this->objectHandler = $objectHandler;
     }
 
     public function supports(TranslationArgs $args): bool

@@ -14,21 +14,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-    private EntityManagerInterface $em;
-    private PropertyAccessorInterface $propertyAccessor;
-    private EntityTranslator $translator;
-
-    public function __construct(
-        AttributeHelper $attributeHelper,
-        EntityManagerInterface $em,
-        PropertyAccessorInterface $propertyAccessor,
-        EntityTranslator $translator
-    ) {
-        $this->attributeHelper = $attributeHelper;
-        $this->em = $em;
-        $this->propertyAccessor = $propertyAccessor;
-        $this->translator = $translator;
+    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityManagerInterface $em, private readonly PropertyAccessorInterface $propertyAccessor, private readonly EntityTranslator $translator)
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -44,7 +31,7 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
         return false;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    public function handleSharedAmongstTranslations(TranslationArgs $args): never
     {
         $data = $args->getDataToBeTranslated();
         $message =
@@ -54,7 +41,7 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 
         throw new \ErrorException(
             strtr($message, [
-                '%class%' => \get_class($data),
+                '%class%' => $data::class,
                 '%prop%'  => $args->getProperty()->name,
             ])
         );
@@ -73,7 +60,7 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 
         // Get the correct parent association with the fieldName
         $fieldName = $args->getProperty()->name;
-        $associations = $this->em->getClassMetadata(\get_class($clone))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
 
         foreach ($associations as $key => $association) {
             if ($fieldName === $key) {

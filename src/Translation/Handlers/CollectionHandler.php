@@ -17,18 +17,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class CollectionHandler implements TranslationHandlerInterface
 {
-    private AttributeHelper $attributeHelper;
-    private EntityManagerInterface $em;
-    private EntityTranslator $translator;
-
-    public function __construct(
-        AttributeHelper $attributeHelper,
-        EntityManagerInterface $em,
-        EntityTranslator $translator
-    ) {
-        $this->attributeHelper = $attributeHelper;
-        $this->em = $em;
-        $this->translator = $translator;
+    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityManagerInterface $em, private readonly EntityTranslator $translator)
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -56,20 +46,18 @@ class CollectionHandler implements TranslationHandlerInterface
         $newOwner = $args->getTranslatedParent();
 
         // Get the owner's "mappedBy"
-        $associations = $this->em->getClassMetadata(\get_class($newOwner))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $mappedBy = $association['mappedBy'];
 
         // Iterate through collection and set
         // their owner to $newOwner
         foreach ($newCollection as $key => $item) {
-            $reflection = new \ReflectionProperty(\get_class($item), $mappedBy);
-
-            $reflection->setAccessible(true);
+            $reflection = new \ReflectionProperty($item::class, $mappedBy);
 
             // Translate the item
             $subTranslationArgs =
-                (new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale()))
+                new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale())
                     ->setTranslatedParent($newOwner)
                     ->setProperty($reflection)
             ;
@@ -97,16 +85,14 @@ class CollectionHandler implements TranslationHandlerInterface
         $newOwner = $args->getTranslatedParent();
 
         // Get the owner's "mappedBy"
-        $associations = $this->em->getClassMetadata(\get_class($newOwner))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $mappedBy = $association['mappedBy'];
 
         // Iterate through collection and set
         // their owner owner to $newOwner
         foreach ($newCollection as $key => $item) {
-            $reflection = new \ReflectionProperty(\get_class($item), $mappedBy);
-
-            $reflection->setAccessible(true);
+            $reflection = new \ReflectionProperty($item::class, $mappedBy);
 
             // Set item's owner to null
             $reflection->setValue($item, new ArrayCollection([]));

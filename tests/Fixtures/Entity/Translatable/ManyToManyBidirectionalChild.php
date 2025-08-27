@@ -5,28 +5,19 @@ namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity
- */
+#[ORM\Entity]
 class ManyToManyBidirectionalChild
 {
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * @var ArrayCollection
-     *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableManyToManyBidirectionalParent",
-     *     cascade={"persist"},
-     *     inversedBy="sharedChildren"
-     * )
-     * @ORM\JoinTable(name="shared_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent")
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'sharedChildren')]
+    #[ORM\JoinTable(name: 'shared_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
     protected $sharedParents;
 
     public function __construct()
@@ -43,7 +34,7 @@ class ManyToManyBidirectionalChild
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
      */
     public function getSharedParents()
     {

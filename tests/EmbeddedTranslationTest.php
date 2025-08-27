@@ -12,12 +12,13 @@ class EmbeddedTranslationTest extends AbstractBaseTest
 {
     const TARGET_LOCALE = 'en';
 
+    #[\Override]
     protected static function createKernel(array $options = []): KernelInterface
     {
         return new TestKernel('test', true);
     }
 
-    public function testItCanTranslateEmbeddedEntity()
+    public function testItCanTranslateEmbeddedEntity(): void
     {
         $address = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Address()
             ->setStreet('13 place Sophie Trébuchet')
@@ -41,7 +42,7 @@ class EmbeddedTranslationTest extends AbstractBaseTest
         $this->assertEquals($entity->getAddress(), $trans->getAddress());
     }
 
-    public function testItCanEmptyEmbeddedEntity()
+    public function testItCanEmptyEmbeddedEntity(): void
     {
         $address = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Address()
             ->setStreet('13 place Sophie Trébuchet')

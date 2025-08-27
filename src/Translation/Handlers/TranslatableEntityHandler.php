@@ -8,13 +8,8 @@ use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
 class TranslatableEntityHandler implements TranslationHandlerInterface
 {
-    protected DoctrineObjectHandler $doctrineObjectHandler;
-    protected EntityManagerInterface $em;
-
-    public function __construct(EntityManagerInterface $em, DoctrineObjectHandler $doctrineObjectHandler)
+    public function __construct(protected EntityManagerInterface $em, protected DoctrineObjectHandler $doctrineObjectHandler)
     {
-        $this->em = $em;
-        $this->doctrineObjectHandler = $doctrineObjectHandler;
     }
 
     public function supports(TranslationArgs $args): bool
@@ -38,7 +33,7 @@ class TranslatableEntityHandler implements TranslationHandlerInterface
 
         // Search in database if the content
         // exists, otherwise translate it.
-        $existingTranslation = $this->em->getRepository(\get_class($data))->findOneBy([
+        $existingTranslation = $this->em->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
             'tuuid'  => $data->getTuuid(),
         ]);

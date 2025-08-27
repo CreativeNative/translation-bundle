@@ -8,53 +8,41 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class Scalar implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
+    protected ?int $id = null;
+
+    #[ORM\Column(type: 'string', nullable: true)]
+    protected ?string $title = null;
 
     /**
-     * Scalar value.
-     *
-     * @var string
-     * @ORM\Column(type="string", nullable=true)
-     */
-    protected $title;
-
-    /**
-     * Scalar value.
-     *
-     * @var string
      * @SharedAmongstTranslations()
-     * @ORM\Column(type="string", nullable=true)
      */
-    protected $shared;
+    #[ORM\Column(type: 'string', nullable: true)]
+    protected ?string $shared = null;
 
     /**
      * Scalar value.
      *
      * @var string
      * @EmptyOnTranslate()
-     * @ORM\Column(type="string", nullable=true)
      */
-    protected $empty;
+    #[ORM\Column(type: 'string', nullable: true)]
+    protected ?string $empty = null;
 
     /**
      * @param string $title
      *
      * @return Scalar
      */
-    public function setTitle(string $title = null)
+    public function setTitle(?string $title = null)
     {
         $this->title = $title;
 
@@ -74,7 +62,7 @@ class Scalar implements TranslatableInterface
      *
      * @return Scalar
      */
-    public function setShared(string $shared = null)
+    public function setShared(?string $shared = null)
     {
         $this->shared = $shared;
 
@@ -94,7 +82,7 @@ class Scalar implements TranslatableInterface
      *
      * @return Scalar
      */
-    public function setEmpty(string $empty = null)
+    public function setEmpty(?string $empty = null)
     {
         $this->empty = $empty;
 

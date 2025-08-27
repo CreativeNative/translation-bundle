@@ -9,26 +9,24 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 /**
  * @author Arthur Guigand <aguigand@tmi.fr>
- * @ORM\Entity()
  */
+#[ORM\Entity]
 class Translatable implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
-    /** @ORM\Embedded(class="Address") */
+    #[ORM\Embedded(class: Address::class)]
     private $address;
 
     /**
-     * @ORM\Embedded(class="Address")
      * @EmptyOnTranslate()
      */
+    #[ORM\Embedded(class: Address::class)]
     private $emptyAddress;
 
     public function __construct()

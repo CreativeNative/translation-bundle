@@ -7,41 +7,27 @@ use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- */
+#[ORM\Entity]
 class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
 
     /**
      * @var ArrayCollection
-     *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableManyToManyBidirectionalParent",
-     *     cascade={"persist"},
-     *     inversedBy="simpleChildren"
-     * )
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'simpleChildren')]
     protected $simpleParents;
 
     /**
      * @var ArrayCollection
-     *
-     * @ORM\ManyToMany(
-     *     targetEntity="AppTestBundle\Entity\Translatable\TranslatableManyToManyBidirectionalParent",
-     *     cascade={"persist"},
-     *     inversedBy="emptyChildren"
-     * )
-     * @ORM\JoinTable(name="empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent")
      */
+    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'emptyChildren')]
+    #[ORM\JoinTable(name: 'empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
     protected $emptyParents;
 
     public function __construct()
@@ -59,7 +45,7 @@ class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
      */
     public function getSimpleParents()
     {
@@ -74,7 +60,7 @@ class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
     }
 
     /**
-     * @return ArrayCollection
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
      */
     public function getEmptyParents()
     {

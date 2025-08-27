@@ -9,49 +9,34 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class TranslatableManyToOne implements TranslatableInterface
 {
     use TranslatableTrait;
 
-    /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
-     */
-    protected $id;
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
+
+    #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?Scalar $simple = null;
 
     /**
-     * Scalar value.
-     *
-     * @var Scalar
-     * @ORM\ManyToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
-     */
-    protected $simple;
-
-    /**
-     * Scalar value.
-     *
-     * @var Scalar
      * @SharedAmongstTranslations()
-     * @ORM\ManyToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
      */
-    protected $shared;
+    #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?Scalar $shared = null;
 
     /**
-     * Scalar value.
-     *
-     * @var Scalar
      * @EmptyOnTranslate()
-     * @ORM\ManyToOne(targetEntity="AppTestBundle\Entity\Scalar\Scalar", cascade={"persist"})
-     * @ORM\JoinColumn(nullable=true)
      */
-    protected $empty;
+    #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?Scalar $empty = null;
 
     /**
      * @return Scalar
@@ -66,7 +51,7 @@ class TranslatableManyToOne implements TranslatableInterface
      *
      * @return $this
      */
-    public function setSimple(Scalar $simple = null)
+    public function setSimple(?Scalar $simple = null)
     {
         $this->simple = $simple;
 
@@ -86,7 +71,7 @@ class TranslatableManyToOne implements TranslatableInterface
      *
      * @return $this
      */
-    public function setShared(Scalar $shared = null)
+    public function setShared(?Scalar $shared = null)
     {
         $this->shared = $shared;
 
@@ -106,7 +91,7 @@ class TranslatableManyToOne implements TranslatableInterface
      *
      * @return $this
      */
-    public function setEmpty(Scalar $empty = null)
+    public function setEmpty(?Scalar $empty = null)
     {
         $this->empty = $empty;
 

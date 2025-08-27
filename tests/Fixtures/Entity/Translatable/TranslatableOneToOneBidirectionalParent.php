@@ -8,46 +8,41 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @ORM\Entity
- * @ORM\Table()
- */
+#[ORM\Entity]
+#[ORM\Table]
 class TranslatableOneToOneBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
+    #[ORM\Id]
+    #[ORM\Column(type: 'integer')]
+    #[ORM\GeneratedValue]
+    protected ?int $id = null;
+
     /**
-     * @ORM\Id()
-     * @ORM\Column(type="integer")
-     * @ORM\GeneratedValue()
+     * @var mixed
      */
-    protected $id;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'simpleParent', cascade: ['all'])]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $simpleChild = null;
 
     /**
      * @var mixed
      *
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Translatable\TranslatableOneToOneBidirectionalChild", mappedBy="simpleParent", cascade={"all"})
-     * @ORM\JoinColumn(nullable=true)
-     */
-    private $simpleChild;
-
-    /**
-     * @var mixed
-     *
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Translatable\TranslatableOneToOneBidirectionalChild", mappedBy="sharedParent")
-     * @ORM\JoinColumn(nullable=true)
      * @SharedAmongstTranslations()
      */
-    private $sharedChild;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'sharedParent')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $sharedChild = null;
 
     /**
      * @var mixed
      *
-     * @ORM\OneToOne(targetEntity="AppTestBundle\Entity\Translatable\TranslatableOneToOneBidirectionalChild", mappedBy="emptyParent")
-     * @ORM\JoinColumn(nullable=true)
      * @EmptyOnTranslate()
      */
-    private $emptyChild;
+    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'emptyParent')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $emptyChild = null;
 
     /**
      * @return mixed

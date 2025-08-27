@@ -13,13 +13,12 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
 {
     const TARGET_LOCALE = 'fr';
 
-    /** @test */
-    public function it_can_translate_simple_value()
+    public function testIt_can_translate_simple_value(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('simple');
+        $associatedEntity = new Scalar()->setTitle('simple');
 
         $entity =
-            (new TranslatableManyToOne())
+            new TranslatableManyToOne()
                 ->setSimple($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -34,16 +33,15 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
     }
 
 
-    /** @test */
-    public function it_must_associate_existing_translation()
+    public function testIt_must_associate_existing_translation(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('simple');
+        $associatedEntity = new Scalar()->setTitle('simple');
         $this->entityManager->persist($associatedEntity);
 
         $translatedAssociatedEntity = $this->translator->translate($associatedEntity, self::TARGET_LOCALE);
 
         $entity =
-            (new TranslatableManyToOne())
+            new TranslatableManyToOne()
                 ->setSimple($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -59,10 +57,9 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
         $this->assertIsTranslation($entity, $translation);
     }
 
-    /** @test */
-    public function it_can_share_translatable_entity_value_amongst_translations()
+    public function testIt_can_share_translatable_entity_value_amongst_translations(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('shared');
+        $associatedEntity = new Scalar()->setTitle('shared');
 
         $this->entityManager->persist($associatedEntity);
         $this->entityManager->flush();
@@ -75,7 +72,7 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
         $this->entityManager->flush();
 
         $entity =
-            (new TranslatableManyToOne())
+            new TranslatableManyToOne()
                 ->setShared($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -90,13 +87,12 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
         $this->assertIsTranslation($entity, $translation);
     }
 
-    /** @test */
-    public function it_can_empty_translatable_entity_value()
+    public function testIt_can_empty_translatable_entity_value(): void
     {
-        $associatedEntity = (new Scalar())->setTitle('empty');
+        $associatedEntity = new Scalar()->setTitle('empty');
 
         $entity =
-            (new TranslatableManyToOne())
+            new TranslatableManyToOne()
                 ->setEmpty($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -121,6 +117,6 @@ class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
     {
         $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
         $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotEquals(spl_object_hash($source), spl_object_hash($translation));
+        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 }

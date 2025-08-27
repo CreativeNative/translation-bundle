@@ -12,12 +12,13 @@ use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
  */
 class ScalarTranslationTest extends AbstractBaseTest
 {
+    #[\Override]
     protected static function createKernel(array $options = []): KernelInterface
     {
         return new TestKernel('test', true);
     }
 
-    public function testItCanTranslateScalarValue()
+    public function testItCanTranslateScalarValue(): void
     {
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'fr');
@@ -50,7 +51,7 @@ class ScalarTranslationTest extends AbstractBaseTest
 //        $this->assertIsTranslation($entity, $translation);
 //    }
 
-    public function testItCanEmptyScalarValueOnTranslate()
+    public function testItCanEmptyScalarValueOnTranslate(): void
     {
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'fr');
@@ -62,7 +63,7 @@ class ScalarTranslationTest extends AbstractBaseTest
         $this->assertIsTranslation($entity, $translation);
     }
 
-    public function testItCanNotEmptyNotNullableScalarValueOnTranslate()
+    public function testItCanNotEmptyNotNullableScalarValueOnTranslate(): void
     {
         $this->expectException(\LogicException::class);
 
@@ -100,7 +101,7 @@ class ScalarTranslationTest extends AbstractBaseTest
     {
         // Locale assertion
         $this->assertObjectHasAttribute('locale', $translation);
-        $this->assertEquals('fr', $translation->getLocale());
+        $this->assertSame('fr', $translation->getLocale());
 
         // TUUID assertion
         $this->assertObjectHasAttribute('tuuid', $translation);

@@ -16,18 +16,8 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class BidirectionalAssociationHandler implements TranslationHandlerInterface
 {
-    private EntityManagerInterface $em;
-    private PropertyAccessor $propertyAccessor;
-    private AttributeHelper $attributeHelper;
-
-    public function __construct(
-        EntityManagerInterface $em,
-        PropertyAccessor $propertyAccessor,
-        AttributeHelper $attributeHelper
-    ) {
-        $this->em = $em;
-        $this->propertyAccessor = $propertyAccessor;
-        $this->attributeHelper = $attributeHelper;
+    public function __construct(private readonly EntityManagerInterface $em, private readonly PropertyAccessor $propertyAccessor, private readonly AttributeHelper $attributeHelper)
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -58,7 +48,7 @@ class BidirectionalAssociationHandler implements TranslationHandlerInterface
 
             throw new \ErrorException(
                 strtr($message, [
-                    '%class%' => \get_class($data),
+                    '%class%' => $data::class,
                     '%prop%'  => $args->getProperty()->name,
                 ])
             );
@@ -79,7 +69,7 @@ class BidirectionalAssociationHandler implements TranslationHandlerInterface
 
         // Get the correct parent association with the fieldName
         $fieldName = $args->getProperty()->name;
-        $associations = $this->em->getClassMetadata(\get_class($clone))->getAssociationMappings();
+        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
 
         foreach ($associations as $association) {
             if ($fieldName === $association['inversedBy']) {

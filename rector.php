@@ -3,16 +3,20 @@
 use Rector\Config\RectorConfig;
 use Rector\ValueObject\PhpVersion;
 use Rector\Set\ValueObject\LevelSetList;
+ use Rector\PHPUnit\Set\PHPUnitSetList;
 
 return RectorConfig::configure()
-    ->withPhpVersion(PhpVersion::PHP_83)
+    ->withPhpVersion(PhpVersion::PHP_84)
     ->withPaths([
         __DIR__ . '/src',
         __DIR__ . '/tests',
     ])
     ->withPreparedSets(doctrineCodeQuality: true)
     ->withSets([
-        LevelSetList::UP_TO_PHP_84
+        LevelSetList::UP_TO_PHP_84,
+        PHPUnitSetList::PHPUNIT_CODE_QUALITY,
+        PHPUnitSetList::PHPUNIT_120,
+        PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES
     ])
     ->withAttributesSets(doctrine: true)
     ->withTypeCoverageLevel(3)

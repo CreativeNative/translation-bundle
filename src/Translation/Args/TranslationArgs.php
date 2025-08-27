@@ -7,17 +7,11 @@ namespace TMI\TranslationBundle\Translation\Args;
  */
 class TranslationArgs
 {
-    protected mixed $dataToBeTranslated;
-    protected string $sourceLocale;
-    protected string $targetLocale;
     protected mixed $translatedParent;
     protected ?\ReflectionProperty $property = null;
 
-    public function __construct(mixed $dataToBeTranslated, string $sourceLocale, string $targetLocale)
+    public function __construct(protected mixed $dataToBeTranslated, protected string $sourceLocale, protected string $targetLocale)
     {
-        $this->dataToBeTranslated = $dataToBeTranslated;
-        $this->sourceLocale = $sourceLocale;
-        $this->targetLocale = $targetLocale;
     }
 
     /**
