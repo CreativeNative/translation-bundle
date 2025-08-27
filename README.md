@@ -15,19 +15,19 @@ Unlike most translations libraries, every translation is stored in the same tabl
 ## Install
 
 ```
-composer require umanit/translation-bundle
+composer require tmi/translation-bundle
 ```
 
 Register the bundle to your `app/AppKernel.php` if it's not done automatically.
 
 ```php
-    new Umanit\TranslationBundle\UmanitTranslationBundle(),
+    new TMI\TranslationBundle\tmiTranslationBundle(),
 ```
 
 Configure your available locales and, optionally, the default one:
 
 ```yaml
-umanit_translation:
+tmi_translation:
   locales: [en, fr, ja]
   default_locale: en
 ```
@@ -38,29 +38,20 @@ That's it!
 
 You will need to add extra stylesheets and JavaScript to your admin interface:
 
-```yaml
-sonata_admin:
-  assets:
-    extra_stylesheets:
-      - 'bundles/umanittranslation/css/admin-sonata.css'
-    extra_javascripts:
-      - 'bundles/umanittranslation/js/admin-filters.js'
-```
-
 ## Usage
 
 ### Make your entity translatable
 
-Implement `Umanit\TranslationBundle\Doctrine\TranslatableInterface` and use the trait
-`Umanit\TranslationBundle\Doctrine\ModelTranslatableTrait`on an entity you want to make translatable.
+Implement `TMI\TranslationBundle\Doctrine\TranslatableInterface` and use the trait
+`TMI\TranslationBundle\Doctrine\ModelTranslatableTrait`on an entity you want to make translatable.
 ```php
 <?php
 
 namespace App\Entity\Content;
 
 use Doctrine\ORM\Mapping as ORM;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 /**
  * HomePage
@@ -75,10 +66,10 @@ class Page implements TranslatableInterface
 
 ### Translate your entity
 
-Use the service `umanit_translation.translator.entity_translator` to translate a source entity to a target language.
+Use the service `tmi_translation.translator.entity_translator` to translate a source entity to a target language.
 
 ```php
-$translatedEntity = $this->get('umanit_translation.translator.entity_translator')->translate($entity, 'fr');
+$translatedEntity = $this->get('tmi_translation.translator.entity_translator')->translate($entity, 'fr');
 ```
 
 The `$translatedEntity` will be persisted with Sonata, jumpstarted with EasyAdmin: with both, you'll be redirected to the
@@ -107,9 +98,9 @@ If the attribute is a relation to a translatable entity, it will associate the c
 namespace App\Entity\Content;
 
 use Doctrine\ORM\Mapping as ORM;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableTrait;
-use Umanit\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 #[ORM\Table(name: "page")]
 class Page implements TranslatableInterface
@@ -134,9 +125,9 @@ This attribute will empty the field when creating a new translation.
 namespace App\Entity\Content;
 
 use Doctrine\ORM\Mapping as ORM;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableTrait;
-use Umanit\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 
  #[ORM\Table(name: "page")]
 class Page implements TranslatableInterface
@@ -168,8 +159,8 @@ doctrine:
   orm:
     filters:
       # ...
-      umanit_translation_locale_filter:
-        class:   'Umanit\TranslationBundle\Doctrine\Filter\LocaleFilter'
+      tmi_translation_locale_filter:
+        class:   'TMI\TranslationBundle\Doctrine\Filter\LocaleFilter'
         enabled: true
 ```  
 
@@ -179,14 +170,14 @@ Usually you'll need to administrate your contents.
 For doing so, you can disable the filter by configuring the disabled_firewalls option.
 
 ```yaml
-umanit_translation:
+tmi_translation:
   # ...
   disabled_firewalls: ['admin']
 ```
 
 ## Advanced usage
 
-You can alter the entities to translate or translated, before and after translation using the `Umanit\TranslationBundle\Event\TranslateEvent`
+You can alter the entities to translate or translated, before and after translation using the `TMI\TranslationBundle\Event\TranslateEvent`
 
 - `TranslateEvent::PRE_TRANSLATE` called before starting to translate the properties. The new translation is just instanciated with the right `oid` and `locale`
 - `TranslateEvent::POST_TRANSLATE` called after saving the translation
@@ -202,7 +193,7 @@ The bundle will automatically add translations widgets in SonataAdmin if you're 
 If you want to define a default locale for the admin, configure the `default_locale`.
 
 ```yaml
-umanit_translation:
+tmi_translation:
   # ...
   default_locale: en
 ```
@@ -219,4 +210,4 @@ activated and can be manually triggered to display existing objects for the desi
 
 ## Integration with DoctrineSingletonBundle
 
-The bundle will automatically work with the [Doctrine Singleton Bundle](https://github.com/umanit/doctrine-singleton-bundle). If your singleton implements the TranslatableInterface, it will be possible to get one instance per locale. 
+The bundle will automatically work with the [Doctrine Singleton Bundle](https://github.com/tmi/doctrine-singleton-bundle). If your singleton implements the TranslatableInterface, it will be possible to get one instance per locale. 

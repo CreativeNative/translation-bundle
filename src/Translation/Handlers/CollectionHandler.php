@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Annotations\Reader;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -8,9 +8,9 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\OneToMany;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Translation\EntityTranslator;
-use Umanit\TranslationBundle\Utils\AttributeHelper;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Collection handler, used for ManyToMany bidirectional association.

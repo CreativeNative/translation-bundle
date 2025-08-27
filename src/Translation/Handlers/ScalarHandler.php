@@ -1,8 +1,8 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
 /**
  * Handles scalar type translation.

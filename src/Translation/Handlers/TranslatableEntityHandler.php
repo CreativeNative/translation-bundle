@@ -1,10 +1,10 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
 class TranslatableEntityHandler implements TranslationHandlerInterface
 {

@@ -1,14 +1,14 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\Proxy;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\EntityTranslator;
 
 /**
  * Handles basic Doctrine Objects.

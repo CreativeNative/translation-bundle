@@ -1,13 +1,13 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Annotations\Reader;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Utils\AttributeHelper;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handles translation of one-to-one-bidirectional association.

@@ -1,10 +1,10 @@
 <?php
 
-namespace Umanit\TranslationBundle\EventSubscriber;
+namespace TMI\TranslationBundle\EventSubscriber;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Umanit\DoctrineSingletonBundle\Event\FilterSingletonEvent;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * Filter on singletons if the UmanitDoctrineSingletonBundle is available.

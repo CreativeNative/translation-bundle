@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\DependencyInjection;
+namespace TMI\TranslationBundle\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
@@ -10,7 +10,7 @@ class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $builder = new TreeBuilder('umanit_translation');
+        $builder = new TreeBuilder('tmi_translation');
         $rootNode = $builder->getRootNode();
 
         $rootNode

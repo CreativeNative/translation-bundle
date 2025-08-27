@@ -1,12 +1,12 @@
 <?php
 
-namespace Umanit\TranslationBundle\Doctrine\Model;
+namespace TMI\TranslationBundle\Doctrine\Model;
 
 use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\UuidInterface;
 
 /**
- * @author Arthur Guigand <aguigand@umanit.fr>
+ * @author Arthur Guigand <aguigand@tmi.fr>
  */
 trait TranslatableTrait
 {

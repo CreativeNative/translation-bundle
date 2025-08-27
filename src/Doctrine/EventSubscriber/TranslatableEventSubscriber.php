@@ -1,15 +1,15 @@
 <?php
 
-namespace Umanit\TranslationBundle\Doctrine\EventSubscriber;
+namespace TMI\TranslationBundle\Doctrine\EventSubscriber;
 
 use Doctrine\Common;
 use Doctrine\ORM;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\PropertyAccess\PropertyAccess;
-use Umanit\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\EntityTranslator;
 
 class TranslatableEventSubscriber implements Common\EventSubscriber
 {

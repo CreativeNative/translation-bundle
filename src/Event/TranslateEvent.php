@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\Event;
+namespace TMI\TranslationBundle\Event;
 
 use Symfony\Contracts\EventDispatcher\Event;
 
@@ -9,12 +9,12 @@ class TranslateEvent extends Event
     /**
      * Event called before translation is done.
      */
-    public const PRE_TRANSLATE = 'umanit_translation.pre_translate';
+    public const PRE_TRANSLATE = 'tmi_translation.pre_translate';
 
     /**
      * Event called after translation is done.
      */
-    public const POST_TRANSLATE = 'umanit_translation.post_translate';
+    public const POST_TRANSLATE = 'tmi_translation.post_translate';
 
     /**
      * The source entity being translated.

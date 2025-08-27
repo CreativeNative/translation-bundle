@@ -1,139 +1,139 @@
 services:
-    Umanit\TranslationBundle\Translation\EntityTranslator: '@umanit_translation.translation.entity_translator'
+    TMI\TranslationBundle\Translation\EntityTranslator: '@tmi_translation.translation.entity_translator'
 
-    umanit_translation.translation.entity_translator:
-        class: Umanit\TranslationBundle\Translation\EntityTranslator
+    tmi_translation.translation.entity_translator:
+        class: TMI\TranslationBundle\Translation\EntityTranslator
         arguments:
-            - '%umanit_translation.locales%'
+            - '%tmi_translation.locales%'
             - '@event_dispatcher'
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.utils.attribute_helper'
         public: true # This is just for testing purpose
 
     # Utils
-    umanit_translation.utils.attribute_helper:
-        class: Umanit\TranslationBundle\Utils\AttributeHelper
+    tmi_translation.utils.attribute_helper:
+        class: TMI\TranslationBundle\Utils\AttributeHelper
 
     # Translation Handlers
     ## Embedded
-    umanit_translation.translation.handlers.embedded_key_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\EmbeddedHandler
+    tmi_translation.translation.handlers.embedded_key_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\EmbeddedHandler
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
-            - '@umanit_translation.translation_handlers.doctrine_object_handler'
+            - '@tmi_translation.utils.attribute_helper'
+            - '@tmi_translation.translation_handlers.doctrine_object_handler'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 10 }
+            - { name: tmi_translation.translation_handler, priority: 10 }
 
     ## PrimaryKey
-    umanit_translation.translation.handlers.primary_key_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\PrimaryKeyHandler
+    tmi_translation.translation.handlers.primary_key_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\PrimaryKeyHandler
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.utils.attribute_helper'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 20 }
+            - { name: tmi_translation.translation_handler, priority: 20 }
 
     ## Bidirectional OneToMany (parent)
-    umanit_translation.translation_handlers.bidirectional_one_to_many_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler
+    tmi_translation.translation_handlers.bidirectional_one_to_many_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler
         tags:
-            - { name: umanit_translation.translation_handler, priority: 30 }
+            - { name: tmi_translation.translation_handler, priority: 30 }
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
-            - '@umanit_translation.translation.entity_translator'
+            - '@tmi_translation.utils.attribute_helper'
+            - '@tmi_translation.translation.entity_translator'
             - '@doctrine.orm.entity_manager'
 
     ## Bidirectional ManyToOne (children)
-    umanit_translation.translation_handlers.bidirectional_many_to_one_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler
+    tmi_translation.translation_handlers.bidirectional_many_to_one_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.utils.attribute_helper'
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
-            - '@umanit_translation.translation.entity_translator'
+            - '@tmi_translation.translation.entity_translator'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 35 }
+            - { name: tmi_translation.translation_handler, priority: 35 }
 
     ## Collection (bidirectional ManyToMany)
-    umanit_translation.translation.handlers.collection_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\CollectionHandler
+    tmi_translation.translation.handlers.collection_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\CollectionHandler
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.utils.attribute_helper'
             - '@doctrine.orm.entity_manager'
-            - '@umanit_translation.translation.entity_translator'
+            - '@tmi_translation.translation.entity_translator'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 40 }
+            - { name: tmi_translation.translation_handler, priority: 40 }
 
     ## Scalar
-    umanit_translation.translation.handlers.scalar_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\ScalarHandler
+    tmi_translation.translation.handlers.scalar_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\ScalarHandler
         tags:
-            - { name: umanit_translation.translation_handler, priority: 50 }
+            - { name: tmi_translation.translation_handler, priority: 50 }
 
     ## Bidirectional ManyToMany
-    umanit_translation.translation_handlers.bidirectional_association_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\BidirectionalAssociationHandler
+    tmi_translation.translation_handlers.bidirectional_association_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalAssociationHandler
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.utils.attribute_helper'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 60 }
+            - { name: tmi_translation.translation_handler, priority: 60 }
 
     ## Unidirectional ManyToMany
-    umanit_translation.translation_handlers.unidirectional_many_to_many_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler
+    tmi_translation.translation_handlers.unidirectional_many_to_many_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler
         arguments:
-            - '@umanit_translation.utils.attribute_helper'
-            - '@umanit_translation.translation.entity_translator'
+            - '@tmi_translation.utils.attribute_helper'
+            - '@tmi_translation.translation.entity_translator'
             - '@doctrine.orm.entity_manager'
         tags:
-            - { name: umanit_translation.translation_handler }
+            - { name: tmi_translation.translation_handler }
 
     ## Translatable Entity
-    umanit_translation.translation_handlers.translatable_entity_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\TranslatableEntityHandler
+    tmi_translation.translation_handlers.translatable_entity_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\TranslatableEntityHandler
         arguments:
             - '@doctrine.orm.entity_manager'
-            - '@umanit_translation.translation_handlers.doctrine_object_handler'
+            - '@tmi_translation.translation_handlers.doctrine_object_handler'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 70 }
+            - { name: tmi_translation.translation_handler, priority: 70 }
 
     ## Doctrine Object
-    umanit_translation.translation_handlers.doctrine_object_handler:
-        class: Umanit\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
+    tmi_translation.translation_handlers.doctrine_object_handler:
+        class: TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
         arguments:
             - '@doctrine.orm.entity_manager'
-            - '@umanit_translation.translation.entity_translator'
-            - '@umanit_translation.utils.attribute_helper'
+            - '@tmi_translation.translation.entity_translator'
+            - '@tmi_translation.utils.attribute_helper'
         tags:
-            - { name: umanit_translation.translation_handler, priority: 100 }
+            - { name: tmi_translation.translation_handler, priority: 100 }
 
-    umanit_translation.twig.umanit_translation_extension:
-        class: Umanit\TranslationBundle\Twig\UmanitTranslationExtension
-        arguments: ['%umanit_translation.locales%']
+    tmi_translation.twig.tmi_translation_extension:
+        class: TMI\TranslationBundle\Twig\TMITranslationExtension
+        arguments: ['%tmi_translation.locales%']
         tags:
             - { name: twig.extension }
 
-    umanit_translation.doctrine.event_subscriber.translatable_event_subscriber:
-        class: Umanit\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
+    tmi_translation.doctrine.event_subscriber.translatable_event_subscriber:
+        class: TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
         lazy: true
         arguments:
-            - '%umanit_translation.default_locale%'
+            - '%tmi_translation.default_locale%'
         calls:
-            - { method: 'setEntityTranslator', arguments: ['@umanit_translation.translation.entity_translator'] }
+            - { method: 'setEntityTranslator', arguments: ['@tmi_translation.translation.entity_translator'] }
         tags:
             - { name: doctrine.event_subscriber }
 
-    umanit_translation.event_subscriber.locale_filter_configurator:
-        class: Umanit\TranslationBundle\EventSubscriber\LocaleFilterConfigurator
+    tmi_translation.event_subscriber.locale_filter_configurator:
+        class: TMI\TranslationBundle\EventSubscriber\LocaleFilterConfigurator
         arguments:
             - '@doctrine.orm.entity_manager'
-            - '%umanit_translation.disabled_firewalls%'
+            - '%tmi_translation.disabled_firewalls%'
             - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }
 
-    umanit_translation.event_subscriber.easy_admin_action_customisation_subscriber:
-        class: Umanit\TranslationBundle\EventSubscriber\EasyAdminActionCustomisationSubscriber
+    tmi_translation.event_subscriber.easy_admin_action_customisation_subscriber:
+        class: TMI\TranslationBundle\EventSubscriber\EasyAdminActionCustomisationSubscriber
         arguments:
             - '@doctrine.orm.entity_manager'
         tags:

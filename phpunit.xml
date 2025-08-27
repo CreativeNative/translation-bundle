@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php"
+         backupGlobals="false"
+         colors="true"
+         processIsolation="false"
+         stopOnFailure="false">
+    <testsuites>
+        <testsuite name="TMI Translation">
+            <directory>tests/TMI/TranslationBundle/Test</directory>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <include>
+            <directory suffix=".php">src/</directory>
+        </include>
+    </coverage>
+    <php>
+        <server name="KERNEL_DIR" value="tests/TMI/TranslationBundle/Test/Fixtures/App"/>
+        <server name="KERNEL_CLASS" value="TMI\TranslationBundle\Test\Fixtures\App\AppKernel"/>
+        <ini name="error_reporting" value="E_ALL"/>
+        <ini name="display_errors" value="1"/>
+        <ini name="display_startup_errors" value="1"/>
+        <ini name="memory_limit" value="-1"/>
+        <ini name="zend.enable_gc" value="1"/>
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="weak_vendors" />
+    </php>
+</phpunit>

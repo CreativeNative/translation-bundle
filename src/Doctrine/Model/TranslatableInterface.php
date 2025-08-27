@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\Doctrine\Model;
+namespace TMI\TranslationBundle\Doctrine\Model;
 
 interface TranslatableInterface
 {

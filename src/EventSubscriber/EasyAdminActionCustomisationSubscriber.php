@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Umanit\TranslationBundle\EventSubscriber;
+namespace TMI\TranslationBundle\EventSubscriber;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -11,7 +11,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterCrudActionEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 class EasyAdminActionCustomisationSubscriber implements EventSubscriberInterface
 {

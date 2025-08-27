@@ -1,12 +1,12 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation;
+namespace TMI\TranslationBundle\Translation;
 
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
-use Umanit\TranslationBundle\Utils\AttributeHelper;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
 class EntityTranslator
 {

@@ -1,12 +1,12 @@
 <?php
 
-namespace Umanit\TranslationBundle\Twig;
+namespace TMI\TranslationBundle\Twig;
 
 use JetBrains\PhpStorm\ArrayShape;
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
 use Twig\TwigTest;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 class UmanitTranslationExtension extends AbstractExtension implements GlobalsInterface
 {

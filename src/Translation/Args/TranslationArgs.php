@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Args;
+namespace TMI\TranslationBundle\Translation\Args;
 
 /**
  * Translation args DTO.

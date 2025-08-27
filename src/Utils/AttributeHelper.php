@@ -1,6 +1,6 @@
 <?php
 
-namespace Umanit\TranslationBundle\Utils;
+namespace TMI\TranslationBundle\Utils;
 
 use Doctrine\Common\Annotations\Reader;
 use Doctrine\ORM\Mapping\Column;
@@ -10,8 +10,8 @@ use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use Doctrine\ORM\Mapping\OneToOne;
-use Umanit\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use Umanit\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 class AttributeHelper
 {

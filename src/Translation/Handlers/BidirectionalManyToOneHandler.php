@@ -1,13 +1,13 @@
 <?php
 
-namespace Umanit\TranslationBundle\Translation\Handlers;
+namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-use Umanit\TranslationBundle\Translation\Args\TranslationArgs;
-use Umanit\TranslationBundle\Translation\EntityTranslator;
-use Umanit\TranslationBundle\Utils\AttributeHelper;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handles translation of ManyToOne relations.

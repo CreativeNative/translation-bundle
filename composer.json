@@ -1,5 +1,5 @@
 {
-    "name": "umanit/translation-bundle",
+    "name": "creativenative/translation-bundle",
     "description": "Manages Doctrine translations",
     "type": "symfony-bundle",
     "keywords": [
@@ -7,34 +7,59 @@
         "doctrine",
         "translation"
     ],
-    "homepage": "https://github.com/umanit/translation-bundle",
+    "homepage": "https://github.com/CreativeNative/translation-bundle",
     "license": "MIT",
     "authors": [
         {
-            "name": "UmanIT",
-            "email": "contact@umanit.fr"
+            "name": "Oskar Golde",
+            "email": "info@oskargolde.de"
         }
     ],
     "require": {
-        "php": ">=8.0",
-        "doctrine/doctrine-bundle": ">=1.6",
-        "doctrine/orm": ">=2.9",
-        "ramsey/uuid": ">=3.7",
-        "symfony/framework-bundle": "^4.4|^5.2|^6.0",
-        "symfony/yaml": "^4.4|^5.2|^6.0",
-        "symfony/security-bundle": "^4.4|^5.2|^6.0",
-        "symfony/property-access": "^4.4|^5.2|^6.0",
-        "twig/twig": ">=2.7"
+        "php": ">=8.4",
+        "doctrine/doctrine-bundle": "^2.15.1",
+        "doctrine/orm": "^3.5.2",
+        "ramsey/uuid": "^4.9.0",
+        "symfony/framework-bundle": "v7.3.2",
+        "symfony/yaml": "v7.3.2",
+        "symfony/security-bundle": "^v7.3.2",
+        "symfony/property-access": "v7.3.2",
+        "twig/twig": "^v3.21.1",
+        "symfony/translation-contracts": "^3.6"
     },
     "minimum-stability": "stable",
     "autoload": {
         "psr-4": {
-            "Umanit\\TranslationBundle\\": "src/"
+            "TMI\\TranslationBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TMI\\TranslationBundle\\Test\\": "tests/TMI/TranslationBundle/Test/"
         }
     },
     "require-dev": {
-        "symfony/phpunit-bridge": "^4.4|^5.2|^6.0",
-        "phpunit/phpunit": ">=6.5",
-        "jakub-onderka/php-parallel-lint": "^1.0"
+        "roave/security-advisories": "dev-latest",
+        "symfony/phpunit-bridge": "^v7.3.1",
+        "phpunit/phpunit": "^12.3.6",
+        "php-parallel-lint/php-parallel-lint": "^v1.4.0",
+        "phpstan/phpstan": "^2.1.17",
+        "phpstan/extension-installer": "^1.4.3",
+        "phpstan/phpstan-deprecation-rules": "^2.0.3",
+        "phpstan/phpstan-strict-rules": "^2.0.4"
+    },
+    "scripts": {
+        "test":  [
+            "Composer\\Config::disableProcessTimeout",
+            "vendor/bin/phpunit"
+        ],
+        "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --ansi -vvv",
+        "stan-next": "vendor/bin/phpstan analyse -c phpstan.neon --level 2 --ansi -vvv",
+        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --ansi -vvv"
+    },
+    "config": {
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
     }
 }

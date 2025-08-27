@@ -1,10 +1,10 @@
 <?php
 
-namespace Umanit\TranslationBundle\Doctrine\Filter;
+namespace TMI\TranslationBundle\Doctrine\Filter;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Filter\SQLFilter;
-use Umanit\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * Filters translatable contents by the current locale.
