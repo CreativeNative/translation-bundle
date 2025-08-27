@@ -10,7 +10,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 /**
  * Test for scalar value.
  */
-class ScalarTranslationTest extends AbstractBaseTest
+class ScalarTranslationTest extends TestCase
 {
     #[\Override]
     protected static function createKernel(array $options = []): KernelInterface

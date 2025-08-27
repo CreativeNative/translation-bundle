@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
 use TMI\TranslationBundle\Service\SlugGenerator;
 
-class SlugGeneratorTest extends AbstractBaseTest
+class SlugGeneratorTest extends TestCase
 {
     protected static function createKernel(array $options = []): KernelInterface
     {

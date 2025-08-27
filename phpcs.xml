@@ -3,11 +3,43 @@
          xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
 
     <arg name="basepath" value="."/>
-    <arg name="cache" value="var/.phpcs-cache"/>
+    <arg name="cache" value="var/cache/.phpcs-cache"/>
     <arg name="extensions" value="php"/>
     <arg name="parallel" value="140"/>
 
+    <!-- Directories to check -->
     <file>src</file>
     <file>tests</file>
+
+    <!-- Include PSR-12 Standard -->
+    <rule ref="PSR12"/>
+
+    <!-- PHP Compatibility for PHP 8.4 -->
+    <config name="testVersion" value="8.4"/>
+    <rule ref="PHPCompatibility"/>
+
+    <!-- Additional checks for modern PHP -->
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+    <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes"/>
+    <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHint"/>
+    <rule ref="SlevomatCodingStandard.TypeHints.ReturnTypeHint"/>
+    <rule ref="SlevomatCodingStandard.Classes.ClassConstantVisibility"/>
+    <rule ref="SlevomatCodingStandard.ControlStructures.RequireNullCoalesceOperator"/>
+    <rule ref="SlevomatCodingStandard.ControlStructures.RequireNullCoalesceEqualOperator"/>
+
+    <!-- Symfony-like rules -->
+    <rule ref="PSR1.Classes.ClassDeclaration"/>
+    <rule ref="Generic.Files.LineEndings"/>
+    <rule ref="Generic.Formatting.DisallowMultipleStatements"/>
+    <rule ref="Generic.WhiteSpace.ScopeIndent"/>
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace"/>
+
+    <!-- Exclude some strict rules for tests -->
+    <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHint">
+        <exclude-pattern>/tests/</exclude-pattern>
+    </rule>
+    <rule ref="SlevomatCodingStandard.TypeHints.ReturnTypeHint">
+        <exclude-pattern>/tests/</exclude-pattern>
+    </rule>
 
 </ruleset>

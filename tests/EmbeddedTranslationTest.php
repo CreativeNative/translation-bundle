@@ -8,7 +8,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 /**
  * Tests for embedded entities.
  */
-class EmbeddedTranslationTest extends AbstractBaseTest
+class EmbeddedTranslationTest extends TestCase
 {
     const TARGET_LOCALE = 'en';
 

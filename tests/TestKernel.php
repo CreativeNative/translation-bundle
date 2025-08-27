@@ -35,7 +35,7 @@ class TestKernel extends BaseKernel
         $configurator->extension('doctrine', [
             'dbal' => [
                 'driver' => 'pdo_sqlite',
-                'path' => $this->getProjectDir() . '/var/test.db',
+                'memory' => true,
                 'charset' => 'utf8',
             ],
             'orm' => [

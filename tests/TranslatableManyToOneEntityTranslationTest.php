@@ -9,7 +9,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOne;
 /**
  * @author Arthur Guigand <aguigand@tmi.fr>
  */
-class TranslatableManyToOneEntityTranslationTest extends AbstractBaseTest
+class TranslatableManyToOneEntityTranslationTest extends TestCase
 {
     const TARGET_LOCALE = 'fr';
 

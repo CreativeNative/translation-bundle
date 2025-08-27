@@ -25,7 +25,28 @@
         "symfony/security-bundle": "^v7.3.2",
         "symfony/property-access": "v7.3.2",
         "twig/twig": "^v3.21.1",
-        "symfony/translation-contracts": "^3.6"
+        "symfony/translation-contracts": "^3.6",
+        "ext-json": "*",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "roave/security-advisories": "dev-latest",
+        "symfony/phpunit-bridge": "^v7.3.1",
+        "phpunit/phpunit": "^12.3.6",
+        "php-parallel-lint/php-parallel-lint": "^v1.4.0",
+        "squizlabs/php_codesniffer": "^3.13",
+        "phpstan/phpstan": "^2.1.17",
+        "phpstan/extension-installer": "^1.4.3",
+        "phpstan/phpstan-deprecation-rules": "^2.0.3",
+        "phpstan/phpstan-strict-rules": "^2.0.4",
+        "rector/rector": "^2.1.2",
+        "phpcompatibility/php-compatibility": "^9.3",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.1",
+        "slevomat/coding-standard": "^8.20",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*",
+        "ext-sqlite3": "*"
+
     },
     "minimum-stability": "stable",
     "autoload": {
@@ -39,18 +60,7 @@
             "TMI\\TranslationBundle\\Fixtures\\": "tests/Fixtures/"
         }
     },
-    "require-dev": {
-        "roave/security-advisories": "dev-latest",
-        "symfony/phpunit-bridge": "^v7.3.1",
-        "phpunit/phpunit": "^12.3.6",
-        "php-parallel-lint/php-parallel-lint": "^v1.4.0",
-        "squizlabs/php_codesniffer": "^3.13.0",
-        "phpstan/phpstan": "^2.1.17",
-        "phpstan/extension-installer": "^1.4.3",
-        "phpstan/phpstan-deprecation-rules": "^2.0.3",
-        "phpstan/phpstan-strict-rules": "^2.0.4",
-        "rector/rector": "^2.1.2"
-    },
+
     "scripts": {
         "test":  [
             "Composer\\Config::disableProcessTimeout",
@@ -74,7 +84,8 @@
     },
     "config": {
         "allow-plugins": {
-            "phpstan/extension-installer": true
+            "phpstan/extension-installer": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true
         }
     }
 }

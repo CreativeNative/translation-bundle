@@ -9,7 +9,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidi
 /**
  * @author Arthur Guigand <aguigand@tmi.fr>
  */
-class TranslatableOneToOneUnidirectionalTest extends AbstractBaseTest
+class TranslatableOneToOneUnidirectionalTest extends TestCase
 {
     const TARGET_LOCALE = 'fr';
 
