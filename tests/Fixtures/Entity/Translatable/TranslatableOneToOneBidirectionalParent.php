@@ -10,105 +10,87 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class TranslatableOneToOneBidirectionalParent implements TranslatableInterface
+final class TranslatableOneToOneBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     /**
      * @var mixed
      */
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'simpleParent', cascade: ['all'])]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $simpleChild = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalChild::class,
+        mappedBy: 'simpleParent',
+        cascade: ['persist']
+    )]
+    private ?TranslatableOneToOneBidirectionalChild $simpleChild = null;
 
     /**
      * @var mixed
      *
      * @SharedAmongstTranslations()
      */
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'sharedParent')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $sharedChild = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalChild::class,
+        mappedBy: 'sharedParent',
+        cascade: ['persist']
+    )]
+    private ?TranslatableOneToOneBidirectionalChild $sharedChild = null;
 
     /**
      * @var mixed
      *
      * @EmptyOnTranslate()
      */
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild::class, mappedBy: 'emptyParent')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild $emptyChild = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalChild::class,
+        mappedBy: 'emptyParent',
+        cascade: ['persist']
+    )]
+    private ?TranslatableOneToOneBidirectionalChild $emptyChild = null;
 
-    /**
-     * @return mixed
-     */
-    public function getSimpleChild()
+    public function getId(): int|null
+    {
+        return $this->id;
+    }
+
+    public function getSimpleChild(): TranslatableOneToOneBidirectionalChild|null
     {
         return $this->simpleChild;
     }
 
-    /**
-     * @param mixed $simpleChild
-     *
-     * @return $this
-     */
-    public function setSimpleChild($simpleChild)
+    public function setSimpleChild(?TranslatableOneToOneBidirectionalChild $simpleChild): self
     {
         $this->simpleChild = $simpleChild;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getSharedChild()
+    public function getSharedChild(): TranslatableOneToOneBidirectionalChild|null
     {
         return $this->sharedChild;
     }
 
-    /**
-     * @param mixed $sharedChild
-     *
-     * @return $this
-     */
-    public function setSharedChild($sharedChild)
+    public function setSharedChild(?TranslatableOneToOneBidirectionalChild $sharedChild): self
     {
         $this->sharedChild = $sharedChild;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getEmptyChild()
+    public function getEmptyChild(): TranslatableOneToOneBidirectionalChild|null
     {
         return $this->emptyChild;
     }
 
-    /**
-     * @param mixed $emptyChild
-     *
-     * @return $this
-     */
-    public function setEmptyChild($emptyChild)
+    public function setEmptyChild(?TranslatableOneToOneBidirectionalChild $emptyChild): self
     {
         $this->emptyChild = $emptyChild;
 
         return $this;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
     }
 }

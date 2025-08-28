@@ -2,7 +2,6 @@
 
 namespace TMI\TranslationBundle\Translation\Handlers;
 
-use Doctrine\Common\Annotations\Reader;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,7 +16,10 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class CollectionHandler implements TranslationHandlerInterface
 {
-    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityManagerInterface $em, private readonly EntityTranslator $translator)
+    public function __construct(
+        private readonly AttributeHelper $attributeHelper,
+        private readonly EntityManagerInterface $em,
+        private readonly EntityTranslator $translator)
     {
     }
 
@@ -77,6 +79,9 @@ class CollectionHandler implements TranslationHandlerInterface
         return new ArrayCollection([]);
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function translate(TranslationArgs $args)
     {
         /** @var Collection $collection */

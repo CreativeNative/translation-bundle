@@ -10,98 +10,68 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class Scalar implements TranslatableInterface
+final class Scalar implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     #[ORM\Column(type: 'string', nullable: true)]
-    protected ?string $title = null;
+    private ?string $title = null;
 
     /**
      * @SharedAmongstTranslations()
      */
     #[ORM\Column(type: 'string', nullable: true)]
-    protected ?string $shared = null;
+    private ?string $shared = null;
 
     /**
-     * Scalar value.
-     *
-     * @var string
      * @EmptyOnTranslate()
      */
     #[ORM\Column(type: 'string', nullable: true)]
-    protected ?string $empty = null;
+    private ?string $empty = null;
 
-    /**
-     * @param string $title
-     *
-     * @return Scalar
-     */
-    public function setTitle(?string $title = null)
+    public function getId(): int|null
+    {
+        return $this->id;
+    }
+
+    public function setTitle(?string $title = null): self
     {
         $this->title = $title;
 
         return $this;
     }
 
-    /**
-     * @return string
-     */
-    public function getTitle()
+    public function getTitle(): string|null
     {
         return $this->title;
     }
 
-    /**
-     * @param string $shared
-     *
-     * @return Scalar
-     */
-    public function setShared(?string $shared = null)
+    public function setShared(?string $shared = null): self
     {
         $this->shared = $shared;
 
         return $this;
     }
 
-    /**
-     * @return string
-     */
-    public function getShared()
+    public function getShared(): string|null
     {
         return $this->shared;
     }
 
-    /**
-     * @param string $empty
-     *
-     * @return Scalar
-     */
-    public function setEmpty(?string $empty = null)
+    public function setEmpty(?string $empty = null): self
     {
         $this->empty = $empty;
 
         return $this;
     }
 
-    /**
-     * @return string
-     */
-    public function getEmpty()
+    public function getEmpty(): string|null
     {
         return $this->empty;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
     }
 }

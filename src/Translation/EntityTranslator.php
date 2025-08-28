@@ -2,6 +2,7 @@
 
 namespace TMI\TranslationBundle\Translation;
 
+use LogicException;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
@@ -12,7 +13,10 @@ class EntityTranslator
 {
     protected array $handlers;
 
-    public function __construct(protected array $locales, protected EventDispatcherInterface $eventDispatcher, private readonly AttributeHelper $attributeHelper)
+    public function __construct(
+        protected array $locales,
+        protected EventDispatcherInterface $eventDispatcher,
+        private readonly AttributeHelper $attributeHelper)
     {
     }
 
@@ -23,6 +27,7 @@ class EntityTranslator
     {
         return $this->processTranslation(new TranslationArgs($data, $data->getLocale(), $locale));
     }
+
 
     /**
      * Processes the translation
@@ -38,7 +43,7 @@ class EntityTranslator
 
                     if ($this->attributeHelper->isEmptyOnTranslate($args->getProperty())) {
                         if (!$this->attributeHelper->isNullable($args->getProperty())) {
-                            throw new \LogicException(
+                            throw new LogicException(
                                 sprintf(
                                     'The property %s::%s can not use the EmptyOnTranslate attribute because it is not nullable.',
                                     $args->getProperty()->class,

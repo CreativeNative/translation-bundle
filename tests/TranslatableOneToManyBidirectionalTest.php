@@ -3,6 +3,8 @@
 namespace TMI\TranslationBundle\Test;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\Exception\ORMException;
+use Doctrine\ORM\OptimisticLockException;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 
@@ -11,17 +13,23 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidi
  */
 class TranslatableOneToManyBidirectionalTest extends TestCase
 {
-    const TARGET_LOCALE = 'fr';
+    const string TARGET_LOCALE = 'fr';
 
-    public function testIt_can_translate_bidirectional_one_to_many(): void
+    /**
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testItCanTranslateBidirectionalOneToMany(): void
     {
         $children = new ArrayCollection([
-            new TranslatableOneToManyBidirectionalChild(),
-            new TranslatableOneToManyBidirectionalChild(),
-            new TranslatableOneToManyBidirectionalChild(),
+            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
+            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
+            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
         ]);
 
-        $parent = new TranslatableOneToManyBidirectionalParent()->setChildren($children);
+        $parent = new TranslatableOneToManyBidirectionalParent()
+            ->setLocale('en')
+            ->setChildren($children);
         $this->entityManager->persist($parent);
         /** @var TranslatableOneToManyBidirectionalParent $parentTranslation */
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
@@ -36,10 +44,14 @@ class TranslatableOneToManyBidirectionalTest extends TestCase
         );
     }
 
-    public function testIt_can_translate_bidirectional_many_to_one(): void
+    /**
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testItCanTranslateBidirectionalManyToOne(): void
     {
-        $parent = new TranslatableOneToManyBidirectionalParent();
-        $child  = new TranslatableOneToManyBidirectionalChild();
+        $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en');
+        $child  = new TranslatableOneToManyBidirectionalChild()->setLocale('en');
 
         $child->setParent($parent);
         $this->entityManager->persist($child);

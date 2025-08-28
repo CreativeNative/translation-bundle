@@ -11,98 +11,75 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class TranslatableManyToOne implements TranslatableInterface
+final class TranslatableManyToOne implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    protected ?Scalar $simple = null;
+    private ?Scalar $simple = null;
 
     /**
      * @SharedAmongstTranslations()
      */
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    protected ?Scalar $shared = null;
+    private ?Scalar $shared = null;
 
     /**
      * @EmptyOnTranslate()
      */
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    protected ?Scalar $empty = null;
+    private ?Scalar $empty = null;
 
-    /**
-     * @return Scalar
-     */
-    public function getSimple()
+
+    public function getId(): int|null
+    {
+        return $this->id;
+    }
+
+
+    public function getSimple(): Scalar|null
     {
         return $this->simple;
     }
 
-    /**
-     * @param Scalar $simple
-     *
-     * @return $this
-     */
-    public function setSimple(?Scalar $simple = null)
+
+    public function setSimple(?Scalar $simple = null): self
     {
         $this->simple = $simple;
 
         return $this;
     }
 
-    /**
-     * @return Scalar
-     */
-    public function getShared()
+    public function getShared(): Scalar|null
     {
         return $this->shared;
     }
 
-    /**
-     * @param Scalar $shared
-     *
-     * @return $this
-     */
-    public function setShared(?Scalar $shared = null)
+    public function setShared(?Scalar $shared = null): self
     {
         $this->shared = $shared;
 
         return $this;
     }
 
-    /**
-     * @return Scalar
-     */
-    public function getEmpty()
+    public function getEmpty(): Scalar|null
     {
         return $this->empty;
     }
 
-    /**
-     * @param Scalar $empty
-     *
-     * @return $this
-     */
-    public function setEmpty(?Scalar $empty = null)
+    public function setEmpty(?Scalar $empty = null): self
     {
         $this->empty = $empty;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
 }

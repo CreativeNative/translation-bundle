@@ -8,93 +8,78 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class TranslatableOneToOneBidirectionalChild implements TranslatableInterface
+final class TranslatableOneToOneBidirectionalChild implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent::class, inversedBy: 'simpleChild')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent $simpleParent = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalParent::class,
+        inversedBy: 'simpleChild',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinColumn(name: 'simple_parent_id')]
+    private ?TranslatableOneToOneBidirectionalParent $simpleParent = null;
 
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent::class, inversedBy: 'sharedChild')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent $sharedParent = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalParent::class,
+        inversedBy: 'sharedChild',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinColumn(name: 'shared_parent_id')]
+    private ?TranslatableOneToOneBidirectionalParent $sharedParent = null;
 
-    #[ORM\OneToOne(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent::class, inversedBy: 'emptyChild')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?\TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent $emptyParent = null;
+    #[ORM\OneToOne(
+        targetEntity: TranslatableOneToOneBidirectionalParent::class,
+        inversedBy: 'emptyChild',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinColumn(name: 'empty_parent_id')]
+    private ?TranslatableOneToOneBidirectionalParent $emptyParent = null;
 
-    /**
-     * @return mixed
-     */
-    public function getSimpleParent()
+
+    public function getId(): int|null
+    {
+        return $this->id;
+    }
+
+    public function getSimpleParent(): TranslatableOneToOneBidirectionalParent|null
     {
         return $this->simpleParent;
     }
 
-    /**
-     * @param mixed $simpleParent
-     *
-     * @return $this
-     */
-    public function setSimpleParent($simpleParent)
+    public function setSimpleParent(?TranslatableOneToOneBidirectionalParent $simpleParent): self
     {
         $this->simpleParent = $simpleParent;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getSharedParent()
+    public function getSharedParent(): TranslatableOneToOneBidirectionalParent|null
     {
         return $this->sharedParent;
     }
 
-    /**
-     * @param mixed $sharedParent
-     *
-     * @return $this
-     */
-    public function setSharedParent($sharedParent)
+    public function setSharedParent(?TranslatableOneToOneBidirectionalParent $sharedParent): self
     {
         $this->sharedParent = $sharedParent;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getEmptyParent()
+    public function getEmptyParent(): TranslatableOneToOneBidirectionalParent|null
     {
         return $this->emptyParent;
     }
 
-    /**
-     * @param mixed $emptyParent
-     *
-     * @return $this
-     */
-    public function setEmptyParent($emptyParent)
+    public function setEmptyParent(?TranslatableOneToOneBidirectionalParent $emptyParent): self
     {
         $this->emptyParent = $emptyParent;
 
         return $this;
     }
-
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
-
 }

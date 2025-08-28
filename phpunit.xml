@@ -3,6 +3,7 @@
          cacheDirectory="var/cache/phpunit"
          cacheResult="true"
          executionOrder="depends,defects"
+         colors="true"
          requireCoverageMetadata="true"
          beStrictAboutCoverageMetadata="true"
          beStrictAboutOutputDuringTests="true"

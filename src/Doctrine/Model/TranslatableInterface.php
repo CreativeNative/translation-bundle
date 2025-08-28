@@ -5,7 +5,7 @@ namespace TMI\TranslationBundle\Doctrine\Model;
 interface TranslatableInterface
 {
     /**
-     * Returns entity's locale (fr/en/...)
+     * Returns entity's locale (en/de/...)
      */
     public function getLocale(): ?string;
 

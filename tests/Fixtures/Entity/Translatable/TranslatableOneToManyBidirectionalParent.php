@@ -10,49 +10,42 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
+final class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     /**
      * A Child has one Parent.
      *
      * @var ArrayCollection
      */
-    #[ORM\OneToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild::class, cascade: ['persist'], mappedBy: 'parent')]
-    protected $children;
+    #[ORM\OneToMany(
+        targetEntity: TranslatableOneToManyBidirectionalChild::class,
+        mappedBy: 'parent',
+        cascade: ['persist']
+    )]
+    private iterable $children;
 
     public function __construct()
     {
         $this->children = new ArrayCollection();
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild>
-     */
-    public function getChildren()
+    public function getChildren(): Collection
     {
         return $this->children;
     }
 
-    /**
-     * @param Collection $children
-     *
-     * @return self
-     */
     public function setChildren(?Collection $children = null): self
     {
         $this->children = $children;

@@ -36,7 +36,7 @@ class TestKernel extends BaseKernel
             'dbal' => [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
-                'charset' => 'utf8',
+                'charset' => 'utf8'
             ],
             'orm' => [
                 'auto_generate_proxy_classes' => true,

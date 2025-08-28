@@ -6,42 +6,36 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-class ManyToManyBidirectionalChild
+final class ManyToManyBidirectionalChild
 {
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
-    /**
-     * @var ArrayCollection
-     */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'sharedChildren')]
-    #[ORM\JoinTable(name: 'shared_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
-    protected $sharedParents;
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalParent::class,
+        inversedBy: 'sharedChildren',
+        cascade: ['persist'])]
+    #[ORM\JoinTable(name: 'shared_parent')]
+    private iterable $sharedParents;
 
     public function __construct()
     {
         $this->sharedParents = new ArrayCollection();
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
-     */
-    public function getSharedParents()
+    public function getSharedParents(): Collection
     {
         return $this->sharedParents;
     }
 
-    public function addSharedParent(TranslatableManyToManyBidirectionalParent $parent)
+    public function addSharedParent(TranslatableManyToManyBidirectionalParent $parent): self
     {
         $this->sharedParents[] = $parent;
 

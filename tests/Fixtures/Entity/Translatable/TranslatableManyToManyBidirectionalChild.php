@@ -3,32 +3,42 @@
 namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
+final class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     /**
      * @var ArrayCollection
      */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'simpleChildren')]
-    protected $simpleParents;
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalParent::class,
+        inversedBy: 'simpleChildren',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinTable(name: 'parent_child')]
+    private iterable $simpleParents;
 
     /**
      * @var ArrayCollection
      */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'emptyChildren')]
-    #[ORM\JoinTable(name: 'empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
-    protected $emptyParents;
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalParent::class,
+        inversedBy: 'emptyChildren',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinTable(name: 'parent_empty_child')]
+    private iterable $emptyParents;
 
     public function __construct()
     {
@@ -36,38 +46,29 @@ class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
         $this->emptyParents  = new ArrayCollection();
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
-     */
-    public function getSimpleParents()
+    public function getSimpleParents(): Collection
     {
         return $this->simpleParents;
     }
 
-    public function addSimpleParent(TranslatableManyToManyBidirectionalParent $parent)
+    public function addSimpleParent(TranslatableManyToManyBidirectionalParent $parent): self
     {
         $this->simpleParents[] = $parent;
 
         return $this;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
-     */
-    public function getEmptyParents()
+    public function getEmptyParents(): Collection
     {
         return $this->emptyParents;
     }
 
-    public function addEmptyParent(TranslatableManyToManyBidirectionalParent $parent)
+    public function addEmptyParent(TranslatableManyToManyBidirectionalParent $parent): self
     {
         $this->emptyParents[] = $parent;
 

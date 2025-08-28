@@ -11,39 +11,40 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
+final class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     /**
      * @var ArrayCollection
      */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
-    private $simpleChildren;
+    #[ORM\ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
+    private iterable $simpleChildren;
 
     /**
-     * @var ArrayCollection
-     *
      * @EmptyOnTranslate()
      */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild::class, mappedBy: 'emptyParents')]
-    #[ORM\JoinTable(name: 'empty_translatablemanytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
-    private $emptyChildren;
-
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalChild::class,
+        mappedBy: 'emptyParents',
+        cascade: ['persist'],
+    )]
+    private iterable $emptyChildren;
 
     /**
-     * @var ArrayCollection
-     *
      * @SharedAmongstTranslations()
      */
-    #[ORM\ManyToMany(targetEntity: \TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalChild::class, mappedBy: 'sharedParents', cascade: ['persist'])]
-    #[ORM\JoinTable(name: 'shared_manytomanybidirectionalchild_translatablemanytomanybidirectionalparent')]
-    private $sharedChildren;
+    #[ORM\ManyToMany(
+        targetEntity: ManyToManyBidirectionalChild::class,
+        mappedBy: 'sharedParents',
+        cascade: ['persist']
+    )]
+    private iterable $sharedChildren;
 
     public function __construct()
     {
@@ -52,23 +53,17 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
         $this->sharedChildren = new ArrayCollection();
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild>
-     */
-    public function getSimpleChildren()
+    public function getSimpleChildren(): Collection
     {
         return $this->simpleChildren;
     }
 
-    public function addSimpleChild(TranslatableManyToManyBidirectionalChild $child)
+    public function addSimpleChild(TranslatableManyToManyBidirectionalChild $child): self
     {
         $child->addSimpleParent($this);
 
@@ -77,15 +72,12 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
         return $this;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild>
-     */
-    public function getEmptyChildren()
+    public function getEmptyChildren(): Collection
     {
         return $this->emptyChildren;
     }
 
-    public function addEmptyChild(TranslatableManyToManyBidirectionalChild $child)
+    public function addEmptyChild(TranslatableManyToManyBidirectionalChild $child): self
     {
         $child->addEmptyParent($this);
 
@@ -94,27 +86,19 @@ class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
         return $this;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalChild>
-     */
-    public function getSharedChildren()
+    public function getSharedChildren(): Collection
     {
         return $this->sharedChildren;
     }
 
-    /**
-     * @param Collection $sharedChildren
-     *
-     * @return TranslatableManyToManyBidirectionalParent
-     */
-    public function setSharedChildren(Collection $sharedChildren)
+    public function setSharedChildren(Collection $sharedChildren): self
     {
         $this->sharedChildren = $sharedChildren;
 
         return $this;
     }
 
-    public function addSharedChild(ManyToManyBidirectionalChild $child)
+    public function addSharedChild(ManyToManyBidirectionalChild $child): self
     {
         $child->addSharedParent($this);
 

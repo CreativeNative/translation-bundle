@@ -4,34 +4,19 @@ namespace TMI\TranslationBundle\Doctrine\Model;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Ramsey\Uuid\UuidInterface;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- */
 trait TranslatableTrait
 {
-    /**
-     * @var string|null
-     */
-    #[ORM\Column(type: Types::GUID, length: 36)]
-    protected ?string $tuuid = null;
+    #[ORM\Column(type: Types::GUID, length: 36, nullable: true)]
+    private ?string $tuuid = null;
 
-    /**
-     * @var string|null
-     */
-    #[ORM\Column(type: Types::STRING, length: 7)]
-    protected ?string $locale = null;
+    #[ORM\Column(type: Types::STRING, length: 7, nullable: true)]
+    private ?string $locale = null;
 
-    /**
-     * @var array
-     */
     #[ORM\Column(type: Types::JSON)]
-    protected array $translations = [];
+    private array $translations = [];
 
-    /**
-     * Set the locale
-     */
+
     public function setLocale(?string $locale = null): self
     {
         $this->locale = $locale;

@@ -10,7 +10,11 @@ class TranslationArgs
     protected mixed $translatedParent;
     protected ?\ReflectionProperty $property = null;
 
-    public function __construct(protected mixed $dataToBeTranslated, protected string $sourceLocale, protected string $targetLocale)
+    public function __construct(
+        protected mixed $dataToBeTranslated,
+        protected string $sourceLocale,
+        protected string $targetLocale
+     )
     {
     }
 
