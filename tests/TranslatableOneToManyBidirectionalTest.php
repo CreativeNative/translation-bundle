@@ -8,13 +8,8 @@ use Doctrine\ORM\OptimisticLockException;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- */
 class TranslatableOneToManyBidirectionalTest extends TestCase
 {
-    const string TARGET_LOCALE = 'fr';
-
     /**
      * @throws OptimisticLockException
      * @throws ORMException

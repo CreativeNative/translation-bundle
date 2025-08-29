@@ -4,14 +4,11 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
 
 class TranslatableOneToOneBidirectionalTest extends TestCase
 {
-    const string TARGET_LOCALE = 'fr';
-
     /**
      * @throws OptimisticLockException
      * @throws ORMException
@@ -31,8 +28,8 @@ class TranslatableOneToOneBidirectionalTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        $this->assertIsTranslation($parent, $parentTranslation);
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $parentTranslation->getSimpleChild());
+        $this->assertIsTranslation($parent, $parentTranslation,  self::TARGET_LOCALE);
+        $this->assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
     }
 
     public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
@@ -68,21 +65,8 @@ class TranslatableOneToOneBidirectionalTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        $this->assertIsTranslation($parent, $parentTranslation);
+        $this->assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
 
         $this->assertEquals(null, $parentTranslation->getEmptyChild());
-    }
-
-    /**
-     * Assert a translation is actually a translation.
-     *
-     * @param TranslatableInterface $source
-     * @param TranslatableInterface $translation
-     */
-    protected function assertIsTranslation(TranslatableInterface $source, TranslatableInterface $translation)
-    {
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
-//        $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 }

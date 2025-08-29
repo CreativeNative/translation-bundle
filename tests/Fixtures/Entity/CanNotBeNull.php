@@ -9,39 +9,35 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table]
-class CanNotBeNull implements TranslatableInterface
+final class CanNotBeNull implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     #[EmptyOnTranslate]
     #[ORM\Column(type: 'string')]
-    protected ?string $empty_not_nullable = null;
+    private ?string $emptyNotNullable = null;
 
-    public function setEmptyNotNullable(?string $empty_not_nullable = null): CanNotBeNull
+    public function getId(): int|null
     {
-        $this->empty_not_nullable = $empty_not_nullable;
+        return $this->id;
+    }
+
+    public function setEmptyNotNullable(?string $emptyNotNullable = null): CanNotBeNull
+    {
+        $this->emptyNotNullable = $emptyNotNullable;
 
         return $this;
     }
 
-    /**
-     * @return string
-     */
-    public function getEmptyNotNullable(): string
+    public function getEmptyNotNullable(): string|null
     {
-        return $this->empty_not_nullable;
+        return $this->emptyNotNullable;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
+
 }

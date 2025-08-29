@@ -8,6 +8,7 @@ use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\EntityTranslator;
 
 class TestCase extends KernelTestCase
@@ -17,6 +18,8 @@ class TestCase extends KernelTestCase
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;
+
+    protected const TARGET_LOCALE = 'en';
 
     /**
      * {@inheritDoc}
@@ -60,13 +63,25 @@ class TestCase extends KernelTestCase
 
             try {
                 $schemaTool->dropSchema($metadata);
-            } catch (Exception ) {
+            } catch (Exception) {
 
             }
 
             $schemaTool->createSchema($metadata);
         }
     }
+
+    protected function assertIsTranslation(
+        TranslatableInterface $source,
+        TranslatableInterface $translation,
+        string $targetLocale
+    ): void
+    {
+        $this->assertEquals($targetLocale, $translation->getLocale());
+        $this->assertEquals($source->getTuuid(), $translation->getTuuid());
+        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
+    }
+
 
     final public function tearDown(): void
     {

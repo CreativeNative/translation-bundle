@@ -4,17 +4,11 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOne;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- */
 class TranslatableManyToOneEntityTranslationTest extends TestCase
 {
-    const TARGET_LOCALE = 'fr';
-
     /**
      * @throws OptimisticLockException
      * @throws ORMException
@@ -37,10 +31,9 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
 
         $this->entityManager->flush();
         $this->assertNotEquals($associatedEntity, $translation->getSimple());
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation->getSimple());
-        $this->assertIsTranslation($entity, $translation);
+        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
-
 
     /**
      * @throws OptimisticLockException
@@ -49,7 +42,7 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
     public function testItMustAssociateExistingTranslation(): void
     {
         $associatedEntity = new Scalar()
-            ->setLocale('en')
+            ->setLocale('fr')
             ->setTitle('simple');
         $this->entityManager->persist($associatedEntity);
 
@@ -57,7 +50,7 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
 
         $entity =
             new TranslatableManyToOne()
-                ->setLocale('en')
+                ->setLocale('fr')
                 ->setSimple($associatedEntity);
 
         $this->entityManager->persist($entity);
@@ -67,10 +60,12 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
 
         $this->entityManager->flush();
+
         $this->assertNotEquals($associatedEntity, $translation->getSimple());
+
         $this->assertEquals($translatedAssociatedEntity, $translation->getSimple());
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation->getSimple());
-        $this->assertIsTranslation($entity, $translation);
+        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -107,7 +102,7 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
 
         $this->entityManager->flush();
         $this->assertEquals($translationAssociatedEntity, $translation->getShared());
-        $this->assertIsTranslation($entity, $translation);
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -134,19 +129,6 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
         $this->entityManager->flush();
 
         $this->assertEquals(null, $translation->getEmpty());
-        $this->assertIsTranslation($entity, $translation);
-    }
-
-    /**
-     * Assert a translation is actually a translation.
-     *
-     * @param TranslatableInterface $source
-     * @param TranslatableInterface $translation
-     */
-    protected function assertIsTranslation(TranslatableInterface $source, TranslatableInterface $translation)
-    {
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
-//        $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 }

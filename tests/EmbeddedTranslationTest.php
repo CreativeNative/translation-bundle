@@ -4,9 +4,6 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use LogicException;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\HttpKernel\KernelInterface;
 use TMI\TranslationBundle\Fixtures\Entity\Embedded\Address;
 use TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
 

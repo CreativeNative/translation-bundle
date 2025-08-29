@@ -13,8 +13,6 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidi
  */
 final class TranslatableOneToOneUnidirectionalTest extends TestCase
 {
-    const string TARGET_LOCALE = 'en';
-
     /**
      * @throws OptimisticLockException
      * @throws ORMException
@@ -36,8 +34,8 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
 
         $this->entityManager->flush();
         $this->assertNotEquals($associatedEntity, $translation->getSimple());
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation->getSimple());
-        $this->assertIsTranslation($entity, $translation);
+        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -68,7 +66,7 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
         $this->entityManager->flush();
 
         $this->assertEquals('shared', $translation->getShared()->getTitle());
-        $this->assertIsTranslation($entity, $translation);
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -94,19 +92,6 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
         $this->entityManager->flush();
 
         $this->assertEquals(null, $translation->getEmpty());
-        $this->assertIsTranslation($entity, $translation);
-    }
-
-    /**
-     * Assert a translation is actually a translation.
-     *
-     * @param TranslatableInterface $source
-     * @param TranslatableInterface $translation
-     */
-    protected function assertIsTranslation(TranslatableInterface $source, TranslatableInterface $translation)
-    {
-//        $this->assertAttributeContains(self::TARGET_LOCALE, 'locale', $translation);
-//        $this->assertAttributeContains($source->getTuuid(), 'tuuid', $translation);
-        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
+        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 }
