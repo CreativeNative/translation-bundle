@@ -3,32 +3,31 @@
 namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Tools\SchemaTool;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use TMI\TranslationBundle\Translation\EntityTranslator;
-use Doctrine\ORM\Tools\SchemaTool;
 
 class TestCase extends KernelTestCase
 {
-    private static $container;
+    private static Container|null $container;
 
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;
 
-    /** @var callable|null */
-    private $previousExceptionHandler;
-
     /**
      * {@inheritDoc}
      */
-    protected function setUp(): void
+    final public function setUp(): void
     {
-        $this->previousExceptionHandler = set_exception_handler(null);
-
         parent::setUp();
 
         self::bootKernel();
+
+//        HandleExceptions::flushState();
 
         if (method_exists(self::class, 'getContainer')) {
             $container = self::getContainer();
@@ -49,7 +48,7 @@ class TestCase extends KernelTestCase
         }
 
         try {
-            $this->translator = $container->get('tmi_translation.translation.entity_translator',);
+            $this->translator = $container->get('tmi_translation.translation.entity_translator');
         } catch (ServiceNotFoundException) {
             $this->fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator.');
         }
@@ -61,7 +60,7 @@ class TestCase extends KernelTestCase
 
             try {
                 $schemaTool->dropSchema($metadata);
-            } catch (\Exception $e) {
+            } catch (Exception ) {
 
             }
 
@@ -69,17 +68,18 @@ class TestCase extends KernelTestCase
         }
     }
 
-    #[\Override]
-    protected function tearDown(): void
+    final public function tearDown(): void
     {
-        if ($this->previousExceptionHandler !== null) {
-            set_exception_handler($this->previousExceptionHandler);
+        restore_exception_handler();
+
+        if ($this->entityManager->isOpen()) {
+            $this->entityManager->close();
         }
+        $this->translator = null;
+
+        static::$container = null;
+        static::$kernel = null;
 
         parent::tearDown();
-
-        $this->entityManager->clear();
-        $this->entityManager = null;
-        $this->translator = null;
     }
 }

@@ -127,8 +127,6 @@ services:
         class: TMI\TranslationBundle\EventSubscriber\LocaleFilterConfigurator
         arguments:
             - '@doctrine.orm.entity_manager'
-            - '%tmi_translation.disabled_firewalls%'
-            - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }
 

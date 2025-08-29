@@ -29,7 +29,7 @@ class TestKernel extends BaseKernel
         $configurator->extension('framework', [
             'secret' => 'test_secret',
             'test' => true,
-            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file'],
+            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file']
         ]);
 
         $configurator->extension('doctrine', [
