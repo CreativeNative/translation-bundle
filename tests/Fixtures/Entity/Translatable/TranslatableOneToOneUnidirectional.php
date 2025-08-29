@@ -20,21 +20,30 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
-    #[ORM\OneToOne(targetEntity: Scalar::class, cascade: ['persist'])]
+    #[ORM\OneToOne(
+        targetEntity: Scalar::class,
+        cascade: ['persist']
+    )]
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $simple = null;
 
     /**
      * @SharedAmongstTranslations()
      */
-    #[ORM\OneToOne(targetEntity: Scalar::class, cascade: ['persist'])]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\OneToOne(
+        targetEntity: Scalar::class,
+        cascade: ['persist']
+    )]
+    #[ORM\JoinColumn(name: 'shared_id')]
     private ?Scalar $shared = null;
 
     /**
      * @EmptyOnTranslate()
      */
-    #[ORM\OneToOne(targetEntity: Scalar::class, cascade: ['persist'])]
+    #[ORM\OneToOne(
+        targetEntity: Scalar::class,
+        cascade: ['persist']
+    )]
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $empty = null;
 

@@ -10,6 +10,8 @@ use Doctrine\ORM\Tools\SchemaTool;
 
 class TestCase extends KernelTestCase
 {
+    private static $container;
+
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;

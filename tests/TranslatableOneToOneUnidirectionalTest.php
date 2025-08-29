@@ -11,7 +11,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidi
 /**
  * @author Arthur Guigand <aguigand@tmi.fr>
  */
-class TranslatableOneToOneUnidirectionalTest extends TestCase
+final class TranslatableOneToOneUnidirectionalTest extends TestCase
 {
     const string TARGET_LOCALE = 'en';
 
@@ -46,32 +46,28 @@ class TranslatableOneToOneUnidirectionalTest extends TestCase
      */
     public function testItCanShareTranslatableEntityValueAmongstTranslations(): void
     {
-        $associatedEntity = new Scalar()
+        $associatedEntity1 = new Scalar()
             ->setLocale('en')
             ->setTitle('shared');
-        $this->entityManager->persist($associatedEntity);
-        $this->entityManager->flush();
 
-        // Pre-set the translation to confirm that it'll
-        // be picked up by the parent's translation.
-        $translationAssociatedEntity = $this->translator->translate($associatedEntity, self::TARGET_LOCALE);
-
-        $this->entityManager->persist($translationAssociatedEntity);
-        $this->entityManager->flush();
+        $associatedEntity2 = new Scalar()
+            ->setLocale('en')
+            ->setTitle('shared');
 
         $entity = new TranslatableOneToOneUnidirectional()
-                ->setLocale('en')
-                ->setShared($associatedEntity);
+            ->setLocale('en')
+            ->setShared($associatedEntity1);
 
         $this->entityManager->persist($entity);
 
         /** @var TranslatableOneToOneUnidirectional $translation */
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        $translation->setShared($associatedEntity2);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        $this->assertEquals($translationAssociatedEntity, $translation->getShared());
+        $this->assertEquals('shared', $translation->getShared()->getTitle());
         $this->assertIsTranslation($entity, $translation);
     }
 

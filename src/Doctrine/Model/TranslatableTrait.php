@@ -17,7 +17,7 @@ trait TranslatableTrait
     private array $translations = [];
 
 
-    public function setLocale(?string $locale = null): self
+    final public function setLocale(?string $locale = null): self
     {
         $this->locale = $locale;
 
@@ -27,7 +27,7 @@ trait TranslatableTrait
     /**
      * Returns entity's locale.
      */
-    public function getLocale(): ?string
+    final public function getLocale(): ?string
     {
         return $this->locale;
     }
@@ -35,7 +35,7 @@ trait TranslatableTrait
     /**
      * Set the Translation UUID
      */
-    public function setTuuid(?string $tuuid): self
+    final public function setTuuid(?string $tuuid): self
     {
         $this->tuuid = $tuuid;
 
@@ -45,19 +45,19 @@ trait TranslatableTrait
     /**
      * Returns entity's Translation UUID.
      */
-    public function getTuuid(): ?string
+    final public function getTuuid(): ?string
     {
         return $this->tuuid;
     }
 
-    public function setTranslations(array $translations): self
+    final public function setTranslations(array $translations): self
     {
         $this->translations = $translations;
 
         return $this;
     }
 
-    public function getTranslations(): array
+    final public function getTranslations(): array
     {
         return $this->translations;
     }
