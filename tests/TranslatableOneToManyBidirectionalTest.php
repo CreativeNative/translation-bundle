@@ -32,8 +32,8 @@ class TranslatableOneToManyBidirectionalTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertEquals(self::TARGET_LOCALE, $parentTranslation->getChildren()->first()->getLocale());
-        $this->assertEquals(
+        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getChildren()->first()->getLocale());
+        self::assertEquals(
             $parent->getChildren()->first()->getTuuid(),
             $parentTranslation->getChildren()->first()->getTuuid()
         );
@@ -56,8 +56,8 @@ class TranslatableOneToManyBidirectionalTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertEquals(self::TARGET_LOCALE, $childTranslation->getParent()->getLocale());
-        $this->assertEquals(
+        self::assertEquals(self::TARGET_LOCALE, $childTranslation->getParent()->getLocale());
+        self::assertEquals(
             $childTranslation->getParent()->getTuuid(),
             $childTranslation->getParent()->getTuuid()
         );

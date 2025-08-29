@@ -6,9 +6,9 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 use TMI\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-class TmiTranslationBundle extends Bundle
+final class TmiTranslationBundle extends Bundle
 {
-    public function build(ContainerBuilder $container)
+    public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new TranslationHandlerPass());
     }

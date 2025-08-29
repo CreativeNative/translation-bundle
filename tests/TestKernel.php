@@ -7,7 +7,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use TMI\TranslationBundle\TMITranslationBundle;
+use TMI\TranslationBundle\TmiTranslationBundle;
 
 class TestKernel extends BaseKernel
 {
@@ -18,7 +18,7 @@ class TestKernel extends BaseKernel
         return [
             new FrameworkBundle(),
             new DoctrineBundle(),
-            new TMITranslationBundle(),
+            new TmiTranslationBundle(),
         ];
     }
 

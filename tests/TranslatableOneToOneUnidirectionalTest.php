@@ -33,9 +33,9 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
 
         $this->entityManager->flush();
-        $this->assertNotEquals($associatedEntity, $translation->getSimple());
-        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertNotEquals($associatedEntity, $translation->getSimple());
+        self::assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -65,8 +65,8 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        $this->assertEquals('shared', $translation->getShared()->getTitle());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals('shared', $translation->getShared()->getTitle());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -91,7 +91,7 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        $this->assertEquals(null, $translation->getEmpty());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals(null, $translation->getEmpty());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 }

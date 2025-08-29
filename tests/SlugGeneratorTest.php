@@ -18,6 +18,6 @@ class SlugGeneratorTest extends TestCase
         $slugger = new SlugGenerator();
         $slug = $slugger->generate("Ciao Sicilia", "it");
 
-        $this->assertSame("ciao-sicilia", $slug);
+        self::assertSame("ciao-sicilia", $slug);
     }
 }

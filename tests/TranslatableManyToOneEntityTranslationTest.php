@@ -30,9 +30,9 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
 
         $this->entityManager->flush();
-        $this->assertNotEquals($associatedEntity, $translation->getSimple());
-        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertNotEquals($associatedEntity, $translation->getSimple());
+        self::assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -61,11 +61,11 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertNotEquals($associatedEntity, $translation->getSimple());
+        self::assertNotEquals($associatedEntity, $translation->getSimple());
 
-        $this->assertEquals($translatedAssociatedEntity, $translation->getSimple());
-        $this->assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals($translatedAssociatedEntity, $translation->getSimple());
+        self::assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -101,8 +101,8 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
         $this->entityManager->persist($translation);
 
         $this->entityManager->flush();
-        $this->assertEquals($translationAssociatedEntity, $translation->getShared());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals($translationAssociatedEntity, $translation->getShared());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -128,7 +128,7 @@ class TranslatableManyToOneEntityTranslationTest extends TestCase
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        $this->assertEquals(null, $translation->getEmpty());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals(null, $translation->getEmpty());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 }

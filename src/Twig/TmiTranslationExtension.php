@@ -2,13 +2,12 @@
 
 namespace TMI\TranslationBundle\Twig;
 
-use JetBrains\PhpStorm\ArrayShape;
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
 use Twig\TwigTest;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
-class UmanitTranslationExtension extends AbstractExtension implements GlobalsInterface
+class TmiTranslationExtension extends AbstractExtension implements GlobalsInterface
 {
     public function __construct(private readonly array $locales)
     {
@@ -22,7 +21,6 @@ class UmanitTranslationExtension extends AbstractExtension implements GlobalsInt
         ];
     }
 
-    #[ArrayShape(['locales' => "array"])]
     public function getGlobals(): array
     {
         return [

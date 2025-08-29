@@ -5,7 +5,6 @@ namespace TMI\TranslationBundle\Test;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use LogicException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
@@ -24,9 +23,9 @@ final class ScalarTranslationTest extends TestCase
         $translation = $this->translator->translate($entity, 'en');
         $this->entityManager->flush();
 
-        $this->assertTrue(property_exists($translation, 'title'), 'Object does not have the expected property "title".');
-        $this->assertEquals('Test title', $translation->getTitle());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertTrue(property_exists($translation, 'title'), 'Object does not have the expected property "title".');
+        self::assertEquals('Test title', $translation->getTitle());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
 
@@ -40,19 +39,19 @@ final class ScalarTranslationTest extends TestCase
         $entity = $this->createEntity();
         /** @var Scalar $translation */
         $translation = $this->translator->translate($entity, 'en');
-        $this->entityManager->persist((object)$translation);
+        $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         // Update shared attribute
         $translation->setShared('Updated shared');
-        $this->entityManager->persist((object)$translation);
+        $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        $this->assertTrue(property_exists($entity, 'shared'));
+        self::assertTrue(property_exists($entity, 'shared'));
 
-//      $this->assertEquals('Updated shared', $entity->getShared());
+//      self::assertEquals('Updated shared', $entity->getShared());
 
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -66,9 +65,9 @@ final class ScalarTranslationTest extends TestCase
 
         $this->entityManager->flush();
 
-//        $this->assertObjectHasAttribute('empty', $translation);
-        $this->assertEmpty($translation->getEmpty());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertObjectHasProperty('empty', $translation);
+        self::assertEmpty($translation->getEmpty());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**
@@ -88,13 +87,13 @@ final class ScalarTranslationTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertTrue(
+        self::assertTrue(
             property_exists($translation, 'empty_not_nullable'),
             'Property "empty_not_nullable" not found in translation object'
         );
-        $this->assertNotNull($translation->getEmptyNotNullable());
-        $this->assertNotEmpty($translation->getEmptyNotNullable());
-        $this->assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertNotNull($translation->getEmptyNotNullable());
+        self::assertNotEmpty($translation->getEmptyNotNullable());
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
     /**

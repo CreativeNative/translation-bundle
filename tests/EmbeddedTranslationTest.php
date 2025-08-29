@@ -38,7 +38,7 @@ final class EmbeddedTranslationTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertEquals($entity->getAddress(), $trans->getAddress());
+        self::assertEquals($entity->getAddress(), $trans->getAddress());
     }
 
     /**
@@ -66,7 +66,7 @@ final class EmbeddedTranslationTest extends TestCase
 
         $this->entityManager->flush();
 
-        $this->assertEquals($entity->getEmptyAddress(), $address);
-        $this->assertEmpty($trans->getEmptyAddress());
+        self::assertEquals($entity->getEmptyAddress(), $address);
+        self::assertEmpty($trans->getEmptyAddress());
     }
 }

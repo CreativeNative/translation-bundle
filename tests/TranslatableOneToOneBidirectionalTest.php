@@ -28,8 +28,8 @@ class TranslatableOneToOneBidirectionalTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        $this->assertIsTranslation($parent, $parentTranslation,  self::TARGET_LOCALE);
-        $this->assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
+        self::assertIsTranslation($parent, $parentTranslation,  self::TARGET_LOCALE);
+        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
     }
 
     public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
@@ -65,8 +65,8 @@ class TranslatableOneToOneBidirectionalTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        $this->assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
+        self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
 
-        $this->assertEquals(null, $parentTranslation->getEmptyChild());
+        self::assertEquals(null, $parentTranslation->getEmptyChild());
     }
 }

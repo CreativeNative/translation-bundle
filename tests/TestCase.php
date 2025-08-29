@@ -41,24 +41,24 @@ class TestCase extends KernelTestCase
         }
 
         if ($container === null) {
-            $this->fail('Container is null. Kernel boot failed.');
+            self::fail('Container is null. Kernel boot failed.');
         }
 
         try {
             $this->entityManager = $container->get('doctrine.orm.entity_manager');
         } catch (ServiceNotFoundException) {
-            $this->fail('EntityManager service not found. Tried: doctrine.orm.entity_manager.');
+            self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager.');
         }
 
         try {
             $this->translator = $container->get('tmi_translation.translation.entity_translator');
         } catch (ServiceNotFoundException) {
-            $this->fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator.');
+            self::fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator.');
         }
 
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 
-        if (!empty($metadata)) {
+        if ($metadata !== null) {
             $schemaTool = new SchemaTool($this->entityManager);
 
             try {
@@ -71,15 +71,15 @@ class TestCase extends KernelTestCase
         }
     }
 
-    protected function assertIsTranslation(
+    final public static function assertIsTranslation(
         TranslatableInterface $source,
         TranslatableInterface $translation,
         string $targetLocale
     ): void
     {
-        $this->assertEquals($targetLocale, $translation->getLocale());
-        $this->assertEquals($source->getTuuid(), $translation->getTuuid());
-        $this->assertNotSame(spl_object_hash($source), spl_object_hash($translation));
+        self::assertEquals($targetLocale, $translation->getLocale());
+        self::assertEquals($source->getTuuid(), $translation->getTuuid());
+        self::assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 
 

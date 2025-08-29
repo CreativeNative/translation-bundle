@@ -44,13 +44,13 @@ final class TranslatableManyToManyTranslationTest extends TestCase
         // translated and their parent is $translatedParent
         foreach ($parentTranslation->getSimpleChildren() as $child) {
             /** @var TranslatableManyToManyBidirectionalChild $child */
-            $this->assertEquals($child->getSimpleParents()->first(), $parentTranslation);
+            self::assertEquals($child->getSimpleParents()->first(), $parentTranslation);
         }
 
         // Make sure the parent of the original children didn't change.
         foreach ($parentTranslation->getSimpleChildren() as $child) {
             /** @var TranslatableManyToManyBidirectionalChild $child */
-            $this->assertEquals($child->getSimpleParents()->first(), $parentTranslation);
+            self::assertEquals($child->getSimpleParents()->first(), $parentTranslation);
         }
     }
 
@@ -83,7 +83,7 @@ final class TranslatableManyToManyTranslationTest extends TestCase
         $this->entityManager->flush();
 
         // Assert that the translated parents has an empty list of child
-        $this->assertEmpty($parentTranslation->getSimpleChildren());
+        self::assertEmpty($parentTranslation->getSimpleChildren());
     }
 
 
@@ -108,13 +108,13 @@ final class TranslatableManyToManyTranslationTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        $this->assertGreaterThan(0, $parent->getSharedChildren()->count());
-        $this->assertGreaterThan(0, $parentTranslation->getSharedChildren()->count());
-        $this->assertEquals($parent->getSharedChildren()->count(), $parentTranslation->getSharedChildren()->count());
+        self::assertGreaterThan(0, $parent->getSharedChildren()->count());
+        self::assertGreaterThan(0, $parentTranslation->getSharedChildren()->count());
+        self::assertEquals($parent->getSharedChildren()->count(), $parentTranslation->getSharedChildren()->count());
 
-// @todo fix me  $this->assertNotEquals($parent->getSharedChildren()->first(), $parentTranslation->getSharedChildren()->first());
+// @todo fix me  self::assertNotEquals($parent->getSharedChildren()->first(), $parentTranslation->getSharedChildren()->first());
 
-        $this->assertEquals($parent->getSharedChildren()->first()->getSharedParents()->first(), $parent);
-        $this->assertEquals($parentTranslation->getSharedChildren()->first()->getSharedParents()->first(), $parentTranslation);
+        self::assertEquals($parent->getSharedChildren()->first()->getSharedParents()->first(), $parent);
+        self::assertEquals($parentTranslation->getSharedChildren()->first()->getSharedParents()->first(), $parentTranslation);
     }
 }
