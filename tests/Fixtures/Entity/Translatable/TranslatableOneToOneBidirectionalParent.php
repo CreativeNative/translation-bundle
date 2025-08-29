@@ -19,9 +19,6 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
-    /**
-     * @var mixed
-     */
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'simpleParent',
@@ -29,11 +26,7 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     )]
     private ?TranslatableOneToOneBidirectionalChild $simpleChild = null;
 
-    /**
-     * @var mixed
-     *
-     * @SharedAmongstTranslations()
-     */
+    #[SharedAmongstTranslations]
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'sharedParent',
@@ -41,11 +34,7 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     )]
     private ?TranslatableOneToOneBidirectionalChild $sharedChild = null;
 
-    /**
-     * @var mixed
-     *
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'emptyParent',

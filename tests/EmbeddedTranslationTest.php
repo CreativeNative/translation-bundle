@@ -2,34 +2,36 @@
 
 namespace TMI\TranslationBundle\Test;
 
+use Doctrine\ORM\Exception\ORMException;
+use Doctrine\ORM\OptimisticLockException;
+use LogicException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
+use TMI\TranslationBundle\Fixtures\Entity\Embedded\Address;
+use TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
 
 /**
  * Tests for embedded entities.
  */
-class EmbeddedTranslationTest extends TestCase
+final class EmbeddedTranslationTest extends TestCase
 {
-    const TARGET_LOCALE = 'en';
+    const string TARGET_LOCALE = 'en';
 
-    #[\Override]
-    protected static function createKernel(array $options = []): KernelInterface
-    {
-        return new TestKernel('test', true);
-    }
-
+    /**
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
     public function testItCanTranslateEmbeddedEntity(): void
     {
-        $address = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Address()
+        $address = new Address()
             ->setStreet('13 place Sophie Trébuchet')
             ->setCity('Nantes')
             ->setPostalCode('44000')
             ->setCountry('France')
         ;
-        $entity  = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable()
-            ->setAddress($address)
+        $entity  = new Translatable()
             ->setLocale('en')
-        ;
+            ->setAddress($address);
 
         $this->entityManager->persist($entity);
 
@@ -42,22 +44,25 @@ class EmbeddedTranslationTest extends TestCase
         $this->assertEquals($entity->getAddress(), $trans->getAddress());
     }
 
+    /**
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
     public function testItCanEmptyEmbeddedEntity(): void
     {
-        $address = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Address()
+        $address = new Address()
             ->setStreet('13 place Sophie Trébuchet')
             ->setCity('Nantes')
             ->setPostalCode('44000')
             ->setCountry('France')
         ;
-        $entity  = new \TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable()
-            ->setEmptyAddress($address)
+        $entity  = new Translatable()
             ->setLocale('en')
-        ;
+            ->setEmptyAddress($address);
 
         $this->entityManager->persist($entity);
 
-        /** @var \TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable $trans */
+        /** @var Translatable $trans */
         $trans = $this->translator->translate($entity, self::TARGET_LOCALE);
 
         $this->entityManager->persist($trans);

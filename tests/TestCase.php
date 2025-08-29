@@ -16,11 +16,16 @@ class TestCase extends KernelTestCase
 
     protected EntityManagerInterface|null $entityManager = null;
 
+    /** @var callable|null */
+    private $previousExceptionHandler;
+
     /**
      * {@inheritDoc}
      */
     protected function setUp(): void
     {
+        $this->previousExceptionHandler = set_exception_handler(null);
+
         parent::setUp();
 
         self::bootKernel();
@@ -57,18 +62,20 @@ class TestCase extends KernelTestCase
             try {
                 $schemaTool->dropSchema($metadata);
             } catch (\Exception $e) {
-                // Ignoriere Fehler wenn keine Tabellen existieren
+
             }
 
             $schemaTool->createSchema($metadata);
-
-            echo "Database schema created successfully.\n";
         }
     }
 
     #[\Override]
     protected function tearDown(): void
     {
+        if ($this->previousExceptionHandler !== null) {
+            set_exception_handler($this->previousExceptionHandler);
+        }
+
         parent::tearDown();
 
         $this->entityManager->clear();

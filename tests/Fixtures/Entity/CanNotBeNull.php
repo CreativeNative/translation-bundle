@@ -18,9 +18,7 @@ class CanNotBeNull implements TranslatableInterface
     #[ORM\Column(type: 'integer')]
     protected ?int $id = null;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\Column(type: 'string')]
     protected ?string $empty_not_nullable = null;
 

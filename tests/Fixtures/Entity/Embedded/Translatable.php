@@ -7,27 +7,22 @@ use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- */
 #[ORM\Entity]
-class Translatable implements TranslatableInterface
+final class Translatable implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    protected ?int $id = null;
+    private ?int $id = null;
 
     #[ORM\Embedded(class: Address::class)]
-    private $address;
+    private Address|null $address;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\Embedded(class: Address::class)]
-    private $emptyAddress;
+    private Address|null $emptyAddress;
 
     public function __construct()
     {
@@ -35,48 +30,29 @@ class Translatable implements TranslatableInterface
         $this->emptyAddress = new Address();
     }
 
-    /**
-     * @return mixed
-     */
-    public function getId()
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return Address
-     */
-    public function getAddress()
+    public function getAddress(): Address|null
     {
         return $this->address;
     }
 
-    /**
-     * @param mixed $address
-     *
-     * @return $this
-     */
-    public function setAddress($address = null)
+    public function setAddress(Address|null $address = null): self
     {
         $this->address = $address;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getEmptyAddress()
+    public function getEmptyAddress(): Address|null
     {
         return $this->emptyAddress;
     }
 
-    /**
-     * @param mixed $emptyAddress
-     *
-     * @return $this
-     */
-    public function setEmptyAddress($emptyAddress = null)
+    public function setEmptyAddress(Address|null $emptyAddress = null): self
     {
         $this->emptyAddress = $emptyAddress;
 

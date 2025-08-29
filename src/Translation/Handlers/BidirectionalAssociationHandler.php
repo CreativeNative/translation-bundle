@@ -2,7 +2,6 @@
 
 namespace TMI\TranslationBundle\Translation\Handlers;
 
-use Doctrine\Common\Annotations\Reader;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
@@ -16,7 +15,11 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  */
 class BidirectionalAssociationHandler implements TranslationHandlerInterface
 {
-    public function __construct(private readonly EntityManagerInterface $em, private readonly PropertyAccessor $propertyAccessor, private readonly AttributeHelper $attributeHelper)
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly PropertyAccessor       $propertyAccessor,
+        private readonly AttributeHelper        $attributeHelper
+    )
     {
     }
 
@@ -42,14 +45,14 @@ class BidirectionalAssociationHandler implements TranslationHandlerInterface
         if (true === $this->attributeHelper->isOneToOne($args->getProperty())) {
             $data = $args->getDataToBeTranslated();
             $message =
-                '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
-                'amongst translations. Either remove the @SharedAmongstTranslation '.
+                '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared ' .
+                'amongst translations. Either remove the @SharedAmongstTranslation ' .
                 'annotation or choose another association type.';
 
             throw new \ErrorException(
                 strtr($message, [
                     '%class%' => $data::class,
-                    '%prop%'  => $args->getProperty()->name,
+                    '%prop%' => $args->getProperty()->name,
                 ])
             );
         }

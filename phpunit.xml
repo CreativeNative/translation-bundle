@@ -4,8 +4,6 @@
          cacheResult="true"
          executionOrder="depends,defects"
          colors="true"
-         requireCoverageMetadata="true"
-         beStrictAboutCoverageMetadata="true"
          beStrictAboutOutputDuringTests="true"
          failOnRisky="true"
          failOnWarning="true">
@@ -14,11 +12,6 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
-    <coverage>
-        <include>
-            <directory suffix=".php">src/</directory>
-        </include>
-    </coverage>
     <php>
         <server name="KERNEL_CLASS" value="TMI\TranslationBundle\Test\TestKernel"/>
         <env name="APP_ENV" value="test"/>

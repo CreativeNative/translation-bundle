@@ -24,16 +24,12 @@ final class TranslatableManyToOne implements TranslatableInterface
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $simple = null;
 
-    /**
-     * @SharedAmongstTranslations()
-     */
+    #[SharedAmongstTranslations]
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $shared = null;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $empty = null;

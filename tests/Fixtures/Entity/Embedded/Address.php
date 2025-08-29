@@ -5,7 +5,7 @@ namespace  TMI\TranslationBundle\Fixtures\Entity\Embedded;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Embeddable]
-class Address
+final class Address
 {
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $street = null;
@@ -19,80 +19,48 @@ class Address
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $country = null;
 
-    /**
-     * @return mixed
-     */
-    public function getStreet()
+        public function getStreet(): ?string
     {
         return $this->street;
     }
 
-    /**
-     * @param mixed $street
-     *
-     * @return $this
-     */
-    public function setStreet($street = null)
+    public function setStreet(?string $street = null): self
     {
         $this->street = $street;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getPostalCode()
+    public function getPostalCode(): ?string
     {
         return $this->postalCode;
     }
 
-    /**
-     * @param mixed $postalCode
-     *
-     * @return $this
-     */
-    public function setPostalCode($postalCode = null)
+    public function setPostalCode(?string $postalCode = null): self
     {
         $this->postalCode = $postalCode;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getCity()
+    public function getCity(): ?string
     {
         return $this->city;
     }
 
-    /**
-     * @param mixed $city
-     *
-     * @return $this
-     */
-    public function setCity($city = null)
+    public function setCity(?string $city = null): self
     {
         $this->city = $city;
 
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getCountry()
+    public function getCountry(): ?string
     {
         return $this->country;
     }
 
-    /**
-     * @param mixed $country
-     *
-     * @return $this
-     */
-    public function setCountry($country = null)
+    public function setCountry(?string $country = null): self
     {
         $this->country = $country;
 

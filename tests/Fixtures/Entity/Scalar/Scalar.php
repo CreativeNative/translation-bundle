@@ -22,15 +22,11 @@ final class Scalar implements TranslatableInterface
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $title = null;
 
-    /**
-     * @SharedAmongstTranslations()
-     */
+    #[SharedAmongstTranslations]
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $shared = null;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $empty = null;
 

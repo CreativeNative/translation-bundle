@@ -27,9 +27,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[ORM\JoinColumn(nullable: true)]
     private ?Scalar $simple = null;
 
-    /**
-     * @SharedAmongstTranslations()
-     */
+    #[SharedAmongstTranslations]
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
         cascade: ['persist']
@@ -37,9 +35,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[ORM\JoinColumn(name: 'shared_id')]
     private ?Scalar $shared = null;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
         cascade: ['persist']

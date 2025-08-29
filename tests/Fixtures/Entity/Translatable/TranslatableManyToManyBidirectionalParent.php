@@ -26,9 +26,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
     private iterable $simpleChildren;
 
-    /**
-     * @EmptyOnTranslate()
-     */
+    #[EmptyOnTranslate]
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
@@ -36,9 +34,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     )]
     private iterable $emptyChildren;
 
-    /**
-     * @SharedAmongstTranslations()
-     */
+    #[SharedAmongstTranslations]
     #[ORM\ManyToMany(
         targetEntity: ManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',

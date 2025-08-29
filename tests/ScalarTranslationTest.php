@@ -4,7 +4,7 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use Symfony\Component\HttpKernel\KernelInterface;
+use LogicException;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -14,12 +14,6 @@ use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
  */
 class ScalarTranslationTest extends TestCase
 {
-    #[\Override]
-    public static function createKernel(array $options = []): KernelInterface
-    {
-        return new TestKernel('test', true);
-    }
-
     /**
      * @throws OptimisticLockException
      * @throws ORMException
@@ -77,16 +71,22 @@ class ScalarTranslationTest extends TestCase
      */
     public function testItCanNotEmptyNotNullableScalarValueOnTranslate(): void
     {
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
 
-        $entity = new CanNotBeNull()->setEmptyNotNullable('Empty not nullable attribute');
+        $entity = new CanNotBeNull()
+            ->setLocale('en')
+            ->setEmptyNotNullable('Empty not nullable attribute');
 
         $this->entityManager->persist($entity);
-        $translation = $this->translator->translate($entity, 'fr');
+        $translation = $this->translator->translate($entity, 'en');
 
         $this->entityManager->flush();
 
-//        $this->assertObjectHasAttribute('empty_not_nullable', $translation);
+        $this->assertTrue(
+            property_exists($translation, 'empty_not_nullable'),
+            'Property "empty_not_nullable" not found in translation object'
+        );
+        $this->assertNotNull($translation->getEmptyNotNullable());
         $this->assertNotEmpty($translation->getEmptyNotNullable());
         $this->assertIsTranslation($entity, $translation);
     }
