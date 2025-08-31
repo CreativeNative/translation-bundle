@@ -1,17 +1,22 @@
 services:
-    TMI\TranslationBundle\Translation\EntityTranslator: '@tmi_translation.translation.entity_translator'
-
-    tmi_translation.translation.entity_translator:
+    # EntityTranslator
+    TMI\TranslationBundle\Translation\EntityTranslator:
         class: TMI\TranslationBundle\Translation\EntityTranslator
         arguments:
-            - '%tmi_translation.locales%'
-            - '@event_dispatcher'
-            - '@tmi_translation.utils.attribute_helper'
-        public: true # This is just for testing purpose
+            $defaultLocale: '%tmi_translation.default_locale%'
+            $locales: '%tmi_translation.locales%'
+            $eventDispatcher: '@event_dispatcher'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+        public: true
+        autowire: true
+
+    tmi_translation.translation.entity_translator:
+        alias: TMI\TranslationBundle\Translation\EntityTranslator
 
     # Utils
     tmi_translation.utils.attribute_helper:
         class: TMI\TranslationBundle\Utils\AttributeHelper
+        public: true
 
     # Translation Handlers
     ## Embedded
@@ -34,12 +39,12 @@ services:
     ## Bidirectional OneToMany (parent)
     tmi_translation.translation_handlers.bidirectional_one_to_many_handler:
         class: TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler
-        tags:
-            - { name: tmi_translation.translation_handler, priority: 30 }
         arguments:
             - '@tmi_translation.utils.attribute_helper'
             - '@tmi_translation.translation.entity_translator'
             - '@doctrine.orm.entity_manager'
+        tags:
+            - { name: tmi_translation.translation_handler, priority: 30 }
 
     ## Bidirectional ManyToOne (children)
     tmi_translation.translation_handlers.bidirectional_many_to_one_handler:
@@ -107,32 +112,19 @@ services:
         tags:
             - { name: tmi_translation.translation_handler, priority: 100 }
 
+    # Twig
     tmi_translation.twig.tmi_translation_extension:
-        class: TMI\TranslationBundle\Twig\TMITranslationExtension
+        class: TMI\TranslationBundle\Twig\TmiTranslationExtension
         arguments: ['%tmi_translation.locales%']
         tags:
             - { name: twig.extension }
 
-    tmi_translation.doctrine.event_subscriber.translatable_event_subscriber:
-        class: TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
-        lazy: true
-        arguments:
-            - '%tmi_translation.default_locale%'
-        calls:
-            - { method: 'setEntityTranslator', arguments: ['@tmi_translation.translation.entity_translator'] }
-        tags:
-            - { name: doctrine.event_subscriber }
-
+    # Event Subscriber
     tmi_translation.event_subscriber.locale_filter_configurator:
         class: TMI\TranslationBundle\EventSubscriber\LocaleFilterConfigurator
         arguments:
             - '@doctrine.orm.entity_manager'
-        tags:
-            - { name: kernel.event_subscriber }
-
-    tmi_translation.event_subscriber.easy_admin_action_customisation_subscriber:
-        class: TMI\TranslationBundle\EventSubscriber\EasyAdminActionCustomisationSubscriber
-        arguments:
-            - '@doctrine.orm.entity_manager'
+            - '%tmi_translation.disabled_firewalls%'
+            - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }

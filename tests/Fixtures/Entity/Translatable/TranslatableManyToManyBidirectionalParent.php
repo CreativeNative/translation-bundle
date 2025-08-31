@@ -23,14 +23,18 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     /**
      * @var ArrayCollection
      */
-    #[ORM\ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalChild::class,
+        mappedBy: 'simpleParents',
+        cascade: ['persist'],
+    )]
     private iterable $simpleChildren;
 
     #[EmptyOnTranslate]
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
-        cascade: ['persist'],
+        cascade: ['persist']
     )]
     private iterable $emptyChildren;
 

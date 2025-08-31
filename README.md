@@ -29,7 +29,7 @@ Configure your available locales and, optionally, the default one:
 ```yaml
 tmi_translation:
   locales: [en, fr, ja]
-  default_locale: en
+  # default_locale: en is optional, otherwise kernel.default_locale is used
 ```
 
 That's it!

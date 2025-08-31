@@ -21,6 +21,8 @@ final class ScalarTranslationTest extends TestCase
     {
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'en');
+
+        $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         self::assertTrue(property_exists($translation, 'title'), 'Object does not have the expected property "title".');
@@ -63,6 +65,7 @@ final class ScalarTranslationTest extends TestCase
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'en');
 
+        $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         self::assertObjectHasProperty('empty', $translation);

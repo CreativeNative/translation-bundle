@@ -8,7 +8,9 @@ use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
 class TranslatableEntityHandler implements TranslationHandlerInterface
 {
-    public function __construct(protected EntityManagerInterface $em, protected DoctrineObjectHandler $doctrineObjectHandler)
+    public function __construct(
+        protected EntityManagerInterface $em,
+        protected DoctrineObjectHandler $doctrineObjectHandler)
     {
     }
 
@@ -50,8 +52,6 @@ class TranslatableEntityHandler implements TranslationHandlerInterface
         );
 
         $clone->setLocale($args->getTargetLocale());
-
-        $this->em->persist($clone);
 
         return $clone;
     }

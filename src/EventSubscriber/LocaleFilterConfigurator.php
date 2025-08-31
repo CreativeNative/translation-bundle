@@ -15,7 +15,11 @@ use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
  */
 class LocaleFilterConfigurator implements EventSubscriberInterface
 {
-    public function __construct(private readonly EntityManagerInterface $em, private readonly array $disabledFirewalls, private readonly ?FirewallMap $firewallMap = null)
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly array $disabledFirewalls,
+        private readonly ?FirewallMap $firewallMap = null
+    )
     {
     }
 

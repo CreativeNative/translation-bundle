@@ -1,38 +1,45 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TMI\TranslationBundle\Translation;
 
+use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
-class EntityTranslator
+final class EntityTranslator implements EntityTranslatorInterface
 {
-    protected array $handlers;
+    /** @var TranslationHandlerInterface[] */
+    private array $handlers = [];
 
     public function __construct(
-        protected array $locales,
-        protected EventDispatcherInterface $eventDispatcher,
-        private readonly AttributeHelper $attributeHelper)
+        #[Autowire(param: 'tmi_translation.default_locale')]
+        private readonly string                   $defaultLocale,
+        private readonly array                    $locales,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly AttributeHelper          $attributeHelper
+    )
     {
     }
 
     /**
-     * Translates a given entity
+     * Translate an entity to a target locale.
      */
-    public function translate(TranslatableInterface $data, string $locale)
+    public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
-        return $this->processTranslation(new TranslationArgs($data, $data->getLocale(), $locale));
+        return $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
     }
 
-
     /**
-     * Processes the translation
+     * Process the translation via handlers.
      */
-    public function processTranslation(TranslationArgs $args)
+    public function processTranslation(TranslationArgs $args): mixed
     {
         foreach ($this->handlers as $handler) {
             if ($handler->supports($args)) {
@@ -43,35 +50,53 @@ class EntityTranslator
 
                     if ($this->attributeHelper->isEmptyOnTranslate($args->getProperty())) {
                         if (!$this->attributeHelper->isNullable($args->getProperty())) {
-                            throw new LogicException(
-                                sprintf(
-                                    'The property %s::%s can not use the EmptyOnTranslate attribute because it is not nullable.',
-                                    $args->getProperty()->class,
-                                    $args->getProperty()->name
-                                )
-                            );
+                            throw new LogicException(sprintf(
+                                'The property %s::%s cannot use EmptyOnTranslate because it is not nullable.',
+                                $args->getProperty()->class,
+                                $args->getProperty()->name
+                            ));
                         }
-
                         return $handler->handleEmptyOnTranslate($args);
                     }
                 }
-
                 return $handler->translate($args);
             }
         }
-
         return $args->getDataToBeTranslated();
     }
 
     /**
-     * Service call
+     * Register a handler.
      */
-    public function addTranslationHandler(TranslationHandlerInterface $handler, $priority = null): void
+    public function addTranslationHandler(TranslationHandlerInterface $handler, ?int $priority = null): void
     {
         if (null === $priority) {
             $this->handlers[] = $handler;
         } else {
             $this->handlers[$priority] = $handler;
         }
+    }
+
+    // --- EntityTranslatorInterface Hooks ---
+
+    public function afterLoad(TranslatableInterface $entity): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
+    {
+        // Optional cleanup or handler logic
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 }

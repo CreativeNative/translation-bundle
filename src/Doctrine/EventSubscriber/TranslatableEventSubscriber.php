@@ -1,47 +1,30 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TMI\TranslationBundle\Doctrine\EventSubscriber;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
-use Doctrine\ORM\Event\PostPersistEventArgs;
-use Doctrine\ORM\Event\PostRemoveEventArgs;
-use Doctrine\ORM\Event\PostUpdateEventArgs;
-use Doctrine\ORM\Event\PrePersistEventArgs;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Events;
-use Doctrine\ORM\Mapping\MappingException;
-use Doctrine\Persistence\Event\LifecycleEventArgs;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 
-#[AsDoctrineListener(event: Events::prePersist)]
-#[AsDoctrineListener(event: Events::postPersist)]
-#[AsDoctrineListener(event: Events::postUpdate)]
-#[AsDoctrineListener(event: Events::postRemove)]
-class TranslatableEventSubscriber
+#[AsDoctrineListener(event: Events::postLoad)]
+#[AsDoctrineListener(event: Events::onFlush)]
+final class TranslatableEventSubscriber
 {
-    private array $entitiesToUpdate = [];
-    private array $entitiesToDelete = [];
-
-    public function prePersist(PrePersistEventArgs $args): void
-    {
-        $this->setDefaultValues($args);
+    public function __construct(
+        #[Autowire(param: 'tmi_translation.default_locale')]
+        private readonly string $defaultLocale,
+        private readonly EntityTranslatorInterface $entityTranslator,
+    ) {
     }
 
-    public function postPersist(PostPersistEventArgs $args): void
-    {
-        $this->updateTranslations($args);
-    }
-
-    public function postUpdate(PostUpdateEventArgs $args): void
-    {
-        $this->updateTranslations($args);
-    }
-
-    public function postRemove(PostRemoveEventArgs $args): void
-    {
-        $this->removeAllTranslations($args);
-    }
-
-    private function setDefaultValues(LifecycleEventArgs $args): void
+    public function postLoad(PostLoadEventArgs $args): void
     {
         $entity = $args->getObject();
 
@@ -49,91 +32,39 @@ class TranslatableEventSubscriber
             return;
         }
 
-        $objectManager = $args->getObjectManager();
-
-        if (null === $entity->getTuuid()) {
-            $entity->setTuuid($this->generateUuid());
+        if (null === $entity->getLocale() || '' === $entity->getLocale()) {
+            $entity->setLocale($this->defaultLocale);
         }
 
-        if (null === $entity->getLocale()) {
-            $entity->setLocale($this->getDefaultLocale());
-        }
-
-        $this->entitiesToUpdate[] = $entity;
+        $this->entityTranslator->afterLoad($entity);
     }
 
-    private function removeAllTranslations(LifecycleEventArgs $args): void
+    public function onFlush(OnFlushEventArgs $args): void
     {
-        $entity = $args->getObject();
+        $em  = $args->getObjectManager();
+        \assert($em instanceof EntityManagerInterface);
+        $uow = $em->getUnitOfWork();
 
-        if (!$entity instanceof TranslatableInterface) {
-            return;
-        }
-
-        $this->entitiesToDelete[] = $entity;
-    }
-
-    /**
-     * @throws MappingException
-     */
-    private function updateTranslations(LifecycleEventArgs $args): void
-    {
-        $entity = $args->getObject();
-
-        if (!$entity instanceof TranslatableInterface) {
-            return;
-        }
-
-        if ($this->entitiesToUpdate === []) {
-            return;
-        }
-
-        foreach ($this->entitiesToUpdate as $key => $entityToUpdate) {
-            if ($entityToUpdate === $entity) {
-                unset($this->entitiesToUpdate[$key]);
-                $this->synchronizeTranslatableSharedField($args);
-                break;
+        foreach ($uow->getScheduledEntityInsertions() as $entity) {
+            if ($entity instanceof TranslatableInterface) {
+                $this->entityTranslator->beforePersist($entity, $em);
+                $meta = $em->getClassMetadata($entity::class);
+                $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
         }
-    }
 
-    /**
-     * @throws MappingException
-     */
-    private function synchronizeTranslatableSharedField(LifecycleEventArgs $args): void
-    {
-        $entity = $args->getObject();
-
-        if (!$entity instanceof TranslatableInterface) {
-            return;
-        }
-
-        $objectManager = $args->getObjectManager();
-        $classMetadata = $objectManager->getClassMetadata(get_class($entity));
-        $fieldNames = $classMetadata->getFieldNames();
-
-        foreach ($fieldNames as $fieldName) {
-            $fieldMapping = $classMetadata->getFieldMapping($fieldName);
-            if (isset($fieldMapping['options']['translatable']) && $fieldMapping['options']['translatable'] === true) {
-                $getter = 'get' . ucfirst($fieldName);
-                $setter = 'set' . ucfirst($fieldName);
-                if (method_exists($entity, $getter) && method_exists($entity, $setter)) {
-                    // @phpstan-ignore-next-line method.dynamicName
-                    $value = $entity->{$getter}();
-                    // @phpstan-ignore-next-line method.dynamicName
-                    $entity->{$setter}($value);
-                }
+        foreach ($uow->getScheduledEntityUpdates() as $entity) {
+            if ($entity instanceof TranslatableInterface) {
+                $this->entityTranslator->beforeUpdate($entity, $em);
+                $meta = $em->getClassMetadata($entity::class);
+                $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
         }
-    }
 
-    private function generateUuid(): string
-    {
-        return uniqid('', true);
-    }
-
-    private function getDefaultLocale(): string
-    {
-        return 'en';
+        foreach ($uow->getScheduledEntityDeletions() as $entity) {
+            if ($entity instanceof TranslatableInterface) {
+                $this->entityTranslator->beforeRemove($entity, $em);
+            }
+        }
     }
 }
