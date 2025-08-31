@@ -38,6 +38,4 @@ final class CanNotBeNull implements TranslatableInterface
     {
         return $this->emptyNotNullable;
     }
-
-
 }

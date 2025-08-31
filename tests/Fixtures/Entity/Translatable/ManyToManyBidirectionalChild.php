@@ -17,7 +17,8 @@ final class ManyToManyBidirectionalChild
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'sharedChildren',
-        cascade: ['persist'])]
+        cascade: ['persist']
+    )]
     #[ORM\JoinTable(name: 'shared_parent')]
     private iterable $sharedParents;
 

@@ -12,7 +12,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
  */
 final class EmbeddedTranslationTest extends TestCase
 {
-    const string TARGET_LOCALE = 'en';
+    public const string TARGET_LOCALE = 'en';
 
     /**
      * @throws OptimisticLockException

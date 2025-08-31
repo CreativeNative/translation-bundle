@@ -19,7 +19,7 @@ class SingletonSubscriber implements EventSubscriberInterface
     /**
      * Called to check if a singleton is unique per language.
      */
-    public function onFilterEvent(FilterSingletonEvent $event)
+    public function onFilterEvent(FilterSingletonEvent $event): void
     {
         $entity  = $event->getEntity();
         $filters = $event->getFilters();

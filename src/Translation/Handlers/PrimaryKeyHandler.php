@@ -8,7 +8,7 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of primary keys.
  */
-class PrimaryKeyHandler implements TranslationHandlerInterface
+final class PrimaryKeyHandler implements TranslationHandlerInterface
 {
     public function __construct(private readonly AttributeHelper $attributeHelper)
     {
@@ -19,17 +19,17 @@ class PrimaryKeyHandler implements TranslationHandlerInterface
         return null !== $args->getProperty() && $this->attributeHelper->isId($args->getProperty());
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    public function handleSharedAmongstTranslations(TranslationArgs $args): null
     {
         return null;
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args)
+    public function handleEmptyOnTranslate(TranslationArgs $args): null
     {
         return null;
     }
 
-    public function translate(TranslationArgs $args)
+    public function translate(TranslationArgs $args): null
     {
         return null;
     }

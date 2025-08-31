@@ -7,6 +7,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\PersistentCollection;
+use ReflectionException;
+use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslator;
 use TMI\TranslationBundle\Utils\AttributeHelper;
@@ -14,10 +16,13 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Used for ManyToMany unidirectional association.
  */
-class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
+final class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
-    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityTranslator $translator, private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly AttributeHelper $attributeHelper,
+        private readonly EntityTranslator $translator,
+        private readonly EntityManagerInterface $em
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -29,8 +34,10 @@ class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
         if ($args->getProperty() && $this->attributeHelper->isManyToMany($args->getProperty())) {
             $arguments = $args->getProperty()->getAttributes(ManyToMany::class)[0]->getArguments();
 
-            if ((array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy']) ||
-                (array_key_exists('inversedBy', $arguments) && null !== $arguments['inversedBy'])) {
+            if (
+                (array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy']) ||
+                (array_key_exists('inversedBy', $arguments) && null !== $arguments['inversedBy'])
+            ) {
                 return true;
             }
         }
@@ -38,17 +45,23 @@ class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
         return false;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    /**
+     * @throws ReflectionException
+     */
+    public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
     {
         return $this->translate($args);
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args)
+    public function handleEmptyOnTranslate(TranslationArgs $args): null
     {
         return new ArrayCollection();
     }
 
-    public function translate(TranslationArgs $args)
+    /**
+     * @throws ReflectionException
+     */
+    public function translate(TranslationArgs $args): Collection
     {
         $newOwner = $args->getTranslatedParent();
 
@@ -57,17 +70,20 @@ class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
         $association = $associations[$args->getProperty()->name];
         $fieldName = $association['fieldName'];
 
-        $reflection = new \ReflectionProperty($newOwner::class, $fieldName);
-
-        /** @var PersistentCollection $collection */
+        $reflection = new ReflectionProperty($newOwner::class, $fieldName);
         $collection = $reflection->getValue($newOwner);
 
+        // Assert type at runtime
+        assert($collection instanceof PersistentCollection);
+
+        // Clear collection
         foreach ($collection as $key => $item) {
             $collection->remove($key);
         }
 
-        foreach ($args->getDataToBeTranslated() as $itemtoBeTranslated) {
-            $itemTrans = $this->translator->translate($itemtoBeTranslated, $args->getTargetLocale());
+        // Translate and re-add items
+        foreach ($args->getDataToBeTranslated() as $itemToBeTranslated) {
+            $itemTrans = $this->translator->translate($itemToBeTranslated, $args->getTargetLocale());
 
             if (!$collection->contains($itemTrans)) {
                 $collection->add($itemTrans);

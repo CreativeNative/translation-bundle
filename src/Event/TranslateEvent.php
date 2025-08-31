@@ -29,8 +29,7 @@ class TranslateEvent extends Event
          * The translated entity.
          */
         protected ?object $translatedEntity = null
-    )
-    {
+    ) {
     }
 
     public function getSourceEntity(): object

@@ -42,9 +42,7 @@ class AttributeHelper
     /**
      * Defines if the property is a OneToOne relation
      *
-     * @param ReflectionProperty $property
      *
-     * @return bool
      */
     public function isOneToOne(ReflectionProperty $property): bool
     {

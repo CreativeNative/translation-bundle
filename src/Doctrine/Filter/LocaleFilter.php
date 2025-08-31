@@ -5,6 +5,7 @@ namespace TMI\TranslationBundle\Doctrine\Filter;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Filter\SQLFilter;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+
 use function in_array;
 
 /**

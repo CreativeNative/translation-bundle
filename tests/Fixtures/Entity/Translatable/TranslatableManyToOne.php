@@ -77,5 +77,4 @@ final class TranslatableManyToOne implements TranslatableInterface
 
         return $this;
     }
-
 }

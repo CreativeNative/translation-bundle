@@ -28,7 +28,7 @@ class TranslatableOneToOneBidirectionalTest extends TestCase
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
-        self::assertIsTranslation($parent, $parentTranslation,  self::TARGET_LOCALE);
+        self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
         self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
     }
 

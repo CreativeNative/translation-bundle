@@ -14,8 +14,7 @@ class TranslationArgs
         protected mixed $dataToBeTranslated,
         protected string $sourceLocale,
         protected string $targetLocale
-     )
-    {
+    ) {
     }
 
     /**

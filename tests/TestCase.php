@@ -64,7 +64,6 @@ class TestCase extends KernelTestCase
             try {
                 $schemaTool->dropSchema($metadata);
             } catch (Exception) {
-
             }
 
             $schemaTool->createSchema($metadata);
@@ -75,8 +74,7 @@ class TestCase extends KernelTestCase
         TranslatableInterface $source,
         TranslatableInterface $translation,
         string $targetLocale
-    ): void
-    {
+    ): void {
         self::assertEquals($targetLocale, $translation->getLocale());
         self::assertEquals($source->getTuuid(), $translation->getTuuid());
         self::assertNotSame(spl_object_hash($source), spl_object_hash($translation));

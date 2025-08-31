@@ -6,7 +6,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use Doctrine\ORM\Mapping\OneToMany;
+use ReflectionException;
+use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslator;
 use TMI\TranslationBundle\Utils\AttributeHelper;
@@ -14,13 +15,13 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Collection handler, used for ManyToMany bidirectional association.
  */
-class CollectionHandler implements TranslationHandlerInterface
+final class CollectionHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private readonly AttributeHelper $attributeHelper,
         private readonly EntityManagerInterface $em,
-        private readonly EntityTranslator $translator)
-    {
+        private readonly EntityTranslator $translator
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -31,42 +32,37 @@ class CollectionHandler implements TranslationHandlerInterface
 
         if ($args->getProperty() && $this->attributeHelper->isManyToMany($args->getProperty())) {
             $arguments = $args->getProperty()->getAttributes(ManyToMany::class)[0]->getArguments();
-
-            if (array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy']) {
-                return true;
-            }
+            return array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy'];
         }
 
         return false;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    /**
+     * @throws ReflectionException
+     */
+    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        /** @var Collection $collection */
         $collection = $args->getDataToBeTranslated();
+        assert($collection instanceof Collection);
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
 
-        // Get the owner's "mappedBy"
         $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $mappedBy = $association['mappedBy'];
 
-        // Iterate through collection and set
-        // their owner to $newOwner
         foreach ($newCollection as $key => $item) {
-            $reflection = new \ReflectionProperty($item::class, $mappedBy);
+            $reflection = new ReflectionProperty($item::class, $mappedBy);
 
-            // Translate the item
-            $subTranslationArgs =
-                new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale())
-                    ->setTranslatedParent($newOwner)
-                    ->setProperty($reflection)
-            ;
+            $subTranslationArgs = new TranslationArgs(
+                $item,
+                $args->getSourceLocale(),
+                $args->getTargetLocale()
+            )->setTranslatedParent($newOwner)
+                ->setProperty($reflection);
 
             $itemTrans = $this->translator->processTranslation($subTranslationArgs);
-
-            // Set the translated item new owner
             $reflection->setValue($itemTrans, new ArrayCollection([$newOwner]));
             $newCollection[$key] = $itemTrans;
         }
@@ -74,38 +70,30 @@ class CollectionHandler implements TranslationHandlerInterface
         return $newCollection;
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args)
+    public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
     {
         return new ArrayCollection([]);
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
-    public function translate(TranslationArgs $args)
+    public function translate(TranslationArgs $args): mixed
     {
-        /** @var Collection $collection */
         $collection = $args->getDataToBeTranslated();
+        assert($collection instanceof Collection);
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
 
-        // Get the owner's "mappedBy"
         $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
         $mappedBy = $association['mappedBy'];
 
-        // Iterate through collection and set
-        // their owner owner to $newOwner
         foreach ($newCollection as $key => $item) {
-            $reflection = new \ReflectionProperty($item::class, $mappedBy);
+            $reflection = new ReflectionProperty($item::class, $mappedBy);
 
-            // Set item's owner to null
             $reflection->setValue($item, new ArrayCollection([]));
-
-            // Translate the item
             $itemTrans = $this->translator->translate($item, $args->getTargetLocale());
-
-            // Set the translated item new owner
             $reflection->setValue($itemTrans, new ArrayCollection([$newOwner]));
             $newCollection[$key] = $itemTrans;
         }

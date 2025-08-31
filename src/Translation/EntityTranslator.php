@@ -20,12 +20,11 @@ final class EntityTranslator implements EntityTranslatorInterface
 
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
-        private readonly string                   $defaultLocale,
-        private readonly array                    $locales,
+        private readonly string $defaultLocale,
+        private readonly array $locales,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly AttributeHelper          $attributeHelper
-    )
-    {
+        private readonly AttributeHelper $attributeHelper
+    ) {
     }
 
     /**

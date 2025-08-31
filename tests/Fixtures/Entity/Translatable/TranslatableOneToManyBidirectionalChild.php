@@ -45,5 +45,4 @@ final class TranslatableOneToManyBidirectionalChild implements TranslatableInter
 
         return $this;
     }
-
 }

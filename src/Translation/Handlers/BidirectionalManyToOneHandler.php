@@ -4,6 +4,7 @@ namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToOne;
+use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslator;
@@ -12,10 +13,14 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of ManyToOne relations.
  */
-class BidirectionalManyToOneHandler implements TranslationHandlerInterface
+final class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
-    public function __construct(private readonly AttributeHelper $attributeHelper, private readonly EntityManagerInterface $em, private readonly PropertyAccessorInterface $propertyAccessor, private readonly EntityTranslator $translator)
-    {
+    public function __construct(
+        private readonly AttributeHelper $attributeHelper,
+        private readonly EntityManagerInterface $em,
+        private readonly PropertyAccessorInterface $propertyAccessor,
+        private readonly EntityTranslator $translator
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -31,15 +36,18 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
         return false;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args): never
+    /**
+     * @throws ErrorException
+     */
+    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
         $data = $args->getDataToBeTranslated();
         $message =
-            '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
-            'amongst translations. Either remove the @SharedAmongstTranslation '.
+            '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared ' .
+            'amongst translations. Either remove the @SharedAmongstTranslation ' .
             'annotation or choose another association type.';
 
-        throw new \ErrorException(
+        throw new ErrorException(
             strtr($message, [
                 '%class%' => $data::class,
                 '%prop%'  => $args->getProperty()->name,
@@ -47,18 +55,16 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
         );
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args)
+    public function handleEmptyOnTranslate(TranslationArgs $args): null
     {
         return null;
     }
 
-    public function translate(TranslationArgs $args)
+    public function translate(TranslationArgs $args): mixed
     {
-        // $data is the child association
         $clone = clone $args->getDataToBeTranslated();
         $parentFieldName = null;
 
-        // Get the correct parent association with the fieldName
         $fieldName = $args->getProperty()->name;
         $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
 
@@ -68,16 +74,12 @@ class BidirectionalManyToOneHandler implements TranslationHandlerInterface
             }
         }
 
-        if (null !== $parentFieldName) {
+        if ($parentFieldName !== null) {
             $clone->setLocale($args->getTargetLocale());
-
-            // Set the invertedAssociation with the clone parent.
             $this->propertyAccessor->setValue($clone, $parentFieldName, $args->getTranslatedParent());
-
             return $clone;
         }
 
-        // If no parent field is found, were in the parent, translate it rather than the child.
         return $this->translator->translate($args->getDataToBeTranslated(), $args->getTargetLocale());
     }
 }

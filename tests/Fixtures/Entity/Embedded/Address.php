@@ -19,7 +19,7 @@ final class Address
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $country = null;
 
-        public function getStreet(): ?string
+    public function getStreet(): ?string
     {
         return $this->street;
     }

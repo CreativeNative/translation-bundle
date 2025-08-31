@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\DependencyInjection\Extension;
  */
 class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
-    public function load(array $configs, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
@@ -25,13 +25,13 @@ class TmiTranslationExtension extends Extension implements PrependExtensionInter
         $container->setParameter($rootName, $config);
         $this->setConfigAsParameters($container, $config, $rootName);
 
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yaml');
     }
 
-    public function prepend(ContainerBuilder $container)
+    public function prepend(ContainerBuilder $container): void
     {
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
 
         if ($container->hasExtension('tmi_doctrine_singleton')) {
             $loader->load('doctrine_singleton.yaml');
@@ -41,10 +41,10 @@ class TmiTranslationExtension extends Extension implements PrependExtensionInter
     /**
      * Add config keys as parameters.
      */
-    private function setConfigAsParameters(ContainerBuilder $container, array $params, string $parent)
+    private function setConfigAsParameters(ContainerBuilder $container, array $params, string $parent): void
     {
         foreach ($params as $key => $value) {
-            $name = $parent.'.'.$key;
+            $name = $parent . '.' . $key;
             $container->setParameter($name, $value);
 
             if (is_array($value)) {

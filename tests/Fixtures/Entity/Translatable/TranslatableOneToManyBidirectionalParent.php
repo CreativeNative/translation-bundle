@@ -56,5 +56,4 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
 
         return $this;
     }
-
 }

@@ -9,36 +9,28 @@ interface TranslationHandlerInterface
     /**
      * Defines if the handler supports the data to be translated.
      *
-     * @param TranslationArgs $args
      *
-     * @return bool
      */
     public function supports(TranslationArgs $args): bool;
 
     /**
      * Handles a SharedAmongstTranslations data translation.
      *
-     * @param TranslationArgs $args
      *
-     * @return mixed
      */
-    public function handleSharedAmongstTranslations(TranslationArgs $args);
+    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed;
 
     /**
      * Handles an EmptyOnTranslate data translation.
      *
-     * @param TranslationArgs $args
      *
-     * @return mixed
      */
-    public function handleEmptyOnTranslate(TranslationArgs $args);
+    public function handleEmptyOnTranslate(TranslationArgs $args): mixed;
 
     /**
      * Handles translation.
      *
-     * @param TranslationArgs $args
      *
-     * @return mixed
      */
-    public function translate(TranslationArgs $args);
+    public function translate(TranslationArgs $args): mixed;
 }

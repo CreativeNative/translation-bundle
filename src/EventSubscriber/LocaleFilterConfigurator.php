@@ -19,8 +19,7 @@ class LocaleFilterConfigurator implements EventSubscriberInterface
         private readonly EntityManagerInterface $em,
         private readonly array $disabledFirewalls,
         private readonly ?FirewallMap $firewallMap = null
-    )
-    {
+    ) {
     }
 
     public static function getSubscribedEvents()
@@ -31,9 +30,8 @@ class LocaleFilterConfigurator implements EventSubscriberInterface
     /**
      * Called on each request.
      *
-     * @param RequestEvent $event
      */
-    public function onKernelRequest(RequestEvent $event)
+    public function onKernelRequest(RequestEvent $event): void
     {
         if ($this->em->getFilters()->has('tmi_translation_locale_filter')) {
             if ($this->isDisabledFirewall($event->getRequest())) {

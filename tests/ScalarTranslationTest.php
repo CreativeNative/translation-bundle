@@ -36,7 +36,7 @@ final class ScalarTranslationTest extends TestCase
      *
      * @throws ORMException
      */
-    public function testItCanShareScalarValueAmongstTranslations()
+    public function testItCanShareScalarValueAmongstTranslations(): void
     {
         $entity = $this->createEntity();
         /** @var Scalar $translation */

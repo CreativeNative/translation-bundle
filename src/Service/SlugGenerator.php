@@ -15,6 +15,6 @@ final readonly class SlugGenerator
 
     public function generate(string $text, string $locale): string
     {
-        return strtolower($this->slugger->slug($text,'-', $locale));
+        return strtolower($this->slugger->slug($text, '-', $locale));
     }
 }

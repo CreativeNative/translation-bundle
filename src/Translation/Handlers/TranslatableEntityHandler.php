@@ -3,15 +3,16 @@
 namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
+use ReflectionException;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
-class TranslatableEntityHandler implements TranslationHandlerInterface
+final class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        protected EntityManagerInterface $em,
-        protected DoctrineObjectHandler $doctrineObjectHandler)
-    {
+        private readonly EntityManagerInterface $em,
+        private readonly DoctrineObjectHandler $doctrineObjectHandler
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -19,33 +20,39 @@ class TranslatableEntityHandler implements TranslationHandlerInterface
         return $args->getDataToBeTranslated() instanceof TranslatableInterface;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args)
+    /**
+     * @throws ReflectionException
+     */
+    public function handleSharedAmongstTranslations(TranslationArgs $args): TranslatableInterface
     {
         return $this->translate($args);
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args)
+    public function handleEmptyOnTranslate(TranslationArgs $args): null
     {
         return null;
     }
 
-    public function translate(TranslationArgs $args)
+    /**
+     * @throws ReflectionException
+     */
+    public function translate(TranslationArgs $args): TranslatableInterface
     {
         $data = $args->getDataToBeTranslated();
 
-        // Search in database if the content
-        // exists, otherwise translate it.
+        // Search in database if the content exists, otherwise translate it.
         $existingTranslation = $this->em->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
             'tuuid'  => $data->getTuuid(),
         ]);
 
         if (null !== $existingTranslation) {
+            assert($existingTranslation instanceof TranslatableInterface);
             return $existingTranslation;
         }
 
-        /** @var TranslatableInterface $clone */
-        $clone = clone $args->getDataToBeTranslated();
+        $clone = clone $data;
+        assert($clone instanceof TranslatableInterface);
 
         $this->doctrineObjectHandler->translateProperties(
             new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale())
