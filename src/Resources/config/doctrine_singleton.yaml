@@ -1,5 +1,0 @@
-services:
-    tmi_translation.event_subscriber.doctrine_singleton_filter:
-        class: TMI\TranslationBundle\EventSubscriber\SingletonSubscriber
-        tags:
-            - { name: kernel.event_subscriber }

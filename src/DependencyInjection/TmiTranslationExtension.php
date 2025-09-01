@@ -2,6 +2,7 @@
 
 namespace TMI\TranslationBundle\DependencyInjection;
 
+use Exception;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
@@ -13,8 +14,11 @@ use Symfony\Component\HttpKernel\DependencyInjection\Extension;
  *
  * @see http://symfony.com/doc/current/cookbook/bundles/extension.html
  */
-class TmiTranslationExtension extends Extension implements PrependExtensionInterface
+final class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
+    /**
+     * @throws Exception
+     */
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
@@ -30,13 +34,7 @@ class TmiTranslationExtension extends Extension implements PrependExtensionInter
     }
 
     public function prepend(ContainerBuilder $container): void
-    {
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
-
-        if ($container->hasExtension('tmi_doctrine_singleton')) {
-            $loader->load('doctrine_singleton.yaml');
-        }
-    }
+    {}
 
     /**
      * Add config keys as parameters.
