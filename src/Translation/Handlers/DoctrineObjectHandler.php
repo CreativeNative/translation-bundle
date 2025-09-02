@@ -13,6 +13,7 @@ use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslator;
+
 use function is_object;
 
 /**
@@ -78,7 +79,8 @@ final class DoctrineObjectHandler implements TranslationHandlerInterface
         foreach ($properties as $property) {
             $propValue = $accessor->getValue($translation, $property->name);
 
-            if (empty($propValue) || ($propValue instanceof Collection && $propValue->isEmpty())) {
+            // TODO prior empty($propValue) check value
+            if (($propValue === null) || ($propValue instanceof Collection && $propValue->isEmpty())) {
                 continue;
             }
 

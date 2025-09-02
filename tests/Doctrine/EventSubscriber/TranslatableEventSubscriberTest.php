@@ -8,14 +8,17 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\UnitOfWork;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use stdClass;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 
+/**
+ * @coversDefaultClass \TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
+ */
 final class TranslatableEventSubscriberTest extends TestCase
 {
     private EntityTranslatorInterface&MockObject $translator;
@@ -30,22 +33,78 @@ final class TranslatableEventSubscriberTest extends TestCase
         );
     }
 
-    public function testPostLoadSetsDefaultLocaleAndCallsAfterLoad(): void
+    /**
+     * @covers ::postLoad
+     */
+    public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsNull(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
 
-        $entity->expects($this->once())->method('getLocale')->willReturn(null);
+        $entity->method('getLocale')->willReturn(null);
         $entity->expects($this->once())->method('setLocale')->with('en');
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 
         $em = $this->createMock(EntityManagerInterface::class);
-
         $args = new PostLoadEventArgs($entity, $em);
 
         $this->subscriber->postLoad($args);
     }
 
+    /**
+     * @covers ::postLoad
+     */
+    public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsEmptyString(): void
+    {
+        $entity = $this->createMock(TranslatableInterface::class);
+
+        $entity->method('getLocale')->willReturn('');
+        $entity->expects($this->once())->method('setLocale')->with('en');
+
+        $this->translator->expects($this->once())->method('afterLoad')->with($entity);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $args = new PostLoadEventArgs($entity, $em);
+
+        $this->subscriber->postLoad($args);
+    }
+
+    /**
+     * @covers ::postLoad
+     */
+    public function testPostLoadDoesNotOverrideExistingLocaleButCallsAfterLoad(): void
+    {
+        $entity = $this->createMock(TranslatableInterface::class);
+
+        $entity->method('getLocale')->willReturn('fr');
+        $entity->expects($this->never())->method('setLocale');
+
+        $this->translator->expects($this->once())->method('afterLoad')->with($entity);
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $args = new PostLoadEventArgs($entity, $em);
+
+        $this->subscriber->postLoad($args);
+    }
+
+    /**
+     * @covers ::postLoad
+     */
+    public function testPostLoadIgnoresNonTranslatableEntities(): void
+    {
+        $entity = new stdClass();
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $args = new PostLoadEventArgs($entity, $em);
+
+        $this->translator->expects($this->never())->method('afterLoad');
+
+        $this->subscriber->postLoad($args);
+    }
+
+    /**
+     * @covers ::onFlush
+     */
     public function testOnFlushCallsTranslatorForInsertUpdateDelete(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
@@ -69,10 +128,12 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->translator->expects($this->once())->method('beforeRemove')->with($entity, $em);
 
         $args = new OnFlushEventArgs($em);
-
         $this->subscriber->onFlush($args);
     }
 
+    /**
+     * @covers ::onFlush
+     */
     public function testNonTranslatableEntitiesAreIgnored(): void
     {
         $entity = new stdClass();

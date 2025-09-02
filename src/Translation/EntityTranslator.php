@@ -95,7 +95,7 @@ final class EntityTranslator implements EntityTranslatorInterface
 
     public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
     {
-        // Optional cleanup or handler logic
+        // ToDo: Optional cleanup or handler logic
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 }

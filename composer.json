@@ -45,7 +45,8 @@
         "slevomat/coding-standard": "^8.20",
         "ext-pdo": "*",
         "ext-pdo_sqlite": "*",
-        "ext-sqlite3": "*"
+        "ext-sqlite3": "*",
+        "ext-xdebug": "*"
 
     },
     "minimum-stability": "stable",
@@ -63,15 +64,12 @@
 
     "scripts": {
         "test":  [
-            "Composer\\Config::disableProcessTimeout",
             "vendor/bin/phpunit"
         ],
         "cs-check": [
-            "Composer\\Config::disableProcessTimeout",
             "vendor/bin/phpcs -s"
         ],
         "cs-fix": [
-            "Composer\\Config::disableProcessTimeout",
             "vendor/bin/phpcbf"
         ],
         "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --ansi -vvv",

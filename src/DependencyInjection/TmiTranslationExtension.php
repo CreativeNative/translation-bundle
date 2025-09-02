@@ -34,7 +34,8 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
     }
 
     public function prepend(ContainerBuilder $container): void
-    {}
+    {
+    }
 
     /**
      * Add config keys as parameters.

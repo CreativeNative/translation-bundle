@@ -15,12 +15,12 @@ use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::onFlush)]
-final class TranslatableEventSubscriber
+final readonly class TranslatableEventSubscriber
 {
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
-        private readonly string $defaultLocale,
-        private readonly EntityTranslatorInterface $entityTranslator,
+        private string $defaultLocale,
+        private EntityTranslatorInterface $entityTranslator,
     ) {
     }
 
