@@ -12,9 +12,9 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of one-to-one bidirectional association.
  *
- * @todo Next major release, rename to BidirectionalManyToManyHandler.
+ * Was renamed from BidirectionalAssociationHandler
  */
-final class BidirectionalAssociationHandler implements TranslationHandlerInterface
+final class BidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private readonly EntityManagerInterface $em,

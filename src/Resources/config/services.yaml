@@ -75,7 +75,7 @@ services:
 
     ## Bidirectional ManyToMany
     tmi_translation.translation_handlers.bidirectional_association_handler:
-        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalAssociationHandler
+        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'

@@ -57,7 +57,7 @@ trait TranslatableTrait
         return $this;
     }
 
-    final public function getTranslations(): array
+    final public function &getTranslations(): array
     {
         return $this->translations;
     }
