@@ -3,6 +3,14 @@
 This bundle intends to ease Doctrine entity translations.
 Unlike most translations libraries, every translation is stored in the same table as the source entity.
 
+## ToDo
+
+# ManyToMany associations are not supported with SharedAmongstTranslations yet.
+* UnidirectionalManyToManyHandler behavior is broken.
+* try for fix with tests
+    ** UnidirectionalManyToManyHandlerTest
+    ** TranslatableManyToManyUnidirectionalTest
+
 ## Features
 
 * Add translations without changing existing entities

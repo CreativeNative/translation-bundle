@@ -9,25 +9,28 @@ final class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $builder = new TreeBuilder('tmi_translation');
-        $rootNode = $builder->getRootNode();
+        $treeBuilder = new TreeBuilder('tmi_translation');
+
+        $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
             ->children()
                 ->arrayNode('locales')
-                    ->prototype('scalar')->end()
+                    ->scalarPrototype()->end()
                     ->isRequired()
                     ->requiresAtLeastOneElement()
                 ->end()
                 ->scalarNode('default_locale')
-                    ->defaultValue('%kernel.default_locale%')
+                 ->defaultValue('%kernel.default_locale%')
                 ->end()
-                ->arrayNode('disabled_firewalls')->info('Defines the firewalls where the filter should be disabled (ex: admin)')
-                    ->prototype('scalar')->end()->defaultValue([])
+                ->arrayNode('disabled_firewalls')
+                    ->info('Defines the firewalls where the filter should be disabled (ex: admin)')
+                    ->scalarPrototype()->end()
+                    ->defaultValue([])
                 ->end()
             ->end()
         ;
 
-        return $builder;
+        return $treeBuilder;
     }
 }

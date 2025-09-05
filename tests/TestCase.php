@@ -14,7 +14,7 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 
 class TestCase extends KernelTestCase
 {
-    private static Container|null $container;
+    private static Container|null $container = null;
 
     protected EntityTranslator|null $translator = null;
 
@@ -85,12 +85,13 @@ class TestCase extends KernelTestCase
         TranslatableInterface $translation,
         string $targetLocale
     ): void {
-        self::assertEquals($targetLocale, $translation->getLocale());
+        self::assertSame($targetLocale, $translation->getLocale());
         self::assertEquals($source->getTuuid(), $translation->getTuuid());
         self::assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 
 
+    #[\Override]
     final public function tearDown(): void
     {
         restore_exception_handler();

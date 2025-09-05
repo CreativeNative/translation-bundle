@@ -12,8 +12,7 @@ final readonly class PrimaryKeyHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private AttributeHelper $attributeHelper
-    )
-    {
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool

@@ -10,7 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 final class ManyToManyBidirectionalChild
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
@@ -32,6 +32,9 @@ final class ManyToManyBidirectionalChild
         return $this->id;
     }
 
+    /**
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
+     */
     public function getSharedParents(): Collection
     {
         return $this->sharedParents;

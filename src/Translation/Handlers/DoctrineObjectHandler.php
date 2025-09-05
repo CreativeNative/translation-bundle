@@ -13,6 +13,7 @@ use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
+
 use function is_object;
 
 /**
@@ -22,10 +23,9 @@ use function is_object;
 final readonly class DoctrineObjectHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private EntityManagerInterface    $em,
+        private EntityManagerInterface $em,
         private EntityTranslatorInterface $translator
-    )
-    {
+    ) {
     }
 
     /**

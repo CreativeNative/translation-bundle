@@ -1,9 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
@@ -30,17 +30,6 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     #[EmptyOnTranslate]
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $emptyName = null;
-
-    /**
-     * @var Collection<int, TranslatableManyToManyUnidirectionalParent>
-     */
-    #[ORM\ManyToMany(targetEntity: TranslatableManyToManyUnidirectionalParent::class, mappedBy: 'simpleChildren')]
-    private iterable $simpleParents;
-
-    public function __construct()
-    {
-        $this->simpleParents = new ArrayCollection();
-    }
 
     public function getId(): ?int
     {
@@ -77,24 +66,6 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     public function setEmptyName(?string $emptyName): self
     {
         $this->emptyName = $emptyName;
-        return $this;
-    }
-
-    public function getSimpleParents(): Collection
-    {
-        return $this->simpleParents;
-    }
-
-    public function addSimpleParent(TranslatableManyToManyUnidirectionalParent $parent): self
-    {
-        if (!$this->simpleParents instanceof ArrayCollection) {
-            $this->simpleParents = new ArrayCollection();
-        }
-
-        if (!$this->simpleParents->contains($parent)) {
-            $this->simpleParents->add($parent);
-        }
-
         return $this;
     }
 }

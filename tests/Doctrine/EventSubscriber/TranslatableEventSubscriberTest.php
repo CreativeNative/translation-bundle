@@ -16,9 +16,7 @@ use TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 
-/**
- * @coversDefaultClass \TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberTest extends TestCase
 {
     private EntityTranslatorInterface&MockObject $translator;
@@ -33,9 +31,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         );
     }
 
-    /**
-     * @covers ::postLoad
-     */
     public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsNull(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
@@ -51,9 +46,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->postLoad($args);
     }
 
-    /**
-     * @covers ::postLoad
-     */
     public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsEmptyString(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
@@ -69,9 +61,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->postLoad($args);
     }
 
-    /**
-     * @covers ::postLoad
-     */
     public function testPostLoadDoesNotOverrideExistingLocaleButCallsAfterLoad(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
@@ -87,9 +76,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->postLoad($args);
     }
 
-    /**
-     * @covers ::postLoad
-     */
     public function testPostLoadIgnoresNonTranslatableEntities(): void
     {
         $entity = new stdClass();
@@ -102,9 +88,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->postLoad($args);
     }
 
-    /**
-     * @covers ::onFlush
-     */
     public function testOnFlushCallsTranslatorForInsertUpdateDelete(): void
     {
         $entity = $this->createMock(TranslatableInterface::class);
@@ -117,7 +100,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $uow->method('getScheduledEntityDeletions')->willReturn([$entity]);
 
         $em->method('getUnitOfWork')->willReturn($uow);
-        $em->method('getClassMetadata')->willReturn(new ClassMetadata(get_class($entity)));
+        $em->method('getClassMetadata')->willReturn(new ClassMetadata($entity::class));
 
         $uow->expects($this->exactly(2))
             ->method('recomputeSingleEntityChangeSet')
@@ -131,9 +114,6 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->onFlush($args);
     }
 
-    /**
-     * @covers ::onFlush
-     */
     public function testNonTranslatableEntitiesAreIgnored(): void
     {
         $entity = new stdClass();

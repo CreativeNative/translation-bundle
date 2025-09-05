@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Test\Translation\Handlers;
@@ -14,22 +15,14 @@ use TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
-/**
- * @covers \TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler::class)]
 final class DoctrineObjectHandlerTest extends TestCase
 {
     private function newTranslator(): EntityTranslator
     {
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
         $attributeHelper = $this->createMock(AttributeHelper::class);
-
-        return new EntityTranslator(
-            defaultLocale: 'en',
-            locales: ['en', 'de'],
-            eventDispatcher: $dispatcher,
-            attributeHelper: $attributeHelper
-        );
+        return new EntityTranslator(defaultLocale: 'en', locales: ['en', 'de'], eventDispatcher: $dispatcher, attributeHelper: $attributeHelper);
     }
 
     /**
@@ -39,13 +32,10 @@ final class DoctrineObjectHandlerTest extends TestCase
     {
         $em = $this->createMock(EntityManagerInterface::class);
         $mf = $this->createMock(ClassMetadataFactory::class);
-
         $em->method('getMetadataFactory')->willReturn($mf);
         $mf->method('isTransient')->willReturn(false);
-
         $translator = $this->newTranslator();
         $handler = new DoctrineObjectHandler($em, $translator);
-
         $args = new TranslationArgs(new \stdClass(), 'en', 'de');
         self::assertTrue($handler->supports($args));
     }
@@ -57,13 +47,10 @@ final class DoctrineObjectHandlerTest extends TestCase
     {
         $em = $this->createMock(EntityManagerInterface::class);
         $mf = $this->createMock(ClassMetadataFactory::class);
-
         $em->method('getMetadataFactory')->willReturn($mf);
         $mf->method('isTransient')->willReturn(true);
-
         $translator = $this->newTranslator();
         $handler = new DoctrineObjectHandler($em, $translator);
-
         $args = new TranslationArgs(new \stdClass(), 'en', 'de');
         self::assertFalse($handler->supports($args));
     }
@@ -75,20 +62,15 @@ final class DoctrineObjectHandlerTest extends TestCase
     {
         $em = $this->createMock(EntityManagerInterface::class);
         $mf = $this->createMock(ClassMetadataFactory::class);
-
         $em->method('getMetadataFactory')->willReturn($mf);
         $mf->method('isTransient')->willReturn(false);
-
         $translator = $this->newTranslator();
         $handler = new DoctrineObjectHandler($em, $translator);
-
         $entity = new class {
             public string $child = 'foo';
         };
-
         $args = new TranslationArgs($entity, 'en', 'de');
         $result = $handler->translate($args);
-
         self::assertNotSame($entity, $result, 'Entity should be cloned, not the same instance');
         self::assertSame('foo', $result->child, 'Cloned entity should preserve property values');
     }

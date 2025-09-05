@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
@@ -29,7 +30,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
      */
     #[ORM\ManyToMany(targetEntity: TranslatableManyToManyUnidirectionalChild::class, cascade: ['persist'])]
     #[ORM\JoinTable(name: 'unidirectional_simple_children')]
-    private iterable $simpleChildren;
+    private Collection $simpleChildren;
 
     /**
      * Empty-on-translate collection
@@ -39,7 +40,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     #[EmptyOnTranslate]
     #[ORM\ManyToMany(targetEntity: TranslatableManyToManyUnidirectionalChild::class, cascade: ['persist'])]
     #[ORM\JoinTable(name: 'unidirectional_empty_children')]
-    private iterable $emptyChildren;
+    private Collection $emptyChildren;
 
     /**
      * Shared-across-translations collection
@@ -72,7 +73,6 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     {
         if (!$this->simpleChildren->contains($child)) {
             $this->simpleChildren->add($child);
-            $child->addSimpleParent($this);
         }
         return $this;
     }
@@ -86,7 +86,6 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     {
         if (!$this->emptyChildren->contains($child)) {
             $this->emptyChildren->add($child);
-            $child->addSimpleParent($this);
         }
         return $this;
     }
@@ -100,7 +99,6 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     {
         if (!$this->sharedChildren->contains($child)) {
             $this->sharedChildren->add($child);
-            $child->addSimpleParent($this);
         }
         return $this;
     }

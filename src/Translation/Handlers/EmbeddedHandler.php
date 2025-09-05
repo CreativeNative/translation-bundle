@@ -11,7 +11,7 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 final readonly class EmbeddedHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper       $attributeHelper,
+        private AttributeHelper $attributeHelper,
         private DoctrineObjectHandler $objectHandler
     ) {
     }

@@ -18,8 +18,8 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private PropertyAccessor       $propertyAccessor,
-        private AttributeHelper        $attributeHelper
+        private PropertyAccessor $propertyAccessor,
+        private AttributeHelper $attributeHelper
     ) {
     }
 

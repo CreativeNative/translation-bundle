@@ -9,25 +9,24 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-#[ORM\Table]
 final class Scalar implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     private ?int $id = null;
 
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $title = null;
 
     #[SharedAmongstTranslations]
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $shared = null;
 
     #[EmptyOnTranslate]
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $empty = null;
 
     public function getId(): int|null

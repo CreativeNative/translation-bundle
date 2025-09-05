@@ -11,7 +11,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private DoctrineObjectHandler  $doctrineObjectHandler
+        private DoctrineObjectHandler $doctrineObjectHandler
     ) {
     }
 

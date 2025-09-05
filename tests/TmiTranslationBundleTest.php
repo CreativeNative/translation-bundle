@@ -42,7 +42,7 @@ final class TmiTranslationBundleTest extends TestCase
 
         // Test the inheritance chain
         $parentClass = get_parent_class($bundle);
-        $this->assertEquals(Bundle::class, $parentClass);
+        $this->assertSame(Bundle::class, $parentClass);
     }
 
     public function testBundleProvidesBasicFunctionality(): void
@@ -73,10 +73,10 @@ final class TmiTranslationBundleTest extends TestCase
         $parameters = $reflection->getParameters();
 
         $this->assertCount(1, $parameters);
-        $this->assertEquals('container', $parameters[0]->getName());
+        $this->assertSame('container', $parameters[0]->getName());
 
         $parameterType = $parameters[0]->getType();
-        $this->assertNotNull($parameterType);
+        $this->assertInstanceOf(\ReflectionType::class, $parameterType);
         $this->assertEquals(ContainerBuilder::class, $parameterType->getName());
     }
 

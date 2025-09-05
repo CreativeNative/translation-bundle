@@ -7,16 +7,16 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Embeddable]
 final class Address
 {
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $street = null;
 
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $postalCode = null;
 
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $city = null;
 
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
     private ?string $country = null;
 
     public function getStreet(): ?string

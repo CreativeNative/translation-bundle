@@ -14,7 +14,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
@@ -51,6 +51,9 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         return $this->id;
     }
 
+    /**
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
+     */
     public function getSimpleParents(): Collection
     {
         return $this->simpleParents;
@@ -63,6 +66,9 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         return $this;
     }
 
+    /**
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
+     */
     public function getEmptyParents(): Collection
     {
         return $this->emptyParents;

@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Translation\Handlers;
@@ -8,12 +7,13 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use Doctrine\ORM\PersistentCollection;
+use ErrorException;
 use ReflectionException;
-use ReflectionProperty;
+use RuntimeException;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
+use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 /**
  * Handles ManyToMany unidirectional associations during translation.
@@ -24,8 +24,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         private AttributeHelper           $attributeHelper,
         private EntityTranslatorInterface $translator,
         private EntityManagerInterface    $em,
-    )
-    {}
+    ) {}
 
     public function supports(TranslationArgs $args): bool
     {
@@ -48,14 +47,26 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $arguments = $attributes[0]->getArguments();
 
         // Unidirectional = neither mappedBy nor inversedBy is set
-        return empty($arguments['mappedBy'] ?? null) && empty($arguments['inversedBy'] ?? null);
+        return !isset($arguments['mappedBy']) && !isset($arguments['inversedBy']);
     }
 
     /**
-     * @throws ReflectionException
+     * SharedAmongstTranslations is not supported for ManyToMany unidirectional collections.
+     *
+     * @throws ErrorException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
     {
+        $property = $args->getProperty();
+        if ($property !== null && $this->attributeHelper->isManyToMany($property)) {
+            throw new ErrorException(sprintf(
+                'SharedAmongstTranslations is not supported for ManyToMany associations (%s::%s).',
+                $property->class,
+                $property->name
+            ));
+        }
+
+        // fallback: perform a normal translation (defensive)
         return $this->translate($args);
     }
 
@@ -65,43 +76,90 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     }
 
     /**
+     * Translate the collection items and replace the collection entries with translated items.
+     *
      * @throws ReflectionException
      */
     public function translate(TranslationArgs $args): Collection
     {
         $newOwner = $args->getTranslatedParent();
-        if ($newOwner === null || $args->getProperty() === null) {
-            return new ArrayCollection();
+        $property = $args->getProperty();
+
+        if ($newOwner === null) {
+            throw new RuntimeException('No translated parent provided.');
         }
 
-        // Find association metadata
-        $associations = $this->em
-            ->getClassMetadata($newOwner::class)
-            ->getAssociationMappings();
+        if ($property === null) {
+            throw new RuntimeException(sprintf(
+                'No property given for parent of class "%s".',
+                $newOwner::class
+            ));
+        }
 
-        $association = $associations[$args->getProperty()->name] ?? null;
+        $meta = $this->em->getClassMetadata($newOwner::class);
+        $associations = $meta->getAssociationMappings();
+        $association = $associations[$property->name] ?? null;
+
         if ($association === null) {
-            return new ArrayCollection();
+            throw new RuntimeException(sprintf(
+                'Property "%s" is not a valid association in class "%s".',
+                $property->name,
+                $newOwner::class
+            ));
         }
 
-        $fieldName = $association['fieldName'];
+        if (!($association['isOwningSide'] ?? false)) {
+            throw new RuntimeException(sprintf(
+                'Property "%s" on "%s" is not the owning side of the relation.',
+                $property->name,
+                $newOwner::class
+            ));
+        }
 
-        $reflection = new ReflectionProperty($newOwner::class, $fieldName);
+        $fieldName = (string) $association['fieldName'];
+        $accessor = new PropertyAccessor();
 
-        $collection = $reflection->getValue($newOwner);
-        assert($collection instanceof PersistentCollection);
+        if (!property_exists($newOwner, $fieldName)) {
+            throw new RuntimeException(sprintf(
+                'Field "%s" not found in class "%s".',
+                $fieldName,
+                $newOwner::class
+            ));
+        }
 
-        // Clear current collection
+        /** @var Collection<int, object>|null $collection */
+        $collection = $accessor->getValue($newOwner, $fieldName);
+
+        if (!$collection instanceof Collection) {
+            $collection = new ArrayCollection();
+            $accessor->setValue($newOwner, $fieldName, $collection);
+        }
+
         $collection->clear();
 
-        // Add translated items
         foreach ($args->getDataToBeTranslated() as $item) {
+            dump('Translating item', $item);
+
             $translated = $this->translator->translate($item, $args->getTargetLocale());
+
+            dump('Translated result', $translated);
+
+            if ($translated === null) {
+                throw new RuntimeException(sprintf(
+                    'Translator returned null for item of type "%s".',
+                    is_object($item) ? $item::class : gettype($item)
+                ));
+            }
+
             if (!$collection->contains($translated)) {
+                dump('Adding to collection', $translated);
                 $collection->add($translated);
+            } else {
+                dump('Already contained', $translated);
             }
         }
 
+        dump('Final collection count', count($collection));
         return $collection;
     }
 }

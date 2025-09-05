@@ -21,11 +21,12 @@ final class ScalarTranslationTest extends TestCase
     {
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'en');
+        assert($translation instanceof Scalar);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        self::assertTrue(property_exists($translation, 'title'), 'Object does not have the expected property "title".');
+        self::assertTrue(property_exists($translation, 'title'));
         self::assertEquals('Test title', $translation->getTitle());
         self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
@@ -39,20 +40,19 @@ final class ScalarTranslationTest extends TestCase
     public function testItCanShareScalarValueAmongstTranslations(): void
     {
         $entity = $this->createEntity();
-        /** @var Scalar $translation */
+
         $translation = $this->translator->translate($entity, 'en');
+        assert($translation instanceof Scalar);
+
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
-        // Update shared attribute
         $translation->setShared('Updated shared');
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         self::assertTrue(property_exists($entity, 'shared'));
-
-//      self::assertEquals('Updated shared', $entity->getShared());
-
+//        self::assertEquals('Updated shared', $entity->getShared());
         self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
     }
 
@@ -64,6 +64,7 @@ final class ScalarTranslationTest extends TestCase
     {
         $entity = $this->createEntity();
         $translation = $this->translator->translate($entity, 'en');
+        assert($translation instanceof Scalar);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
@@ -86,14 +87,13 @@ final class ScalarTranslationTest extends TestCase
             ->setEmptyNotNullable('Empty not nullable attribute');
 
         $this->entityManager->persist($entity);
+
         $translation = $this->translator->translate($entity, 'en');
+        assert($translation instanceof CanNotBeNull);
 
         $this->entityManager->flush();
 
-        self::assertTrue(
-            property_exists($translation, 'empty_not_nullable'),
-            'Property "empty_not_nullable" not found in translation object'
-        );
+        self::assertTrue(property_exists($translation, 'empty_not_nullable'));
         self::assertNotNull($translation->getEmptyNotNullable());
         self::assertNotEmpty($translation->getEmptyNotNullable());
         self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);

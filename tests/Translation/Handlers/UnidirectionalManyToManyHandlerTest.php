@@ -4,65 +4,135 @@ declare(strict_types=1);
 namespace TMI\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use ErrorException;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use ReflectionProperty;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
+use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
+use TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
+/**
+ * @covers \TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler
+ */
 final class UnidirectionalManyToManyHandlerTest extends TestCase
 {
-    public function testTranslateAddsTranslatedItemsToCollectionSimplified(): void
+    private AttributeHelper $attributeHelper;
+    private EntityManagerInterface $em;
+    private EntityTranslatorInterface $translator;
+
+    public function setUp(): void
     {
-        $parent = new TranslatableManyToManyUnidirectionalParent();
-        $child1 = new TranslatableManyToManyUnidirectionalChild();
-        $child1->setLocale('en');
-        $child2 = new TranslatableManyToManyUnidirectionalChild();
-        $child2->setLocale('en');
+        parent::setUp();
 
-        $parent->addSimpleChild($child1);
-        $parent->addSimpleChild($child2);
+        $this->attributeHelper = $this->createMock(AttributeHelper::class);
+        $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $collection = new ArrayCollection([$child1, $child2]);
+        $this->em = $this->createMock(EntityManagerInterface::class);
 
-        $refl = new ReflectionProperty($parent::class, 'simpleChildren');
-        $refl->setAccessible(true);
-        $refl->setValue($parent, $collection);
-
-        $translator = new class implements EntityTranslatorInterface {
-            public function translate($entity, string $locale): TranslatableManyToManyUnidirectionalChild {
-                $entity->setLocale($locale);
-                return $entity;
+        $this->translator = new class implements EntityTranslatorInterface {
+            public function translate($entity, string $locale): TranslatableManyToManyUnidirectionalChild
+            {
+                $clone = clone $entity;
+                $clone->setLocale($locale);
+                return $clone;
             }
             public function afterLoad($entity): void {}
-            public function beforePersist($entity, $em): void {}
-            public function beforeUpdate($entity, $em): void {}
-            public function beforeRemove($entity, $em): void {}
+            public function beforePersist($entity, EntityManagerInterface $em): void {}
+            public function beforeUpdate($entity, EntityManagerInterface $em): void {}
+            public function beforeRemove($entity, EntityManagerInterface $em): void {}
         };
+    }
 
-        $attributeHelper = $this->createMock(AttributeHelper::class);
-        $attributeHelper->method('isManyToMany')->willReturn(true);
+    /**
+     * @throws ReflectionException
+     */
+    public function testSupportsReturnsTrueForUnidirectionalManyToManyProperty(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $prop = new ReflectionProperty($parent::class, 'simpleChildren');
 
-        // Kein EntityManager-Mock nötig, weil wir nur Attribute prüfen
-        $em = $this->createMock(EntityManagerInterface::class);
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
+            ->setProperty($prop)
+            ->setTranslatedParent($parent);
 
-        $handler = new UnidirectionalManyToManyHandler($attributeHelper, $translator, $em);
+        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->em);
 
-        $args = new TranslationArgs($collection, 'en', 'de');
-        $args->setTranslatedParent($parent);
-        $args->setProperty($refl);
+        self::assertTrue($handler->supports($args));
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    public function testTranslateReplacesCollectionWithTranslatedItems(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child1 = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
+        $child2 = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
+
+        $parent->addSimpleChild($child1)->addSimpleChild($child2);
+
+        $prop = new ReflectionProperty($parent::class, 'simpleChildren');
+
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => ['fieldName' => 'simpleChildren', 'isOwningSide' => true],
+        ]);
+        $this->em->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->em);
+
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
+            ->setProperty($prop)
+            ->setTranslatedParent($parent);
 
         $result = $handler->translate($args);
 
-//      ToDo: fix me
-//        self::assertCount(2, $result);
-//        foreach ($result as $child) {
-//            self::assertSame('de', $child->getLocale());
-//        }
-        self::assertTrue(true);
+        // debug dumps
+        dump('Final collection count', count($result));
+        dump('NewOwner property collection count', count($parent->getSimpleChildren()));
+
+        self::assertInstanceOf(Collection::class, $result);
+        self::assertCount(2, $result, 'Translated collection should contain 2 items');
+
+        foreach ($result as $item) {
+            self::assertInstanceOf(TranslatableManyToManyUnidirectionalChild::class, $item);
+            self::assertSame('de', $item->getLocale());
+        }
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    public function testHandleSharedAmongstTranslationsThrowsForManyToMany(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
+        $parent->addSharedChild($child);
+
+        $prop = new ReflectionProperty($parent::class, 'sharedChildren');
+
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'sharedChildren' => ['fieldName' => 'sharedChildren', 'isOwningSide' => true],
+        ]);
+        $this->em->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->em);
+
+        $args = new TranslationArgs($parent->getSharedChildren(), 'en', 'de')
+            ->setProperty($prop)
+            ->setTranslatedParent($parent);
+
+        $this->expectException(ErrorException::class);
+        $this->expectExceptionMessage('SharedAmongstTranslations is not supported for ManyToMany associations');
+
+        $handler->handleSharedAmongstTranslations($args);
     }
 }

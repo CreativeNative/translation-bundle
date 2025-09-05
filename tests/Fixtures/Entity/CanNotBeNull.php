@@ -8,18 +8,17 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-#[ORM\Table]
 final class CanNotBeNull implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     private ?int $id = null;
 
     #[EmptyOnTranslate]
-    #[ORM\Column(type: 'string')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
     private ?string $emptyNotNullable = null;
 
     public function getId(): int|null

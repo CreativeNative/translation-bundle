@@ -7,9 +7,7 @@ use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use PHPUnit\Framework\TestCase;
 
-/**
- * @coversDefaultClass \TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations::class)]
 final class SharedAmongstTranslationsTest extends TestCase
 {
     public function testSharedAmongstTranslationsAttribute(): void

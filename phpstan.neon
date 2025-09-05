@@ -1,4 +1,6 @@
 parameters:
+    scanFiles:
+        - vendor/symfony/dependency-injection/Loader/Configurator/ContainerConfigurator.php
     tmpDir: var/cache/phpstan
     paths:
       - src
@@ -22,3 +24,6 @@ parameters:
         noVariableVariables: true
         strictArrayFilter: true
         illegalConstructorMethodCall: true
+    ignoreErrors:
+        - message: '#Dynamic call to static method PHPUnit\\Framework\\Assert::[a-zA-Z0-9_]+\(\)#'
+          path: tests/

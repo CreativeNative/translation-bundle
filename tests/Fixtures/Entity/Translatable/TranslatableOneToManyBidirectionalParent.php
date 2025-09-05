@@ -9,13 +9,12 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-#[ORM\Table]
 final class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
@@ -41,6 +40,9 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->id;
     }
 
+    /**
+     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild>
+     */
     public function getChildren(): Collection
     {
         return $this->children;

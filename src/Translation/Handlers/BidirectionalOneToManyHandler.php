@@ -19,11 +19,10 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper           $attributeHelper,
+        private AttributeHelper $attributeHelper,
         private EntityTranslatorInterface $translator,
-        private EntityManagerInterface    $em
-    )
-    {
+        private EntityManagerInterface $em
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool

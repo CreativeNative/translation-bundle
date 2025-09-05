@@ -4,6 +4,7 @@ namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
@@ -16,7 +17,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
@@ -26,7 +27,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'simpleParents',
-        cascade: ['persist'],
+        cascade: ['persist', 'remove']
     )]
     private iterable $simpleChildren;
 
@@ -34,7 +35,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
-        cascade: ['persist']
+        cascade: ['persist', 'remove']
     )]
     private iterable $emptyChildren;
 
@@ -42,7 +43,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(
         targetEntity: ManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',
-        cascade: ['persist']
+        cascade: ['persist', 'remove']
     )]
     private iterable $sharedChildren;
 
@@ -58,6 +59,9 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         return $this->id;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyBidirectionalChild>
+     */
     public function getSimpleChildren(): Collection
     {
         return $this->simpleChildren;
@@ -72,6 +76,9 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyBidirectionalChild>
+     */
     public function getEmptyChildren(): Collection
     {
         return $this->emptyChildren;
@@ -86,6 +93,9 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         return $this;
     }
 
+    /**
+     * @return Collection<int, ManyToManyBidirectionalChild>
+     */
     public function getSharedChildren(): Collection
     {
         return $this->sharedChildren;

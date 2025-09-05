@@ -16,12 +16,11 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 final readonly class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper           $attributeHelper,
-        private EntityManagerInterface    $em,
+        private AttributeHelper $attributeHelper,
+        private EntityManagerInterface $em,
         private PropertyAccessorInterface $propertyAccessor,
         private EntityTranslatorInterface $translator
-    )
-    {
+    ) {
     }
 
     public function supports(TranslationArgs $args): bool

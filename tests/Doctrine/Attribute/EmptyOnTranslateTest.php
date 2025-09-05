@@ -7,9 +7,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use PHPUnit\Framework\TestCase;
 use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 
-/**
- * @coversDefaultClass \TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate::class)]
 final class EmptyOnTranslateTest extends TestCase
 {
     public function testAttributeCanBeReflected(): void
