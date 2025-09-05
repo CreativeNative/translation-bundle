@@ -2,18 +2,20 @@
 
 namespace TMI\TranslationBundle\Translation\Args;
 
+use ReflectionProperty;
+
 /**
  * Translation args DTO.
  */
 class TranslationArgs
 {
-    protected mixed $translatedParent;
-    protected ?\ReflectionProperty $property = null;
+    private mixed $translatedParent;
+    private ?ReflectionProperty $property = null;
 
     public function __construct(
-        protected mixed $dataToBeTranslated,
-        protected string $sourceLocale,
-        protected string $targetLocale
+        private mixed     $dataToBeTranslated,
+        private ?string   $sourceLocale,
+        private ?string $targetLocale
     ) {
     }
 
@@ -38,7 +40,7 @@ class TranslationArgs
     /**
      * Returns the locale of the original data.
      */
-    public function getSourceLocale(): string
+    public function getSourceLocale(): ?string
     {
         return $this->sourceLocale;
     }
@@ -46,7 +48,7 @@ class TranslationArgs
     /**
      * Sets the locale of the original data.
      */
-    public function setSourceLocale(string $sourceLocale): self
+    public function setSourceLocale(?string $sourceLocale): self
     {
         $this->sourceLocale = $sourceLocale;
 
@@ -64,7 +66,7 @@ class TranslationArgs
     /**
      * Sets the locale of the translated data.
      */
-    public function setTargetLocale(string $targetLocale): self
+    public function setTargetLocale(?string $targetLocale): self
     {
         $this->targetLocale = $targetLocale;
 
@@ -83,7 +85,7 @@ class TranslationArgs
     /**
      * Sets the parent of the data translation.
      */
-    public function setTranslatedParent($translatedParent): self
+    public function setTranslatedParent(mixed $translatedParent): self
     {
         $this->translatedParent = $translatedParent;
 
@@ -94,7 +96,7 @@ class TranslationArgs
      * Returns the property associated to the translation.
      * Only sets when translating association.
      */
-    public function getProperty(): ?\ReflectionProperty
+    public function getProperty(): ?ReflectionProperty
     {
         return $this->property;
     }
@@ -102,7 +104,7 @@ class TranslationArgs
     /**
      * Returns the property associated to the translation.
      */
-    public function setProperty(?\ReflectionProperty $property): self
+    public function setProperty(?ReflectionProperty $property): self
     {
         $this->property = $property;
 

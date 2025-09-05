@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Utils\AttributeHelper;
 
 class TestCase extends KernelTestCase
 {
@@ -19,12 +20,14 @@ class TestCase extends KernelTestCase
 
     protected EntityManagerInterface|null $entityManager = null;
 
+    protected AttributeHelper|null $attributeHelper = null;
+
     protected const TARGET_LOCALE = 'en';
 
     /**
      * {@inheritDoc}
      */
-    final public function setUp(): void
+    public function setUp(): void
     {
         parent::setUp();
 
@@ -47,14 +50,21 @@ class TestCase extends KernelTestCase
         try {
             $this->entityManager = $container->get('doctrine.orm.entity_manager');
         } catch (ServiceNotFoundException) {
-            self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager.');
+            self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager');
         }
 
         try {
             $this->translator = $container->get('tmi_translation.translation.entity_translator');
         } catch (ServiceNotFoundException) {
-            self::fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator.');
+            self::fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator');
         }
+
+        try {
+            $this->attributeHelper = $container->get('tmi_translation.utils.attribute_helper');
+        } catch (ServiceNotFoundException) {
+            self::fail('Attribute helper service not found. Tried: tmi_translation.utils.attribute_helper');
+        }
+
 
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 

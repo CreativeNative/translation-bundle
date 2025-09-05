@@ -20,11 +20,11 @@ use function is_object;
  * Handles basic Doctrine Objects.
  * Usually the entry point of a translation.
  */
-final class DoctrineObjectHandler implements TranslationHandlerInterface
+final readonly class DoctrineObjectHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly EntityTranslator $translator
+        private EntityManagerInterface $em,
+        private EntityTranslator       $translator
     ) {
     }
 

@@ -8,7 +8,7 @@ use TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalCh
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 
-final class TranslatableManyToManyTranslationTest extends TestCase
+final class TranslatableManyToManyBidirectionalTest extends TestCase
 {
     /**
      * @throws OptimisticLockException

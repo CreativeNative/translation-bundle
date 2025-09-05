@@ -8,9 +8,9 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of primary keys.
  */
-final class PrimaryKeyHandler implements TranslationHandlerInterface
+final readonly class PrimaryKeyHandler implements TranslationHandlerInterface
 {
-    public function __construct(private readonly AttributeHelper $attributeHelper)
+    public function __construct(private AttributeHelper $attributeHelper)
     {
     }
 

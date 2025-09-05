@@ -16,12 +16,12 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of OneToMany relations.
  */
-final class BidirectionalOneToManyHandler implements TranslationHandlerInterface
+final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly AttributeHelper $attributeHelper,
-        private readonly EntityTranslator $translator,
-        private readonly EntityManagerInterface $em
+        private AttributeHelper        $attributeHelper,
+        private EntityTranslator       $translator,
+        private EntityManagerInterface $em
     ) {
     }
 

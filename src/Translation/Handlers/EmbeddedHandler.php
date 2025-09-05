@@ -8,11 +8,11 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Translation handler for @Doctrine\ORM\Mapping\Embeddable()
  */
-final class EmbeddedHandler implements TranslationHandlerInterface
+final readonly class EmbeddedHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly AttributeHelper $attributeHelper,
-        private readonly DoctrineObjectHandler $objectHandler
+        private AttributeHelper       $attributeHelper,
+        private DoctrineObjectHandler $objectHandler
     ) {
     }
 

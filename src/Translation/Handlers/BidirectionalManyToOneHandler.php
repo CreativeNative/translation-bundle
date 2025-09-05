@@ -13,13 +13,13 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Handles translation of ManyToOne relations.
  */
-final class BidirectionalManyToOneHandler implements TranslationHandlerInterface
+final readonly class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly AttributeHelper $attributeHelper,
-        private readonly EntityManagerInterface $em,
-        private readonly PropertyAccessorInterface $propertyAccessor,
-        private readonly EntityTranslator $translator
+        private AttributeHelper           $attributeHelper,
+        private EntityManagerInterface    $em,
+        private PropertyAccessorInterface $propertyAccessor,
+        private EntityTranslator          $translator
     ) {
     }
 

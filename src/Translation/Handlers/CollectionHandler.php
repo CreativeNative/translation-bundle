@@ -15,12 +15,12 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 /**
  * Collection handler, used for ManyToMany bidirectional association.
  */
-final class CollectionHandler implements TranslationHandlerInterface
+final readonly class CollectionHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly AttributeHelper $attributeHelper,
-        private readonly EntityManagerInterface $em,
-        private readonly EntityTranslator $translator
+        private AttributeHelper        $attributeHelper,
+        private EntityManagerInterface $em,
+        private EntityTranslator       $translator
     ) {
     }
 

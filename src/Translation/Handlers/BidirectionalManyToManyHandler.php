@@ -14,12 +14,12 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  *
  * Was renamed from BidirectionalAssociationHandler
  */
-final class BidirectionalManyToManyHandler implements TranslationHandlerInterface
+final readonly class BidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly PropertyAccessor $propertyAccessor,
-        private readonly AttributeHelper $attributeHelper
+        private EntityManagerInterface $em,
+        private PropertyAccessor       $propertyAccessor,
+        private AttributeHelper        $attributeHelper
     ) {
     }
 

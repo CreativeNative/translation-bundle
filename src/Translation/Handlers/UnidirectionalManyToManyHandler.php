@@ -6,7 +6,6 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use Doctrine\ORM\PersistentCollection;
 use ReflectionException;
 use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
@@ -14,7 +13,7 @@ use TMI\TranslationBundle\Translation\EntityTranslator;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * Used for ManyToMany unidirectional association.
+ * Handles unidirectional ManyToMany translation.
  */
 final class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
@@ -22,30 +21,21 @@ final class UnidirectionalManyToManyHandler implements TranslationHandlerInterfa
         private readonly AttributeHelper $attributeHelper,
         private readonly EntityTranslator $translator,
         private readonly EntityManagerInterface $em
-    ) {
-    }
+    ) {}
 
     public function supports(TranslationArgs $args): bool
     {
-        if (!$args->getDataToBeTranslated() instanceof Collection) {
+        $data = $args->getDataToBeTranslated();
+        if (!$data instanceof Collection) {
             return false;
         }
 
-        if ($args->getProperty() && $this->attributeHelper->isManyToMany($args->getProperty())) {
-            $arguments = $args->getProperty()->getAttributes(ManyToMany::class)[0]->getArguments();
-
-            if (
-                (array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy']) ||
-                (array_key_exists('inversedBy', $arguments) && null !== $arguments['inversedBy'])
-            ) {
-                return true;
-            }
-        }
-
-        return false;
+        // Unidirectional ManyToMany check: only verify the property is a ManyToMany
+        return $args->getProperty()?->getAttributes(ManyToMany::class) !== [];
     }
 
     /**
+     * Handles translation of shared-across-translations fields.
      * @throws ReflectionException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
@@ -53,28 +43,36 @@ final class UnidirectionalManyToManyHandler implements TranslationHandlerInterfa
         return $this->translate($args);
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
+    /**
+     * Handles fields marked as empty-on-translate.
+     */
+    public function handleEmptyOnTranslate(TranslationArgs $args): null|Collection
     {
-        return new ArrayCollection();
+        return null;
     }
 
     /**
+     * Translates the collection of items for a unidirectional ManyToMany association.
+     *
      * @throws ReflectionException
      */
     public function translate(TranslationArgs $args): Collection
     {
         $newOwner = $args->getTranslatedParent();
+        $property = $args->getProperty();
 
-        // Get the owner's fieldName
-        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
-        $association = $associations[$args->getProperty()->name];
-        $fieldName = $association['fieldName'];
+        if (!$property) {
+            return new ArrayCollection();
+        }
 
-        $reflection = new ReflectionProperty($newOwner::class, $fieldName);
+        $reflection = new ReflectionProperty($newOwner::class, $property->name);
+        $reflection->setAccessible(true);
+
         $collection = $reflection->getValue($newOwner);
-
-        // Assert type at runtime
-        assert($collection instanceof PersistentCollection);
+        if (!$collection instanceof Collection) {
+            $collection = new ArrayCollection();
+            $reflection->setValue($newOwner, $collection);
+        }
 
         // Clear collection
         foreach ($collection as $key => $item) {

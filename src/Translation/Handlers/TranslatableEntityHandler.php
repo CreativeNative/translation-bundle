@@ -7,11 +7,11 @@ use ReflectionException;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 
-final class TranslatableEntityHandler implements TranslationHandlerInterface
+final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly DoctrineObjectHandler $doctrineObjectHandler
+        private EntityManagerInterface $em,
+        private DoctrineObjectHandler  $doctrineObjectHandler
     ) {
     }
 
