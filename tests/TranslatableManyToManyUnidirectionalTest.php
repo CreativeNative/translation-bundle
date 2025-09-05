@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace TMI\TranslationBundle\Test;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use ReflectionException;
@@ -129,6 +130,8 @@ final class TranslatableManyToManyUnidirectionalTest extends TestCase
         $args = new TranslationArgs($children, 'en', 'de')
             ->setTranslatedParent($parent);
 
-        self::assertNull($this->handler->handleEmptyOnTranslate($args));
+        self::assertInstanceOf(Collection::class, $this->handler->handleEmptyOnTranslate($args));
+        self::assertCount(0, $this->handler->handleEmptyOnTranslate($args));
+
     }
 }

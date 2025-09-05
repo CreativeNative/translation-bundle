@@ -10,13 +10,13 @@ use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
+use TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * @covers \TMI\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler
+ * @covers \TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler
  */
-final class BidirectionalManyToManyHandlerTest extends TestCase
+final class BidirectionalOneToOneHandlerTest extends TestCase
 {
     /**
      * @throws ReflectionException
@@ -34,7 +34,7 @@ final class BidirectionalManyToManyHandlerTest extends TestCase
         $helper = $this->createMock(AttributeHelper::class);
         $helper->method('isOneToOne')->willReturn(true);
 
-        $handler = new BidirectionalManyToManyHandler($em, $propertyAccessor, $helper);
+        $handler = new BidirectionalOneToOneHandler($em, $propertyAccessor, $helper);
 
         $entity = new ParentEntity();
         $prop = new ReflectionProperty($entity::class, 'child');

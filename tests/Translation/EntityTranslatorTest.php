@@ -7,9 +7,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslator;
 use TMI\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
@@ -23,14 +23,16 @@ final class EntityTranslatorTest extends TestCase
 
     private AttributeHelper $attributeHelper;
 
-    protected function setUp(): void
+    public function setUp(): void
     {
         $this->eventDispatcherInterface = $this->createMock(EventDispatcherInterface::class);
         $this->attributeHelper = $this->createMock(AttributeHelper::class);
     }
 
+    // Create a real EntityTranslator instance (class is final so cannot be mocked)
     private function newTranslator(): EntityTranslator
     {
+
         return new EntityTranslator(
             'en',
             ['de', 'en', 'it'],
@@ -39,24 +41,50 @@ final class EntityTranslatorTest extends TestCase
         );
     }
 
-    private function mockArgs(?ReflectionProperty $prop = null, mixed $fallback = null): TranslationArgs
+    // Create a real TranslationArgs instance (class is final so cannot be mocked)
+    private function newTranslationArgs(?ReflectionProperty $prop = null, mixed $fallback = null): TranslationArgs
     {
-        $args = $this->createMock(TranslationArgs::class);
-        $args->method('getProperty')->willReturn($prop);
-        $args->method('getDataToBeTranslated')->willReturn($fallback);
+        $args = new TranslationArgs($fallback, 'en', 'de');
+
+        if ($prop !== null) {
+            $args->setProperty($prop);
+        }
+
         return $args;
     }
 
-    private function handlerSupporting(TranslationArgs $expectedArgs, mixed $return, ?callable $assert = null, array $methodToReturnMap = []): TranslationHandlerInterface
-    {
+    private function handlerSupporting(
+        TranslationArgs $expectedArgs,
+        mixed $return,
+        ?callable $assert = null,
+        array $methodToReturnMap = []
+    ): TranslationHandlerInterface {
         $handler = $this->createMock(TranslationHandlerInterface::class);
-        $handler->method('supports')->with($expectedArgs)->willReturn(true);
+
+        // robust check statt exakter Instanz
+        $handler->method('supports')->with(
+            $this->callback(function (TranslationArgs $args) use ($expectedArgs) {
+                return $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
+                    && $args->getSourceLocale() === $expectedArgs->getSourceLocale()
+                    && $args->getTargetLocale() === $expectedArgs->getTargetLocale()
+                    && $args->getProperty() === $expectedArgs->getProperty()
+                    && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent();
+            })
+        )->willReturn(true);
 
         // Default translate() behavior
         $handler->method('translate')->willReturn($return);
 
         foreach ($methodToReturnMap as $method => $value) {
-            $handler->expects($this->once())->method($method)->with($expectedArgs)->willReturn($value);
+            $handler->expects($this->once())->method($method)->with(
+                $this->callback(function (TranslationArgs $args) use ($expectedArgs) {
+                    return $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
+                        && $args->getSourceLocale() === $expectedArgs->getSourceLocale()
+                        && $args->getTargetLocale() === $expectedArgs->getTargetLocale()
+                        && $args->getProperty() === $expectedArgs->getProperty()
+                        && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent();
+                })
+            )->willReturn($value);
         }
 
         if ($assert) {
@@ -80,7 +108,7 @@ final class EntityTranslatorTest extends TestCase
     {
         $translator = $this->newTranslator();
 
-        $args = $this->mockArgs(null, 'fallback');
+        $args = $this->newTranslationArgs(null, 'fallback');
         $translator->addTranslationHandler($this->handlerNotSupporting());
         $translator->addTranslationHandler($this->handlerNotSupporting());
 
@@ -92,7 +120,7 @@ final class EntityTranslatorTest extends TestCase
     {
         $translator = $this->newTranslator();
 
-        $args = $this->mockArgs(null, 'fallback');
+        $args = $this->newTranslationArgs(null, 'fallback');
 
         $first = $this->createMock(TranslationHandlerInterface::class);
         $first->expects($this->once())->method('supports')->with($args)->willReturn(true);
@@ -108,6 +136,9 @@ final class EntityTranslatorTest extends TestCase
         $this->assertSame('first', $translator->processTranslation($args));
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testSharedAmongstTranslationsBranchCallsDedicatedHandler(): void
     {
         $translator = $this->newTranslator();
@@ -117,7 +148,7 @@ final class EntityTranslatorTest extends TestCase
         };
         $prop = new ReflectionProperty($propClass, 'title');
 
-        $args = $this->mockArgs($prop, null);
+        $args = $this->newTranslationArgs($prop);
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->with($prop)->willReturn(true);
         $this->attributeHelper->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
@@ -134,6 +165,9 @@ final class EntityTranslatorTest extends TestCase
         $this->assertSame('shared-result', $translator->processTranslation($args));
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testEmptyOnTranslateWithNullableCallsDedicatedHandler(): void
     {
         $translator = $this->newTranslator();
@@ -143,7 +177,7 @@ final class EntityTranslatorTest extends TestCase
         };
         $prop = new ReflectionProperty($propClass, 'body');
 
-        $args = $this->mockArgs($prop, null);
+        $args = $this->newTranslationArgs($prop);
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
@@ -161,6 +195,9 @@ final class EntityTranslatorTest extends TestCase
         $this->assertSame('emptied', $translator->processTranslation($args));
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testEmptyOnTranslateOnNonNullableThrowsLogicException(): void
     {
         $translator = $this->newTranslator();
@@ -170,7 +207,7 @@ final class EntityTranslatorTest extends TestCase
         };
         $prop = new ReflectionProperty($propClass, 'slug');
 
-        $args = $this->mockArgs($prop, null);
+        $args = $this->newTranslationArgs($prop);
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
@@ -185,6 +222,9 @@ final class EntityTranslatorTest extends TestCase
         $translator->processTranslation($args);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testTranslateBranchIsUsedWhenNoSpecialAttributes(): void
     {
         $translator = $this->newTranslator();
@@ -194,7 +234,7 @@ final class EntityTranslatorTest extends TestCase
         };
         $prop = new ReflectionProperty($propClass, 'n');
 
-        $args = $this->mockArgs($prop, null);
+        $args = $this->newTranslationArgs($prop);
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
@@ -211,7 +251,7 @@ final class EntityTranslatorTest extends TestCase
     public function testAddTranslationHandlerOrderWithExplicitKey(): void
     {
         $translator = $this->newTranslator();
-        $args = $this->mockArgs(null, null);
+        $args = $this->newTranslationArgs();
 
         $first = $this->createMock(TranslationHandlerInterface::class);
         $first->expects($this->once())->method('supports')->with($args)->willReturn(true);

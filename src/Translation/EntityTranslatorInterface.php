@@ -9,6 +9,8 @@ use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 interface EntityTranslatorInterface
 {
+    public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface;
+
     /**
      * Called after an entity is loaded.
      */

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Translation\Args;
 
@@ -7,15 +8,17 @@ use ReflectionProperty;
 /**
  * Translation args DTO.
  */
-class TranslationArgs
+final class TranslationArgs
 {
-    private mixed $translatedParent;
+    /** @var mixed|null */
+    private mixed $translatedParent = null;
+
     private ?ReflectionProperty $property = null;
 
     public function __construct(
-        private mixed     $dataToBeTranslated,
-        private ?string   $sourceLocale,
-        private ?string $targetLocale
+        private mixed $dataToBeTranslated,
+        private ?string $sourceLocale = null,
+        private ?string $targetLocale = null,
     ) {
     }
 
@@ -58,7 +61,7 @@ class TranslationArgs
     /**
      * Returns the locale of the translated data.
      */
-    public function getTargetLocale(): string
+    public function getTargetLocale(): ?string
     {
         return $this->targetLocale;
     }
@@ -75,7 +78,9 @@ class TranslationArgs
 
     /**
      * Returns the parent of the data translation.
-     * Only sets when translating association.
+     * Only set when translating association.
+     *
+     * @return mixed|null
      */
     public function getTranslatedParent(): mixed
     {
@@ -84,6 +89,9 @@ class TranslationArgs
 
     /**
      * Sets the parent of the data translation.
+     *
+     * @param mixed $translatedParent
+     * @return TranslationArgs
      */
     public function setTranslatedParent(mixed $translatedParent): self
     {
@@ -94,7 +102,7 @@ class TranslationArgs
 
     /**
      * Returns the property associated to the translation.
-     * Only sets when translating association.
+     * Only set when translating association.
      */
     public function getProperty(): ?ReflectionProperty
     {
@@ -102,7 +110,7 @@ class TranslationArgs
     }
 
     /**
-     * Returns the property associated to the translation.
+     * Sets the property associated to the translation.
      */
     public function setProperty(?ReflectionProperty $property): self
     {

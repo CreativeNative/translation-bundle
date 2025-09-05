@@ -9,7 +9,7 @@ use Doctrine\ORM\Mapping\ManyToMany;
 use ReflectionException;
 use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -18,10 +18,11 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 final readonly class CollectionHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper        $attributeHelper,
-        private EntityManagerInterface $em,
-        private EntityTranslator       $translator
-    ) {
+        private AttributeHelper           $attributeHelper,
+        private EntityManagerInterface    $em,
+        private EntityTranslatorInterface $translator
+    )
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -47,6 +48,9 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         assert($collection instanceof Collection);
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
+        if ($newOwner === null || $args->getProperty() === null) {
+            return new ArrayCollection();
+        }
 
         $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];
@@ -84,6 +88,9 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         assert($collection instanceof Collection);
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
+        if ($newOwner === null || $args->getProperty() === null) {
+            return new ArrayCollection();
+        }
 
         $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];

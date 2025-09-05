@@ -10,7 +10,7 @@ use ErrorException;
 use ReflectionException;
 use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -19,10 +19,11 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
 final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper        $attributeHelper,
-        private EntityTranslator       $translator,
-        private EntityManagerInterface $em
-    ) {
+        private AttributeHelper           $attributeHelper,
+        private EntityTranslatorInterface $translator,
+        private EntityManagerInterface    $em
+    )
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -50,7 +51,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         throw new ErrorException(
             strtr($message, [
                 '%class%' => $data::class,
-                '%prop%'  => $args->getProperty()->name,
+                '%prop%' => $args->getProperty()->name,
             ])
         );
     }
@@ -69,6 +70,9 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         assert($collection instanceof Collection);
         $newCollection = clone $collection;
         $newOwner = $args->getTranslatedParent();
+        if ($newOwner === null || $args->getProperty() === null) {
+            return new ArrayCollection();
+        }
 
         $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
         $association = $associations[$args->getProperty()->name];

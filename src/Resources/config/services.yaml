@@ -73,9 +73,9 @@ services:
         tags:
             - { name: tmi_translation.translation_handler, priority: 50 }
 
-    ## Bidirectional ManyToMany
-    tmi_translation.translation_handlers.bidirectional_association_handler:
-        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler
+    ## Bidirectional OneToOne
+    tmi_translation.translation_handlers.bidirectional_one_to_one__handler:
+        class: TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'

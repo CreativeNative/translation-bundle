@@ -14,7 +14,7 @@ use TMI\TranslationBundle\Utils\AttributeHelper;
  *
  * Was renamed from BidirectionalAssociationHandler
  */
-final readonly class BidirectionalManyToManyHandler implements TranslationHandlerInterface
+final readonly class BidirectionalOneToOneHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private EntityManagerInterface $em,

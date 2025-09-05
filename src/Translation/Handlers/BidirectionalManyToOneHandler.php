@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslator;
+use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -19,8 +19,9 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         private AttributeHelper           $attributeHelper,
         private EntityManagerInterface    $em,
         private PropertyAccessorInterface $propertyAccessor,
-        private EntityTranslator          $translator
-    ) {
+        private EntityTranslatorInterface $translator
+    )
+    {
     }
 
     public function supports(TranslationArgs $args): bool
@@ -50,7 +51,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         throw new ErrorException(
             strtr($message, [
                 '%class%' => $data::class,
-                '%prop%'  => $args->getProperty()->name,
+                '%prop%' => $args->getProperty()->name,
             ])
         );
     }
