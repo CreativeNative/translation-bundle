@@ -8,7 +8,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use ErrorException;
-use ReflectionException;
 use RuntimeException;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
@@ -78,7 +77,6 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     /**
      * Translate the collection items and replace the collection entries with translated items.
      *
-     * @throws ReflectionException
      */
     public function translate(TranslationArgs $args): Collection
     {
@@ -135,14 +133,19 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             $accessor->setValue($newOwner, $fieldName, $collection);
         }
 
+        // ---------- CRITICAL FIX ----------
+        // copy items to translate BEFORE clearing the collection.
+        $itemsToTranslate = [];
+        foreach ($args->getDataToBeTranslated() as $item) {
+            $itemsToTranslate[] = $item;
+        }
+
+        // clear target collection (safe now because we have a copy)
         $collection->clear();
 
-        foreach ($args->getDataToBeTranslated() as $item) {
-            dump('Translating item', $item);
+        foreach ($itemsToTranslate as $item) {
 
             $translated = $this->translator->translate($item, $args->getTargetLocale());
-
-            dump('Translated result', $translated);
 
             if ($translated === null) {
                 throw new RuntimeException(sprintf(
@@ -152,14 +155,10 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             }
 
             if (!$collection->contains($translated)) {
-                dump('Adding to collection', $translated);
                 $collection->add($translated);
-            } else {
-                dump('Already contained', $translated);
             }
         }
 
-        dump('Final collection count', count($collection));
         return $collection;
     }
 }

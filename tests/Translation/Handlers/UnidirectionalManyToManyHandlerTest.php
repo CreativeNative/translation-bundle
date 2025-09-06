@@ -3,14 +3,13 @@ declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Test\Translation\Handlers;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use ErrorException;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
+use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
@@ -37,16 +36,16 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
         $this->em = $this->createMock(EntityManagerInterface::class);
 
         $this->translator = new class implements EntityTranslatorInterface {
-            public function translate($entity, string $locale): TranslatableManyToManyUnidirectionalChild
+            public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
             {
                 $clone = clone $entity;
                 $clone->setLocale($locale);
                 return $clone;
             }
-            public function afterLoad($entity): void {}
-            public function beforePersist($entity, EntityManagerInterface $em): void {}
-            public function beforeUpdate($entity, EntityManagerInterface $em): void {}
-            public function beforeRemove($entity, EntityManagerInterface $em): void {}
+            public function afterLoad(TranslatableInterface $entity): void {}
+            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void {}
+            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void {}
+            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void {}
         };
     }
 
@@ -73,8 +72,12 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     public function testTranslateReplacesCollectionWithTranslatedItems(): void
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
-        $child1 = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
-        $child2 = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
+        $child1 = new TranslatableManyToManyUnidirectionalChild()
+            ->setLocale('en')
+            ->setTuuid(uniqid('tu1-', true));
+        $child2 = new TranslatableManyToManyUnidirectionalChild()
+            ->setLocale('en')
+            ->setTuuid(uniqid('tu2-', true));
 
         $parent->addSimpleChild($child1)->addSimpleChild($child2);
 
@@ -94,11 +97,6 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
 
         $result = $handler->translate($args);
 
-        // debug dumps
-        dump('Final collection count', count($result));
-        dump('NewOwner property collection count', count($parent->getSimpleChildren()));
-
-        self::assertInstanceOf(Collection::class, $result);
         self::assertCount(2, $result, 'Translated collection should contain 2 items');
 
         foreach ($result as $item) {
@@ -113,7 +111,9 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     public function testHandleSharedAmongstTranslationsThrowsForManyToMany(): void
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
-        $child = new TranslatableManyToManyUnidirectionalChild()->setLocale('en');
+        $child = new TranslatableManyToManyUnidirectionalChild()
+            ->setLocale('en')
+            ->setTuuid(uniqid('tuuid-', true));
         $parent->addSharedChild($child);
 
         $prop = new ReflectionProperty($parent::class, 'sharedChildren');
