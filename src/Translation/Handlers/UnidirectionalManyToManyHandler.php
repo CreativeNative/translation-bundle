@@ -147,13 +147,6 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
             $translated = $this->translator->translate($item, $args->getTargetLocale());
 
-            if ($translated === null) {
-                throw new RuntimeException(sprintf(
-                    'Translator returned null for item of type "%s".',
-                    is_object($item) ? $item::class : gettype($item)
-                ));
-            }
-
             if (!$collection->contains($translated)) {
                 $collection->add($translated);
             }

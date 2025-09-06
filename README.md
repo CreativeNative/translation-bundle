@@ -5,11 +5,7 @@ Unlike most translations libraries, every translation is stored in the same tabl
 
 ## ToDo
 
-# ManyToMany associations are not supported with SharedAmongstTranslations yet.
-* UnidirectionalManyToManyHandler behavior is broken.
-* try for fix with tests
-    ** UnidirectionalManyToManyHandlerTest
-    ** TranslatableManyToManyUnidirectionalTest
+* ManyToMany associations are not supported with SharedAmongstTranslations yet.
 
 ## Features
 
