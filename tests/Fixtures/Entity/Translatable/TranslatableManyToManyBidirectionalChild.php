@@ -4,6 +4,7 @@ namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
@@ -14,7 +15,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 
@@ -34,6 +35,17 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
      */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
+        inversedBy: 'sharedChildren',
+        cascade: ['persist']
+    )]
+    #[ORM\JoinTable(name: 'parent_shared_child')]
+    private iterable $sharedParents;
+
+    /**
+     * @var ArrayCollection
+     */
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'emptyChildren',
         cascade: ['persist']
     )]
@@ -43,6 +55,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     public function __construct()
     {
         $this->simpleParents = new ArrayCollection();
+        $this->sharedParents = new ArrayCollection();
         $this->emptyParents  = new ArrayCollection();
     }
 
@@ -52,7 +65,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     }
 
     /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
+     * @return Collection<int, TranslatableManyToManyBidirectionalParent>
      */
     public function getSimpleParents(): Collection
     {
@@ -66,8 +79,20 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         return $this;
     }
 
+    public function getSharedParents(): Collection
+    {
+        return $this->sharedParents;
+    }
+
+    public function addSharedParents(TranslatableManyToManyBidirectionalParent $parent): self
+    {
+        $this->sharedParents[] = $parent;
+
+        return $this;
+    }
+
     /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent>
+     * @return Collection<int, TranslatableManyToManyBidirectionalParent>
      */
     public function getEmptyParents(): Collection
     {

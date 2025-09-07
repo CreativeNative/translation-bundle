@@ -41,7 +41,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
 
     #[SharedAmongstTranslations]
     #[ORM\ManyToMany(
-        targetEntity: ManyToManyBidirectionalChild::class,
+        targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',
         cascade: ['persist', 'remove']
     )]
@@ -94,7 +94,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     }
 
     /**
-     * @return Collection<int, ManyToManyBidirectionalChild>
+     * @return Collection<int, TranslatableManyToManyBidirectionalChild>
      */
     public function getSharedChildren(): Collection
     {
@@ -108,9 +108,9 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         return $this;
     }
 
-    public function addSharedChild(ManyToManyBidirectionalChild $child): self
+    public function addSharedChild(TranslatableManyToManyBidirectionalChild $child): self
     {
-        $child->addSharedParent($this);
+        $child->addSharedParents($this);
 
         $this->sharedChildren[] = $child;
 

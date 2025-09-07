@@ -35,21 +35,22 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
         $this->entityManager->persist($parent);
 
         // Translate the parent
-        /** @var TranslatableManyToManyBidirectionalParent $parentTranslation */
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        assert($parentTranslation instanceof TranslatableManyToManyBidirectionalParent);
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
         // Make sure the children of the translated parent are
         // translated and their parent is $translatedParent
         foreach ($parentTranslation->getSimpleChildren() as $child) {
-            /** @var TranslatableManyToManyBidirectionalChild $child */
+            assert($child instanceof TranslatableManyToManyBidirectionalChild);
+            self::assertEquals($child->getSimpleParents()->first(), $parentTranslation);
             self::assertEquals($child->getSimpleParents()->first(), $parentTranslation);
         }
 
         // Make sure the parent of the original children didn't change.
         foreach ($parentTranslation->getSimpleChildren() as $child) {
-            /** @var TranslatableManyToManyBidirectionalChild $child */
+            assert($child instanceof TranslatableManyToManyBidirectionalChild);
             self::assertEquals($child->getSimpleParents()->first(), $parentTranslation);
         }
     }
@@ -77,8 +78,9 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
         ;
         $this->entityManager->persist($parent);
         // Translate the parent
-        /** @var TranslatableManyToManyBidirectionalParent $parentTranslation */
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        assert($parentTranslation instanceof TranslatableManyToManyBidirectionalParent);
+
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
@@ -94,7 +96,7 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
     public function testItCanShareManyToMany(): void
     {
         // Create 3 children entities
-        $child1 = new ManyToManyBidirectionalChild();
+        $child1 = new TranslatableManyToManyBidirectionalChild();
 
         $this->entityManager->persist($child1);
 
@@ -105,6 +107,7 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
         $this->entityManager->flush();
 
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        assert($parentTranslation instanceof TranslatableManyToManyBidirectionalParent);
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
@@ -112,7 +115,7 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
         self::assertGreaterThan(0, $parentTranslation->getSharedChildren()->count());
         self::assertEquals($parent->getSharedChildren()->count(), $parentTranslation->getSharedChildren()->count());
 
-// @todo fix me  self::assertNotEquals($parent->getSharedChildren()->first(), $parentTranslation->getSharedChildren()->first());
+//        self::assertNotEquals($parent->getSharedChildren()->first(), $parentTranslation->getSharedChildren()->first());
 
         self::assertEquals($parent->getSharedChildren()->first()->getSharedParents()->first(), $parent);
         self::assertEquals($parentTranslation->getSharedChildren()->first()->getSharedParents()->first(), $parentTranslation);
