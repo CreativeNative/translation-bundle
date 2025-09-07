@@ -108,7 +108,7 @@ services:
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@tmi_translation.translation.entity_translator'
-            - '@tmi_translation.utils.attribute_helper'
+            - '@?property_accessor'
         tags:
             - { name: tmi_translation.translation_handler, priority: 100 }
 

@@ -1,45 +1,62 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TMI\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\Mapping\MappingException;
 use Doctrine\Persistence\Proxy;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
-use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
+use RuntimeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
+use Throwable;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 
 use function is_object;
 
 /**
- * Handles basic Doctrine Objects.
- * Usually the entry point of a translation.
+ * Handles basic Doctrine objects. Usually the entry point for translating an entity.
+ *
+ * Notes:
+ * - PropertyAccessorInterface can be optionally injected for testability.
  */
 final readonly class DoctrineObjectHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private EntityTranslatorInterface $translator
+        private EntityTranslatorInterface $translator,
+        private ?PropertyAccessorInterface $accessor = null
     ) {
     }
 
     /**
-     * @throws MappingException
+     * True when $args->getDataToBeTranslated() is a Doctrine-managed class.     *
      */
     public function supports(TranslationArgs $args): bool
     {
         $data = $args->getDataToBeTranslated();
 
         if (is_object($data)) {
-            $data = ($data instanceof Proxy) ? get_parent_class($data) : $data::class;
+            // If proxy, use parent class name for metadata lookup
+            $data = $data instanceof Proxy ? get_parent_class($data) : $data::class;
         }
 
-        return !$this->em->getMetadataFactory()->isTransient($data);
+        try {
+            return !$this->em->getMetadataFactory()->isTransient($data);
+        } catch (Throwable $e) {
+            // Rewrap low-level exceptions for clearer runtime reporting
+            throw new RuntimeException(sprintf(
+                'DoctrineObjectHandler::supports: failed to determine metadata for "%s": %s',
+                is_object($data) ? $data::class : (string)$data,
+                $e->getMessage()
+            ), 0, $e);
+        }
     }
 
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
@@ -53,51 +70,77 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
     }
 
     /**
+     * Clone the object and translate its properties.
+     *
      * @throws ReflectionException
      */
     public function translate(TranslationArgs $args): mixed
     {
-        $clone = clone $args->getDataToBeTranslated();
+        $data = $args->getDataToBeTranslated();
+        if (!is_object($data)) {
+            throw new RuntimeException('DoctrineObjectHandler::translate expects an object.');
+        }
 
+        $clone = clone $data;
         $args->setDataToBeTranslated($clone);
+
         $this->translateProperties($args);
 
         return $args->getDataToBeTranslated();
     }
 
     /**
-     * Loops through all object properties to translate them.
+     * Iterate over object properties and dispatch translation for each one via the translator.
+     *
      * @throws ReflectionException
      */
     public function translateProperties(TranslationArgs $args): void
     {
         $translation = $args->getDataToBeTranslated();
-        $accessor = PropertyAccess::createPropertyAccessor();
+        if (!is_object($translation)) {
+            throw new RuntimeException('translateProperties expects object in TranslationArgs.');
+        }
+
+        // allow injection for tests; otherwise create default accessor
+        $accessor = $this->accessor ?? PropertyAccess::createPropertyAccessor();
+
         $reflect = new ReflectionClass($translation::class);
         $properties = $reflect->getProperties();
 
         foreach ($properties as $property) {
-            $propValue = $accessor->getValue($translation, $property->name);
+            // read the current value (let exceptions bubble as runtime)
+            try {
+                $propValue = $accessor->getValue($translation, $property->name);
+            } catch (NoSuchPropertyException) {
+                // If property is not accessible by accessor, fallback to reflection read
+                $rp = new ReflectionProperty($translation::class, $property->name);
+                $propValue = $rp->getValue($translation);
+            }
 
-            // TODO prior empty($propValue) check value
-            if (($propValue === null) || ($propValue instanceof Collection && $propValue->isEmpty())) {
+            if ($propValue === null) {
                 continue;
             }
 
-            $subTranslationArgs = new TranslationArgs(
+            if ($propValue instanceof Collection && $propValue->isEmpty()) {
+                continue;
+            }
+
+            $subArgs = new TranslationArgs(
                 $propValue,
                 $args->getSourceLocale(),
                 $args->getTargetLocale()
-            )->setTranslatedParent($translation)
-                ->setProperty($property);
+            );
+            $subArgs->setTranslatedParent($translation)->setProperty($property);
 
-            $propertyTranslation = $this->translator->processTranslation($subTranslationArgs);
+            // Delegate translation of the property value to the global translator
+            $propertyTranslation = $this->translator->processTranslation($subArgs);
 
+            // try to set via accessor; if it throws NoSuchPropertyException, fallback to reflection
             try {
                 $accessor->setValue($translation, $property->name, $propertyTranslation);
             } catch (NoSuchPropertyException) {
-                $reflection = new ReflectionProperty($translation::class, $property->name);
-                $reflection->setValue($translation, $propertyTranslation);
+                $rp = new ReflectionProperty($translation::class, $property->name);
+                $rp->setValue($translation, $propertyTranslation);
             }
         }
     }

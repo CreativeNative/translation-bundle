@@ -38,10 +38,6 @@ tmi_translation:
 
 That's it!
 
-### Integration with Sonata Admin
-
-You will need to add extra stylesheets and JavaScript to your admin interface:
-
 ## Usage
 
 ### Make your entity translatable

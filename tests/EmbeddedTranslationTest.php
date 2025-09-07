@@ -60,7 +60,7 @@ final class EmbeddedTranslationTest extends TestCase
         $this->entityManager->persist($entity);
 
         $trans = $this->translator->translate($entity, self::TARGET_LOCALE);
-        \assert($trans instanceof Translatable);
+        assert($trans instanceof Translatable);
 
         $this->entityManager->persist($trans);
 

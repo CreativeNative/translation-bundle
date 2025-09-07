@@ -4,13 +4,9 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidirectional;
 
-/**
- * @author Arthur Guigand <aguigand@tmi.fr>
- */
 final class TranslatableOneToOneUnidirectionalTest extends TestCase
 {
     /**
@@ -29,8 +25,8 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
 
         $this->entityManager->persist($entity);
 
-        /** @var TranslatableOneToOneUnidirectional $translation */
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        assert($translation instanceof TranslatableOneToOneUnidirectional);
 
         $this->entityManager->flush();
         self::assertNotEquals($associatedEntity, $translation->getSimple());
@@ -58,8 +54,8 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
 
         $this->entityManager->persist($entity);
 
-        /** @var TranslatableOneToOneUnidirectional $translation */
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        assert($translation instanceof TranslatableOneToOneUnidirectional);
         $translation->setShared($associatedEntity2);
 
         $this->entityManager->persist($translation);
@@ -85,8 +81,8 @@ final class TranslatableOneToOneUnidirectionalTest extends TestCase
 
         $this->entityManager->persist($entity);
 
-        /** @var TranslatableOneToOneUnidirectional $translation */
         $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        assert($translation instanceof TranslatableOneToOneUnidirectional);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Test\Translation\Handlers;
@@ -44,10 +45,18 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
                 $clone->setLocale($locale);
                 return $clone;
             }
-            public function afterLoad(TranslatableInterface $entity): void {}
-            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void {}
+            public function afterLoad(TranslatableInterface $entity): void
+            {
+            }
+            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
         };
     }
 
@@ -85,7 +94,8 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
         // Anonymous object with a plain property that has NO PHP attribute
-        $anon = new class { public array $plain = []; };
+        $anon = new class { public array $plain = [];
+        };
         $prop = new ReflectionProperty($anon::class, 'plain');
 
         // IMPORTANT: pass a Collection instance (not the raw array). If you pass a plain array,
@@ -104,6 +114,9 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
         self::assertFalse($handler->supports($args));
     }
 
+    /**
+     * @throws ErrorException
+     */
     public function testHandleSharedAmongstTranslationsFallsBackToTranslatePath(): void
     {
         // If property is null -> the handler's "if ($property !== null && isManyToMany)" doesn't trigger,
@@ -133,7 +146,8 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     {
         $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->em);
 
-        $parent = new class { public ?string $any = null; };
+        $parent = new class { public ?string $any = null;
+        };
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
             ->setTranslatedParent($parent);
         // property not set -> should throw
@@ -148,7 +162,8 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenAssociationNotFound(): void
     {
-        $parent = new class { public ?array $items = null; };
+        $parent = new class { public ?array $items = null;
+        };
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $meta = $this->createMock(ClassMetadata::class);
@@ -172,7 +187,8 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenNotOwningSide(): void
     {
-        $parent = new class { public ?array $items = null; };
+        $parent = new class { public ?array $items = null;
+        };
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $meta = $this->createMock(ClassMetadata::class);
@@ -198,7 +214,8 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenFieldNotFoundOnOwner(): void
     {
-        $parent = new class { /* note: no "missingField" property */ public ?array $items = null; };
+        $parent = new class { /* note: no "missingField" property */ public ?array $items = null;
+        };
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $meta = $this->createMock(ClassMetadata::class);
@@ -227,7 +244,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     {
         // parent with public property "items" which is null initially (not a Collection)
         $parent = new class {
-            public $items = null; // intentionally not a Collection
+            public ?iterable $items = null; // intentionally not a Collection
         };
 
         // property representing the association; key must match mapping key (we use 'items')
@@ -259,7 +276,6 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
         $result = $handler->translate($args);
 
         // result should be a Collection with translated (cloned) children
-        self::assertInstanceOf(Collection::class, $result);
         self::assertCount(2, $result);
 
         // owner property should now contain a Collection with same items

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Translation\Handlers;
@@ -20,10 +21,11 @@ use Symfony\Component\PropertyAccess\PropertyAccessor;
 final readonly class UnidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper           $attributeHelper,
+        private AttributeHelper $attributeHelper,
         private EntityTranslatorInterface $translator,
-        private EntityManagerInterface    $em,
-    ) {}
+        private EntityManagerInterface $em,
+    ) {
+    }
 
     public function supports(TranslationArgs $args): bool
     {
@@ -46,7 +48,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $arguments = $attributes[0]->getArguments();
 
         // Unidirectional = neither mappedBy nor inversedBy is set
-        return !isset($arguments['mappedBy']) && !isset($arguments['inversedBy']);
+        return (isset($arguments['mappedBy']) === false) && (isset($arguments['inversedBy']) === false);
     }
 
     /**
@@ -106,7 +108,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             ));
         }
 
-        if (!($association['isOwningSide'] ?? false)) {
+        if (($association['isOwningSide'] ?? false) !== true) {
             throw new RuntimeException(sprintf(
                 'Property "%s" on "%s" is not the owning side of the relation.',
                 $property->name,
@@ -144,7 +146,6 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $collection->clear();
 
         foreach ($itemsToTranslate as $item) {
-
             $translated = $this->translator->translate($item, $args->getTargetLocale());
 
             if (!$collection->contains($translated)) {

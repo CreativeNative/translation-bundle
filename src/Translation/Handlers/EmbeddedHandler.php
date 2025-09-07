@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TMI\TranslationBundle\Translation\Handlers;
 
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * Translation handler for @Doctrine\ORM\Mapping\Embeddable()
+ * Handler for Doctrine embeddable objects.
  */
 final readonly class EmbeddedHandler implements TranslationHandlerInterface
 {
@@ -26,13 +28,14 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
         return $this->objectHandler->handleSharedAmongstTranslations($args);
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
+    public function handleEmptyOnTranslate(TranslationArgs $args): mixed
     {
         return $this->objectHandler->handleEmptyOnTranslate($args);
     }
 
     public function translate(TranslationArgs $args): mixed
     {
+        // For embeddables we simply clone the object instance.
         return clone $args->getDataToBeTranslated();
     }
 }

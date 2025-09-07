@@ -5,6 +5,7 @@ namespace TMI\TranslationBundle\Test;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Exception;
+use Override;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
@@ -32,8 +33,6 @@ class TestCase extends KernelTestCase
         parent::setUp();
 
         self::bootKernel();
-
-//        HandleExceptions::flushState();
 
         if (method_exists(self::class, 'getContainer')) {
             $container = self::getContainer();
@@ -91,7 +90,7 @@ class TestCase extends KernelTestCase
     }
 
 
-    #[\Override]
+    #[Override]
     final public function tearDown(): void
     {
         restore_exception_handler();

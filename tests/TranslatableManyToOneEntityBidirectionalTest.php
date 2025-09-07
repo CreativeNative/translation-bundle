@@ -7,7 +7,7 @@ use Doctrine\ORM\OptimisticLockException;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOne;
 
-class TranslatableManyToOneEntityBidirectionalTest extends TestCase
+final class TranslatableManyToOneEntityBidirectionalTest extends TestCase
 {
     /**
      * @throws OptimisticLockException

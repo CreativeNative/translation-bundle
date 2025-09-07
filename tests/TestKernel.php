@@ -9,7 +9,7 @@ use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use TMI\TranslationBundle\TmiTranslationBundle;
 
-class TestKernel extends BaseKernel
+final class TestKernel extends BaseKernel
 {
     use MicroKernelTrait;
 
@@ -22,17 +22,17 @@ class TestKernel extends BaseKernel
         ];
     }
 
-    protected function configureContainer(ContainerConfigurator $configurator): void
+    public function configureContainer(ContainerConfigurator $container): void
     {
         $locales = ['de', 'en', 'it'];
 
-        $configurator->extension('framework', [
+        $container->extension('framework', [
             'secret' => 'test_secret',
             'test' => true,
             'session' => ['storage_factory_id' => 'session.storage.factory.mock_file']
         ]);
 
-        $configurator->extension('doctrine', [
+        $container->extension('doctrine', [
             'dbal' => [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
@@ -53,13 +53,13 @@ class TestKernel extends BaseKernel
             ]
         ]);
 
-        $configurator->extension('tmi_translation', [
+        $container->extension('tmi_translation', [
             'locales' => $locales,
             'default_locale' => 'en',
             'disabled_firewalls' => ['admin'],
         ]);
 
-        $configurator->services()
+        $container->services()
             ->defaults()
             ->autowire()
             ->autoconfigure()
