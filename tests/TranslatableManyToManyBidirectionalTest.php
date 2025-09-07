@@ -4,7 +4,6 @@ namespace TMI\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\ManyToManyBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 

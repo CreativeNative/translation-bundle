@@ -29,15 +29,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         mappedBy: 'simpleParents',
         cascade: ['persist', 'remove']
     )]
-    private iterable $simpleChildren;
-
-    #[EmptyOnTranslate]
-    #[ORM\ManyToMany(
-        targetEntity: TranslatableManyToManyBidirectionalChild::class,
-        mappedBy: 'emptyParents',
-        cascade: ['persist', 'remove']
-    )]
-    private iterable $emptyChildren;
+    private Collection $simpleChildren;
 
     #[SharedAmongstTranslations]
     #[ORM\ManyToMany(
@@ -45,13 +37,23 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         mappedBy: 'sharedParents',
         cascade: ['persist', 'remove']
     )]
-    private iterable $sharedChildren;
+    private Collection $sharedChildren;
+
+    #[EmptyOnTranslate]
+    #[ORM\ManyToMany(
+        targetEntity: TranslatableManyToManyBidirectionalChild::class,
+        mappedBy: 'emptyParents',
+        cascade: ['persist', 'remove']
+    )]
+    private Collection $emptyChildren;
+
+
 
     public function __construct()
     {
         $this->simpleChildren = new ArrayCollection();
-        $this->emptyChildren  = new ArrayCollection();
         $this->sharedChildren = new ArrayCollection();
+        $this->emptyChildren  = new ArrayCollection();
     }
 
     public function getId(): int|null
@@ -69,26 +71,10 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
 
     public function addSimpleChild(TranslatableManyToManyBidirectionalChild $child): self
     {
-        $child->addSimpleParent($this);
-
-        $this->simpleChildren[] = $child;
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, TranslatableManyToManyBidirectionalChild>
-     */
-    public function getEmptyChildren(): Collection
-    {
-        return $this->emptyChildren;
-    }
-
-    public function addEmptyChild(TranslatableManyToManyBidirectionalChild $child): self
-    {
-        $child->addEmptyParent($this);
-
-        $this->emptyChildren[] = $child;
+        if (!$this->simpleChildren->contains($child)) {
+            $this->simpleChildren->add($child);
+            $child->addSimpleParent($this);
+        }
 
         return $this;
     }
@@ -110,9 +96,28 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
 
     public function addSharedChild(TranslatableManyToManyBidirectionalChild $child): self
     {
-        $child->addSharedParents($this);
+        if (!$this->sharedChildren->contains($child)) {
+            $this->sharedChildren->add($child);
+            $child->addSharedParents($this);
+        }
 
-        $this->sharedChildren[] = $child;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TranslatableManyToManyBidirectionalChild>
+     */
+    public function getEmptyChildren(): Collection
+    {
+        return $this->emptyChildren;
+    }
+
+    public function addEmptyChild(TranslatableManyToManyBidirectionalChild $child): self
+    {
+        if (!$this->emptyChildren->contains($child)) {
+            $this->emptyChildren->add($child);
+            $child->addEmptyParent($this);
+        }
 
         return $this;
     }

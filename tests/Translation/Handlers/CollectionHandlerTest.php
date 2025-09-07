@@ -122,7 +122,7 @@ final class CollectionHandlerTest extends TestCase
         };
 
         $prop = new ReflectionProperty($parent::class, 'children');
-        $args = new TranslationArgs($parent->getChildren ?? new ArrayCollection(), 'en', 'de')
+        $args = new TranslationArgs($parent->children ?? new ArrayCollection(), 'en', 'de')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -158,8 +158,8 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testHandleSharedAmongstTranslationsProcessesItemsAndSetsInverse(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent();
-        $child = new TranslatableManyToManyBidirectionalChild();
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
 
         $parent->addSharedChild($child);
         $child->addSharedParents($parent);
@@ -182,8 +182,8 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testTranslateTranslatesAndSetsInverseMappedBy(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent();
-        $child = new TranslatableManyToManyBidirectionalChild();
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
 
         $parent->addSimpleChild($child);
         $child->addSimpleParent($parent);
@@ -267,9 +267,20 @@ final class CollectionHandlerTest extends TestCase
         );
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testSupportsReturnsFalseIfNoManyToManyAttribute(): void
     {
-        $prop = new ReflectionProperty(DummyNoRelation::class, 'items');
+        $parent = new class {
+            public Collection $items;
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $prop = new ReflectionProperty($parent::class, 'items');
 
         $this->attributeHelper
             ->method('isManyToMany')
@@ -317,7 +328,7 @@ final class CollectionHandlerTest extends TestCase
         $parent = new TranslatableManyToManyBidirectionalParent();
         $collection = new ArrayCollection([new TranslatableManyToManyBidirectionalChild()]);
 
-        $prop = new ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'children');
+        $prop = new ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'sharedChildren');
 
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([]); // no mapping
@@ -351,13 +362,20 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testTranslateThrowsIfMappedByNull(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent();
+        $parent = new class {
+            public Collection $items;
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
         $collection = new ArrayCollection([new TranslatableManyToManyBidirectionalChild()]);
-        $prop = new ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'children');
+        $prop = new ReflectionProperty(get_class($parent), 'items');
 
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'children' => ['mappedBy' => null], // missing mappedBy
+            'items' => ['mappedBy' => null], // missing mappedBy
         ]);
         $this->em->method('getClassMetadata')->willReturn($meta);
 
@@ -370,12 +388,4 @@ final class CollectionHandlerTest extends TestCase
 
         $this->handler->translate($args);
     }
-}
-
-/**
- * Dummy class without ManyToMany attribute for supports() test
- */
-final class DummyNoRelation
-{
-    public ArrayCollection $items;
 }

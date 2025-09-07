@@ -28,7 +28,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         cascade: ['persist']
     )]
     #[ORM\JoinTable(name: 'parent_child')]
-    private iterable $simpleParents;
+    private Collection $simpleParents;
 
     /**
      * @var ArrayCollection
@@ -39,7 +39,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         cascade: ['persist']
     )]
     #[ORM\JoinTable(name: 'parent_shared_child')]
-    private iterable $sharedParents;
+    private Collection $sharedParents;
 
     /**
      * @var ArrayCollection
@@ -50,7 +50,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         cascade: ['persist']
     )]
     #[ORM\JoinTable(name: 'parent_empty_child')]
-    private iterable $emptyParents;
+    private Collection $emptyParents;
 
     public function __construct()
     {
@@ -74,7 +74,10 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
 
     public function addSimpleParent(TranslatableManyToManyBidirectionalParent $parent): self
     {
-        $this->simpleParents[] = $parent;
+        if (!$this->simpleParents->contains($parent)) {
+            $this->simpleParents->add($parent);
+            $parent->addSimpleChild($this);
+        }
 
         return $this;
     }
@@ -86,7 +89,10 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
 
     public function addSharedParents(TranslatableManyToManyBidirectionalParent $parent): self
     {
-        $this->sharedParents[] = $parent;
+        if (!$this->sharedParents->contains($parent)) {
+            $this->sharedParents->add($parent);
+            $parent->addSimpleChild($this);
+        }
 
         return $this;
     }
@@ -101,7 +107,10 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
 
     public function addEmptyParent(TranslatableManyToManyBidirectionalParent $parent): self
     {
-        $this->emptyParents[] = $parent;
+        if (!$this->emptyParents->contains($parent)) {
+            $this->emptyParents->add($parent);
+            $parent->addSimpleChild($this);
+        }
 
         return $this;
     }
