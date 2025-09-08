@@ -1,0 +1,16 @@
+# codecov.yml
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+comment:
+  layout: "reach,diff,files"
+  behavior: default
+
+# Fixes absolute path problems from CI (like /home/runner/work/...)
+paths:
+  - src
