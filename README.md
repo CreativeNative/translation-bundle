@@ -1,5 +1,6 @@
-# Translation Bundle
+[![codecov](https://codecov.io/github/CreativeNative/translation-bundle/graph/badge.svg?token=D2PXJL5T2Y)](https://codecov.io/github/CreativeNative/translation-bundle)
 
+# Translation Bundle
 This bundle intends to ease Doctrine entity translations.
 Unlike most translations libraries, every translation is stored in the same table as the source entity.
 

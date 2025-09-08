@@ -1,16 +1,13 @@
-# codecov.yml
-codecov:
-  require_ci_to_pass: true
-
 coverage:
+  status:
+    project:
+      default:
+        target: 100%
   precision: 2
   round: down
-  range: "70...100"
-
-comment:
-  layout: "reach,diff,files"
-  behavior: default
-
-# Fixes absolute path problems from CI (like /home/runner/work/...)
-paths:
-  - src
+  range: "70..100"
+  ignore:
+    - "tests/*"
+    - "vendor/*"
+fixes:
+  - "/home/runner/work/translation-bundle/translation-bundle/::"
