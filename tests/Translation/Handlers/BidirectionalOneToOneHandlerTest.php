@@ -6,6 +6,7 @@ namespace TMI\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
@@ -14,7 +15,7 @@ use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler::class)]
+#[CoversClass(BidirectionalOneToOneHandler::class)]
 final class BidirectionalOneToOneHandlerTest extends TestCase
 {
     /**

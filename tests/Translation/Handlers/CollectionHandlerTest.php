@@ -66,10 +66,18 @@ final class CollectionHandlerTest extends TestCase
                 return $clone;
             }
 
-            public function afterLoad(TranslatableInterface $entity): void {}
-            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void {}
+            public function afterLoad(TranslatableInterface $entity): void
+            {
+            }
+            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
         };
 
         $this->handler = new CollectionHandler(
@@ -85,8 +93,12 @@ final class CollectionHandlerTest extends TestCase
 
     public function testSupportsReturnsFalseIfNotCollectionOrMissingProperty(): void
     {
-        self::assertFalse($this->handler->supports(new TranslationArgs('not-a-collection', 'en', 'de')));
-        self::assertFalse($this->handler->supports(new TranslationArgs(new ArrayCollection(), 'en', 'de')));
+        self::assertFalse($this->handler->supports(
+            new TranslationArgs('not-a-collection', 'en', 'de')
+        ));
+        self::assertFalse($this->handler->supports(
+            new TranslationArgs(new ArrayCollection(), 'en', 'de')
+        ));
     }
 
     /**
@@ -99,11 +111,16 @@ final class CollectionHandlerTest extends TestCase
         $parent = new class {
             #[ManyToMany(mappedBy: 'parents')]
             public Collection $children;
-            public function __construct() { $this->children = new ArrayCollection(); }
+            public function __construct()
+            {
+                $this->children = new ArrayCollection();
+            }
         };
 
         $prop = new ReflectionProperty($parent::class, 'children');
-        $args = new TranslationArgs($parent->children, 'en', 'de')->setProperty($prop)->setTranslatedParent($parent);
+        $args = new TranslationArgs($parent->children, 'en', 'de')
+            ->setProperty($prop)
+            ->setTranslatedParent($parent);
 
         self::assertFalse($this->handler->supports($args));
     }
@@ -115,7 +132,8 @@ final class CollectionHandlerTest extends TestCase
     {
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $anon = new class { public array $plain = []; };
+        $anon = new class { public array $plain = [];
+        };
         $prop = new ReflectionProperty($anon::class, 'plain');
         $args = new TranslationArgs($anon->plain, 'en', 'de')->setProperty($prop)->setTranslatedParent($anon);
 
@@ -134,7 +152,10 @@ final class CollectionHandlerTest extends TestCase
         // owner class with a Collection property but NO #[ManyToMany] attribute
         $anon = new class {
             public Collection $items;
-            public function __construct() { $this->items = new ArrayCollection(); }
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
         };
 
         $prop = new ReflectionProperty($anon::class, 'items');
@@ -214,8 +235,16 @@ final class CollectionHandlerTest extends TestCase
         $aAfter = $read('a');
         $bAfter = $read('b');
 
-        self::assertEquals($aBefore->toArray(), $aAfter->toArray(), 'Private property $a must remain unchanged when discoverProperty returns null');
-        self::assertEquals($bBefore->toArray(), $bAfter->toArray(), 'Private property $b must remain unchanged when discoverProperty returns null');
+        self::assertEquals(
+            $aBefore->toArray(),
+            $aAfter->toArray(),
+            'Private property $a must remain unchanged when discoverProperty returns null'
+        );
+        self::assertEquals(
+            $bBefore->toArray(),
+            $bAfter->toArray(),
+            'Private property $b must remain unchanged when discoverProperty returns null'
+        );
     }
 
     public function testDiscoverPropertyCatchIsExecutedWhenAccessorThrowsOnce(): void
@@ -226,7 +255,8 @@ final class CollectionHandlerTest extends TestCase
             private Collection $secret;
             #[ManyToMany(mappedBy: 'simpleParents')]
             public Collection $visible;
-            public function __construct(Collection $visible) {
+            public function __construct(Collection $visible)
+            {
                 $this->secret = new ArrayCollection([ new TranslatableManyToManyBidirectionalChild() ]);
                 $this->visible = $visible;
             }
@@ -283,7 +313,8 @@ final class CollectionHandlerTest extends TestCase
             private Collection $a; // will be skipped (inaccessible)
             #[ManyToMany(mappedBy: 'sharedParents')]
             public Collection $b;
-            public function __construct(Collection $c) {
+            public function __construct(Collection $c)
+            {
                 $this->a = new ArrayCollection();
                 $this->b = $c;
             }
@@ -350,7 +381,12 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testTranslateThrowsIfMappedByNull(): void
     {
-        $parent = new class { public Collection $items; public function __construct() { $this->items = new ArrayCollection(); } };
+        $parent = new class { public Collection $items;
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
         $collection = new ArrayCollection([new TranslatableManyToManyBidirectionalChild()]);
         $prop = new ReflectionProperty($parent::class, 'items');
 
@@ -394,7 +430,12 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testTranslateThrowsIfAssociationMissingOrNoMappedBy(): void
     {
-        $parent = new class { public Collection $items; public function __construct() { $this->items = new ArrayCollection(); } };
+        $parent = new class { public Collection $items;
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $meta = $this->createMock(ClassMetadata::class);
@@ -468,7 +509,12 @@ final class CollectionHandlerTest extends TestCase
      */
     public function testHandleSharedAmongstThrowsWhenMappedByMissing(): void
     {
-        $parent = new class { public Collection $items; public function __construct() { $this->items = new ArrayCollection(); } };
+        $parent = new class { public Collection $items;
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $meta = $this->createMock(ClassMetadata::class);

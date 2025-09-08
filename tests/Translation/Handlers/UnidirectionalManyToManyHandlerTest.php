@@ -45,10 +45,18 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
                 $clone->setLocale($locale);
                 return $clone;
             }
-            public function afterLoad(TranslatableInterface $entity): void {}
-            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void {}
-            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void {}
+            public function afterLoad(TranslatableInterface $entity): void
+            {
+            }
+            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
+            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
+            {
+            }
         };
     }
 

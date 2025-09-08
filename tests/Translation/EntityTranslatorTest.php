@@ -32,7 +32,12 @@ final class EntityTranslatorTest extends TestCase
     private function newTranslator(): EntityTranslator
     {
 
-        return new EntityTranslator('en', ['de', 'en', 'it'], $this->eventDispatcherInterface, $this->attributeHelper);
+        return new EntityTranslator(
+            'en',
+            ['de', 'en', 'it'],
+            $this->eventDispatcherInterface,
+            $this->attributeHelper
+        );
     }
 
     // Create a real TranslationArgs instance (class is final so cannot be mocked)
@@ -46,24 +51,32 @@ final class EntityTranslatorTest extends TestCase
         return $args;
     }
 
-    private function handlerSupporting(TranslationArgs $expectedArgs, mixed $return, ?callable $assert = null, array $methodToReturnMap = []): TranslationHandlerInterface
-    {
+    private function handlerSupporting(
+        TranslationArgs $expectedArgs,
+        mixed $return,
+        ?callable $assert = null,
+        array $methodToReturnMap = []
+    ): TranslationHandlerInterface {
         $handler = $this->createMock(TranslationHandlerInterface::class);
 
-        $handler->method('supports')->with(self::callback(static fn(TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
+        $handler->method('supports')->with(
+            self::callback(static fn(TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
             && $args->getSourceLocale() === $expectedArgs->getSourceLocale()
             && $args->getTargetLocale() === $expectedArgs->getTargetLocale()
             && $args->getProperty() === $expectedArgs->getProperty()
-            && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent()))->willReturn(true);
+            && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent())
+        )->willReturn(true);
 
         // Default translate() behavior
         $handler->method('translate')->willReturn($return);
         foreach ($methodToReturnMap as $method => $value) {
-            $handler->expects($this->once())->method($method)->with(self::callback(static fn(TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
+            $handler->expects($this->once())->method($method)->with(
+                self::callback(static fn(TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
                 && $args->getSourceLocale() === $expectedArgs->getSourceLocale()
                 && $args->getTargetLocale() === $expectedArgs->getTargetLocale()
                 && $args->getProperty() === $expectedArgs->getProperty()
-                && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent()))->willReturn($value);
+                && $args->getTranslatedParent() === $expectedArgs->getTranslatedParent())
+            )->willReturn($value);
         }
 
         if ($assert) {
@@ -123,7 +136,12 @@ final class EntityTranslatorTest extends TestCase
         $args = $this->newTranslationArgs($prop);
         $this->attributeHelper->method('isSharedAmongstTranslations')->with($prop)->willReturn(true);
         $this->attributeHelper->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
-        $handler = $this->handlerSupporting($args, 'unused', null, ['handleSharedAmongstTranslations' => 'shared-result']);
+        $handler = $this->handlerSupporting(
+            $args,
+            'unused',
+            null,
+            ['handleSharedAmongstTranslations' => 'shared-result']
+        );
         $translator->addTranslationHandler($handler);
         self::assertSame('shared-result', $translator->processTranslation($args));
     }

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Test\Translation\Handlers;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use ReflectionProperty;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Translation\Handlers\PrimaryKeyHandler::class)]
+#[CoversClass(PrimaryKeyHandler::class)]
 final class PrimaryKeyHandlerTest extends TestCase
 {
     private PrimaryKeyHandler $handler;
@@ -21,17 +23,33 @@ final class PrimaryKeyHandlerTest extends TestCase
         $this->handler = new PrimaryKeyHandler($this->attributeHelper);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testSupportsReturnsTrueWhenPropertyIsId(): void
     {
-        $prop = new ReflectionProperty(DummyEntity::class, 'id');
+        $dummy = new class {
+            public int $id = 1;
+            public string $name = 'test';
+        };
+
+        $prop = new ReflectionProperty(get_class($dummy), 'id');
         $args = new TranslationArgs(123, 'en', 'de')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(true);
         self::assertTrue($this->handler->supports($args));
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testSupportsReturnsFalseWhenPropertyIsNotId(): void
     {
-        $prop = new ReflectionProperty(DummyEntity::class, 'name');
+        $dummy = new class {
+            public int $id = 1;
+            public string $name = 'test';
+        };
+
+        $prop = new ReflectionProperty(get_class($dummy), 'name');
         $args = new TranslationArgs('foo', 'en', 'de')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(false);
         self::assertFalse($this->handler->supports($args));
@@ -54,13 +72,4 @@ final class PrimaryKeyHandlerTest extends TestCase
         $args = new TranslationArgs(123, 'en', 'de');
         self::assertNull($this->handler->handleEmptyOnTranslate($args));
     }
-}
-
-/**
- * Dummy entity für ReflectionProperty
- */
-final class DummyEntity
-{
-    public int $id = 1;
-    public string $name = 'test';
 }

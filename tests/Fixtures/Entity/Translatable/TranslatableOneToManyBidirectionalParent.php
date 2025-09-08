@@ -41,7 +41,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     }
 
     /**
-     * @return \Doctrine\Common\Collections\Collection<int, \TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild>
+     * @return Collection<int, TranslatableOneToManyBidirectionalChild>
      */
     public function getChildren(): Collection
     {

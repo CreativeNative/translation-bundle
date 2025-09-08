@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TMI\TranslationBundle\Test\Translation\Args;
 
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use ReflectionProperty;
 use stdClass;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
@@ -24,11 +25,17 @@ final class TranslationArgsTest extends TestCase
         self::assertNull($args->getProperty());
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testFluentSettersAndMutability(): void
     {
         $args = new TranslationArgs(null);
         $parent = new stdClass();
-        $property = new ReflectionProperty(DummyClass::class, 'prop');
+        $dummy = new class {
+            public int $prop = 42;
+        };
+        $property = new ReflectionProperty(get_class($dummy), 'prop');
         $args
             ->setDataToBeTranslated(123)
             ->setSourceLocale('fr')
@@ -63,12 +70,4 @@ final class TranslationArgsTest extends TestCase
         $args->setDataToBeTranslated($arr);
         self::assertSame($arr, $args->getDataToBeTranslated());
     }
-}
-
-/**
- * Helper for ReflectionProperty test.
- */
-final class DummyClass
-{
-    public int $prop = 42;
 }
