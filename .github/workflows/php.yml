@@ -54,11 +54,15 @@ jobs:
       - name: Run PHPUnit tests with coverage
         run: composer run-script test
 
+      # Debugging
+      - name: Show coverage files
+        run: ls -R var/coverage-xml || echo "No coverage files found"
+
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
         with:
-          files: var/coverage-xml
+          directory: var/coverage-xml
           fail_ci_if_error: true
