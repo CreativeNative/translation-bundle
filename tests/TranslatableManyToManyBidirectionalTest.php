@@ -84,7 +84,7 @@ final class TranslatableManyToManyBidirectionalTest extends TestCase
         $this->entityManager->flush();
 
         // Assert that the translated parents has an empty list of child
-        self::assertEmpty($parentTranslation->getSimpleChildren());
+        self::assertEmpty($parentTranslation->getEmptyChildren());
     }
 
 

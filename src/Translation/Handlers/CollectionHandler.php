@@ -4,24 +4,38 @@ declare(strict_types=1);
 
 namespace TMI\TranslationBundle\Translation\Handlers;
 
+use Closure;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use ReflectionException;
+use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
 use TMI\TranslationBundle\Translation\Args\TranslationArgs;
 use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
 use TMI\TranslationBundle\Utils\AttributeHelper;
 
+/**
+ * Handles translation of Doctrine ManyToMany associations.
+ */
 final readonly class CollectionHandler implements TranslationHandlerInterface
 {
+    private readonly Closure $propertyAccessor;
+
     public function __construct(
-        private AttributeHelper           $attributeHelper,
-        private EntityManagerInterface    $em,
+        private AttributeHelper $attributeHelper,
+        private EntityManagerInterface $em,
         private EntityTranslatorInterface $translator,
+        ?callable $propertyAccessor = null,
     ) {
+        // convert callable -> Closure or use default behaviour
+        $this->propertyAccessor = $propertyAccessor !== null
+            ? $propertyAccessor(...)
+            : static function (ReflectionProperty $p, object $o) {
+                // default behaviour: read the property value (may throw, caught by caller)
+                return $p->getValue($o);
+            };
     }
 
     public function supports(TranslationArgs $args): bool
@@ -29,11 +43,7 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         $data = $args->getDataToBeTranslated();
         $prop = $args->getProperty();
 
-        if (!$data instanceof Collection) {
-            return false;
-        }
-
-        if ($prop === null) {
+        if (!$data instanceof Collection || $prop === null) {
             return false;
         }
 
@@ -46,14 +56,45 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
             return false;
         }
 
-        $arguments = $attributes[0]->getArguments();
-
-        return array_key_exists('mappedBy', $arguments) && $arguments['mappedBy'] !== null;
+        $argsAttr = $attributes[0]->getArguments();
+        return isset($argsAttr['mappedBy']) && $argsAttr['mappedBy'] !== null;
     }
 
-    /**
-     * @throws ReflectionException
-     */
+    private function discoverProperty(object $owner, Collection $collection): ?ReflectionProperty
+    {
+        $refClass = new ReflectionClass($owner);
+
+        foreach ($refClass->getProperties() as $prop) {
+            try {
+                $value = ($this->propertyAccessor)($prop, $owner);
+
+                if ($value === $collection) {
+                    return $prop;
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveMappedBy(ReflectionProperty $prop, object $owner): ?string
+    {
+        $attributes = $prop->getAttributes(ManyToMany::class);
+        if ($attributes !== []) {
+            $args = $attributes[0]->getArguments();
+            if (isset($args['mappedBy'])) {
+                return $args['mappedBy'];
+            }
+        }
+
+        $meta = $this->em->getClassMetadata($owner::class);
+        $assoc = $meta->getAssociationMapping($prop->getName());
+
+        return $assoc['mappedBy'] ?? null;
+    }
+
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
     {
         $collection = $args->getDataToBeTranslated();
@@ -61,44 +102,34 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
             throw new RuntimeException('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
         }
 
-        $newCollection = clone $collection;
-
         $newOwner = $args->getTranslatedParent();
-        $prop = $args->getProperty();
+        $prop = $args->getProperty() ?? ($newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+
         if ($newOwner === null || $prop === null) {
-            return $newCollection;
+            return new ArrayCollection();
         }
 
-        $meta = $this->em->getClassMetadata($newOwner::class);
-        $mappings = $meta->getAssociationMappings();
-        $assoc = $mappings[$prop->name] ?? null;
-        if ($assoc === null) {
+        $mappedBy = $this->resolveMappedBy($prop, $newOwner);
+        if ($mappedBy === null) {
             throw new RuntimeException(sprintf(
                 'Association mapping not found for property "%s" on "%s".',
-                $prop->name,
+                $prop->getName(),
                 $newOwner::class
             ));
         }
 
-        $mappedBy = $assoc['mappedBy'] ?? null;
-        if ($mappedBy === null) {
-            throw new RuntimeException(sprintf(
-                'Association "%s::%s" has no "mappedBy" (not inverse side).',
-                $newOwner::class,
-                $prop->name
-            ));
-        }
+        $newCollection = new ArrayCollection();
 
-        foreach ($newCollection as $key => $item) {
+        foreach ($collection as $item) {
             $rp = new ReflectionProperty($item::class, $mappedBy);
-            $subArgs = new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale())
-                ->setTranslatedParent($newOwner)
-                ->setProperty($rp);
+
+            $subArgs = new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale());
+            $subArgs->setTranslatedParent($newOwner)->setProperty($rp);
 
             $itemTrans = $this->translator->processTranslation($subArgs);
 
             $rp->setValue($itemTrans, new ArrayCollection([$newOwner]));
-            $newCollection[$key] = $itemTrans;
+            $newCollection->add($itemTrans);
         }
 
         return $newCollection;
@@ -106,12 +137,21 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
 
     public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
     {
-        return new ArrayCollection([]);
+        $collection = $args->getDataToBeTranslated();
+        if (!$collection instanceof Collection) {
+            return new ArrayCollection();
+        }
+
+        $newOwner = $args->getTranslatedParent();
+        $prop = $args->getProperty() ?? ($newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+
+        if ($newOwner && $prop) {
+            $prop->setValue($newOwner, new ArrayCollection());
+        }
+
+        return new ArrayCollection();
     }
 
-    /**
-     * @throws ReflectionException
-     */
     public function translate(TranslationArgs $args): Collection
     {
         $collection = $args->getDataToBeTranslated();
@@ -119,43 +159,32 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
             throw new RuntimeException('CollectionHandler::translate expects a Collection.');
         }
 
-        $newCollection = clone $collection;
-
         $newOwner = $args->getTranslatedParent();
-        $prop = $args->getProperty();
+        $prop = $args->getProperty() ?? ($newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+
         if ($newOwner === null || $prop === null) {
-            return $newCollection;
+            return new ArrayCollection($collection->toArray());
         }
 
-        $meta = $this->em->getClassMetadata($newOwner::class);
-        $mappings = $meta->getAssociationMappings();
-        $assoc = $mappings[$prop->name] ?? null;
-        if ($assoc === null) {
-            throw new RuntimeException(sprintf(
-                'Association mapping not found for property "%s" on "%s".',
-                $prop->name,
-                $newOwner::class
-            ));
-        }
-
-        $mappedBy = $assoc['mappedBy'] ?? null;
+        $mappedBy = $this->resolveMappedBy($prop, $newOwner);
         if ($mappedBy === null) {
             throw new RuntimeException(sprintf(
                 'Association "%s::%s" is not a bidirectional ManyToMany (missing mappedBy).',
                 $newOwner::class,
-                $prop->name
+                $prop->getName()
             ));
         }
 
-        foreach ($newCollection as $key => $item) {
-            $rp = new ReflectionProperty($item::class, $mappedBy);
+        $newCollection = new ArrayCollection();
 
-            $rp->setValue($item, new ArrayCollection([]));
+        foreach ($collection as $item) {
+            $rp = new ReflectionProperty($item::class, $mappedBy);
+            $rp->setValue($item, new ArrayCollection());
 
             $itemTrans = $this->translator->translate($item, $args->getTargetLocale());
-
             $rp->setValue($itemTrans, new ArrayCollection([$newOwner]));
-            $newCollection[$key] = $itemTrans;
+
+            $newCollection->add($itemTrans);
         }
 
         return $newCollection;
