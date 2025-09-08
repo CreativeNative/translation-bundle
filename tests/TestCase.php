@@ -5,7 +5,6 @@ namespace TMI\TranslationBundle\Test;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Exception;
-use Override;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
@@ -89,8 +88,6 @@ class TestCase extends KernelTestCase
         self::assertNotSame(spl_object_hash($source), spl_object_hash($translation));
     }
 
-
-    #[Override]
     final public function tearDown(): void
     {
         restore_exception_handler();

@@ -9,55 +9,55 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use function in_array;
 
-/**
- * Configure the LocaleFilter as it's not a service but has dependencies.
- */
-class LocaleFilterConfigurator implements EventSubscriberInterface
+final readonly class LocaleFilterConfigurator implements EventSubscriberInterface
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly array $disabledFirewalls,
-        private readonly ?FirewallMap $firewallMap = null
+        private EntityManagerInterface $em,
+        private array                  $disabledFirewalls,
+        private ?FirewallMap           $firewallMap = null,
     ) {
     }
 
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [KernelEvents::REQUEST => [['onKernelRequest', 2]]];
     }
 
-    /**
-     * Called on each request.
-     *
-     */
     public function onKernelRequest(RequestEvent $event): void
     {
-        if ($this->em->getFilters()->has('tmi_translation_locale_filter')) {
-            if ($this->isDisabledFirewall($event->getRequest())) {
-                if ($this->em->getFilters()->isEnabled('tmi_translation_locale_filter')) {
-                    $this->em->getFilters()->disable('tmi_translation_locale_filter');
-                }
+        $filters = $this->em->getFilters();
 
-                return;
-            }
-
-            /** @var LocaleFilter $filter */
-            $filter = $this->em->getFilters()->enable('tmi_translation_locale_filter');
-
-            $filter->setLocale($event->getRequest()->getLocale());
+        if (!$filters->has('tmi_translation_locale_filter')) {
+            return;
         }
+
+        $request = $event->getRequest();
+
+        if ($this->isDisabledFirewall($request)) {
+            if ($filters->isEnabled('tmi_translation_locale_filter')) {
+                $filters->disable('tmi_translation_locale_filter');
+            }
+            return;
+        }
+
+        $filter = $filters->enable('tmi_translation_locale_filter');
+        assert($filter instanceof LocaleFilter);
+        $filter->setLocale($request->getLocale());
     }
 
-    /**
-     * Indicates if the current firewall should disable the filter.
-     */
-    protected function isDisabledFirewall(Request $request): bool
+    private function isDisabledFirewall(Request $request): bool
     {
-        if (null === $this->firewallMap || null === $this->firewallMap->getFirewallConfig($request)) {
+        if ($this->firewallMap === null) {
             return false;
         }
 
-        return \in_array($this->firewallMap->getFirewallConfig($request)->getName(), $this->disabledFirewalls, true);
+        $config = $this->firewallMap->getFirewallConfig($request);
+        if ($config === null) {
+            return false;
+        }
+
+        return in_array($config->getName(), $this->disabledFirewalls, true);
     }
 }

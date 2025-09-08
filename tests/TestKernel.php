@@ -7,6 +7,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
+use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use TMI\TranslationBundle\TmiTranslationBundle;
 
 final class TestKernel extends BaseKernel
@@ -49,7 +50,13 @@ final class TestKernel extends BaseKernel
                         'prefix' => 'TMI\TranslationBundle\Fixtures\Entity',
                         'alias' => 'TestBundle',
                     ]
-                ]
+                ],
+                'filters' => [
+                    'tmi_translation_locale_filter' => [
+                        'class' => LocaleFilter::class,
+                        'enabled' => true,
+                    ]
+                ],
             ]
         ]);
 

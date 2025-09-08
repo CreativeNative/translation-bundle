@@ -7,17 +7,16 @@ use Twig\Extension\GlobalsInterface;
 use Twig\TwigTest;
 use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
-class TmiTranslationExtension extends AbstractExtension implements GlobalsInterface
+final class TmiTranslationExtension extends AbstractExtension implements GlobalsInterface
 {
     public function __construct(private readonly array $locales)
     {
     }
 
-    #[\Override]
     public function getTests(): array
     {
         return [
-            new TwigTest('translatable', fn($object) => $object instanceof TranslatableInterface),
+            new TwigTest('translatable', fn($object) => $object instanceof TranslatableInterface)
         ];
     }
 

@@ -55,7 +55,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         );
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
+    public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
     {
         return new ArrayCollection();
     }

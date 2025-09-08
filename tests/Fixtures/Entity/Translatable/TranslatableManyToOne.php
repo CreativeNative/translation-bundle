@@ -2,6 +2,7 @@
 
 namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
@@ -15,7 +16,7 @@ final class TranslatableManyToOne implements TranslatableInterface
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private ?int $id = null;
 

@@ -13,27 +13,28 @@ use function in_array;
  */
 final class LocaleFilter extends SQLFilter
 {
-    protected ?string $locale = null;
-
     /**
      * Dependency injection.
      */
     public function setLocale(?string $locale): self
     {
-        $this->locale = $locale;
+        if ($locale !== null) {
+            $this->setParameter('locale', $locale);
+        }
 
         return $this;
     }
 
     public function addFilterConstraint(ClassMetadata $targetEntity, $targetTableAlias): string
     {
-        if (null === $this->locale) {
+        if (!$this->hasParameter('locale')) {
             return '';
         }
 
-        // If the entity is a TranslatableInterface
+        $locale = $this->getParameter('locale');
+
         if (in_array(TranslatableInterface::class, $targetEntity->getReflectionClass()?->getInterfaceNames(), true)) {
-            return sprintf("%s.locale = '%s'", $targetTableAlias, $this->locale);
+            return sprintf("%s.locale = %s", $targetTableAlias, $locale);
         }
 
         return '';

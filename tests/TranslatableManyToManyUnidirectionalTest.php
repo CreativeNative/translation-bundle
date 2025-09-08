@@ -8,7 +8,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\PersistentCollection;
-use Override;
 use ReflectionException;
 use ReflectionProperty;
 use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
@@ -20,7 +19,6 @@ final class TranslatableManyToManyUnidirectionalTest extends TestCase
 {
     private UnidirectionalManyToManyHandler $handler;
 
-    #[Override]
     public function setUp(): void
     {
         parent::setUp();
