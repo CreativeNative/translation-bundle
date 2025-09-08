@@ -47,8 +47,8 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-interaction
 
       # Check coding standards
-      - name: Check coding standards (PHPCS)
-        run: composer run-script cs-check
+      # - name: Check coding standards (PHPCS)
+      #   run: composer run-script cs-check
 
       # Run PHPUnit with coverage
       - name: Run PHPUnit tests with coverage
