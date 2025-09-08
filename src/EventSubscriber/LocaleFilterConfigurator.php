@@ -9,14 +9,15 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
+
 use function in_array;
 
 final readonly class LocaleFilterConfigurator implements EventSubscriberInterface
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private array                  $disabledFirewalls,
-        private ?FirewallMap           $firewallMap = null,
+        private array $disabledFirewalls,
+        private ?FirewallMap $firewallMap = null,
     ) {
     }
 

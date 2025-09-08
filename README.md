@@ -13,7 +13,6 @@ Unlike most translations libraries, every translation is stored in the same tabl
 * Translation fields are stored in the same table (no expensive joins)
 * Supports inherited entities
 * Handle more than just text fields
-* Integration with Sonata and EasyAdmin
 * Auto-population of translated relations
 
 ## Install

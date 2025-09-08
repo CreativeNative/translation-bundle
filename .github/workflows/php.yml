@@ -1,4 +1,4 @@
-name: PHP Composer
+name: PHP CI
 
 on:
   push:
@@ -11,29 +11,54 @@ permissions:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        php-version: [8.4]
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      # Setup PHP
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: xdebug
+          extensions: mbstring, json, pdo, pdo_sqlite, sqlite3, xdebug
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+      # Validate composer.json and composer.lock
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
+      # Cache Composer dependencies
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
 
-    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
-    # Docs: https://getcomposer.org/doc/articles/scripts.md
+      # Install dependencies
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
 
-    # - name: Run test suite
-    #   run: composer run-script test
+      # Check coding standards
+      - name: Check coding standards (PHPCS)
+        run: composer run-script cs-check
+
+      # Run PHPUnit with coverage
+      - name: Run PHPUnit tests with coverage
+        run: composer run-script test
+
+      # Upload coverage to Codecov
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
+        with:
+          files: var/coverage-xml
+          fail_ci_if_error: true

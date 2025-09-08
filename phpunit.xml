@@ -43,11 +43,8 @@
     <coverage includeUncoveredFiles="true" ignoreDeprecatedCodeUnits="true">
         <report>
             <html outputDirectory="var/coverage-html"/>
+            <xml outputDirectory="var/coverage-xml"/>
         </report>
     </coverage>
-
-    <logging>
-        <testdoxHtml outputFile="var/testdox.html"/>
-    </logging>
 
 </phpunit>
