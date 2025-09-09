@@ -60,5 +60,5 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
         with:
-          files: var/coverage-xml/index.xml
+          files: var/clover.xml
           fail_ci_if_error: true

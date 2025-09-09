@@ -9,5 +9,3 @@ coverage:
   ignore:
     - "tests/*"
     - "vendor/*"
-fixes:
-  - "/home/runner/work/translation-bundle/translation-bundle/::"

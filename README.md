@@ -1,10 +1,12 @@
 [![codecov](https://codecov.io/github/CreativeNative/translation-bundle/graph/badge.svg?token=D2PXJL5T2Y)](https://codecov.io/github/CreativeNative/translation-bundle)
 
-# Translation Bundle
-This bundle intends to ease Doctrine entity translations.
-Unlike most translations libraries, every translation is stored in the same table as the source entity.
+# Symfony Translation Bundle with Doctrine
+This bundle intends to ease Doctrine entity translations. Unlike most translation libraries, every translation is stored in the same table as the source entity.
 
-## ToDo
+## About This Version
+This is a complete refactoring based on PHP 8.4, Symfony 7.3, and Doctrine ORM 3.5 of the fork from umanit/translation-bundle, implemented with modern development practices and featuring 100% code coverage with comprehensive test suites.
+
+## Limitations
 
 * ManyToMany associations are not supported with SharedAmongstTranslations yet.
 
@@ -25,7 +27,7 @@ composer require tmi/translation-bundle
 Register the bundle to your `app/AppKernel.php` if it's not done automatically.
 
 ```php
-    new TMI\TranslationBundle\tmiTranslationBundle(),
+new TMI\TranslationBundle\TmiTranslationBundle(),
 ```
 
 Configure your available locales and, optionally, the default one:
@@ -72,9 +74,6 @@ Use the service `tmi_translation.translator.entity_translator` to translate a so
 $translatedEntity = $this->get('tmi_translation.translator.entity_translator')->translate($entity, 'fr');
 ```
 
-The `$translatedEntity` will be persisted with Sonata, jumpstarted with EasyAdmin: with both, you'll be redirected to the
-edit form.
-
 Every attribute of the source entity will be cloned into a new entity, unless specified otherwise with the `EmptyOnTranslate`
 attribute.
 
@@ -90,7 +89,7 @@ Using this attribute will make the value of your field identical throughout all 
 field in any translation, all the others will be synchronized.
 If the attribute is a relation to a translatable entity, it will associate the correct translation to each language.
 
-**Note :** `ManyToMany` associations are not supported with `SharedAmongstTranslations` yet.
+*** Note :** `ManyToMany` associations are not supported with `SharedAmongstTranslations` yet.
 
 ```php
 <?php

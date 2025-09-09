@@ -43,7 +43,7 @@
     <coverage includeUncoveredFiles="true" ignoreDeprecatedCodeUnits="true">
         <report>
             <html outputDirectory="var/coverage-html"/>
-            <xml outputDirectory="var/coverage-xml"/>
+            <clover outputFile="var/clover.xml"/>
         </report>
     </coverage>
 
