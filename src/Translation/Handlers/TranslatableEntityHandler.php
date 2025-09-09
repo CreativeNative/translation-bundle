@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use ReflectionException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {

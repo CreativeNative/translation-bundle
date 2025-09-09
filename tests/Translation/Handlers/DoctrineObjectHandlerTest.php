@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -15,13 +15,13 @@ use RuntimeException;
 use stdClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
-use TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
 /**
- * @covers \TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
+ * @covers \Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
  */
 final class DoctrineObjectHandlerTest extends TestCase
 {

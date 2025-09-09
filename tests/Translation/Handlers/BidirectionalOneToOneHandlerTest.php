@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -11,11 +11,11 @@ use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final class BidirectionalOneToOneHandlerTest extends TestCase
 {

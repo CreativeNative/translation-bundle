@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation\Args;
+namespace Tmi\TranslationBundle\Translation\Args;
 
 use ReflectionProperty;
 

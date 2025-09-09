@@ -1,8 +1,8 @@
 <?php
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 
 interface TranslationHandlerInterface
 {

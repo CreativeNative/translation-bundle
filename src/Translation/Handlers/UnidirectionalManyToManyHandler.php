@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -10,9 +10,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use ErrorException;
 use RuntimeException;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 /**

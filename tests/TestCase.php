@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
@@ -8,9 +8,9 @@ use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\EntityTranslator;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 class TestCase extends KernelTestCase
 {

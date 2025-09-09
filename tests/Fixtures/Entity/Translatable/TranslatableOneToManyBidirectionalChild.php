@@ -1,10 +1,10 @@
 <?php
 
-namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
+namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 final class TranslatableOneToManyBidirectionalChild implements TranslatableInterface

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
@@ -10,10 +10,10 @@ use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\PersistentCollection;
 use ReflectionException;
 use ReflectionProperty;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 
 final class TranslatableManyToManyUnidirectionalTest extends TestCase
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -14,16 +14,16 @@ use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
 use RuntimeException;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
-use TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * @covers \TMI\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler
+ * @covers \Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler
  */
 final class UnidirectionalManyToManyHandlerTest extends TestCase
 {

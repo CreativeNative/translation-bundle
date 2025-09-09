@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Event;
+namespace Tmi\TranslationBundle\Event;
 
 use Symfony\Contracts\EventDispatcher\Event;
 

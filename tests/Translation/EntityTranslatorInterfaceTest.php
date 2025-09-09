@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\Translation;
+namespace Tmi\TranslationBundle\Test\Translation;
 
 use PHPUnit\Framework\TestCase;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Doctrine\ORM\EntityManagerInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 final class EntityTranslatorInterfaceTest extends TestCase
 {

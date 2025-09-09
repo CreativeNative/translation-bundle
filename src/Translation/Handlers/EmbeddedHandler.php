@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handler for Doctrine embeddable objects.

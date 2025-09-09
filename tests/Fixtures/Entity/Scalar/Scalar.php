@@ -1,12 +1,12 @@
 <?php
 
-namespace  TMI\TranslationBundle\Fixtures\Entity\Scalar;
+namespace  Tmi\TranslationBundle\Fixtures\Entity\Scalar;
 
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 final class Scalar implements TranslatableInterface

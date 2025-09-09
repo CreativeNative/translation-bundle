@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass(PrimaryKeyHandler::class)]
 final class PrimaryKeyHandlerTest extends TestCase

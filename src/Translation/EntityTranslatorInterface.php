@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation;
+namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 interface EntityTranslatorInterface
 {

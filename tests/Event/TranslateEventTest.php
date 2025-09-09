@@ -1,10 +1,10 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\Event;
+namespace Tmi\TranslationBundle\Test\Event;
 
 use PHPUnit\Framework\TestCase;
 use stdClass;
-use TMI\TranslationBundle\Event\TranslateEvent;
+use Tmi\TranslationBundle\Event\TranslateEvent;
 
 final class TranslateEventTest extends TestCase
 {

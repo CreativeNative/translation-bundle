@@ -53,7 +53,7 @@ Register the bundle to your `config/bundles.php`.
 ```php
 return [
 // ...
-TMI\TranslationBundle\TmiTranslationBundle::class => ['all' => true],
+Tmi\TranslationBundle\TmiTranslationBundle::class => ['all' => true],
 ];
 ```
 
@@ -73,16 +73,16 @@ tmi_translation:
 
 ### Make your entity translatable
 
-Implement `TMI\TranslationBundle\Doctrine\TranslatableInterface` and use the trait
-`TMI\TranslationBundle\Doctrine\ModelTranslatableTrait`on an entity you want to make translatable.
+Implement `Tmi\TranslationBundle\Doctrine\TranslatableInterface` and use the trait
+`Tmi\TranslationBundle\Doctrine\ModelTranslatableTrait`on an entity you want to make translatable.
 ```php
 <?php
 
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 class Product implements TranslatableInterface
@@ -138,7 +138,7 @@ This attribute will empty the field when creating a new translation.
 private Media $image; // Empty in new translations
 ```
 ### Translate event
-You can alter the entities to translate or translated, before and after translation using the `TMI\TranslationBundle\Event\TranslateEvent`
+You can alter the entities to translate or translated, before and after translation using the `Tmi\TranslationBundle\Event\TranslateEvent`
 
 - `TranslateEvent::PRE_TRANSLATE` called before starting to translate the properties. The new translation is just instanciated with the right `oid` and `locale`
 - `TranslateEvent::POST_TRANSLATE` called after saving the translation
@@ -159,7 +159,7 @@ doctrine:
     filters:
       # ...
       tmi_translation_locale_filter:
-        class:   'TMI\TranslationBundle\Doctrine\Filter\LocaleFilter'
+        class:   'Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter'
         enabled: true
 ```  
 

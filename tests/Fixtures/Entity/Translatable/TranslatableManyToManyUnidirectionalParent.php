@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
+namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'translatable_many_to_many_unidirectional')]

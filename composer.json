@@ -59,13 +59,13 @@
     "minimum-stability": "stable",
     "autoload": {
         "psr-4": {
-            "TMI\\TranslationBundle\\": "src/"
+            "Tmi\\TranslationBundle\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "TMI\\TranslationBundle\\Test\\": "tests/",
-            "TMI\\TranslationBundle\\Fixtures\\": "tests/Fixtures/"
+            "Tmi\\TranslationBundle\\Test\\": "tests/",
+            "Tmi\\TranslationBundle\\Fixtures\\": "tests/Fixtures/"
         }
     },
     "scripts": {

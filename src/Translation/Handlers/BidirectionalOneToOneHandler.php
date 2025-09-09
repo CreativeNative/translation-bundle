@@ -1,13 +1,13 @@
 <?php
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
 use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handles translation of one-to-one bidirectional association.

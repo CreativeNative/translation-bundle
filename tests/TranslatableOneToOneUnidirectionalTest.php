@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidirectional;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidirectional;
 
 final class TranslatableOneToOneUnidirectionalTest extends TestCase
 {

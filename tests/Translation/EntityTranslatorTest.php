@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation;
+namespace Tmi\TranslationBundle\Test\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
@@ -11,11 +11,11 @@ use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslator;
-use TMI\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
-use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
 #[CoversClass(EntityTranslator::class)]
 final class EntityTranslatorTest extends TestCase

@@ -1,6 +1,6 @@
 <?php
 
-namespace  TMI\TranslationBundle\Fixtures\Entity\Embedded;
+namespace  Tmi\TranslationBundle\Fixtures\Entity\Embedded;
 
 use Doctrine\ORM\Mapping as ORM;
 

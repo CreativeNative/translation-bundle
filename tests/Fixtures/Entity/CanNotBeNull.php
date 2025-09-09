@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Fixtures\Entity;
+namespace Tmi\TranslationBundle\Fixtures\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 final class CanNotBeNull implements TranslatableInterface

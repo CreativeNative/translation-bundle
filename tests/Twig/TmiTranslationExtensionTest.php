@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Tests\Twig;
+namespace Tmi\TranslationBundle\Tests\Twig;
 
 use PHPUnit\Framework\TestCase;
-use TMI\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
-use TMI\TranslationBundle\Twig\TmiTranslationExtension;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
+use Tmi\TranslationBundle\Twig\TmiTranslationExtension;
 use Twig\TwigTest;
 
 final class TmiTranslationExtensionTest extends TestCase

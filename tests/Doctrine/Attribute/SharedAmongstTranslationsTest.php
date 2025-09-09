@@ -1,13 +1,13 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\Doctrine\Attribute;
+namespace Tmi\TranslationBundle\Test\Doctrine\Attribute;
 
 use ReflectionProperty;
-use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
-use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use PHPUnit\Framework\TestCase;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations::class)]
 final class SharedAmongstTranslationsTest extends TestCase
 {
     public function testSharedAmongstTranslationsAttribute(): void

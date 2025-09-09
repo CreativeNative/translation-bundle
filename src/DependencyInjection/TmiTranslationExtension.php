@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\DependencyInjection;
+namespace Tmi\TranslationBundle\DependencyInjection;
 
 use Exception;
 use Symfony\Component\Config\FileLocator;

@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Doctrine\Model;
+namespace Tmi\TranslationBundle\Doctrine\Model;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;

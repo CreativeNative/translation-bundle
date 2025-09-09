@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Utils;
+namespace Tmi\TranslationBundle\Utils;
 
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Embedded;
@@ -11,8 +11,8 @@ use Doctrine\ORM\Mapping\OneToMany;
 use Doctrine\ORM\Mapping\OneToOne;
 use ReflectionAttribute;
 use ReflectionProperty;
-use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 class AttributeHelper
 {

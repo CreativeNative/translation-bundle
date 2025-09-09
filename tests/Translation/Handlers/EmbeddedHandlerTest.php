@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\EmbeddedHandler;
-use TMI\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
+use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * @covers \TMI\TranslationBundle\Translation\Handlers\EmbeddedHandler
+ * @covers \Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler
  */
 final class EmbeddedHandlerTest extends TestCase
 {

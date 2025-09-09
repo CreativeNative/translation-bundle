@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\EventSubscriber;
+namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
 use Doctrine\ORM\Query\Filter\SQLFilter;
 

@@ -1,13 +1,13 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\Doctrine\Filter;
+namespace Tmi\TranslationBundle\Test\Doctrine\Filter;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
 use ReflectionClass;
-use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Test\TestCase;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Test\TestCase;
 
 #[CoversClass(LocaleFilter::class)]
 final class LocaleFilterTest extends TestCase

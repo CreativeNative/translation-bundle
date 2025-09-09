@@ -1,12 +1,12 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use LogicException;
-use TMI\TranslationBundle\Fixtures\Entity\CanNotBeNull;
-use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
 /**
  * Test for scalar value.

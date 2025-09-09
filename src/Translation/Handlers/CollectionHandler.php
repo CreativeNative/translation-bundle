@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation\Handlers;
+namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Closure;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -12,9 +12,9 @@ use Doctrine\ORM\Mapping\ManyToMany;
 use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handles translation of Doctrine ManyToMany associations.

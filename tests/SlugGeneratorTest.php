@@ -1,9 +1,9 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use PHPUnit\Framework\TestCase;
-use TMI\TranslationBundle\Service\SlugGenerator;
+use Tmi\TranslationBundle\Service\SlugGenerator;
 
 final class SlugGeneratorTest extends TestCase
 {

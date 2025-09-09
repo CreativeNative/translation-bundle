@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Translation;
+namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
-use TMI\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final class EntityTranslator implements EntityTranslatorInterface
 {

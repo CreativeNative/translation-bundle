@@ -1,9 +1,9 @@
 <?php
 
-namespace TMI\TranslationBundle;
+namespace Tmi\TranslationBundle;
 
 use Symfony\Component\HttpKernel\Bundle\Bundle;
-use TMI\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 final class TmiTranslationBundle extends Bundle

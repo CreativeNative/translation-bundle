@@ -1,14 +1,14 @@
 <?php
 
-namespace TMI\TranslationBundle\Fixtures\Entity\Translatable;
+namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use TMI\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
-use TMI\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use TMI\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 final class TranslatableManyToOne implements TranslatableInterface

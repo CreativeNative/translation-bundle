@@ -1,12 +1,12 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\DependencyInjection\Compiler;
+namespace Tmi\TranslationBundle\Test\DependencyInjection\Compiler;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
-use TMI\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
 
 final class TranslationHandlerPassTest extends TestCase
 {

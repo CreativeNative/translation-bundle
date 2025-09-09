@@ -32,7 +32,7 @@
     </source>
 
     <php>
-        <server name="KERNEL_CLASS" value="TMI\TranslationBundle\Test\TestKernel"/>
+        <server name="KERNEL_CLASS" value="Tmi\TranslationBundle\Test\TestKernel"/>
         <env name="APP_ENV" value="test"/>
         <env name="SYMFONY_DEPRECATIONS_HELPER" value="weak_vendors"/>
         <ini name="error_reporting" value="E_ALL"/>

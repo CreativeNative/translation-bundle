@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Test\EventSubscriber;
+namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
 use Doctrine\ORM\Query\FilterCollection;
 use ReflectionClass;
@@ -11,9 +11,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
-use TMI\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
-use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
-use TMI\TranslationBundle\Test\TestCase;
+use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\Test\TestCase;
 
 final class LocaleFilterConfiguratorTest extends TestCase
 {

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Handlers;
+namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use DateTime;
 use PHPUnit\Framework\TestCase;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
-use TMI\TranslationBundle\Translation\Handlers\ScalarHandler;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\ScalarHandler;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Translation\Handlers\ScalarHandler::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\Tmi\TranslationBundle\Translation\Handlers\ScalarHandler::class)]
 final class ScalarHandlerTest extends TestCase
 {
     public function testSupportsScalars(): void

@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Service;
+namespace Tmi\TranslationBundle\Service;
 
 use Symfony\Component\String\Slugger\AsciiSlugger;
 

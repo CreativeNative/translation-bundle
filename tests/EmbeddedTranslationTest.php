@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use TMI\TranslationBundle\Fixtures\Entity\Embedded\Address;
-use TMI\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Address;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
 
 /**
  * Tests for embedded entities.

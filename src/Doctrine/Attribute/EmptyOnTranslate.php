@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Doctrine\Attribute;
+namespace Tmi\TranslationBundle\Doctrine\Attribute;
 
 use Attribute;
 

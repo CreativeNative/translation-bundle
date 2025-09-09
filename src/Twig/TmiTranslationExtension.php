@@ -1,11 +1,11 @@
 <?php
 
-namespace TMI\TranslationBundle\Twig;
+namespace Tmi\TranslationBundle\Twig;
 
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
 use Twig\TwigTest;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 final class TmiTranslationExtension extends AbstractExtension implements GlobalsInterface
 {

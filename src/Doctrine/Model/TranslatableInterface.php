@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Doctrine\Model;
+namespace Tmi\TranslationBundle\Doctrine\Model;
 
 interface TranslatableInterface
 {

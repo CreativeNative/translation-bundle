@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\DependencyInjection;
+namespace Tmi\TranslationBundle\Test\DependencyInjection;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use TMI\TranslationBundle\DependencyInjection\TmiTranslationExtension;
+use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
 
 final class TmiTranslationExtensionTest extends TestCase
 {

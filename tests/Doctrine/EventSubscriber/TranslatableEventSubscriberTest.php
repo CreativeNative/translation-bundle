@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Doctrine\EventSubscriber;
+namespace Tmi\TranslationBundle\Test\Doctrine\EventSubscriber;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
@@ -12,11 +12,11 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use stdClass;
-use TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
-use TMI\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use TMI\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\TMI\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberTest extends TestCase
 {
     private EntityTranslatorInterface&MockObject $translator;

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace TMI\TranslationBundle\Test\Translation\Args;
+namespace Tmi\TranslationBundle\Test\Translation\Args;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
 use stdClass;
-use TMI\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 
 final class TranslationArgsTest extends TestCase
 {

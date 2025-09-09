@@ -1,6 +1,6 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
@@ -8,7 +8,7 @@ use ReflectionException;
 use ReflectionMethod;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
-use TMI\TranslationBundle\TmiTranslationBundle;
+use Tmi\TranslationBundle\TmiTranslationBundle;
 
 final class TmiTranslationBundleTest extends TestCase
 {
@@ -93,6 +93,6 @@ final class TmiTranslationBundleTest extends TestCase
 
         // Typically, the name would be related to the bundle class
         $this->assertStringContainsString('Translation', $name);
-        $this->assertStringContainsString('TMI', $namespace);
+        $this->assertStringContainsString('Tmi', $namespace);
     }
 }

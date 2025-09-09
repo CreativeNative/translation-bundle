@@ -1,14 +1,14 @@
 <?php
 
-namespace TMI\TranslationBundle\Test;
+namespace Tmi\TranslationBundle\Test;
 
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use TMI\TranslationBundle\Doctrine\Filter\LocaleFilter;
-use TMI\TranslationBundle\TmiTranslationBundle;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\TmiTranslationBundle;
 
 final class TestKernel extends BaseKernel
 {
@@ -47,7 +47,7 @@ final class TestKernel extends BaseKernel
                     'TestBundle' => [
                         'type' => 'attribute',
                         'dir' => '%kernel.project_dir%/tests/Fixtures/Entity',
-                        'prefix' => 'TMI\TranslationBundle\Fixtures\Entity',
+                        'prefix' => 'Tmi\TranslationBundle\Fixtures\Entity',
                         'alias' => 'TestBundle',
                     ]
                 ],
