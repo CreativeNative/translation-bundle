@@ -1,6 +1,6 @@
 {
-    "name": "creativenative/translation-bundle",
-    "description": "Manages Doctrine translations",
+    "name": "tmi/translation-bundle",
+    "description": "A Symfony bundle that manages translations with Doctrine.",
     "type": "symfony-bundle",
     "keywords": [
         "symfony",
@@ -12,7 +12,7 @@
     "authors": [
         {
             "name": "Oskar Golde",
-            "email": "info@oskargolde.de"
+            "email": "info@terra-mia.immo"
         }
     ],
     "require": {

@@ -24,19 +24,27 @@ This is a complete refactoring based on PHP 8.4, Symfony 7.3, and Doctrine ORM 3
 composer require tmi/translation-bundle
 ```
 
-Register the bundle to your `app/AppKernel.php` if it's not done automatically.
+Register the bundle to your `config/bundles.php` if it's not done automatically.
 
 ```php
-new TMI\TranslationBundle\TmiTranslationBundle(),
+return [
+// ...
+TMI\TranslationBundle\TmiTranslationBundle::class => ['all' => true],
+];
 ```
 
-Configure your available locales and, optionally, the default one:
+## Configuration
+Create a configuration file config/packages/tmi_translation.yaml:
 
 ```yaml
+# config/packages/tmi_translation.yaml
 tmi_translation:
-  locales: [en, fr, ja]
-  # default_locale: en is optional, otherwise kernel.default_locale is used
+    locales: [en, fr, ja]            # Required: available locales
+    # default_locale: en             # Optional: uses kernel.default_locale if not set
+    # disabled_firewalls: ['admin']  # Optional: disable filter for specific firewalls
 ```
+
+Configure your available locales and, optionally, the default one and disabled firewalls.
 
 That's it!
 
@@ -166,12 +174,13 @@ doctrine:
 #### (Optional) Disable the filter for a specific firewall
 
 Usually you'll need to administrate your contents.
-For doing so, you can disable the filter by configuring the disabled_firewalls option.
+For doing so, you can disable the filter by configuring the disabled_firewalls option in your configuration:
 
 ```yaml
+# config/packages/tmi_translation.yaml
 tmi_translation:
-  # ...
-  disabled_firewalls: ['admin']
+  locales: [en, de, it]
+  disabled_firewalls: ['admin']  # Disable filter for 'admin' firewall
 ```
 
 ## Advanced usage
@@ -180,3 +189,7 @@ You can alter the entities to translate or translated, before and after translat
 
 - `TranslateEvent::PRE_TRANSLATE` called before starting to translate the properties. The new translation is just instanciated with the right `oid` and `locale`
 - `TranslateEvent::POST_TRANSLATE` called after saving the translation
+
+## Support
+
+For issues and feature requests, please create an issue on the GitHub repository.
