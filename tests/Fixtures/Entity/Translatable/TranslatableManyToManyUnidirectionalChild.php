@@ -18,52 +18,52 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
-    private ?string $name = null;
+    private string|null $name = null;
 
     #[SharedAmongstTranslations]
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
-    private ?string $sharedName = null;
+    private string|null $sharedName = null;
 
     #[EmptyOnTranslate]
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
-    private ?string $emptyName = null;
+    private string|null $emptyName = null;
 
-    public function getId(): ?int
+    public function getId(): int|null
     {
         return $this->id;
     }
 
-    public function getName(): ?string
+    public function getName(): string|null
     {
         return $this->name;
     }
 
-    public function setName(?string $name): self
+    public function setName(string|null $name): self
     {
         $this->name = $name;
         return $this;
     }
 
-    public function getSharedName(): ?string
+    public function getSharedName(): string|null
     {
         return $this->sharedName;
     }
 
-    public function setSharedName(?string $sharedName): self
+    public function setSharedName(string|null $sharedName): self
     {
         $this->sharedName = $sharedName;
         return $this;
     }
 
-    public function getEmptyName(): ?string
+    public function getEmptyName(): string|null
     {
         return $this->emptyName;
     }
 
-    public function setEmptyName(?string $emptyName): self
+    public function setEmptyName(string|null $emptyName): self
     {
         $this->emptyName = $emptyName;
         return $this;

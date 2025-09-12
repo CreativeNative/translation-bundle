@@ -76,8 +76,8 @@ final class BidirectionalOneToManyHandlerTest extends TestCase
     public function testSupportsReturnsFalseWhenNotOneToMany(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableOneToManyBidirectionalParent();
-        $prop    = new ReflectionProperty($entity, 'children');
+        $entity = new TranslatableOneToManyBidirectionalParent();
+        $prop = new ReflectionProperty($entity, 'children');
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -112,8 +112,8 @@ final class BidirectionalOneToManyHandlerTest extends TestCase
     public function testHandleSharedAmongstTranslationsThrows(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableOneToManyBidirectionalParent();
-        $prop    = new ReflectionProperty($entity, 'children');
+        $entity = new TranslatableOneToManyBidirectionalParent();
+        $prop = new ReflectionProperty($entity, 'children');
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -127,8 +127,8 @@ final class BidirectionalOneToManyHandlerTest extends TestCase
     public function testHandleEmptyOnTranslateReturnsArrayCollection(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableOneToManyBidirectionalParent();
-        $args    = new TranslationArgs($entity);
+        $entity = new TranslatableOneToManyBidirectionalParent();
+        $args = new TranslationArgs($entity);
 
         $result = $handler->handleEmptyOnTranslate($args);
 

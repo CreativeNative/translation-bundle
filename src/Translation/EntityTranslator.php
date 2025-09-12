@@ -15,7 +15,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final class EntityTranslator implements EntityTranslatorInterface
 {
-    /** @var TranslationHandlerInterface[] */
+    /** @var array<TranslationHandlerInterface> */
     private array $handlers = [];
 
     public function __construct(
@@ -67,7 +67,7 @@ final class EntityTranslator implements EntityTranslatorInterface
     /**
      * Register a handler.
      */
-    public function addTranslationHandler(TranslationHandlerInterface $handler, ?int $priority = null): void
+    public function addTranslationHandler(TranslationHandlerInterface $handler, int|null $priority = null): void
     {
         if (null === $priority) {
             $this->handlers[] = $handler;

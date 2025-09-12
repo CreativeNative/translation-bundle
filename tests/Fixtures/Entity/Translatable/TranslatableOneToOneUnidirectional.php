@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
@@ -17,14 +19,14 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[ORM\Id]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Scalar $simple = null;
+    private Scalar|null $simple = null;
 
     #[SharedAmongstTranslations]
     #[ORM\OneToOne(
@@ -32,7 +34,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(name: 'shared_id')]
-    private ?Scalar $shared = null;
+    private Scalar|null $shared = null;
 
     #[EmptyOnTranslate]
     #[ORM\OneToOne(
@@ -40,7 +42,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Scalar $empty = null;
+    private Scalar|null $empty = null;
 
     public function getId(): int|null
     {
@@ -52,7 +54,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
         return $this->simple;
     }
 
-    public function setSimple(?Scalar $simple = null): self
+    public function setSimple(Scalar|null $simple = null): self
     {
         $this->simple = $simple;
 
@@ -65,7 +67,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     }
 
 
-    public function setShared(?Scalar $shared = null): self
+    public function setShared(Scalar|null $shared = null): self
     {
         $this->shared = $shared;
 
@@ -77,7 +79,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
         return $this->empty;
     }
 
-    public function setEmpty(?Scalar $empty = null): self
+    public function setEmpty(Scalar|null $empty = null): self
     {
         $this->empty = $empty;
 

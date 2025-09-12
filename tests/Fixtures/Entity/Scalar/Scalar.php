@@ -1,6 +1,8 @@
 <?php
 
-namespace  Tmi\TranslationBundle\Fixtures\Entity\Scalar;
+declare(strict_types=1);
+
+namespace Tmi\TranslationBundle\Fixtures\Entity\Scalar;
 
 use Doctrine\ORM\Mapping as ORM;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
@@ -16,25 +18,25 @@ final class Scalar implements TranslatableInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
-    private ?string $title = null;
+    private string|null $title = null;
 
     #[SharedAmongstTranslations]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
-    private ?string $shared = null;
+    private string|null $shared = null;
 
     #[EmptyOnTranslate]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, nullable: true)]
-    private ?string $empty = null;
+    private string|null $empty = null;
 
     public function getId(): int|null
     {
         return $this->id;
     }
 
-    public function setTitle(?string $title = null): self
+    public function setTitle(string|null $title = null): self
     {
         $this->title = $title;
 
@@ -46,7 +48,7 @@ final class Scalar implements TranslatableInterface
         return $this->title;
     }
 
-    public function setShared(?string $shared = null): self
+    public function setShared(string|null $shared = null): self
     {
         $this->shared = $shared;
 
@@ -58,7 +60,7 @@ final class Scalar implements TranslatableInterface
         return $this->shared;
     }
 
-    public function setEmpty(?string $empty = null): self
+    public function setEmpty(string|null $empty = null): self
     {
         $this->empty = $empty;
 

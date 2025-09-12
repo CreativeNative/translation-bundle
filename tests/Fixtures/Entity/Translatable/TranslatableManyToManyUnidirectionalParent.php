@@ -21,7 +21,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     /**
      * Simple children collection
@@ -55,11 +55,11 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     public function __construct()
     {
         $this->simpleChildren = new ArrayCollection();
-        $this->emptyChildren  = new ArrayCollection();
+        $this->emptyChildren = new ArrayCollection();
         $this->sharedChildren = new ArrayCollection();
     }
 
-    public function getId(): ?int
+    public function getId(): int|null
     {
         return $this->id;
     }

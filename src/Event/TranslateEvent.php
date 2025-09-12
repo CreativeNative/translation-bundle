@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Event;
 
 use Symfony\Contracts\EventDispatcher\Event;
@@ -9,12 +11,12 @@ class TranslateEvent extends Event
     /**
      * Event called before translation is done.
      */
-    public const PRE_TRANSLATE = 'tmi_translation.pre_translate';
+    public const string PRE_TRANSLATE = 'tmi_translation.pre_translate';
 
     /**
      * Event called after translation is done.
      */
-    public const POST_TRANSLATE = 'tmi_translation.post_translate';
+    public const string POST_TRANSLATE = 'tmi_translation.post_translate';
 
     public function __construct(
         /**
@@ -28,7 +30,7 @@ class TranslateEvent extends Event
         /**
          * The translated entity.
          */
-        protected ?object $translatedEntity = null
+        protected object|null $translatedEntity = null
     ) {
     }
 
@@ -37,7 +39,7 @@ class TranslateEvent extends Event
         return $this->sourceEntity;
     }
 
-    public function getTranslatedEntity(): ?object
+    public function getTranslatedEntity(): object|null
     {
         return $this->translatedEntity;
     }

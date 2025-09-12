@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
@@ -14,7 +16,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
     #[ORM\Id]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
@@ -22,7 +24,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(nullable: true)]
-    private ?TranslatableOneToOneBidirectionalParent $simpleParent = null;
+    private TranslatableOneToOneBidirectionalParent|null $simpleParent = null;
 
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
@@ -30,7 +32,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(nullable: true)]
-    private ?TranslatableOneToOneBidirectionalParent $sharedParent = null;
+    private TranslatableOneToOneBidirectionalParent|null $sharedParent = null;
 
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
@@ -38,7 +40,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         cascade: ['persist']
     )]
     #[ORM\JoinColumn(nullable: true)]
-    private ?TranslatableOneToOneBidirectionalParent $emptyParent = null;
+    private TranslatableOneToOneBidirectionalParent|null $emptyParent = null;
 
 
     public function getId(): int|null
@@ -51,7 +53,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         return $this->simpleParent;
     }
 
-    public function setSimpleParent(?TranslatableOneToOneBidirectionalParent $simpleParent): self
+    public function setSimpleParent(TranslatableOneToOneBidirectionalParent|null $simpleParent): self
     {
         $this->simpleParent = $simpleParent;
 
@@ -63,7 +65,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         return $this->sharedParent;
     }
 
-    public function setSharedParent(?TranslatableOneToOneBidirectionalParent $sharedParent): self
+    public function setSharedParent(TranslatableOneToOneBidirectionalParent|null $sharedParent): self
     {
         $this->sharedParent = $sharedParent;
 
@@ -75,7 +77,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
         return $this->emptyParent;
     }
 
-    public function setEmptyParent(?TranslatableOneToOneBidirectionalParent $emptyParent): self
+    public function setEmptyParent(TranslatableOneToOneBidirectionalParent|null $emptyParent): self
     {
         $this->emptyParent = $emptyParent;
 

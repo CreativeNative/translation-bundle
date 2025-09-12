@@ -1,6 +1,8 @@
 <?php
 
-namespace  Tmi\TranslationBundle\Fixtures\Entity\Embedded;
+declare(strict_types=1);
+
+namespace Tmi\TranslationBundle\Fixtures\Entity\Embedded;
 
 use Doctrine\ORM\Mapping as ORM;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
@@ -15,7 +17,7 @@ final class Translatable implements TranslatableInterface
     #[ORM\Id]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\Embedded(class: Address::class)]
     private Address|null $address;
@@ -26,7 +28,7 @@ final class Translatable implements TranslatableInterface
 
     public function __construct()
     {
-        $this->address      = new Address();
+        $this->address = new Address();
         $this->emptyAddress = new Address();
     }
 

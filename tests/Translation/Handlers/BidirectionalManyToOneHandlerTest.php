@@ -13,6 +13,7 @@ use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOne;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -29,8 +30,8 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
 
     public function setUp(): void
     {
-        $this->attributeHelper  = $this->createMock(AttributeHelper::class);
-        $this->em               = $this->createMock(EntityManagerInterface::class);
+        $this->attributeHelper = $this->createMock(AttributeHelper::class);
+        $this->em = $this->createMock(EntityManagerInterface::class);
         $this->propertyAccessor = new PropertyAccessor();
 
         $this->translator = new class implements EntityTranslatorInterface {
@@ -72,8 +73,8 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
     public function testSupportsReturnsFalseWhenNotManyToOne(): void
     {
         $handler = $this->createHandler();
-        $entity  = new Scalar();
-        $prop    = new ReflectionProperty($entity, 'title');
+        $entity = new Scalar();
+        $prop = new ReflectionProperty($entity, 'title');
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -95,9 +96,10 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
         $handler = $this->createHandler();
 
         // Inline entity with inversedBy
-        $entity = new class {
+        $entity = new class implements TranslatableInterface {
+            use TranslatableTrait;
             #[ManyToOne(targetEntity: Scalar::class, inversedBy: 'children')]
-            private ?Scalar $withInverse = null;
+            private Scalar|null $withInverse = null;
         };
 
         $prop = new ReflectionProperty($entity, 'withInverse');
@@ -121,8 +123,8 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
     public function testHandleSharedAmongstTranslationsThrows(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableManyToOne();
-        $prop    = new ReflectionProperty($entity, 'shared');
+        $entity = new TranslatableManyToOne();
+        $prop = new ReflectionProperty($entity, 'shared');
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -136,8 +138,8 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
     public function testHandleEmptyOnTranslateReturnsNull(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableManyToOne();
-        $args    = new TranslationArgs($entity);
+        $entity = new TranslatableManyToOne();
+        $args = new TranslationArgs($entity);
 
         self::assertNull($handler->handleEmptyOnTranslate($args));
     }
@@ -149,7 +151,7 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
     public function testTranslateWithAssociationMapping(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableManyToOne();
+        $entity = new TranslatableManyToOne();
 
         $metadata = new ClassMetadata(TranslatableManyToOne::class);
         $metadata->associationMappings = [
@@ -180,7 +182,7 @@ final class BidirectionalManyToOneHandlerTest extends TestCase
     public function testTranslateDelegatesToTranslatorIfNoMapping(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableManyToOne();
+        $entity = new TranslatableManyToOne();
 
         $metadata = new ClassMetadata(TranslatableManyToOne::class);
         $metadata->associationMappings = []; // kein Mapping

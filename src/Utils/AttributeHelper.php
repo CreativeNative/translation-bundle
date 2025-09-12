@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Utils;
 
 use Doctrine\ORM\Mapping\Column;

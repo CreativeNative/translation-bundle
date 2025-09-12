@@ -93,7 +93,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = $this->createMock(TranslatableInterface::class);
 
         $uow = $this->createMock(UnitOfWork::class);
-        $em  = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createMock(EntityManagerInterface::class);
 
         $uow->method('getScheduledEntityInsertions')->willReturn([$entity]);
         $uow->method('getScheduledEntityUpdates')->willReturn([$entity]);
@@ -119,7 +119,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = new stdClass();
 
         $uow = $this->createMock(UnitOfWork::class);
-        $em  = $this->createMock(EntityManagerInterface::class);
+        $em = $this->createMock(EntityManagerInterface::class);
 
         $uow->method('getScheduledEntityInsertions')->willReturn([$entity]);
         $uow->method('getScheduledEntityUpdates')->willReturn([$entity]);

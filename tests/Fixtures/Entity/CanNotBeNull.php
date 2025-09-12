@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
@@ -15,18 +17,18 @@ final class CanNotBeNull implements TranslatableInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[EmptyOnTranslate]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
-    private ?string $emptyNotNullable = null;
+    private string|null $emptyNotNullable = null;
 
     public function getId(): int|null
     {
         return $this->id;
     }
 
-    public function setEmptyNotNullable(?string $emptyNotNullable = null): CanNotBeNull
+    public function setEmptyNotNullable(string|null $emptyNotNullable = null): CanNotBeNull
     {
         $this->emptyNotNullable = $emptyNotNullable;
 

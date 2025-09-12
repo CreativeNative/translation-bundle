@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
@@ -14,7 +16,7 @@ final class TranslatableOneToManyBidirectionalChild implements TranslatableInter
     #[ORM\Id]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     /**
      * Many Children have one Parent.
@@ -25,7 +27,7 @@ final class TranslatableOneToManyBidirectionalChild implements TranslatableInter
         inversedBy: 'children'
     )]
     #[ORM\JoinColumn(referencedColumnName: 'id')]
-    private ?TranslatableOneToManyBidirectionalParent $parent = null;
+    private TranslatableOneToManyBidirectionalParent|null $parent = null;
 
     public function getId(): int|null
     {
@@ -38,7 +40,7 @@ final class TranslatableOneToManyBidirectionalChild implements TranslatableInter
         return $this->parent;
     }
 
-    public function setParent(?TranslatableOneToManyBidirectionalParent $parent = null): self
+    public function setParent(TranslatableOneToManyBidirectionalParent|null $parent = null): self
     {
         $this->parent = $parent;
 

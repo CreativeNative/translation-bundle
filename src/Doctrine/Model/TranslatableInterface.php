@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Doctrine\Model;
 
 interface TranslatableInterface
@@ -7,17 +9,17 @@ interface TranslatableInterface
     /**
      * Returns entity's locale (en/de/...)
      */
-    public function getLocale(): ?string;
+    public function getLocale(): string|null;
 
     /**
      * Sets entity's locale (en/de/...)
      */
-    public function setLocale(?string $locale = null): self;
+    public function setLocale(string|null $locale = null): self;
 
     /**
      * Returns entity's Translation UUID
      */
-    public function getTuuid(): ?string;
+    public function getTuuid(): string|null;
 
     /**
      * Returns translations ids per locale

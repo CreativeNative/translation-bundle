@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\EventSubscriber;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,7 +19,7 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
     public function __construct(
         private EntityManagerInterface $em,
         private array $disabledFirewalls,
-        private ?FirewallMap $firewallMap = null,
+        private FirewallMap|null $firewallMap = null,
     ) {
     }
 

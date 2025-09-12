@@ -14,7 +14,7 @@ final class TranslationArgsTest extends TestCase
 {
     public function testConstructorAndGettersWork(): void
     {
-        $data   = ['foo' => 'bar'];
+        $data = ['foo' => 'bar'];
         $source = 'en';
         $target = 'de';
         $args = new TranslationArgs($data, $source, $target);

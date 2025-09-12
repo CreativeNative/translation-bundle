@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -17,7 +19,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\Id]
     #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     /**
      * @var ArrayCollection
@@ -56,7 +58,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     {
         $this->simpleParents = new ArrayCollection();
         $this->sharedParents = new ArrayCollection();
-        $this->emptyParents  = new ArrayCollection();
+        $this->emptyParents = new ArrayCollection();
     }
 
     public function getId(): int|null

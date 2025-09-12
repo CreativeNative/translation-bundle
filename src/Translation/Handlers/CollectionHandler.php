@@ -27,7 +27,7 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         private AttributeHelper $attributeHelper,
         private EntityManagerInterface $em,
         private EntityTranslatorInterface $translator,
-        ?callable $propertyAccessor = null,
+        callable|null $propertyAccessor = null,
     ) {
         // convert callable -> Closure or use default behaviour
         $this->propertyAccessor = $propertyAccessor !== null
@@ -60,7 +60,7 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         return isset($argsAttr['mappedBy']) && $argsAttr['mappedBy'] !== null;
     }
 
-    private function discoverProperty(object $owner, Collection $collection): ?ReflectionProperty
+    private function discoverProperty(object $owner, Collection $collection): ReflectionProperty|null
     {
         $refClass = new ReflectionClass($owner);
 
@@ -79,7 +79,7 @@ final readonly class CollectionHandler implements TranslationHandlerInterface
         return null;
     }
 
-    private function resolveMappedBy(ReflectionProperty $prop, object $owner): ?string
+    private function resolveMappedBy(ReflectionProperty $prop, object $owner): string|null
     {
         $attributes = $prop->getAttributes(ManyToMany::class);
         if ($attributes !== []) {

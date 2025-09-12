@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
@@ -26,7 +28,7 @@ final class EmbeddedTranslationTest extends TestCase
             ->setPostalCode('44000')
             ->setCountry('France')
         ;
-        $entity  = new Translatable()
+        $entity = new Translatable()
             ->setLocale('en')
             ->setAddress($address);
 
@@ -53,7 +55,7 @@ final class EmbeddedTranslationTest extends TestCase
             ->setPostalCode('44000')
             ->setCountry('France')
         ;
-        $entity  = new Translatable()
+        $entity = new Translatable()
             ->setLocale('en')
             ->setEmptyAddress($address);
 

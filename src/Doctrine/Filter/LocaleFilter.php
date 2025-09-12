@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Doctrine\Filter;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -16,7 +18,7 @@ final class LocaleFilter extends SQLFilter
     /**
      * Dependency injection.
      */
-    public function setLocale(?string $locale): self
+    public function setLocale(string|null $locale): self
     {
         if ($locale !== null) {
             $this->setParameter('locale', $locale);

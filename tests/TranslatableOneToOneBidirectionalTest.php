@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
@@ -15,7 +17,7 @@ final class TranslatableOneToOneBidirectionalTest extends TestCase
      */
     public function testItCanTranslateSimpleValue(): void
     {
-        $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
+        $child = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en');
 
         $parent->setSimpleChild($child);
@@ -36,7 +38,7 @@ final class TranslatableOneToOneBidirectionalTest extends TestCase
     {
         $this->expectException(\ErrorException::class);
 
-        $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
+        $child = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en');
 
         $parent->setSharedChild($child);
@@ -51,7 +53,7 @@ final class TranslatableOneToOneBidirectionalTest extends TestCase
      */
     public function testItCanEmptyTranslatableEntityValue(): void
     {
-        $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
+        $child = new TranslatableOneToOneBidirectionalChild()->setLocale('en');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en');
 
         $parent->setEmptyChild($child);

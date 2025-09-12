@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -16,7 +18,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     #[ORM\Id]
     #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     /**
      * A Child has one Parent.
@@ -48,7 +50,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->children;
     }
 
-    public function setChildren(?Collection $children = null): self
+    public function setChildren(Collection|null $children = null): self
     {
         $this->children = $children;
 

@@ -41,7 +41,7 @@ final class EntityTranslatorTest extends TestCase
     }
 
     // Create a real TranslationArgs instance (class is final so cannot be mocked)
-    private function newTranslationArgs(?ReflectionProperty $prop = null, mixed $fallback = null): TranslationArgs
+    private function newTranslationArgs(ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
     {
         $args = new TranslationArgs($fallback, 'en', 'de');
         if ($prop !== null) {
@@ -54,7 +54,7 @@ final class EntityTranslatorTest extends TestCase
     private function handlerSupporting(
         TranslationArgs $expectedArgs,
         mixed $return,
-        ?callable $assert = null,
+        callable|null $assert = null,
         array $methodToReturnMap = []
     ): TranslationHandlerInterface {
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -130,7 +130,7 @@ final class EntityTranslatorTest extends TestCase
     {
         $translator = $this->newTranslator();
         $propClass = new class {
-            public ?string $title = null;
+            public string|null $title = null;
         };
         $prop = new ReflectionProperty($propClass, 'title');
         $args = $this->newTranslationArgs($prop);
@@ -153,7 +153,7 @@ final class EntityTranslatorTest extends TestCase
     {
         $translator = $this->newTranslator();
         $propClass = new class {
-            public ?string $body = null;
+            public string|null $body = null;
         };
         $prop = new ReflectionProperty($propClass, 'body');
         $args = $this->newTranslationArgs($prop);
@@ -193,7 +193,7 @@ final class EntityTranslatorTest extends TestCase
     {
         $translator = $this->newTranslator();
         $propClass = new class {
-            public ?int $n = null;
+            public int|null $n = null;
         };
         $prop = new ReflectionProperty($propClass, 'n');
         $args = $this->newTranslationArgs($prop);

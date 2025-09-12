@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -46,7 +48,7 @@ final class TranslatableOneToManyBidirectionalTest extends TestCase
     public function testItCanTranslateBidirectionalManyToOne(): void
     {
         $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en');
-        $child  = new TranslatableOneToManyBidirectionalChild()->setLocale('en');
+        $child = new TranslatableOneToManyBidirectionalChild()->setLocale('en');
 
         $child->setParent($parent);
         $this->entityManager->persist($child);

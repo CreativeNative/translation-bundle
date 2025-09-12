@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -9,6 +11,7 @@ use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * Handles translation of ManyToOne relations.
@@ -25,15 +28,25 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
 
     public function supports(TranslationArgs $args): bool
     {
-        if ($args->getProperty() && $this->attributeHelper->isManyToOne($args->getProperty())) {
-            $arguments = $args->getProperty()->getAttributes(ManyToOne::class)[0]->getArguments();
+        $entity = $args->getDataToBeTranslated();
 
-            if (array_key_exists('inversedBy', $arguments) && null !== $arguments['inversedBy']) {
-                return true;
-            }
+        if (!$entity instanceof TranslatableInterface) {
+            return false;
         }
 
-        return false;
+        $property = $args->getProperty();
+        if (!$property || !$this->attributeHelper->isManyToOne($property)) {
+            return false;
+        }
+
+        $attributes = $property->getAttributes(ManyToOne::class);
+        if (empty($attributes)) {
+            return false;
+        }
+
+        $arguments = $attributes[0]->getArguments();
+
+        return isset($arguments['inversedBy']);
     }
 
     /**
@@ -62,24 +75,35 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
 
     public function translate(TranslationArgs $args): mixed
     {
-        $clone = clone $args->getDataToBeTranslated();
-        $parentFieldName = null;
+        $entity = $args->getDataToBeTranslated();
 
-        $fieldName = $args->getProperty()->name;
-        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
-
-        foreach ($associations as $key => $association) {
-            if ($fieldName === $key) {
-                $parentFieldName = $association['fieldName'];
-            }
+        if (!$entity instanceof TranslatableInterface) {
+            return $entity;
         }
 
-        if ($parentFieldName !== null) {
-            $clone->setLocale($args->getTargetLocale());
-            $this->propertyAccessor->setValue($clone, $parentFieldName, $args->getTranslatedParent());
+        $clone = clone $entity;
+        $clone->setLocale($args->getTargetLocale());
+
+        $property = $args->getProperty();
+        if (!$property) {
             return $clone;
         }
 
-        return $this->translator->translate($args->getDataToBeTranslated(), $args->getTargetLocale());
+        $propertyName = $property->name;
+        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
+
+        if (isset($associations[$propertyName])) {
+            $related = $this->propertyAccessor->getValue($entity, $propertyName);
+
+            if (null !== $args->getTranslatedParent()) {
+                $this->propertyAccessor->setValue($clone, $propertyName, $args->getTranslatedParent());
+            } elseif ($related instanceof TranslatableInterface) {
+                $translatedRelated = $this->translator->translate($related, $args->getTargetLocale());
+                $this->propertyAccessor->setValue($clone, $propertyName, $translatedRelated);
+            } else {
+                $this->propertyAccessor->setValue($clone, $propertyName, $related);
+            }
+        }
+        return $clone;
     }
 }

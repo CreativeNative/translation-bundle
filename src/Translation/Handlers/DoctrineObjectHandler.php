@@ -31,12 +31,12 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
     public function __construct(
         private EntityManagerInterface $em,
         private EntityTranslatorInterface $translator,
-        private ?PropertyAccessorInterface $accessor = null
+        private PropertyAccessorInterface|null $accessor = null
     ) {
     }
 
     /**
-     * True when $args->getDataToBeTranslated() is a Doctrine-managed class.     *
+     * True when $args->getDataToBeTranslated() is a Doctrine-managed class. *
      */
     public function supports(TranslationArgs $args): bool
     {

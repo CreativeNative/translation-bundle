@@ -146,7 +146,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     {
         $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->em);
 
-        $parent = new class { public ?string $any = null;
+        $parent = new class { public string|null $any = null;
         };
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
             ->setTranslatedParent($parent);
@@ -162,7 +162,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenAssociationNotFound(): void
     {
-        $parent = new class { public ?array $items = null;
+        $parent = new class { public array|null $items = null;
         };
         $prop = new ReflectionProperty($parent::class, 'items');
 
@@ -187,7 +187,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenNotOwningSide(): void
     {
-        $parent = new class { public ?array $items = null;
+        $parent = new class { public array|null $items = null;
         };
         $prop = new ReflectionProperty($parent::class, 'items');
 
@@ -214,7 +214,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
      */
     public function testTranslateThrowsWhenFieldNotFoundOnOwner(): void
     {
-        $parent = new class { /* note: no "missingField" property */ public ?array $items = null;
+        $parent = new class { /* note: no "missingField" property */ public array|null $items = null;
         };
         $prop = new ReflectionProperty($parent::class, 'items');
 
@@ -244,7 +244,7 @@ final class UnidirectionalManyToManyHandlerTest extends TestCase
     {
         // parent with public property "items" which is null initially (not a Collection)
         $parent = new class {
-            public ?iterable $items = null; // intentionally not a Collection
+            public iterable|null $items = null; // intentionally not a Collection
         };
 
         // property representing the association; key must match mapping key (we use 'items')

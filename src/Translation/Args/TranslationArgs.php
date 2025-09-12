@@ -14,12 +14,12 @@ final class TranslationArgs
     /** @var mixed|null */
     private mixed $translatedParent = null;
 
-    private ?ReflectionProperty $property = null;
+    private ReflectionProperty|null $property = null;
 
     public function __construct(
         private mixed $dataToBeTranslated,
-        private ?string $sourceLocale = null,
-        private ?string $targetLocale = null,
+        private string|null $sourceLocale = null,
+        private string|null $targetLocale = null,
     ) {
     }
 
@@ -44,7 +44,7 @@ final class TranslationArgs
     /**
      * Returns the locale of the original data.
      */
-    public function getSourceLocale(): ?string
+    public function getSourceLocale(): string|null
     {
         return $this->sourceLocale;
     }
@@ -52,7 +52,7 @@ final class TranslationArgs
     /**
      * Sets the locale of the original data.
      */
-    public function setSourceLocale(?string $sourceLocale): self
+    public function setSourceLocale(string|null $sourceLocale): self
     {
         $this->sourceLocale = $sourceLocale;
 
@@ -62,7 +62,7 @@ final class TranslationArgs
     /**
      * Returns the locale of the translated data.
      */
-    public function getTargetLocale(): ?string
+    public function getTargetLocale(): string|null
     {
         return $this->targetLocale;
     }
@@ -70,7 +70,7 @@ final class TranslationArgs
     /**
      * Sets the locale of the translated data.
      */
-    public function setTargetLocale(?string $targetLocale): self
+    public function setTargetLocale(string|null $targetLocale): self
     {
         $this->targetLocale = $targetLocale;
 
@@ -81,7 +81,6 @@ final class TranslationArgs
      * Returns the parent of the data translation.
      * Only set when translating association.
      *
-     * @return mixed|null
      */
     public function getTranslatedParent(): mixed
     {
@@ -91,7 +90,6 @@ final class TranslationArgs
     /**
      * Sets the parent of the data translation.
      *
-     * @param mixed $translatedParent
      * @return TranslationArgs
      */
     public function setTranslatedParent(mixed $translatedParent): self
@@ -105,7 +103,7 @@ final class TranslationArgs
      * Returns the property associated to the translation.
      * Only set when translating association.
      */
-    public function getProperty(): ?ReflectionProperty
+    public function getProperty(): ReflectionProperty|null
     {
         return $this->property;
     }
@@ -113,7 +111,7 @@ final class TranslationArgs
     /**
      * Sets the property associated to the translation.
      */
-    public function setProperty(?ReflectionProperty $property): self
+    public function setProperty(ReflectionProperty|null $property): self
     {
         $this->property = $property;
 

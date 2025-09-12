@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;

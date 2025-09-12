@@ -198,7 +198,7 @@ final class DoctrineObjectHandlerTest extends TestCase
         $this->em->method('getMetadataFactory')->willReturn($metaFactory);
 
         $entity = new class {
-            public ?string $maybeNull = null;
+            public string|null $maybeNull = null;
             public Collection $emptyCollection;
 
             public function __construct()
@@ -264,7 +264,7 @@ final class DoctrineObjectHandlerTest extends TestCase
             public string $title = 'original';
             public string $child = 'child-value';
             // null property should be skipped
-            public ?string $maybeNull = null;
+            public string|null $maybeNull = null;
             // an empty collection should be skipped
             public Collection $emptyCollection;
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
 use Doctrine\ORM\Query\FilterCollection;

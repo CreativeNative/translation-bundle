@@ -41,7 +41,7 @@ final readonly class TranslatableEventSubscriber
 
     public function onFlush(OnFlushEventArgs $args): void
     {
-        $em  = $args->getObjectManager();
+        $em = $args->getObjectManager();
         \assert($em instanceof EntityManagerInterface);
         $uow = $em->getUnitOfWork();
 

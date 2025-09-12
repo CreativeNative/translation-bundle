@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Service;
 
 use Symfony\Component\String\Slugger\AsciiSlugger;
@@ -15,6 +17,8 @@ final readonly class SlugGenerator
 
     public function generate(string $text, string $locale): string
     {
-        return strtolower($this->slugger->slug($text, '-', $locale));
+        return $this->slugger->slug($text, '-', $locale)
+            ->lower()
+            ->toString();
     }
 }

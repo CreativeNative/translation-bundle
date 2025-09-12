@@ -38,7 +38,7 @@ final class EmbeddedHandlerTest extends TestCase
 // Now construct EmbeddedHandler that delegates to DoctrineObjectHandler
         $embedded = new EmbeddedHandler($attributeHelper, $doctrineHandler);
         $obj = new class {
-            public ?string $embedded = null;
+            public string|null $embedded = null;
         };
 // property reflection representing an embedded property
         $prop = new ReflectionProperty($obj::class, 'embedded');
@@ -58,7 +58,7 @@ final class EmbeddedHandlerTest extends TestCase
         $doctrineHandler = new DoctrineObjectHandler($em, $translator, $accessor);
         $embedded = new EmbeddedHandler($attributeHelper, $doctrineHandler);
         $entity = new class {
-            public ?string $prop = 'x';
+            public string|null $prop = 'x';
         };
         $args = new TranslationArgs($entity, 'en', 'de');
         $result = $embedded->translate($args);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\DBAL\Types\Types;
@@ -18,21 +20,21 @@ final class TranslatableManyToOne implements TranslatableInterface
     #[ORM\Id]
     #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
-    private ?int $id = null;
+    private int|null $id = null;
 
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Scalar $simple = null;
+    private Scalar|null $simple = null;
 
     #[SharedAmongstTranslations]
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Scalar $shared = null;
+    private Scalar|null $shared = null;
 
     #[EmptyOnTranslate]
     #[ORM\ManyToOne(targetEntity: Scalar::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: true)]
-    private ?Scalar $empty = null;
+    private Scalar|null $empty = null;
 
 
     public function getId(): int|null
@@ -47,7 +49,7 @@ final class TranslatableManyToOne implements TranslatableInterface
     }
 
 
-    public function setSimple(?Scalar $simple = null): self
+    public function setSimple(Scalar|null $simple = null): self
     {
         $this->simple = $simple;
 
@@ -59,7 +61,7 @@ final class TranslatableManyToOne implements TranslatableInterface
         return $this->shared;
     }
 
-    public function setShared(?Scalar $shared = null): self
+    public function setShared(Scalar|null $shared = null): self
     {
         $this->shared = $shared;
 
@@ -71,7 +73,7 @@ final class TranslatableManyToOne implements TranslatableInterface
         return $this->empty;
     }
 
-    public function setEmpty(?Scalar $empty = null): self
+    public function setEmpty(Scalar|null $empty = null): self
     {
         $this->empty = $empty;
 

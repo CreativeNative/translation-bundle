@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -43,7 +45,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         // Search in database if the content exists, otherwise translate it.
         $existingTranslation = $this->em->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
-            'tuuid'  => $data->getTuuid(),
+            'tuuid' => $data->getTuuid(),
         ]);
 
         if (null !== $existingTranslation) {

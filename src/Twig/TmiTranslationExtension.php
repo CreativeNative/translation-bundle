@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Twig;
 
 use Twig\Extension\AbstractExtension;

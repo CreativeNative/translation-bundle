@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,7 +24,7 @@ class TestCase extends KernelTestCase
 
     protected AttributeHelper|null $attributeHelper = null;
 
-    protected const TARGET_LOCALE = 'en';
+    protected const string TARGET_LOCALE = 'en';
 
     /**
      * {@inheritDoc}
