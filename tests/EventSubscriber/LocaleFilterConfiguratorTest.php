@@ -15,9 +15,9 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
-use Tmi\TranslationBundle\Test\TestCase;
+use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
-final class LocaleFilterConfiguratorTest extends TestCase
+final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 {
     public function testGetSubscribedEvents(): void
     {
@@ -142,6 +142,9 @@ final class LocaleFilterConfiguratorTest extends TestCase
 
     /**
      * Helper to call private methods
+     *
+     * @param array<Request> $args Arguments to pass to the method
+     *
      * @throws ReflectionException
      */
     private function invokePrivateMethod(object $object, array $args = []): mixed

@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test;
 
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -16,6 +17,9 @@ final class TestKernel extends BaseKernel
 {
     use MicroKernelTrait;
 
+    /**
+     * @return iterable<BundleInterface>
+     */
     public function registerBundles(): iterable
     {
         return [

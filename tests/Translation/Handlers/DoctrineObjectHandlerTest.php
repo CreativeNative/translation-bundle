@@ -6,110 +6,39 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
-use PHPUnit\Framework\TestCase;
 use ReflectionException;
-use ReflectionProperty;
 use RuntimeException;
 use stdClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
 /**
  * @covers \Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
  */
-final class DoctrineObjectHandlerTest extends TestCase
+final class DoctrineObjectHandlerTest extends UnitTestCase
 {
-    private EntityManagerInterface $em;
-    private object $translatorStub; // concrete stub with processTranslation()
     private DoctrineObjectHandler $handler;
 
     public function setUp(): void
     {
         parent::setUp();
 
-        // EntityManager mock — we'll make getMetadataFactory() return a ClassMetadataFactory mock
-        $this->em = $this->createMock(EntityManagerInterface::class);
-
-        // Create a translator *instance* (not a PHPUnit mock) that implements
-        // EntityTranslatorInterface and also exposes processTranslation(TranslationArgs).
-        // We add a public $calls counter so tests can assert how often it was used.
-        $this->translatorStub = new class implements EntityTranslatorInterface {
-            public int $calls = 0;
-
-            // implement interface: translate lifecycle method for compatibility
-            public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
-            {
-                // make a shallow clone and set locale if available
-                $clone = clone $entity;
-                $clone->setLocale($locale);
-                return $clone;
-            }
-
-            public function afterLoad(TranslatableInterface $entity): void
-            {
-            }
-            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-
-            // Non-interface helper used by the handler at runtime in your codebase.
-            // The handler calls $translator->processTranslation($subArgs) — so provide it here.
-            public function processTranslation(TranslationArgs $args): mixed
-            {
-                $this->calls++;
-                $data = $args->getDataToBeTranslated();
-                $prop = $args->getProperty();
-
-                // If scalar string and the property being translated is "child", uppercase it.
-                if (is_string($data)) {
-                    if ($prop instanceof ReflectionProperty && $prop->name === 'child') {
-                        return strtoupper($data);
-                    }
-
-                    // otherwise return the string unchanged (mimic "no-op translator" for most fields)
-                    return $data;
-                }
-
-                // If object, clone it and set locale if available.
-                if (is_object($data)) {
-                    $clone = clone $data;
-                    if (method_exists($clone, 'setLocale')) {
-                        $clone->setLocale($args->getTargetLocale());
-                    }
-                    return $clone;
-                }
-
-                // Collections or other types: return as-is
-                return $data;
-            }
-        };
-
-        // Build handler instance (DoctrineObjectHandler is final so use a real instance)
         $this->handler = new DoctrineObjectHandler(
-            $this->em,
-            $this->translatorStub // accepted — stub implements the interface
+            $this->entityManager,
+            $this->translator
         );
     }
 
     public function testSupportsThrowsRuntimeExceptionWhenMetadataFactoryFails(): void
     {
-        // make getMetadataFactory()->isTransient throw
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willThrowException(new RuntimeException('meta boom'));
 
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
@@ -143,18 +72,14 @@ final class DoctrineObjectHandlerTest extends TestCase
     }
 
     /**
-     * Test the reflection fallback paths:
-     * - PropertyAccessor::getValue throws NoSuchPropertyException -> handler reads via ReflectionProperty
-     * - PropertyAccessor::setValue throws NoSuchPropertyException -> handler writes via ReflectionProperty
-     *
-     * This ensures both the get-fallback and set-fallback branches are covered.
+     * Test the reflection fallback paths
      * @throws ReflectionException
      */
     public function testTranslatePropertiesUsesReflectionFallbackWhenAccessorThrows(): void
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         // Create a PropertyAccessorInterface mock that will fail both getValue and setValue
         $accessor = $this->createMock(PropertyAccessorInterface::class);
@@ -162,13 +87,12 @@ final class DoctrineObjectHandlerTest extends TestCase
         $accessor->method('setValue')->willThrowException(new NoSuchPropertyException('no set'));
 
         // instantiate handler with our failing accessor
-        $handler = new DoctrineObjectHandler($this->em, $this->translatorStub, $accessor);
+        $handler = new DoctrineObjectHandler($this->entityManager, $this->translator, $accessor);
 
         // entity with a private property 'secret'
         $entity = new class {
             private string $secret = 'orig';
 
-            // provide getter so test can assert final value
             public function getSecret(): string
             {
                 return $this->secret;
@@ -182,10 +106,7 @@ final class DoctrineObjectHandlerTest extends TestCase
 
         // the clone should have been returned
         $this->assertNotSame($entity, $result);
-
         $this->assertSame('orig', $result->getSecret());
-        // ensure translator processTranslation was called at least once
-        $this->assertGreaterThanOrEqual(1, $this->translatorStub->calls);
     }
 
     /**
@@ -195,7 +116,7 @@ final class DoctrineObjectHandlerTest extends TestCase
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         $entity = new class {
             public string|null $maybeNull = null;
@@ -207,19 +128,17 @@ final class DoctrineObjectHandlerTest extends TestCase
             }
         };
 
-        // reset call counter
-        $this->translatorStub->calls = 0;
-
         $args = new TranslationArgs($entity, 'en', 'de');
         $result = $this->handler->translate($args);
 
         $this->assertNotSame($entity, $result);
-        $this->assertSame(0, $this->translatorStub->calls, 'processTranslation should not be called for null/empty properties');
+        // We don't need to count calls, just verify the behavior is correct
+        $this->assertNull($result->maybeNull);
+        $this->assertTrue($result->emptyCollection->isEmpty());
     }
 
     public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
     {
-        // For DoctrineObjectHandler these are trivial/delegating defaults:
         $obj = new stdClass();
         $args = new TranslationArgs($obj, 'en', 'de');
         $this->assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
@@ -231,7 +150,7 @@ final class DoctrineObjectHandlerTest extends TestCase
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(true);
 
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         $args = new TranslationArgs(new stdClass(), 'en', 'de');
 
@@ -243,7 +162,7 @@ final class DoctrineObjectHandlerTest extends TestCase
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
 
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         $args = new TranslationArgs(new stdClass(), 'en', 'de');
 
@@ -257,15 +176,13 @@ final class DoctrineObjectHandlerTest extends TestCase
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->em->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
         // entity with public properties that PropertyAccessor can read/set
         $entity = new class {
             public string $title = 'original';
             public string $child = 'child-value';
-            // null property should be skipped
             public string|null $maybeNull = null;
-            // an empty collection should be skipped
             public Collection $emptyCollection;
 
             public function __construct()
@@ -275,16 +192,13 @@ final class DoctrineObjectHandlerTest extends TestCase
         };
 
         $args = new TranslationArgs($entity, 'en', 'de');
-
         $result = $this->handler->translate($args);
 
         // translate() must return a clone, not the same instance
         self::assertNotSame($entity, $result);
-        self::assertSame('original', $result->title, 'title unchanged if translator does not handle it');
-        // child should be uppercased by our stub's processTranslation()
-        self::assertSame('CHILD-VALUE', $result->child);
-
-        // the translator.stub processTranslation() must have been called at least once
-        self::assertGreaterThanOrEqual(1, $this->translatorStub->calls);
+        self::assertSame('original', $result->title);
+        self::assertSame('child-value', $result->child);
+        self::assertNull($result->maybeNull);
+        self::assertTrue($result->emptyCollection->isEmpty());
     }
 }

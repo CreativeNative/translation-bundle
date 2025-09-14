@@ -16,6 +16,8 @@ final class EntityTranslatorInterfaceTest extends TestCase
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
 
         $methods = [
+            'translate',
+            'processTranslation',
             'afterLoad',
             'beforePersist',
             'beforeUpdate',

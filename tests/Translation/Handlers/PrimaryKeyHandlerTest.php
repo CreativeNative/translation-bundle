@@ -8,18 +8,20 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
+use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass(PrimaryKeyHandler::class)]
-final class PrimaryKeyHandlerTest extends TestCase
+final class PrimaryKeyHandlerTest extends UnitTestCase
 {
     private PrimaryKeyHandler $handler;
-    private AttributeHelper $attributeHelper;
+
     public function setUp(): void
     {
-        $this->attributeHelper = $this->createMock(AttributeHelper::class);
+        parent::setUp();
+
         $this->handler = new PrimaryKeyHandler($this->attributeHelper);
     }
 

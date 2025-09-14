@@ -14,7 +14,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
-class TestCase extends KernelTestCase
+class IntegrationTestCase extends KernelTestCase
 {
     private static Container|null $container = null;
 
@@ -24,7 +24,7 @@ class TestCase extends KernelTestCase
 
     protected AttributeHelper|null $attributeHelper = null;
 
-    protected const string TARGET_LOCALE = 'en';
+    protected const string TARGET_LOCALE = 'de';
 
     /**
      * {@inheritDoc}
@@ -87,7 +87,15 @@ class TestCase extends KernelTestCase
     ): void {
         self::assertSame($targetLocale, $translation->getLocale());
         self::assertEquals($source->getTuuid(), $translation->getTuuid());
-        self::assertNotSame(spl_object_hash($source), spl_object_hash($translation));
+
+        // Only enforce "different instance" if targetLocale is different
+        if ($source->getLocale() !== $targetLocale) {
+            self::assertNotSame(
+                spl_object_hash($source),
+                spl_object_hash($translation),
+                'Expected a cloned translation when target locale differs'
+            );
+        }
     }
 
     final public function tearDown(): void

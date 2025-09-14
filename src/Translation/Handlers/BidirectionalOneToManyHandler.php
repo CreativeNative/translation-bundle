@@ -11,12 +11,22 @@ use Doctrine\ORM\Mapping\OneToMany;
 use ErrorException;
 use ReflectionException;
 use ReflectionProperty;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * Handles translation of OneToMany relations.
+ * Receives a collection (children). For each child:
+ * If the child is translatable, ask the translator to process the child with a TranslationArgs that contains the mappedBy
+ * ReflectionProperty and the translated parent. This is where the inverse-side fix-up (set child's parent to the translated parent) must
+ * happen — the OneToMany handler is the owner of the collection; it must set the child's parent property to the new translated parent.
+ * If the child is not translatable, keep it as-is in the returned collection.
+ *
+ * Final rule of thumb
+ * If we cannot translate (no parent or no property, or property not mapped) → return the original collection.
+ * If translation is possible → build a new collection with translated children.
  */
 final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
@@ -29,13 +39,25 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
     public function supports(TranslationArgs $args): bool
     {
-        if ($args->getProperty() && $this->attributeHelper->isOneToMany($args->getProperty())) {
-            $arguments = $args->getProperty()->getAttributes(OneToMany::class)[0]->getArguments();
+        $entity = $args->getDataToBeTranslated();
 
-            return array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy'];
+        if (!$entity instanceof TranslatableInterface) {
+            return false;
         }
 
-        return false;
+        $property = $args->getProperty();
+        if (!$property || !$this->attributeHelper->isOneToMany($property)) {
+            return false;
+        }
+
+        $attributes = $property->getAttributes(OneToMany::class);
+        if (empty($attributes)) {
+            return false;
+        }
+
+        $arguments = $attributes[0]->getArguments();
+
+        return isset($arguments['mappedBy']);
     }
 
     /**
@@ -65,31 +87,47 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     /**
      * @throws ReflectionException
      */
-    public function translate(TranslationArgs $args): mixed
+    public function translate(TranslationArgs $args): Collection
     {
-        $collection = $args->getDataToBeTranslated();
-        assert($collection instanceof Collection);
-        $newCollection = clone $collection;
-        $newOwner = $args->getTranslatedParent();
-        if ($newOwner === null || $args->getProperty() === null) {
-            return new ArrayCollection();
+        $children = $args->getDataToBeTranslated();
+        assert($children instanceof Collection);
+
+        $translatedParent = $args->getTranslatedParent();
+        $property = $args->getProperty();
+
+        // Guard: must have both property and translated parent
+        if (!$translatedParent || !$property) {
+            return $children; // nothing to translate → return original
         }
 
-        $associations = $this->em->getClassMetadata($newOwner::class)->getAssociationMappings();
-        $association = $associations[$args->getProperty()->name];
-        $mappedBy = $association['mappedBy'];
+        $associations = $this->em->getClassMetadata($translatedParent::class)->getAssociationMappings();
 
-        foreach ($newCollection as $key => $item) {
-            $reflection = new ReflectionProperty($item::class, $mappedBy);
+        // Guard: property must exist in association mappings and have mappedBy
+        if (!isset($associations[$property->name]['mappedBy'])) {
+            return $children; // not a valid relation → return original
+        }
 
-            $subTranslationArgs = new TranslationArgs($item, $args->getSourceLocale(), $args->getTargetLocale())
-                ->setTranslatedParent($newOwner)
-                ->setProperty($reflection);
+        $mappedBy = $associations[$property->name]['mappedBy'];
+        $newCollection = new ArrayCollection();
 
-            $itemTrans = $this->translator->processTranslation($subTranslationArgs);
+        foreach ($children as $child) {
+            if (!$child instanceof TranslatableInterface) {
+                // child is not translatable → just reuse
+                $newCollection->add($child);
+                continue;
+            }
 
-            $reflection->setValue($itemTrans, $newOwner);
-            $newCollection[$key] = $itemTrans;
+            $subArgs = new TranslationArgs($child, $args->getSourceLocale(), $args->getTargetLocale())
+                ->setTranslatedParent($translatedParent)
+                ->setProperty(new ReflectionProperty($child::class, $mappedBy));
+
+            assert($this->translator instanceof EntityTranslator);
+            $translatedChild = $this->translator->processTranslation($subArgs);
+            $newCollection->add($translatedChild);
+
+            // keep bidirectional consistency
+            $childProperty = new ReflectionProperty($translatedChild::class, $mappedBy);
+            $childProperty->setValue($translatedChild, $translatedParent);
         }
 
         return $newCollection;

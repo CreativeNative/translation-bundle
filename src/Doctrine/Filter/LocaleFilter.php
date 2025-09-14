@@ -27,7 +27,7 @@ final class LocaleFilter extends SQLFilter
         return $this;
     }
 
-    public function addFilterConstraint(ClassMetadata $targetEntity, $targetTableAlias): string
+    public function addFilterConstraint(ClassMetadata $targetEntity, string $targetTableAlias): string
     {
         if (!$this->hasParameter('locale')) {
             return '';

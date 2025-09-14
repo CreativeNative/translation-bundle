@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Twig;
 
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
 use Twig\TwigTest;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 final class TmiTranslationExtension extends AbstractExtension implements GlobalsInterface
 {
+    /**
+     * @param array<string> $locales
+     */
     public function __construct(private readonly array $locales)
     {
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getTests(): array
     {
         return [
@@ -22,6 +28,9 @@ final class TmiTranslationExtension extends AbstractExtension implements Globals
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getGlobals(): array
     {
         return [

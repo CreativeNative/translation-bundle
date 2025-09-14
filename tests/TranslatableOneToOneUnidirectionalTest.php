@@ -9,7 +9,7 @@ use Doctrine\ORM\OptimisticLockException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneUnidirectional;
 
-final class TranslatableOneToOneUnidirectionalTest extends TestCase
+final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
 {
     /**
      * @throws OptimisticLockException

@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
 use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -27,19 +28,26 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
 
     public function supports(TranslationArgs $args): bool
     {
-        if (null === $args->getProperty()) {
+        $entity = $args->getDataToBeTranslated();
+
+        if (!$entity instanceof TranslatableInterface) {
             return false;
         }
 
-        if ($this->attributeHelper->isOneToOne($args->getProperty())) {
-            $arguments = $args->getProperty()->getAttributes(OneToOne::class)[0]->getArguments();
-
-            if (array_key_exists('mappedBy', $arguments) && null !== $arguments['mappedBy']) {
-                return true;
-            }
+        $property = $args->getProperty();
+        if (!$property || !$this->attributeHelper->isOneToOne($property)) {
+            return false;
         }
 
-        return false;
+        $attributes = $property->getAttributes(OneToOne::class);
+        if (empty($attributes)) {
+            return false;
+        }
+
+        $arguments = $attributes[0]->getArguments();
+
+        // With OneToOne, there can be mappedBy or inversedBy
+        return (isset($arguments['mappedBy'])) || (isset($arguments['inversedBy']));
     }
 
     /**

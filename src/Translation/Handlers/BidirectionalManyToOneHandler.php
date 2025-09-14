@@ -14,13 +14,19 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
- * Handles translation of ManyToOne relations.
+ * Translate a single entity which is on the many-side. If the related property is a translatable entity, translate that related entity
+ * (by calling the translator). If there is no property or the entity is not translatable, return the entity (not a clone) —
+ * or clone+set locale depending on your desired semantics (we’ll choose safe/consistent behavior below).
+ *
+ * Final rule of thumb
+ * If no translation work is possible → return original.
+ * If translation is happening → return a clone with new locale.
  */
 final readonly class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private AttributeHelper $attributeHelper,
-        private EntityManagerInterface $em,
+        private EntityManagerInterface $entityManager,
         private PropertyAccessorInterface $propertyAccessor,
         private EntityTranslatorInterface $translator
     ) {
@@ -81,29 +87,31 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
             return $entity;
         }
 
-        $clone = clone $entity;
-        $clone->setLocale($args->getTargetLocale());
-
         $property = $args->getProperty();
         if (!$property) {
-            return $clone;
+            return $entity;
         }
 
         $propertyName = $property->name;
-        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
+        $associations = $this->entityManager->getClassMetadata($entity::class)->getAssociationMappings();
 
-        if (isset($associations[$propertyName])) {
-            $related = $this->propertyAccessor->getValue($entity, $propertyName);
-
-            if (null !== $args->getTranslatedParent()) {
-                $this->propertyAccessor->setValue($clone, $propertyName, $args->getTranslatedParent());
-            } elseif ($related instanceof TranslatableInterface) {
-                $translatedRelated = $this->translator->translate($related, $args->getTargetLocale());
-                $this->propertyAccessor->setValue($clone, $propertyName, $translatedRelated);
-            } else {
-                $this->propertyAccessor->setValue($clone, $propertyName, $related);
-            }
+        if (!isset($associations[$propertyName])) {
+            return $entity;
         }
+
+        // Clone so we don't mutate original; set the new locale.
+        $clone = clone $entity;
+        $clone->setLocale($args->getTargetLocale());
+
+        $related = $this->propertyAccessor->getValue($entity, $propertyName);
+
+        if ($related instanceof TranslatableInterface) {
+            $translatedRelated = $this->translator->translate($related, $args->getTargetLocale());
+            $this->propertyAccessor->setValue($clone, $propertyName, $translatedRelated);
+        } else {
+            $this->propertyAccessor->setValue($clone, $propertyName, $related);
+        }
+
         return $clone;
     }
 }

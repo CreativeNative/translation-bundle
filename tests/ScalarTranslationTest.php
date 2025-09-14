@@ -13,7 +13,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 /**
  * Test for scalar value.
  */
-final class ScalarTranslationTest extends TestCase
+final class ScalarTranslationTest extends IntegrationTestCase
 {
     /**
      * @throws OptimisticLockException
@@ -22,7 +22,7 @@ final class ScalarTranslationTest extends TestCase
     public function testItCanTranslateScalarValue(): void
     {
         $entity = $this->createEntity();
-        $translation = $this->translator->translate($entity, 'en');
+        $translation = $this->translator->translate($entity, 'de');
         assert($translation instanceof Scalar);
 
         $this->entityManager->persist($translation);
@@ -43,7 +43,7 @@ final class ScalarTranslationTest extends TestCase
     {
         $entity = $this->createEntity();
 
-        $translation = $this->translator->translate($entity, 'en');
+        $translation = $this->translator->translate($entity, 'de');
         assert($translation instanceof Scalar);
 
         $this->entityManager->persist($translation);
@@ -65,7 +65,7 @@ final class ScalarTranslationTest extends TestCase
     public function testItCanEmptyScalarValueOnTranslate(): void
     {
         $entity = $this->createEntity();
-        $translation = $this->translator->translate($entity, 'en');
+        $translation = $this->translator->translate($entity, 'de');
         assert($translation instanceof Scalar);
 
         $this->entityManager->persist($translation);
@@ -85,12 +85,12 @@ final class ScalarTranslationTest extends TestCase
         $this->expectException(LogicException::class);
 
         $entity = new CanNotBeNull()
-            ->setLocale('en')
+            ->setLocale('de')
             ->setEmptyNotNullable('Empty not nullable attribute');
 
         $this->entityManager->persist($entity);
 
-        $translation = $this->translator->translate($entity, 'en');
+        $translation = $this->translator->translate($entity, 'de');
         assert($translation instanceof CanNotBeNull);
 
         $this->entityManager->flush();
@@ -108,7 +108,7 @@ final class ScalarTranslationTest extends TestCase
     private function createEntity(): Scalar
     {
         $entity = new Scalar()
-            ->setLocale('en')
+            ->setLocale('de')
             ->setTitle('Test title')
             ->setShared('Shared attribute')
             ->setEmpty('Empty attribute');

@@ -7,10 +7,10 @@ namespace Tmi\TranslationBundle\Test;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 
-final class TranslatableOneToManyBidirectionalTest extends TestCase
+final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
 {
     /**
      * @throws OptimisticLockException
@@ -19,27 +19,37 @@ final class TranslatableOneToManyBidirectionalTest extends TestCase
     public function testItCanTranslateBidirectionalOneToMany(): void
     {
         $children = new ArrayCollection([
-            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
-            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
-            new TranslatableOneToManyBidirectionalChild()->setLocale('en'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
         ]);
 
         $parent = new TranslatableOneToManyBidirectionalParent()
-            ->setLocale('en')
-            ->setChildren($children);
-        $this->entityManager->persist($parent);
-        /** @var TranslatableOneToManyBidirectionalParent $parentTranslation */
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        $this->entityManager->persist($parentTranslation);
+            ->setLocale('de');
 
+        // Persist children first and assign parent
+        foreach ($children as $child) {
+            $child->setParentSimple($parent);
+            $this->entityManager->persist($child);
+        }
+
+        $parent->setSimpleChildren($children);
+        $this->entityManager->persist($parent);
         $this->entityManager->flush();
 
-        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getChildren()->first()->getLocale());
+        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        assert($parentTranslation instanceof TranslatableOneToManyBidirectionalParent);
+
+        $this->entityManager->persist($parentTranslation);
+        $this->entityManager->flush();
+
+        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChildren()->first()->getLocale());
         self::assertEquals(
-            $parent->getChildren()->first()->getTuuid(),
-            $parentTranslation->getChildren()->first()->getTuuid()
+            $parent->getSimpleChildren()->first()->getTuuid(),
+            $parentTranslation->getSimpleChildren()->first()->getTuuid()
         );
     }
+
 
     /**
      * @throws OptimisticLockException
@@ -47,21 +57,26 @@ final class TranslatableOneToManyBidirectionalTest extends TestCase
      */
     public function testItCanTranslateBidirectionalManyToOne(): void
     {
-        $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en');
-        $child = new TranslatableOneToManyBidirectionalChild()->setLocale('en');
+        $parent = new TranslatableOneToManyBidirectionalParent()
+            ->setLocale('de');
+        $this->entityManager->persist($parent);
 
-        $child->setParent($parent);
+        $child = new TranslatableManyToOneBidirectionalChild()
+            ->setLocale('de')
+            ->setParentSimple($parent);
         $this->entityManager->persist($child);
 
         $childTranslation = $this->translator->translate($child, self::TARGET_LOCALE);
+        assert($childTranslation instanceof TranslatableManyToOneBidirectionalChild);
+
         $this->entityManager->persist($childTranslation);
 
         $this->entityManager->flush();
 
-        self::assertEquals(self::TARGET_LOCALE, $childTranslation->getParent()->getLocale());
+        self::assertEquals(self::TARGET_LOCALE, $childTranslation->getParentSimple()->getLocale());
         self::assertEquals(
-            $childTranslation->getParent()->getTuuid(),
-            $childTranslation->getParent()->getTuuid()
+            $childTranslation->getParentSimple()->getTuuid(),
+            $childTranslation->getParentSimple()->getTuuid()
         );
     }
 }

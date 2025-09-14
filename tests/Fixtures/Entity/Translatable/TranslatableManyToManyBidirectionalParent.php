@@ -49,7 +49,8 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     )]
     private Collection $emptyChildren;
 
-
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $title = null;
 
     public function __construct()
     {
@@ -122,5 +123,17 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         }
 
         return $this;
+    }
+
+    public function setTitle(string|null $title = null): self
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    public function getTitle(): string|null
+    {
+        return $this->title;
     }
 }

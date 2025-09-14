@@ -15,7 +15,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUni
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 
-final class TranslatableManyToManyUnidirectionalTest extends TestCase
+final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 {
     private UnidirectionalManyToManyHandler $handler;
 
@@ -36,7 +36,7 @@ final class TranslatableManyToManyUnidirectionalTest extends TestCase
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $prop = new ReflectionProperty($parent::class, 'simpleChildren');
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'de', self::TARGET_LOCALE)
+        $args = new TranslationArgs($parent, 'en', self::TARGET_LOCALE)
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 

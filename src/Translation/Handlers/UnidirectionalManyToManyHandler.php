@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use ErrorException;
 use RuntimeException;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -29,26 +30,26 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
     public function supports(TranslationArgs $args): bool
     {
-        $data = $args->getDataToBeTranslated();
-        $property = $args->getProperty();
+        $entity = $args->getDataToBeTranslated();
 
-        if (!$data instanceof Collection || $property === null) {
+        if (!$entity instanceof TranslatableInterface) {
             return false;
         }
 
-        if (!$this->attributeHelper->isManyToMany($property)) {
+        $property = $args->getProperty();
+        if (!$property || !$this->attributeHelper->isManyToMany($property)) {
             return false;
         }
 
         $attributes = $property->getAttributes(ManyToMany::class);
-        if ($attributes === []) {
+        if (empty($attributes)) {
             return false;
         }
 
         $arguments = $attributes[0]->getArguments();
 
-        // Unidirectional = neither mappedBy nor inversedBy is set
-        return (isset($arguments['mappedBy']) === false) && (isset($arguments['inversedBy']) === false);
+        // Unidirectional = neither mappedBy nor inversedBy set
+        return !isset($arguments['mappedBy']) && !isset($arguments['inversedBy']);
     }
 
     /**

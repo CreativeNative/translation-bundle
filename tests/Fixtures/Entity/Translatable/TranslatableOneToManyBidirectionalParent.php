@@ -6,7 +6,10 @@ namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
@@ -16,48 +19,103 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    /**
-     * A Child has one Parent.
-     *
-     * @var ArrayCollection
-     */
-    #[ORM\OneToMany(
-        targetEntity: TranslatableOneToManyBidirectionalChild::class,
-        mappedBy: 'parent',
-        cascade: ['persist']
-    )]
-    private iterable $children;
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentSimple')]
+    private Collection $simpleChildren;
+
+    #[SharedAmongstTranslations]
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentShared')]
+    private Collection $sharedChildren;
+
+    #[EmptyOnTranslate]
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentEmpty')]
+    private Collection $emptyChildren;
+
+    #[ORM\OneToMany(targetEntity: NonTranslatableManyToOneBidirectionalChild::class, mappedBy: 'parent')]
+    private Collection $nonTranslatableChildren;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $title = null;
 
     public function __construct()
     {
-        $this->children = new ArrayCollection();
+        $this->simpleChildren = new ArrayCollection();
+        $this->sharedChildren = new ArrayCollection();
+        $this->emptyChildren = new ArrayCollection();
+        $this->nonTranslatableChildren = new ArrayCollection();
     }
 
+    /**
+     */
     public function getId(): int|null
     {
         return $this->id;
     }
 
-    /**
-     * @return Collection<int, TranslatableOneToManyBidirectionalChild>
-     */
-    public function getChildren(): Collection
+
+    public function setId(int|null $id): self
     {
-        return $this->children;
+        $this->id = $id;
+        return $this;
     }
 
-    public function setChildren(Collection|null $children = null): self
+    public function getSimpleChildren(): Collection
     {
-        $this->children = $children;
+        return $this->simpleChildren;
+    }
 
-        foreach ($children as $child) {
-            $child->setParent($this);
-        }
+    public function setSimpleChildren(Collection $simpleChildren): self
+    {
+        $this->simpleChildren = $simpleChildren;
+        return $this;
+    }
+
+    public function getSharedChildren(): Collection
+    {
+        return $this->sharedChildren;
+    }
+
+    public function setSharedChildren(Collection $sharedChildren): self
+    {
+        $this->sharedChildren = $sharedChildren;
+        return $this;
+    }
+
+
+    public function getEmptyChildren(): Collection
+    {
+        return $this->emptyChildren;
+    }
+
+    public function setEmptyChildren(Collection $emptyChildren): self
+    {
+        $this->emptyChildren = $emptyChildren;
+        return $this;
+    }
+
+    public function getNonTranslatableChildren(): Collection
+    {
+        return $this->nonTranslatableChildren;
+    }
+
+    public function setNonTranslatableChildren(Collection $nonTranslatableChildren): self
+    {
+        $this->nonTranslatableChildren = $nonTranslatableChildren;
+        return $this;
+    }
+
+    public function setTitle(string|null $title = null): self
+    {
+        $this->title = $title;
 
         return $this;
+    }
+
+    public function getTitle(): string|null
+    {
+        return $this->title;
     }
 }

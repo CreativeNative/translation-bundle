@@ -52,6 +52,9 @@ trait TranslatableTrait
         return $this->tuuid;
     }
 
+    /**
+     * @param array<string, mixed> $translations
+     */
     final public function setTranslations(array $translations): self
     {
         $this->translations = $translations;
@@ -59,6 +62,9 @@ trait TranslatableTrait
         return $this;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     final public function &getTranslations(): array
     {
         return $this->translations;

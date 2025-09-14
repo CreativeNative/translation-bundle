@@ -9,10 +9,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use ReflectionClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Test\TestCase;
+use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
 #[CoversClass(LocaleFilter::class)]
-final class LocaleFilterTest extends TestCase
+final class LocaleFilterTest extends IntegrationTestCase
 {
     private LocaleFilter $filter;
 

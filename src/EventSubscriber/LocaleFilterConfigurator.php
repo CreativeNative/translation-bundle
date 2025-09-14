@@ -16,6 +16,9 @@ use function in_array;
 
 final readonly class LocaleFilterConfigurator implements EventSubscriberInterface
 {
+    /**
+     * @param array<string> $disabledFirewalls
+     */
     public function __construct(
         private EntityManagerInterface $em,
         private array $disabledFirewalls,
@@ -23,6 +26,11 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
     ) {
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * @return array<string, mixed>
+     */
     public static function getSubscribedEvents(): array
     {
         return [KernelEvents::REQUEST => [['onKernelRequest', 2]]];

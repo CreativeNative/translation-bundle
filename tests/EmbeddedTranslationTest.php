@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
 /**
  * Tests for embedded entities.
  */
-final class EmbeddedTranslationTest extends TestCase
+final class EmbeddedTranslationTest extends IntegrationTestCase
 {
     public const string TARGET_LOCALE = 'en';
 

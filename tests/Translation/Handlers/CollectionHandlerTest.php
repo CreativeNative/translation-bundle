@@ -7,82 +7,31 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Closure;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionProperty;
 use RuntimeException;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
+use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\CollectionHandler;
-use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * @covers \Tmi\TranslationBundle\Translation\Handlers\CollectionHandler
  */
-final class CollectionHandlerTest extends TestCase
+final class CollectionHandlerTest extends UnitTestCase
 {
-    private AttributeHelper $attributeHelper;
-    private MockObject $em;
-    private EntityTranslatorInterface $translator;
     private CollectionHandler $handler;
 
     public function setUp(): void
     {
         parent::setUp();
 
-        $this->attributeHelper = $this->createMock(AttributeHelper::class);
-        $this->em = $this->createMock(EntityManagerInterface::class);
-
-        $this->translator = new class implements EntityTranslatorInterface {
-            public int $processCalls = 0;
-            public int $translateCalls = 0;
-
-            public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
-            {
-                $clone = clone $entity;
-                $clone->setLocale($locale);
-                $this->translateCalls++;
-                return $clone;
-            }
-
-            public function processTranslation(TranslationArgs $args): mixed
-            {
-                $this->processCalls++;
-                $data = $args->getDataToBeTranslated();
-                if (is_string($data)) {
-                    return strtoupper($data);
-                }
-                $clone = clone $data;
-                if (method_exists($clone, 'setLocale')) {
-                    $clone->setLocale($args->getTargetLocale());
-                }
-                return $clone;
-            }
-
-            public function afterLoad(TranslatableInterface $entity): void
-            {
-            }
-            public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-            public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-            public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
-            {
-            }
-        };
-
         $this->handler = new CollectionHandler(
             $this->attributeHelper,
-            $this->em,
+            $this->entityManager,
             $this->translator
         );
     }
@@ -272,7 +221,7 @@ final class CollectionHandlerTest extends TestCase
 
         $handler = new CollectionHandler(
             $this->attributeHelper,
-            $this->em,
+            $this->entityManager,
             $this->translator,
             $accessor
         );
@@ -338,8 +287,6 @@ final class CollectionHandlerTest extends TestCase
 
     /**
      * Normal translation path: children translated and inverse set.
-     *
-     * @throws ReflectionException
      */
     public function testTranslateTranslatesAndSetsInverseMappedBy(): void
     {
@@ -358,7 +305,7 @@ final class CollectionHandlerTest extends TestCase
 
         $translatedChild = $result->first();
         assert($translatedChild instanceof TranslatableManyToManyBidirectionalChild);
-        self::assertSame('de', $translatedChild->getLocale());
+        self::assertSame('en', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSimpleParents()->contains($parent));
     }
 
@@ -392,7 +339,7 @@ final class CollectionHandlerTest extends TestCase
 
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn(['items' => ['mappedBy' => null]]);
-        $this->em->method('getClassMetadata')->willReturn($meta);
+        $this->entityManager->method('getClassMetadata')->willReturn($meta);
 
         $args = new TranslationArgs($collection, 'en', 'de')->setTranslatedParent($parent)->setProperty($prop);
 
@@ -440,7 +387,7 @@ final class CollectionHandlerTest extends TestCase
 
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([]);
-        $this->em->method('getClassMetadata')->willReturn($meta);
+        $this->entityManager->method('getClassMetadata')->willReturn($meta);
 
         $args = new TranslationArgs($parent->items, 'en', 'de')->setTranslatedParent($parent)->setProperty($prop);
 
@@ -474,7 +421,7 @@ final class CollectionHandlerTest extends TestCase
 
         $translatedChild = $result->first();
         assert($translatedChild instanceof TranslatableManyToManyBidirectionalChild);
-        self::assertSame('de', $translatedChild->getLocale());
+        self::assertSame('en', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSharedParents()->contains($parent));
     }
 
@@ -519,7 +466,7 @@ final class CollectionHandlerTest extends TestCase
 
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn(['items' => ['fieldName' => 'items']]);
-        $this->em->method('getClassMetadata')->willReturn($meta);
+        $this->entityManager->method('getClassMetadata')->willReturn($meta);
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 

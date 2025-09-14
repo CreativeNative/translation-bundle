@@ -20,6 +20,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 {
     /**
      * @throws Exception
+     * @param array<array<string, mixed>> $configs
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
@@ -45,6 +46,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
     /**
      * Add config keys as parameters.
+     * @param array<string, mixed> $params
      */
     private function setConfigAsParameters(ContainerBuilder $container, array $params, string $parent): void
     {

@@ -39,7 +39,7 @@ This is a **complete refactoring** based on PHP 8.4, Symfony 7.3, and Doctrine O
 
 ## ⚠️ Limitations
 
-* **ManyToMany associations** are not yet supported with the `SharedAmongstTranslations` attribute
+* **ManyToMany associations** are currently not supported. This includes usage with the `SharedAmongstTranslations` attribute.
 * Requires **PHP 8.4+**, **Symfony 7.3+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
 ## 📦 Installation

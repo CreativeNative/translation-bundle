@@ -9,7 +9,7 @@ use Doctrine\ORM\OptimisticLockException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 
-final class TranslatableManyToManyBidirectionalTest extends TestCase
+final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
 {
     /**
      * @throws OptimisticLockException
