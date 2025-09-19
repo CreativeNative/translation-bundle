@@ -140,7 +140,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [
-            'simpleChildren' => ['fieldName' => 'simpleChildren']
+            'simpleChildren' => ['fieldName' => 'simpleChildren'],
         ];
 
         $this->entityManager->method('getClassMetadata')
@@ -281,7 +281,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         // --- Step 3: Association mapping setup ---
         $metadata = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
         $metadata->associationMappings = [
-            'parentSimple' => ['fieldName' => 'parentSimple']
+            'parentSimple' => ['fieldName' => 'parentSimple'],
         ];
         $this->entityManager->method('getClassMetadata')
             ->with(TranslatableManyToOneBidirectionalChild::class)

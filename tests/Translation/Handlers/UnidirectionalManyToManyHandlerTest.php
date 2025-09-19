@@ -8,12 +8,13 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
-use ErrorException;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
 use RuntimeException;
+use stdClass;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
@@ -25,6 +26,11 @@ use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
  */
 final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 {
+    private function createHandler(): UnidirectionalManyToManyHandler
+    {
+        return new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+    }
+
     /**
      * @throws ReflectionException
      */
@@ -39,11 +45,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
-        $handler = new UnidirectionalManyToManyHandler(
-            $this->attributeHelper,
-            $this->translator,
-            $this->entityManager
-        );
+        $handler = $this->createHandler();
 
         self::assertFalse($handler->supports($args));
     }
@@ -67,11 +69,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
             ->setProperty($prop)
             ->setTranslatedParent($anon);
 
-        $handler = new UnidirectionalManyToManyHandler(
-            $this->attributeHelper,
-            $this->translator,
-            $this->entityManager
-        );
+        $handler = $this->createHandler();
 
         self::assertFalse($handler->supports($args));
     }
@@ -92,32 +90,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
-        $handler = new UnidirectionalManyToManyHandler(
-            $this->attributeHelper,
-            $this->translator,
-            $this->entityManager
-        );
+        $handler = $this->createHandler();
 
         self::assertFalse($handler->supports($args));
     }
 
-    /**
-     * @throws ErrorException
-     */
-    public function testHandleSharedAmongstTranslationsFallsBackToTranslatePath(): void
-    {
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
-
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de');
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('No translated parent provided');
-
-        $handler->handleSharedAmongstTranslations($args);
-    }
-
     public function testTranslateThrowsWhenNoTranslatedParent(): void
     {
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de');
         $this->expectException(RuntimeException::class);
@@ -128,7 +108,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
     public function testTranslateThrowsWhenNoPropertyGiven(): void
     {
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $parent = new class {
             public string|null $any = null;
@@ -156,7 +136,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $meta->method('getAssociationMappings')->willReturn([]);
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
             ->setTranslatedParent($parent)
@@ -184,7 +164,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         ]);
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
             ->setTranslatedParent($parent)
@@ -212,7 +192,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         ]);
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
             ->setTranslatedParent($parent)
@@ -250,7 +230,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+         $handler = $this->createHandler();
 
         $args = new TranslationArgs($data, 'en', 'de')
             ->setTranslatedParent($parent)
@@ -263,14 +243,9 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         self::assertCount(2, $parent->items);
     }
 
-    /**
-     * @throws ReflectionException
-     */
     public function testSupportsReturnsTrueForUnidirectionalManyToManyProperty(): void
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
-
-        $prop = new ReflectionProperty($parent::class, 'simpleChildren');
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
@@ -291,12 +266,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $propMock->method('getName')->willReturn('simpleChildren');
         $propMock->method('getDeclaringClass')->willReturn(new ReflectionClass($parent));
 
-        // <<< FIX: pass the translatable parent as the data to be translated
         $args = new TranslationArgs($parent, 'en', 'de')
             ->setProperty($propMock)
             ->setTranslatedParent($parent);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+        $handler = $this->createHandler();
 
         self::assertTrue($handler->supports($args));
     }
@@ -326,7 +300,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
+        $handler = $this->createHandler();
 
         $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
             ->setProperty($prop)
@@ -337,36 +311,76 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         self::assertCount(2, $result);
     }
 
+    public function testHandleSharedAmongstTranslationsReturnsOriginalWhenNoProperty(): void
+    {
+        $handler = $this->createHandler();
+
+        $args = new TranslationArgs(
+            dataToBeTranslated: new ArrayCollection(),
+            sourceLocale: 'en',
+            targetLocale: 'de'
+        );
+
+        $result = $handler->handleSharedAmongstTranslations($args);
+
+        self::assertInstanceOf(ArrayCollection::class, $result);
+        self::assertCount(0, $result);
+    }
+
     /**
      * @throws ReflectionException
      */
-    public function testHandleSharedAmongstTranslationsThrowsForManyToMany(): void
+    public function testHandleSharedAmongstTranslationsThrowsWhenSharedAttributePresent(): void
     {
+        $handler = $this->createHandler();
+
+        $entity = new TranslatableManyToManyBidirectionalParent();
+        $prop = new ReflectionProperty($entity::class, 'sharedChildren');
+
+        $args = new TranslationArgs(
+            dataToBeTranslated: new ArrayCollection(),
+            sourceLocale: 'en',
+            targetLocale: 'de'
+        );
+        $args->setProperty($prop)->setTranslatedParent($entity);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations');
+
+        $handler->handleSharedAmongstTranslations($args);
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    public function testHandleSharedAmongstTranslationsFallsBackToTranslate(): void
+    {
+        $handler = $this->createHandler();
+
         $parent = new TranslatableManyToManyUnidirectionalParent();
-        $child = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en')
-            ->setTuuid('tuuid');
-        $parent->addSharedChild($child);
+        $child = new TranslatableManyToManyUnidirectionalChild();
+        $child->setLocale('en')->setTuuid('c-1');
+        $parent->addSimpleChild($child);
 
-        $prop = new ReflectionProperty($parent::class, 'sharedChildren');
+        $prop = new ReflectionProperty($parent::class, 'simpleChildren');
 
+        // Mock ClassMetadata für owning side
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'sharedChildren' => ['fieldName' => 'sharedChildren', 'isOwningSide' => true],
+            'simpleChildren' => ['fieldName' => 'simpleChildren', 'isOwningSide' => true],
         ]);
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper, $this->translator, $this->entityManager);
-
-        $args = new TranslationArgs($parent->getSharedChildren(), 'en', 'de')
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
-        $this->expectException(ErrorException::class);
-        $this->expectExceptionMessage('SharedAmongstTranslations is not supported for ManyToMany associations');
+        $result = $handler->handleSharedAmongstTranslations($args);
 
-        $handler->handleSharedAmongstTranslations($args);
+        self::assertInstanceOf(Collection::class, $result);
+        self::assertCount(1, $result);
+        self::assertSame($result, $parent->getSimpleChildren());
     }
 }

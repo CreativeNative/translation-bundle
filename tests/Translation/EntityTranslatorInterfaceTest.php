@@ -52,17 +52,12 @@ final class EntityTranslatorInterfaceTest extends TestCase
         $method = $reflection->getMethod('beforePersist');
         $parameters = $method->getParameters();
 
-        self::assertCount(2, $parameters);
+        self::assertCount(1, $parameters);
         self::assertSame('entity', $parameters[0]->getName());
-        self::assertSame('em', $parameters[1]->getName());
 
         $entityType = $parameters[0]->getType();
         self::assertNotNull($entityType);
         self::assertEquals(TranslatableInterface::class, $entityType->getName());
-
-        $emType = $parameters[1]->getType();
-        self::assertNotNull($emType);
-        self::assertEquals(EntityManagerInterface::class, $emType->getName());
     }
 
     public function testBeforeUpdateMethodSignature(): void
@@ -71,17 +66,12 @@ final class EntityTranslatorInterfaceTest extends TestCase
         $method = $reflection->getMethod('beforeUpdate');
         $parameters = $method->getParameters();
 
-        self::assertCount(2, $parameters);
+        self::assertCount(1, $parameters);
         self::assertSame('entity', $parameters[0]->getName());
-        self::assertSame('em', $parameters[1]->getName());
 
         $entityType = $parameters[0]->getType();
         self::assertNotNull($entityType);
         self::assertEquals(TranslatableInterface::class, $entityType->getName());
-
-        $emType = $parameters[1]->getType();
-        self::assertNotNull($emType);
-        self::assertEquals(EntityManagerInterface::class, $emType->getName());
     }
 
     public function testBeforeRemoveMethodSignature(): void
@@ -90,16 +80,11 @@ final class EntityTranslatorInterfaceTest extends TestCase
         $method = $reflection->getMethod('beforeRemove');
         $parameters = $method->getParameters();
 
-        self::assertCount(2, $parameters);
+        self::assertCount(1, $parameters);
         self::assertSame('entity', $parameters[0]->getName());
-        self::assertSame('em', $parameters[1]->getName());
 
         $entityType = $parameters[0]->getType();
         self::assertNotNull($entityType);
         self::assertEquals(TranslatableInterface::class, $entityType->getName());
-
-        $emType = $parameters[1]->getType();
-        self::assertNotNull($emType);
-        self::assertEquals(EntityManagerInterface::class, $emType->getName());
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\FilterCollection;
 use ReflectionClass;
 use ReflectionException;
@@ -113,7 +114,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
             ->getMock();
         $filtersMock->method('has')->willReturn(false);
 
-        $emMock = $this->createMock(\Doctrine\ORM\EntityManagerInterface::class);
+        $emMock = $this->createMock(EntityManagerInterface::class);
         $emMock->method('getFilters')->willReturn($filtersMock);
 
         $subscriber = new LocaleFilterConfigurator($emMock, []);

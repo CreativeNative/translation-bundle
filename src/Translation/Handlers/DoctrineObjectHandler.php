@@ -29,7 +29,7 @@ use function is_object;
 final readonly class DoctrineObjectHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private EntityManagerInterface $em,
+        private EntityManagerInterface $entityManager,
         private EntityTranslatorInterface $translator,
         private PropertyAccessorInterface|null $accessor = null
     ) {
@@ -48,7 +48,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
         }
 
         try {
-            return !$this->em->getMetadataFactory()->isTransient($data);
+            return !$this->entityManager->getMetadataFactory()->isTransient($data);
         } catch (Throwable $e) {
             // Rewrap low-level exceptions for clearer runtime reporting
             throw new RuntimeException(sprintf(

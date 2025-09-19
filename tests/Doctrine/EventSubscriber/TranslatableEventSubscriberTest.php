@@ -9,6 +9,7 @@ use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\UnitOfWork;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -16,14 +17,16 @@ use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(\Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber::class)]
+#[CoversClass(TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberTest extends TestCase
 {
+    private EntityManagerInterface&MockObject $entityManager;
     private EntityTranslatorInterface&MockObject $translator;
     private TranslatableEventSubscriber $subscriber;
 
     public function setUp(): void
     {
+        $this->entityManager = $this->createMock(EntityManagerInterface::class);
         $this->translator = $this->createMock(EntityTranslatorInterface::class);
         $this->subscriber = new TranslatableEventSubscriber(
             'en',
@@ -40,8 +43,8 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 
-        $em = $this->createMock(EntityManagerInterface::class);
-        $args = new PostLoadEventArgs($entity, $em);
+
+        $args = new PostLoadEventArgs($entity, $this->entityManager);
 
         $this->subscriber->postLoad($args);
     }
@@ -55,8 +58,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 
-        $em = $this->createMock(EntityManagerInterface::class);
-        $args = new PostLoadEventArgs($entity, $em);
+        $args = new PostLoadEventArgs($entity, $this->entityManager);
 
         $this->subscriber->postLoad($args);
     }
@@ -70,8 +72,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 
-        $em = $this->createMock(EntityManagerInterface::class);
-        $args = new PostLoadEventArgs($entity, $em);
+        $args = new PostLoadEventArgs($entity, $this->entityManager);
 
         $this->subscriber->postLoad($args);
     }
@@ -80,8 +81,7 @@ final class TranslatableEventSubscriberTest extends TestCase
     {
         $entity = new stdClass();
 
-        $em = $this->createMock(EntityManagerInterface::class);
-        $args = new PostLoadEventArgs($entity, $em);
+        $args = new PostLoadEventArgs($entity, $this->entityManager);
 
         $this->translator->expects($this->never())->method('afterLoad');
 
@@ -93,24 +93,23 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = $this->createMock(TranslatableInterface::class);
 
         $uow = $this->createMock(UnitOfWork::class);
-        $em = $this->createMock(EntityManagerInterface::class);
 
         $uow->method('getScheduledEntityInsertions')->willReturn([$entity]);
         $uow->method('getScheduledEntityUpdates')->willReturn([$entity]);
         $uow->method('getScheduledEntityDeletions')->willReturn([$entity]);
 
-        $em->method('getUnitOfWork')->willReturn($uow);
-        $em->method('getClassMetadata')->willReturn(new ClassMetadata($entity::class));
+        $this->entityManager->method('getUnitOfWork')->willReturn($uow);
+        $this->entityManager->method('getClassMetadata')->willReturn(new ClassMetadata($entity::class));
 
         $uow->expects($this->exactly(2))
             ->method('recomputeSingleEntityChangeSet')
             ->with(self::anything(), $entity);
 
-        $this->translator->expects($this->once())->method('beforePersist')->with($entity, $em);
-        $this->translator->expects($this->once())->method('beforeUpdate')->with($entity, $em);
-        $this->translator->expects($this->once())->method('beforeRemove')->with($entity, $em);
+        $this->translator->expects($this->once())->method('beforePersist')->with($entity, $this->entityManager);
+        $this->translator->expects($this->once())->method('beforeUpdate')->with($entity, $this->entityManager);
+        $this->translator->expects($this->once())->method('beforeRemove')->with($entity, $this->entityManager);
 
-        $args = new OnFlushEventArgs($em);
+        $args = new OnFlushEventArgs($this->entityManager);
         $this->subscriber->onFlush($args);
     }
 
@@ -119,19 +118,18 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = new stdClass();
 
         $uow = $this->createMock(UnitOfWork::class);
-        $em = $this->createMock(EntityManagerInterface::class);
 
         $uow->method('getScheduledEntityInsertions')->willReturn([$entity]);
         $uow->method('getScheduledEntityUpdates')->willReturn([$entity]);
         $uow->method('getScheduledEntityDeletions')->willReturn([$entity]);
 
-        $em->method('getUnitOfWork')->willReturn($uow);
+        $this->entityManager->method('getUnitOfWork')->willReturn($uow);
 
         $this->translator->expects($this->never())->method('beforePersist');
         $this->translator->expects($this->never())->method('beforeUpdate');
         $this->translator->expects($this->never())->method('beforeRemove');
 
-        $args = new OnFlushEventArgs($em);
+        $args = new OnFlushEventArgs($this->entityManager);
         $this->subscriber->onFlush($args);
     }
 }

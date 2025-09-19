@@ -40,6 +40,8 @@ This is a **complete refactoring** based on PHP 8.4, Symfony 7.3, and Doctrine O
 ## ⚠️ Limitations
 
 * **ManyToMany associations** are currently not supported. This includes usage with the `SharedAmongstTranslations` attribute.
+* There is currently **no handler for unique fields** (e.g. `uuid`, `slug`).  When translating entities with unique columns, the translation process may fail with a unique constraint violation.
+  See the [Quick Fix for unique fields](#quick-fix-for-unique-fields) section below.
 * Requires **PHP 8.4+**, **Symfony 7.3+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
 ## 📦 Installation
@@ -119,7 +121,7 @@ Using this attribute will make the value of your field identical throughout all 
 field in any translation, all the others will be synchronized.
 If the attribute is a relation to a translatable entity, it will associate the correct translation to each language.
 
-*** Note :** `ManyToMany` associations are not supported with `SharedAmongstTranslations` yet.
+***Note***: `ManyToMany` associations are not supported with `SharedAmongstTranslations` yet.
 
 ```php
 #[ORM\ManyToOne(targetEntity: Media::class)]
@@ -130,12 +132,13 @@ private Media $video; // Shared across all translations
 
 ### EmptyOnTranslate
 
-This attribute will empty the field when creating a new translation.
+This attribute will empty the field when creating a new translation. **ATTENTION**: The field has to be nullable or instance of Doctrine\Common\Collections\Collection! 
 
 ```php
 #[ORM\ManyToOne(targetEntity: Media::class)]
+#[ORM\JoinColumn(nullable: true)]
 #[EmptyOnTranslate]
-private Media $image; // Empty in new translations
+private ?string $image = null;
 ```
 ### Translate event
 You can alter the entities to translate or translated, before and after translation using the `Tmi\TranslationBundle\Event\TranslateEvent`
@@ -173,6 +176,27 @@ For doing so, you can disable the filter by configuring the disabled_firewalls o
 tmi_translation:
   locales: [en, de, it]
   disabled_firewalls: ['admin']  # Disable filter for 'admin' firewall
+```
+
+### Quick Fix for unique fields
+
+If you need a translatable slug (or UUID), adjust your database schema to make the **slug unique per locale**, instead of globally:
+
+```php
+#[ORM\Entity]
+#[ORM\Table(name: 'product')]
+#[ORM\UniqueConstraint(
+    name: "uniq_slug_locale",
+    columns: ["slug_value", "locale"]
+)]
+class Product
+{
+    #[ORM\Column(length: 255)]
+    private ?string $slug = null;
+
+    #[ORM\Column(length: 5)]
+    private string $locale;
+}
 ```
 
 ## 📊 Performance Comparison

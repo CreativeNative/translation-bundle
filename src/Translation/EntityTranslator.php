@@ -186,17 +186,17 @@ final class EntityTranslator implements EntityTranslatorInterface
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
-    public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void
+    public function beforePersist(TranslatableInterface $entity): void
     {
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
-    public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void
+    public function beforeUpdate(TranslatableInterface $entity): void
     {
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
-    public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void
+    public function beforeRemove(TranslatableInterface $entity): void
     {
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }

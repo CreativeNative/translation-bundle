@@ -33,7 +33,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     public function __construct(
         private AttributeHelper $attributeHelper,
         private EntityTranslatorInterface $translator,
-        private EntityManagerInterface $em
+        private EntityManagerInterface $entityManager
     ) {
     }
 
@@ -100,7 +100,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
             return $children; // nothing to translate → return original
         }
 
-        $associations = $this->em->getClassMetadata($translatedParent::class)->getAssociationMappings();
+        $associations = $this->entityManager->getClassMetadata($translatedParent::class)->getAssociationMappings();
 
         // Guard: property must exist in association mappings and have mappedBy
         if (!isset($associations[$property->name]['mappedBy'])) {

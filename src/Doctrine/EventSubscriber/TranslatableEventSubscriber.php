@@ -41,29 +41,29 @@ final readonly class TranslatableEventSubscriber
 
     public function onFlush(OnFlushEventArgs $args): void
     {
-        $em = $args->getObjectManager();
-        \assert($em instanceof EntityManagerInterface);
-        $uow = $em->getUnitOfWork();
+        $entityManager = $args->getObjectManager();
+        assert($entityManager instanceof EntityManagerInterface);
+        $uow = $entityManager->getUnitOfWork();
 
         foreach ($uow->getScheduledEntityInsertions() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforePersist($entity, $em);
-                $meta = $em->getClassMetadata($entity::class);
+                $this->entityTranslator->beforePersist($entity, $entityManager);
+                $meta = $entityManager->getClassMetadata($entity::class);
                 $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
         }
 
         foreach ($uow->getScheduledEntityUpdates() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeUpdate($entity, $em);
-                $meta = $em->getClassMetadata($entity::class);
+                $this->entityTranslator->beforeUpdate($entity, $entityManager);
+                $meta = $entityManager->getClassMetadata($entity::class);
                 $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
         }
 
         foreach ($uow->getScheduledEntityDeletions() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeRemove($entity, $em);
+                $this->entityTranslator->beforeRemove($entity, $entityManager);
             }
         }
     }

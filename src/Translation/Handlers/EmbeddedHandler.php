@@ -13,8 +13,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 final readonly class EmbeddedHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper $attributeHelper,
-        private DoctrineObjectHandler $objectHandler
+        private AttributeHelper $attributeHelper
     ) {
     }
 
@@ -25,17 +24,16 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
 
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        return $this->objectHandler->handleSharedAmongstTranslations($args);
+        return $args->getDataToBeTranslated();
     }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): mixed
+    public function handleEmptyOnTranslate(TranslationArgs $args): null
     {
-        return $this->objectHandler->handleEmptyOnTranslate($args);
+        return null;
     }
 
     public function translate(TranslationArgs $args): mixed
     {
-        // For embeddables we simply clone the object instance.
         return clone $args->getDataToBeTranslated();
     }
 }

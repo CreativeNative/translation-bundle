@@ -33,20 +33,20 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     )]
     private Collection $simpleChildren;
 
-    #[SharedAmongstTranslations]
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',
         cascade: ['persist', 'remove']
     )]
+    #[SharedAmongstTranslations]
     private Collection $sharedChildren;
 
-    #[EmptyOnTranslate]
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
         cascade: ['persist', 'remove']
     )]
+    #[EmptyOnTranslate]
     private Collection $emptyChildren;
 
     #[ORM\Column(type: Types::STRING, nullable: true)]

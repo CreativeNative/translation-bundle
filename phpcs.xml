@@ -19,6 +19,8 @@
 
     <!-- Additional checks for modern PHP -->
     <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+    <rule ref="SlevomatCodingStandard.Arrays.TrailingArrayComma"/>
+    <rule ref="SlevomatCodingStandard.Arrays.SingleLineArrayWhitespace"/>
     <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes">
         <properties>
             <property name="linesCountBeforeDeclare" value="1"/>
@@ -48,6 +50,10 @@
             <property name="lineLimit" value="140"/>
         </properties>
     </rule>
+
+    <!-- Dead Code Elimination - Perhaps the MOST valuable for cleanliness -->
+    <rule ref="SlevomatCodingStandard.Functions.UnusedParameter"/>
+
 
     <!-- Symfony-like rules -->
     <rule ref="PSR1.Classes.ClassDeclaration"/>

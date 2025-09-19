@@ -19,11 +19,11 @@ interface EntityTranslatorInterface
     public function afterLoad(TranslatableInterface $entity): void;
 
     /** Called before an entity is persisted. */
-    public function beforePersist(TranslatableInterface $entity, EntityManagerInterface $em): void;
+    public function beforePersist(TranslatableInterface $entity): void;
 
     /** Called before an entity is updated. */
-    public function beforeUpdate(TranslatableInterface $entity, EntityManagerInterface $em): void;
+    public function beforeUpdate(TranslatableInterface $entity): void;
 
     /** Called before an entity is removed. */
-    public function beforeRemove(TranslatableInterface $entity, EntityManagerInterface $em): void;
+    public function beforeRemove(TranslatableInterface $entity): void;
 }

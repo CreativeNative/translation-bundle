@@ -24,7 +24,7 @@ final class TmiTranslationExtensionTest extends TestCase
                 'locales' => ['en', 'de', 'it'],
                 'default_locale' => 'en',
                 'disabled_firewalls' => ['admin'],
-            ]
+            ],
         ];
         $extension->load($config, $container);
 // Use has() instead of hasDefinition() to catch aliases or synthetic services

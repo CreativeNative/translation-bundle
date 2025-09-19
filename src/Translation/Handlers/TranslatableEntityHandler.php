@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private EntityManagerInterface $em,
+        private EntityManagerInterface $entityManager,
         private DoctrineObjectHandler $doctrineObjectHandler
     ) {
     }
@@ -43,7 +43,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         $data = $args->getDataToBeTranslated();
 
         // Search in database if the content exists, otherwise translate it.
-        $existingTranslation = $this->em->getRepository($data::class)->findOneBy([
+        $existingTranslation = $this->entityManager->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
             'tuuid' => $data->getTuuid(),
         ]);

@@ -8,8 +8,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use ErrorException;
 use RuntimeException;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
@@ -24,7 +24,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     public function __construct(
         private AttributeHelper $attributeHelper,
         private EntityTranslatorInterface $translator,
-        private EntityManagerInterface $em,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -42,7 +42,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         }
 
         $attributes = $property->getAttributes(ManyToMany::class);
-        if (empty($attributes)) {
+        if ($attributes === []) {
             return false;
         }
 
@@ -53,22 +53,29 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     }
 
     /**
-     * SharedAmongstTranslations is not supported for ManyToMany unidirectional collections.
-     *
-     * @throws ErrorException
+     * SharedAmongstTranslations is not supported for unidirectional ManyToMany collections.
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
     {
-        $property = $args->getProperty();
-        if ($property !== null && $this->attributeHelper->isManyToMany($property)) {
-            throw new ErrorException(sprintf(
-                'SharedAmongstTranslations is not supported for ManyToMany associations (%s::%s).',
-                $property->class,
-                $property->name
+        /** @var Collection<int, object> $collection */
+        $collection = $args->getDataToBeTranslated();
+
+        $prop = $args->getProperty();
+        if ($prop === null) {
+            return $collection;
+        }
+
+        // Check for SharedAmongstTranslations attribute
+        $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
+        if (!empty($sharedAttrs)) {
+            throw new RuntimeException(sprintf(
+                'SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. '
+                . 'Property "%s" of class "%s" is invalid.',
+                $prop->getName(),
+                $args->getDataToBeTranslated()::class
             ));
         }
 
-        // fallback: perform a normal translation (defensive)
         return $this->translate($args);
     }
 
@@ -97,7 +104,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             ));
         }
 
-        $meta = $this->em->getClassMetadata($newOwner::class);
+        $meta = $this->entityManager->getClassMetadata($newOwner::class);
         $associations = $meta->getAssociationMappings();
         $association = $associations[$property->name] ?? null;
 

@@ -20,7 +20,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 final readonly class BidirectionalOneToOneHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private EntityManagerInterface $em,
+        private EntityManagerInterface $entityManager,
         private PropertyAccessor $propertyAccessor,
         private AttributeHelper $attributeHelper
     ) {
@@ -82,7 +82,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     {
         $clone = clone $args->getDataToBeTranslated();
         $fieldName = $args->getProperty()->name;
-        $associations = $this->em->getClassMetadata($clone::class)->getAssociationMappings();
+        $associations = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
         $parentFieldName = null;
 
         foreach ($associations as $association) {

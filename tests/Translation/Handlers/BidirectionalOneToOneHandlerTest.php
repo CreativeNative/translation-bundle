@@ -149,7 +149,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $metadata = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
         $metadata->associationMappings = [
-            'simpleParent' => ['fieldName' => 'simpleParent', 'inversedBy' => 'simpleChild']
+            'simpleParent' => ['fieldName' => 'simpleParent', 'inversedBy' => 'simpleChild'],
         ];
 
         $this->entityManager->method('getClassMetadata')

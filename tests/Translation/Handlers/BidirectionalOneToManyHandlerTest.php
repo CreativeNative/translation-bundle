@@ -138,7 +138,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [
-            'simpleChildren' => ['mappedBy' => 'parentSimple']
+            'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
         $this->entityManager->method('getClassMetadata')
@@ -177,7 +177,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         // Metadata with missing mappedBy
         $metadata = $this->createMock(ClassMetadata::class);
         $metadata->associationMappings = [
-            'simpleChildren' => [] // no mappedBy
+            'simpleChildren' => [], // no mappedBy
         ];
 
         $this->entityManager->method('getClassMetadata')
@@ -212,7 +212,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         // Metadata with mappedBy
         $metadata = $this->createMock(ClassMetadata::class);
         $metadata->associationMappings = [
-            'simpleChildren' => ['mappedBy' => 'parentSimple']
+            'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($metadata);
@@ -260,7 +260,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [
-            'simpleChildren' => ['mappedBy' => 'parentSimple']
+            'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
         $this->entityManager->method('getClassMetadata')

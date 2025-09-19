@@ -24,7 +24,7 @@ final class TmiTranslationExtension extends AbstractExtension implements Globals
     public function getTests(): array
     {
         return [
-            new TwigTest('translatable', fn($object) => $object instanceof TranslatableInterface)
+            new TwigTest('translatable', fn($object) => $object instanceof TranslatableInterface),
         ];
     }
 

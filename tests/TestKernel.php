@@ -36,14 +36,14 @@ final class TestKernel extends BaseKernel
         $container->extension('framework', [
             'secret' => 'test_secret',
             'test' => true,
-            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file']
+            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file'],
         ]);
 
         $container->extension('doctrine', [
             'dbal' => [
                 'driver' => 'pdo_sqlite',
                 'memory' => true,
-                'charset' => 'utf8'
+                'charset' => 'utf8',
             ],
             'orm' => [
                 'auto_generate_proxy_classes' => true,
@@ -55,15 +55,15 @@ final class TestKernel extends BaseKernel
                         'dir' => '%kernel.project_dir%/tests/Fixtures/Entity',
                         'prefix' => 'Tmi\TranslationBundle\Fixtures\Entity',
                         'alias' => 'TestBundle',
-                    ]
+                    ],
                 ],
                 'filters' => [
                     'tmi_translation_locale_filter' => [
                         'class' => LocaleFilter::class,
                         'enabled' => true,
-                    ]
+                    ],
                 ],
-            ]
+            ],
         ]);
 
         $container->extension('tmi_translation', [
