@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Model;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Ramsey\Uuid\Uuid;
+use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
@@ -20,6 +21,9 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $entity = new Scalar();
         $entity->setTitle('Test Entity');
+
+        // ToDo: For now, manually trigger. This will be removed once the event subscriber is working in test env.
+        $entity->generateTuuid();
 
         $this->entityManager->persist($entity);
         $this->entityManager->flush();

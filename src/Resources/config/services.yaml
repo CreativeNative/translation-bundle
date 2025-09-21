@@ -127,7 +127,3 @@ services:
             - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }
-
-    Tmi\TranslationBundle\EventSubscriber\TranslatableEventSubscriber:
-        tags:
-            - { name: doctrine.event_subscriber }

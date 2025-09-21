@@ -8,11 +8,13 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
+use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Events;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
+#[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::onFlush)]
 final readonly class TranslatableEventSubscriber
@@ -22,6 +24,15 @@ final readonly class TranslatableEventSubscriber
         private string $defaultLocale,
         private EntityTranslatorInterface $entityTranslator,
     ) {
+    }
+
+    public function prePersist(PrePersistEventArgs $args): void
+    {
+        $entity = $args->getObject();
+
+        if ($entity instanceof TranslatableInterface) {
+            $entity->generateTuuid();
+        }
     }
 
     public function postLoad(PostLoadEventArgs $args): void
