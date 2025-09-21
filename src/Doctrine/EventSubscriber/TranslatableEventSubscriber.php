@@ -47,7 +47,7 @@ final readonly class TranslatableEventSubscriber
 
         foreach ($uow->getScheduledEntityInsertions() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforePersist($entity, $entityManager);
+                $this->entityTranslator->beforePersist($entity);
                 $meta = $entityManager->getClassMetadata($entity::class);
                 $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
@@ -55,7 +55,7 @@ final readonly class TranslatableEventSubscriber
 
         foreach ($uow->getScheduledEntityUpdates() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeUpdate($entity, $entityManager);
+                $this->entityTranslator->beforeUpdate($entity);
                 $meta = $entityManager->getClassMetadata($entity::class);
                 $uow->recomputeSingleEntityChangeSet($meta, $entity);
             }
@@ -63,7 +63,7 @@ final readonly class TranslatableEventSubscriber
 
         foreach ($uow->getScheduledEntityDeletions() as $entity) {
             if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeRemove($entity, $entityManager);
+                $this->entityTranslator->beforeRemove($entity);
             }
         }
     }

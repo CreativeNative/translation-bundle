@@ -8,6 +8,7 @@ use Exception;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use ReflectionMethod;
+use ReflectionType;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tmi\TranslationBundle\TmiTranslationBundle;
@@ -78,7 +79,7 @@ final class TmiTranslationBundleTest extends TestCase
         $this->assertSame('container', $parameters[0]->getName());
 
         $parameterType = $parameters[0]->getType();
-        $this->assertInstanceOf(\ReflectionType::class, $parameterType);
+        $this->assertInstanceOf(ReflectionType::class, $parameterType);
         $this->assertEquals(ContainerBuilder::class, $parameterType->getName());
     }
 

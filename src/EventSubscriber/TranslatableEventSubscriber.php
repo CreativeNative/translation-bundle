@@ -11,6 +11,9 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 final class TranslatableEventSubscriber implements EventSubscriber
 {
+    /**
+     * @return array<string, mixed>
+     */
     public function getSubscribedEvents(): array
     {
         return [Events::prePersist];

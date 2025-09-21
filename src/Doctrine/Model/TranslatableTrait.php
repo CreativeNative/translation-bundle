@@ -13,10 +13,10 @@ trait TranslatableTrait
 {
     #[ORM\Column(type: Types::GUID, length: 36, nullable: true)]
     #[SharedAmongstTranslations]
-    private ?string $tuuid = null;
+    private string|null $tuuid = null;
 
     #[ORM\Column(type: Types::STRING, length: 7, nullable: true)]
-    private ?string $locale = null;
+    private string|null $locale = null;
 
     #[ORM\Column(type: Types::JSON)]
     private array $translations = [];
@@ -28,7 +28,7 @@ trait TranslatableTrait
         }
     }
 
-    final public function setLocale(?string $locale = null): self
+    final public function setLocale(string|null $locale = null): self
     {
         $this->locale = $locale;
 
@@ -38,7 +38,7 @@ trait TranslatableTrait
     /**
      * Returns entity's locale.
      */
-    final public function getLocale(): ?string
+    final public function getLocale(): string|null
     {
         return $this->locale;
     }
@@ -46,7 +46,7 @@ trait TranslatableTrait
     /**
      * Set the Translation UUID
      */
-    final public function setTuuid(?string $tuuid): self
+    final public function setTuuid(string|null $tuuid): self
     {
         $this->tuuid = $tuuid;
 
@@ -56,7 +56,7 @@ trait TranslatableTrait
     /**
      * Returns entity's Translation UUID.
      */
-    final public function getTuuid(): ?string
+    final public function getTuuid(): string|null
     {
         return $this->tuuid;
     }
@@ -79,6 +79,9 @@ trait TranslatableTrait
         return $this->translations;
     }
 
+    /**
+     * @param array<string, mixed> $translation
+     */
     final public function setTranslation(string $locale, array $translation): self
     {
         $this->translations[$locale] = $translation;
@@ -87,10 +90,8 @@ trait TranslatableTrait
     }
 
     /**
-     * @param string $locale
-     * @return array|null
      */
-    final public function getTranslation(string $locale): ?array
+    final public function getTranslation(string $locale): array|null
     {
         return $this->translations[$locale] ?? null;
     }

@@ -50,8 +50,6 @@
             <property name="lineLimit" value="140"/>
         </properties>
     </rule>
-
-    <!-- Dead Code Elimination - Perhaps the MOST valuable for cleanliness -->
     <rule ref="SlevomatCodingStandard.Functions.UnusedParameter"/>
 
 
