@@ -11,6 +11,7 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 
 final class TestKernel extends BaseKernel
@@ -77,5 +78,10 @@ final class TestKernel extends BaseKernel
             ->autowire()
             ->autoconfigure()
             ->bind('array $locales', $locales);
+
+        $container->services()
+            ->set(TranslatableEventSubscriber::class)
+            ->public()
+            ->tag('doctrine.event_subscriber');
     }
 }

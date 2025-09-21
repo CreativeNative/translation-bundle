@@ -11,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -52,6 +53,9 @@ class IntegrationTestCase extends KernelTestCase
         } catch (ServiceNotFoundException) {
             self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager');
         }
+
+        $eventManager = $this->entityManager->getEventManager();
+        $eventManager->addEventSubscriber(new TranslatableEventSubscriber());
 
         try {
             $this->translator = $container->get('tmi_translation.translation.entity_translator');

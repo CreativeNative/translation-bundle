@@ -73,7 +73,7 @@ services:
             - { name: tmi_translation.translation_handler, priority: 50 }
 
     ## Bidirectional OneToOne
-    tmi_translation.translation_handlers.bidirectional_one_to_one__handler:
+    tmi_translation.translation_handlers.bidirectional_one_to_one_handler:
         class: Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler
         arguments:
             - '@doctrine.orm.entity_manager'
@@ -127,3 +127,7 @@ services:
             - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }
+
+    Tmi\TranslationBundle\EventSubscriber\TranslatableEventSubscriber:
+        tags:
+            - { name: doctrine.event_subscriber }
