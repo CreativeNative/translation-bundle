@@ -172,7 +172,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en_US', 'it_IT')
+        $args = new TranslationArgs($entity, 'en', 'it')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 

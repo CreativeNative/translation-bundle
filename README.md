@@ -135,10 +135,14 @@ private Media $video; // Shared across all translations
 This attribute will empty the field when creating a new translation. **ATTENTION**: The field has to be nullable or instance of Doctrine\Common\Collections\Collection! 
 
 ```php
-#[ORM\ManyToOne(targetEntity: Media::class)]
-#[ORM\JoinColumn(nullable: true)]
+#[ORM\ManyToOne(targetEntity: Owner::class, cascade: ['persist'], inversedBy: 'product')]
+#[ORM\JoinColumn(name: 'owner_id', referencedColumnName: 'id', nullable: true)]
 #[EmptyOnTranslate]
-private ?string $image = null;
+private Owner|null $owner = null
+
+#[ORM\Column(type: 'string', nullable: true)]
+#[EmptyOnTranslate]
+private string|null $title = null;
 ```
 ### Translate event
 You can alter the entities to translate or translated, before and after translation using the `Tmi\TranslationBundle\Event\TranslateEvent`

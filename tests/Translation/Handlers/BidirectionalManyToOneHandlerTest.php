@@ -136,7 +136,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     {
         $handler = $this->createHandler();
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US');
+        $parent->setLocale('en');
 
         $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [
@@ -148,7 +148,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->willReturn($metadata);
 
         $prop = new ReflectionProperty($parent, 'simpleChildren');
-        $args = new TranslationArgs($parent, 'en_US', 'it_IT');
+        $args = new TranslationArgs($parent, 'en', 'it');
         $args->setProperty($prop);
 
         $children = new ArrayCollection([
@@ -165,7 +165,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         self::assertNotSame($parent, $result);
 
         // Locale should be updated
-        self::assertSame('it_IT', $result->getLocale());
+        self::assertSame('it', $result->getLocale());
     }
 
     /**
@@ -184,7 +184,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->willReturn($metadata);
 
         $prop = new ReflectionProperty($entity, 'emptyChildren');
-        $args = new TranslationArgs($entity, 'en_US', 'fr_FR');
+        $args = new TranslationArgs($entity, 'en', 'it');
         $args->setProperty($prop);
 
         $result = $handler->translate($args);
@@ -200,7 +200,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             public string $foo = 'bar';
         };
 
-        $args = new TranslationArgs($nonTranslatable, 'en_US', 'fr_FR');
+        $args = new TranslationArgs($nonTranslatable, 'en', 'it');
 
         $result = $handler->translate($args);
 
@@ -216,7 +216,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 1: Create parent entity ---
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US');
+        $parent->setLocale('en');
 
         // --- Step 2: Create non-translatable child ---
         $child = new NonTranslatableManyToOneBidirectionalChild();
@@ -225,7 +225,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 3: Set up TranslationArgs manually ---
         $prop = new ReflectionProperty($child, 'parent');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args = new TranslationArgs($child, 'en', 'it');
         $args->setProperty($prop);
 
         // --- Step 4: Run translation ---
@@ -250,10 +250,10 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 1: Create a parent entity ---
         $entity = new TranslatableOneToManyBidirectionalParent();
-        $entity->setLocale('en_US');
+        $entity->setLocale('en');
 
         // --- Step 2: Prepare TranslationArgs with null property ---
-        $args = new TranslationArgs($entity, 'en_US', 'fr_FR');
+        $args = new TranslationArgs($entity, 'en', 'it');
         $args->setProperty(null);
 
         // --- Step 3: Translate ---
@@ -272,11 +272,11 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 1: Create parent entity (Translatable) ---
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US');
+        $parent->setLocale('en');
 
         // --- Step 2: Create child entity referencing parent ---
         $child = new TranslatableManyToOneBidirectionalChild();
-        $child->setLocale('en_US')->setParentSimple($parent);
+        $child->setLocale('en')->setParentSimple($parent);
 
         // --- Step 3: Association mapping setup ---
         $metadata = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
@@ -289,7 +289,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 4: Build TranslationArgs ---
         $prop = new ReflectionProperty($child, 'parentSimple');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args = new TranslationArgs($child, 'en', 'it');
         $args->setProperty($prop);
 
         $this->translator->addTranslationHandler($handler);
@@ -299,14 +299,14 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 7: Assertions ---
         self::assertNotSame($child, $result, 'Child must be cloned');
-        self::assertSame('it_IT', $result->getLocale(), 'Child locale should change');
+        self::assertSame('it', $result->getLocale(), 'Child locale should change');
         self::assertInstanceOf(
             TranslatableOneToManyBidirectionalParent::class,
             $result->getParentSimple(),
             'Parent should also be translated'
         );
         self::assertSame(
-            'en_US',
+            'en',
             $result->getParentSimple()->getLocale(),
             'Parent remains in original locale because no translation exists'
         );

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Query;
-use Doctrine\ORM\QueryBuilder;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Ramsey\Uuid\Uuid;
@@ -60,6 +58,20 @@ final class EntityTranslatorTest extends UnitTestCase
         }
 
         return $handler;
+    }
+
+    public function testProcessTranslationThrowsWhenLocaleIsNotAllowed(): void
+    {
+        // entity with some locale
+        $entity = new Scalar();
+        $entity->setLocale('en');
+
+        $args = new TranslationArgs($entity, 'en', 'xx'); // "xx" is not in allowed locales
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Locale "xx" is not allowed. Allowed locales:');
+
+        $this->translator->processTranslation($args);
     }
 
     private function handlerNotSupporting(): TranslationHandlerInterface

@@ -15,7 +15,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
-final class TranslatableEventSubscriber implements EventSubscriber
+#[AsDoctrineListener(event: Events::prePersist)]
+#[AsDoctrineListener(event: Events::postLoad)]
+#[AsDoctrineListener(event: Events::onFlush)]
+final readonly class TranslatableEventSubscriber implements EventSubscriber
 {
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
@@ -42,6 +45,10 @@ final class TranslatableEventSubscriber implements EventSubscriber
 
         if ($entity instanceof TranslatableInterface) {
             $entity->generateTuuid();
+
+            if (null === $entity->getLocale() || '' === $entity->getLocale()) {
+                $entity->setLocale($this->defaultLocale);
+            }
         }
     }
 

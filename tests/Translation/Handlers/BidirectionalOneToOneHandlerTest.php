@@ -158,7 +158,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $prop = new ReflectionProperty($parent, 'simpleChild');
 
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args = new TranslationArgs($child, 'en', 'it');
         $args->setProperty($prop);
         $args->setTranslatedParent($parent);
 
@@ -167,6 +167,6 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         self::assertInstanceOf(TranslatableOneToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result);
         self::assertSame($parent, $result->getSimpleParent());
-        self::assertSame('it_IT', $result->getLocale());
+        self::assertSame('it', $result->getLocale());
     }
 }

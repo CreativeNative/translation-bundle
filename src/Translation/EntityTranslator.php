@@ -9,12 +9,17 @@ use LogicException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * ToDo: extend code coverage instead of using codeCoverageIgnore
+ * ToDo: Introduce a Translation Cache Service
+ * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/3
+ *
+ * ToDo: Improve #[EmptyOnTranslate] handling for non-nullable and scalar fields
+ * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2
  */
 final class EntityTranslator implements EntityTranslatorInterface
 {
@@ -59,10 +64,18 @@ final class EntityTranslator implements EntityTranslatorInterface
     public function processTranslation(TranslationArgs $args): mixed
     {
         $entity = $args->getDataToBeTranslated();
+        $locale = $args->getTargetLocale() ?? $this->defaultLocale;
+
+        if (!in_array($locale, $this->locales, true)) {
+            throw new LogicException(sprintf(
+                'Locale "%s" is not allowed. Allowed locales: %s',
+                $locale,
+                implode(', ', $this->locales)
+            ));
+        }
 
         if ($entity instanceof TranslatableInterface) {
             $tuuid = $entity->getTuuid();
-            $locale = $args->getTargetLocale();
 
             if ($tuuid !== null) {
                 $cacheKey = $tuuid . ':' . $locale;
@@ -93,38 +106,57 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         foreach ($this->handlers as $handler) {
-            if ($handler->supports($args)) {
-                if (null !== $args->getProperty()) {
-                    if ($this->attributeHelper->isSharedAmongstTranslations($args->getProperty())) {
-                        return $handler->handleSharedAmongstTranslations($args);
-                    }
-
-                    if ($this->attributeHelper->isEmptyOnTranslate($args->getProperty())) {
-                        if (!$this->attributeHelper->isNullable($args->getProperty())) {
-                            throw new LogicException(sprintf(
-                                'The property %s::%s cannot use EmptyOnTranslate because it is not nullable.',
-                                $args->getProperty()->class,
-                                $args->getProperty()->name
-                            ));
-                        }
-                        return $handler->handleEmptyOnTranslate($args);
-                    }
-                }
-
-                $translated = $handler->translate($args);
-
-                // Store translation in cache for reuse
-                if ($translated instanceof TranslatableInterface && $translated->getTuuid() !== null) {
-                    $this->translationCache[$translated->getTuuid()][$translated->getLocale()] = $translated;
-                }
-
-                // Remove from in-progress set
-                if ($entity instanceof TranslatableInterface && $entity->getTuuid() !== null) {
-                    unset($this->inProgress[$entity->getTuuid() . ':' . $args->getTargetLocale()]);
-                }
-
-                return $translated;
+            if (!$handler->supports($args)) {
+                continue;
             }
+
+            // PRE_TRANSLATE event
+            if ($entity instanceof TranslatableInterface) {
+                $this->eventDispatcher->dispatch(
+                    new TranslateEvent($entity, $locale),
+                    TranslateEvent::PRE_TRANSLATE
+                );
+            }
+
+            // Attribute logic
+            if (null !== $args->getProperty()) {
+                if ($this->attributeHelper->isSharedAmongstTranslations($args->getProperty())) {
+                    return $handler->handleSharedAmongstTranslations($args);
+                }
+
+                if ($this->attributeHelper->isEmptyOnTranslate($args->getProperty())) {
+                    if (!$this->attributeHelper->isNullable($args->getProperty())) {
+                        throw new LogicException(sprintf(
+                            'The property %s::%s cannot use EmptyOnTranslate because it is not nullable.',
+                            $args->getProperty()->class,
+                            $args->getProperty()->name
+                        ));
+                    }
+                    return $handler->handleEmptyOnTranslate($args);
+                }
+            }
+
+            $translated = $handler->translate($args);
+
+            // POST_TRANSLATE event
+            if ($entity instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
+                $this->eventDispatcher->dispatch(
+                    new TranslateEvent($entity, $locale, $translated),
+                    TranslateEvent::POST_TRANSLATE
+                );
+            }
+
+            // Store translation in cache for reuse
+            if ($translated instanceof TranslatableInterface && $translated->getTuuid() !== null) {
+                $this->translationCache[$translated->getTuuid()][$translated->getLocale()] = $translated;
+            }
+
+            // Remove from in-progress set
+            if ($entity instanceof TranslatableInterface && $entity->getTuuid() !== null) {
+                unset($this->inProgress[$entity->getTuuid() . ':' . $locale]);
+            }
+
+            return $translated;
         }
 
         return $entity;

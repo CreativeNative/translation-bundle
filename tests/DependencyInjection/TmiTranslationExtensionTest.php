@@ -8,6 +8,7 @@ use Exception;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
+use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 
 final class TmiTranslationExtensionTest extends TestCase
 {
@@ -18,7 +19,7 @@ final class TmiTranslationExtensionTest extends TestCase
     {
         $container = new ContainerBuilder();
         $extension = new TmiTranslationExtension();
-// Provide all required configuration
+
         $config = [
             [
                 'locales' => ['en', 'de', 'it'],
@@ -27,7 +28,7 @@ final class TmiTranslationExtensionTest extends TestCase
             ],
         ];
         $extension->load($config, $container);
-// Use has() instead of hasDefinition() to catch aliases or synthetic services
+
         $this->assertTrue(
             $container->has('tmi_translation.translation.entity_translator'),
             'EntityTranslator service should be registered'
@@ -37,7 +38,7 @@ final class TmiTranslationExtensionTest extends TestCase
             'AttributeHelper service should be registered'
         );
         $this->assertTrue(
-            $container->has('tmi_translation.event_subscriber.locale_filter_configurator'),
+            $container->has(LocaleFilterConfigurator::class),
             'LocaleFilterConfigurator subscriber should be registered'
         );
     }
