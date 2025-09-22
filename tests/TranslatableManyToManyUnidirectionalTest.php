@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\PersistentCollection;
+use Ramsey\Uuid\Uuid;
 use ReflectionException;
 use ReflectionProperty;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
@@ -52,13 +53,16 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
      */
     public function testTranslateAddsItemsToCollection(): void
     {
+        $tuuid1 = Uuid::uuid4()->toString();
+        $tuuid2 = Uuid::uuid4()->toString();
+
         // Create children and set source locale explicitly
         $child1 = new TranslatableManyToManyUnidirectionalChild()
             ->setLocale('en')
-            ->setTuuid(uniqid('tu1-', true));
+            ->setTuuid($tuuid1);
         $child2 = new TranslatableManyToManyUnidirectionalChild()
             ->setLocale('en')
-            ->setTuuid(uniqid('tu2-', true));
+            ->setTuuid($tuuid2);
 
         $this->entityManager->persist($child1);
         $this->entityManager->persist($child2);

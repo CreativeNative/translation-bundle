@@ -80,7 +80,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseWhenNoManyToManyAttributePresent(): void
     {
         $entity = new Scalar();
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         $prop = new ReflectionProperty($entity::class, 'title');
 
@@ -216,9 +216,9 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $prop = new ReflectionProperty($parent::class, 'items');
 
         $child1 = new TranslatableManyToManyUnidirectionalChild();
-        $child1->setLocale('en')->setTuuid('t-1');
+        $child1->setLocale('en');
         $child2 = new TranslatableManyToManyUnidirectionalChild();
-        $child2->setLocale('en')->setTuuid('t-2');
+        $child2->setLocale('en');
 
         $data = new ArrayCollection([$child1, $child2]);
 
@@ -282,11 +282,9 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child1 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en')
-            ->setTuuid('tu1');
+            ->setLocale('en');
         $child2 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en')
-            ->setTuuid('tu2');
+            ->setLocale('en');
 
         $parent->addSimpleChild($child1)->addSimpleChild($child2);
 
@@ -359,7 +357,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child = new TranslatableManyToManyUnidirectionalChild();
-        $child->setLocale('en')->setTuuid('c-1');
+        $child->setLocale('en');
         $parent->addSimpleChild($child);
 
         $prop = new ReflectionProperty($parent::class, 'simpleChildren');

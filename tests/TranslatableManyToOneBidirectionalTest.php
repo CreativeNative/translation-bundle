@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
+use Ramsey\Uuid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 
@@ -56,20 +57,24 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $child = new TranslatableManyToOneBidirectionalChild();
         $child->setParentSimple(null);
         $child->setLocale('de');
-        $child->setTuuid(uniqid('child_', true)); // wichtig für Reuse
 
         $this->entityManager->persist($child);
         $this->entityManager->flush();
 
+        $this->assertNotNull($child->getTuuid());
+        $this->assertTrue(Uuid::isValid($child->getTuuid()));
+
         // --- Step 2: Create and persist the parent ---
         $parent = new TranslatableOneToManyBidirectionalParent();
         $parent->setLocale('de');
-        $parent->setTuuid(uniqid('parent_', true));
         $parent->getSimpleChildren()->add($child);
         $child->setParentSimple($parent);
 
         $this->entityManager->persist($parent);
         $this->entityManager->flush();
+
+        $this->assertNotNull($parent->getTuuid());
+        $this->assertTrue(Uuid::isValid($parent->getTuuid()));
 
         $translatedChild = $this->translator->translate($child, self::TARGET_LOCALE);
         assert($translatedChild instanceof TranslatableManyToOneBidirectionalChild);

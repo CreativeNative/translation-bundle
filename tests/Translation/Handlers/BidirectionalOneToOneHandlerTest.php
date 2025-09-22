@@ -67,10 +67,10 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         // 1. Use a TranslatableInterface entity
         $entity = new Scalar();
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         // 2. Pick a property that exists but has NO #[OneToOne] attribute
-        $prop = new \ReflectionProperty($entity::class, 'title'); // title is a plain string
+        $prop = new ReflectionProperty($entity::class, 'title'); // title is a plain string
 
         // 3. Mock AttributeHelper to return true for isOneToOne
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);

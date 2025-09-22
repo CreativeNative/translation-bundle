@@ -89,7 +89,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseWhenNoManyToOneAttributes(): void
     {
         $entity = new Scalar();
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         $prop = new ReflectionProperty($entity::class, 'title');
 
@@ -264,7 +264,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
     public function testTranslateWithTranslatableRelatedEntity(): void
     {
@@ -272,11 +272,11 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         // --- Step 1: Create parent entity (Translatable) ---
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US')->setTuuid('parent-uuid');
+        $parent->setLocale('en_US');
 
         // --- Step 2: Create child entity referencing parent ---
         $child = new TranslatableManyToOneBidirectionalChild();
-        $child->setLocale('en_US')->setParentSimple($parent)->setTuuid('child-uuid');
+        $child->setLocale('en_US')->setParentSimple($parent);
 
         // --- Step 3: Association mapping setup ---
         $metadata = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
@@ -288,7 +288,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->willReturn($metadata);
 
         // --- Step 4: Build TranslationArgs ---
-        $prop = new \ReflectionProperty($child, 'parentSimple');
+        $prop = new ReflectionProperty($child, 'parentSimple');
         $args = new TranslationArgs($child, 'en_US', 'it_IT');
         $args->setProperty($prop);
 

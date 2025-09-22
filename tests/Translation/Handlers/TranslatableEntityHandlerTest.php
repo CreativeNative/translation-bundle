@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityRepository;
+use Ramsey\Uuid\Uuid;
 use stdClass;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -136,8 +137,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
      */
     public function testTranslateCreatesNewTranslationWhenNotFound(): void
     {
+        $tuuid = Uuid::uuid4()->toString();
+
         $originalEntity = new Scalar()
-            ->setTuuid('test-uuid')
+            ->setTuuid($tuuid)
             ->setLocale('en');
 
         $translationArgs = new TranslationArgs(
@@ -152,7 +155,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de',
-                'tuuid' => 'test-uuid',
+                'tuuid' => $tuuid,
             ])
             ->willReturn(null);
 
@@ -174,7 +177,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $this->assertInstanceOf(get_class($originalEntity), $result);
 
         // Verify the tuuid is preserved
-        $this->assertEquals('test-uuid', $result->getTuuid());
+        $this->assertEquals($tuuid, $result->getTuuid());
     }
 
     public function testTranslateWithReflectionException(): void

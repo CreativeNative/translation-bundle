@@ -6,6 +6,8 @@ namespace Tmi\TranslationBundle\Doctrine\Model;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use InvalidArgumentException;
+use Ramsey\Uuid\Exception\InvalidUuidStringException;
 use Ramsey\Uuid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
@@ -48,6 +50,18 @@ trait TranslatableTrait
      */
     final public function setTuuid(string|null $tuuid): self
     {
+        if ($tuuid !== null) {
+            try {
+                // This will throw if the string is not a valid UUID
+                Uuid::fromString($tuuid);
+            } catch (InvalidUuidStringException $e) {
+                throw new InvalidArgumentException(sprintf(
+                    'Invalid UUID provided for tuuid: "%s"',
+                    $tuuid
+                ));
+            }
+        }
+
         $this->tuuid = $tuuid;
 
         return $this;

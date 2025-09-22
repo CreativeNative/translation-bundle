@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Model;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
+use InvalidArgumentException;
 use Ramsey\Uuid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -21,6 +22,8 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
         $entity->setTitle('Test Entity');
 
+        $this->assertNull($entity->getTuuid());
+
         $this->entityManager->persist($entity);
         $this->entityManager->flush();
 
@@ -28,31 +31,16 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $this->assertTrue(Uuid::isValid($entity->getTuuid()));
     }
 
-    public function testGenerateTuuidOnNewEntity(): void
+    public function testSetTuuid(): void
     {
+        $invalidUuid = 'not-a-valid-uuid';
+
         $entity = new Scalar();
 
-        $this->assertNull($entity->getTuuid());
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage(sprintf('Invalid UUID provided for tuuid: "%s"', $invalidUuid));
 
-        $entity->generateTuuid();
-
-        $this->assertNotNull($entity->getTuuid());
-
-        $this->assertTrue(Uuid::isValid($entity->getTuuid()));
-
-        $this->assertEquals(36, strlen($entity->getTuuid()));
-    }
-
-    public function testGenerateTuuidOnEntityWithExistingTuuid(): void
-    {
-        $entity = new Scalar();
-        $existingUuid = Uuid::uuid4()->toString();
-
-        $entity->setTuuid($existingUuid);
-
-        $entity->generateTuuid();
-
-        $this->assertEquals($existingUuid, $entity->getTuuid());
+        $entity->setTuuid($invalidUuid);
     }
 
     public function testLocaleMethods(): void

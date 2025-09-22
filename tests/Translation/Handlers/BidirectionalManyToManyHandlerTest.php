@@ -127,7 +127,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseWhenNoPropertyPresent(): void
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         $prop = new ReflectionProperty($entity, 'title');
 
@@ -146,7 +146,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseWhenNoManyToManyAttributesPresent(): void
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         $prop = new ReflectionProperty($entity, 'title');
 
@@ -166,7 +166,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
 
-        $entity->setTuuid('tuuid1')->setLocale('en');
+        $entity->setLocale('en');
 
         $prop = new ReflectionProperty($entity, 'simpleChildren');
 
