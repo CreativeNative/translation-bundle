@@ -18,15 +18,15 @@ final class TranslatableManyToOneBidirectionalChild implements TranslatableInter
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'simpleChildren')]
+    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, inversedBy: 'simpleChildren')]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToManyBidirectionalParent|null $parentSimple = null;
 
-    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'sharedChildren')]
+    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, inversedBy: 'sharedChildren')]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToManyBidirectionalParent|null $parentShared = null;
 
-    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, cascade: ['persist'], inversedBy: 'emptyChildren')]
+    #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, inversedBy: 'emptyChildren')]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToManyBidirectionalParent|null $parentEmpty = null;
 

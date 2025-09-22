@@ -13,6 +13,9 @@ use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
+/**
+ * ToDo: extend code coverage instead of using codeCoverageIgnore
+ */
 final class EntityTranslator implements EntityTranslatorInterface
 {
     /** @var array<TranslationHandlerInterface> */
@@ -81,8 +84,10 @@ final class EntityTranslator implements EntityTranslatorInterface
                 $this->warmupTranslations([$entity], $locale);
 
                 if (isset($this->translationCache[$tuuid][$locale])) {
+                    // @codeCoverageIgnoreStart
                     unset($this->inProgress[$cacheKey]);
                     return $this->translationCache[$tuuid][$locale];
+                    // @codeCoverageIgnoreEnd
                 }
             }
         }
@@ -128,7 +133,8 @@ final class EntityTranslator implements EntityTranslatorInterface
     /**
      * Batch-load translations for given entities and target locale.
      *
-     * @param array<TranslatableInterface> $entities
+     * @template T of TranslatableInterface
+     * @param array<T> $entities
      */
     private function warmupTranslations(array $entities, string $locale): void
     {
@@ -147,11 +153,11 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         /** @var class-string<TranslatableInterface> $class */
         foreach ($byClass as $class => $tuuids) {
-            // @codeCoverageIgnoreStart
             if (empty($tuuids)) {
+                // @codeCoverageIgnoreStart
                 continue;
+                // @codeCoverageIgnoreEnd
             }
-            // @codeCoverageIgnoreEnd
 
             $qb = $this->entityManager->createQueryBuilder()
                 ->select('t')
@@ -165,7 +171,9 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translations = $qb->getQuery()->getResult();
 
             foreach ($translations as $translation) {
+                // @codeCoverageIgnoreStart
                 $this->translationCache[$translation->getTuuid()][$translation->getLocale()] = $translation;
+                // @codeCoverageIgnoreEnd
             }
         }
     }

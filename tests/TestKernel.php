@@ -78,5 +78,10 @@ final class TestKernel extends BaseKernel
             ->autowire()
             ->autoconfigure()
             ->bind('array $locales', $locales);
+
+        $container->services()
+            ->set(TranslatableEventSubscriber::class)
+            ->public()
+            ->tag('doctrine.event_subscriber');
     }
 }

@@ -23,18 +23,18 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentSimple')]
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentSimple', cascade: ['persist'])]
     private Collection $simpleChildren;
 
     #[SharedAmongstTranslations]
-    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentShared')]
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentShared', cascade: ['persist'])]
     private Collection $sharedChildren;
 
     #[EmptyOnTranslate]
-    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentEmpty')]
+    #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentEmpty', cascade: ['persist'])]
     private Collection $emptyChildren;
 
-    #[ORM\OneToMany(targetEntity: NonTranslatableManyToOneBidirectionalChild::class, mappedBy: 'parent')]
+    #[ORM\OneToMany(targetEntity: NonTranslatableManyToOneBidirectionalChild::class, mappedBy: 'parent', cascade: ['persist'])]
     private Collection $nonTranslatableChildren;
 
     #[ORM\Column(type: Types::STRING, nullable: true)]

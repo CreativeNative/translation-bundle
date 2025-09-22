@@ -367,4 +367,39 @@ final class EntityTranslatorTest extends UnitTestCase
         // If execution reaches this point without error, continues were hit
         self::assertTrue(true);
     }
+    /**
+     * Cache hit: returns cached entity. InProgress will NOT be unset
+     * because translator likely only unsets after DB warmup, not cache.
+     */
+    public function testProcessTranslationUsesCacheAndKeepsInProgressOnCacheHit(): void
+    {
+        $entity = new Scalar();
+        $entity->setTuuid('test-tuuid');
+        $entity->setLocale('en');
+
+        $cachedTranslation = new Scalar();
+        $cachedTranslation->setTuuid('test-tuuid');
+        $cachedTranslation->setLocale('de');
+
+        $reflection = new \ReflectionClass($this->translator);
+
+        // Pre-fill cache
+        $translationCacheProperty = $reflection->getProperty('translationCache');
+        $translationCacheProperty->setValue($this->translator, [
+            'test-tuuid' => ['de' => $cachedTranslation],
+        ]);
+
+        // Mark as inProgress
+        $inProgressProperty = $reflection->getProperty('inProgress');
+        $inProgressProperty->setValue($this->translator, ['test-tuuid:de' => true]);
+
+        $args = new TranslationArgs($entity, 'en', 'de');
+        $result = $this->translator->processTranslation($args);
+
+        self::assertSame($cachedTranslation, $result);
+
+        // InProgress is NOT unset in this path, so assert it’s still there
+        $inProgressAfter = $inProgressProperty->getValue($this->translator);
+        self::assertArrayHasKey('test-tuuid:de', $inProgressAfter);
+    }
 }

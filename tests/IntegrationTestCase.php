@@ -66,6 +66,13 @@ class IntegrationTestCase extends KernelTestCase
             self::fail('Attribute helper service not found. Tried: tmi_translation.utils.attribute_helper');
         }
 
+        $subscriber = new TranslatableEventSubscriber(
+            'en',
+            $this->translator
+        );
+
+        $eventManager = $this->entityManager->getEventManager();
+        $eventManager->addEventSubscriber($subscriber);
 
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 

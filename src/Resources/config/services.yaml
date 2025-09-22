@@ -127,3 +127,11 @@ services:
             - '@?security.firewall.map'
         tags:
             - { name: kernel.event_subscriber }
+
+    tmi_translation.doctrine.event_subscriber.translatable:
+        class: Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber
+        arguments:
+            $defaultLocale: '%tmi_translation.default_locale%'
+            $entityTranslator: '@tmi_translation.translation.entity_translator'
+        tags:
+            - { name: doctrine.event_subscriber, connection: default }
