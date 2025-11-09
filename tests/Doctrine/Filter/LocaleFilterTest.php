@@ -30,7 +30,7 @@ final class LocaleFilterTest extends IntegrationTestCase
 
     public function testSetLocaleSetsParameter(): void
     {
-        $this->filter->setLocale('en');
+        $this->filter->setLocale('en_US');
 
         $metadata = $this->createMock(ClassMetadata::class);
         $reflection = $this->createMock(ReflectionClass::class);
@@ -43,7 +43,7 @@ final class LocaleFilterTest extends IntegrationTestCase
 
     public function testAddFilterConstraintReturnsSqlForTranslatable(): void
     {
-        $this->filter->setLocale('en');
+        $this->filter->setLocale('en_US');
 
         $metadata = $this->createMock(ClassMetadata::class);
         $reflection = $this->createMock(ReflectionClass::class);
@@ -51,12 +51,12 @@ final class LocaleFilterTest extends IntegrationTestCase
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
         $sql = $this->filter->addFilterConstraint($metadata, 't');
-        $this->assertSame("t.locale = 'en'", $sql);
+        $this->assertSame("t.locale = 'en_US'", $sql);
     }
 
     public function testAddFilterConstraintReturnsEmptyForNonTranslatable(): void
     {
-        $this->filter->setLocale('en');
+        $this->filter->setLocale('en_US');
 
         $metadata = $this->createMock(ClassMetadata::class);
         $reflection = $this->createMock(ReflectionClass::class);

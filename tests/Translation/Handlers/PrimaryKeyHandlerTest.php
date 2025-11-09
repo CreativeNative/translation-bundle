@@ -36,7 +36,7 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
         };
 
         $prop = new ReflectionProperty(get_class($dummy), 'id');
-        $args = new TranslationArgs(123, 'en', 'de')->setProperty($prop);
+        $args = new TranslationArgs(123, 'en_US', 'de_DE')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(true);
         self::assertTrue($this->handler->supports($args));
     }
@@ -52,26 +52,26 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
         };
 
         $prop = new ReflectionProperty(get_class($dummy), 'name');
-        $args = new TranslationArgs('foo', 'en', 'de')->setProperty($prop);
+        $args = new TranslationArgs('foo', 'en_US', 'de_DE')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(false);
         self::assertFalse($this->handler->supports($args));
     }
 
     public function testTranslateAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en', 'de');
+        $args = new TranslationArgs(123, 'en_US', 'de_DE');
         self::assertNull($this->handler->translate($args), 'Primary keys must never be translated');
     }
 
     public function testHandleSharedAmongstTranslationsAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en', 'de');
+        $args = new TranslationArgs(123, 'en_US', 'de_DE');
         self::assertNull($this->handler->handleSharedAmongstTranslations($args));
     }
 
     public function testHandleEmptyOnTranslateAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en', 'de');
+        $args = new TranslationArgs(123, 'en_US', 'de_DE');
         self::assertNull($this->handler->handleEmptyOnTranslate($args));
     }
 }

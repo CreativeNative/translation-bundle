@@ -28,7 +28,7 @@ class UnitTestCase extends TestCase
 
     protected PropertyAccessor|null $propertyAccessor = null;
 
-    protected const string TARGET_LOCALE = 'de';
+    protected const string TARGET_LOCALE = 'de_DE';
 
     /**
      * {@inheritDoc}
@@ -82,8 +82,8 @@ class UnitTestCase extends TestCase
         $emMock->method('createQueryBuilder')->willReturn($qbMock);
 
         return new EntityTranslator(
-            'en',
-            ['de', 'en', 'it'],
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
             $this->eventDispatcherInterface,
             $this->attributeHelper,
             $emMock
@@ -92,7 +92,7 @@ class UnitTestCase extends TestCase
 
     public function getTranslationArgs(ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
     {
-        $args = new TranslationArgs($fallback, 'en', 'de');
+        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
         if ($prop !== null) {
             $args->setProperty($prop);
         }

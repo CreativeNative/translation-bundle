@@ -15,8 +15,8 @@ final class TranslationArgsTest extends TestCase
     public function testConstructorAndGettersWork(): void
     {
         $data = ['foo' => 'bar'];
-        $source = 'en';
-        $target = 'de';
+        $source = 'en_US';
+        $target = 'de_DE';
         $args = new TranslationArgs($data, $source, $target);
         self::assertSame($data, $args->getDataToBeTranslated());
         self::assertSame($source, $args->getSourceLocale());
@@ -39,12 +39,12 @@ final class TranslationArgsTest extends TestCase
         $args
             ->setDataToBeTranslated(123)
             ->setSourceLocale('fr')
-            ->setTargetLocale('it')
+            ->setTargetLocale('it_IT')
             ->setTranslatedParent($parent)
             ->setProperty($property);
         self::assertSame(123, $args->getDataToBeTranslated());
         self::assertSame('fr', $args->getSourceLocale());
-        self::assertSame('it', $args->getTargetLocale());
+        self::assertSame('it_IT', $args->getTargetLocale());
         self::assertSame($parent, $args->getTranslatedParent());
         self::assertSame($property, $args->getProperty());
     }
@@ -54,9 +54,9 @@ final class TranslationArgsTest extends TestCase
         $args = new TranslationArgs('data', null, null);
         self::assertNull($args->getSourceLocale());
         self::assertNull($args->getTargetLocale());
-        $args->setSourceLocale('en')->setTargetLocale('de');
-        self::assertSame('en', $args->getSourceLocale());
-        self::assertSame('de', $args->getTargetLocale());
+        $args->setSourceLocale('en_US')->setTargetLocale('de_DE');
+        self::assertSame('en_US', $args->getSourceLocale());
+        self::assertSame('de_DE', $args->getTargetLocale());
     }
 
     public function testMixedDataAcceptsObjectsArraysScalars(): void

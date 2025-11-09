@@ -18,22 +18,22 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
     public function testItCanTranslateSimpleValue(): void
     {
         $associatedEntity = new Scalar()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTitle('simple');
 
         $entity = new TranslatableOneToOneUnidirectional()
-                ->setLocale('en')
+                ->setLocale('en_US')
                 ->setSimple($associatedEntity);
 
         $this->entityManager->persist($entity);
 
-        $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        $translation = $this->translator->translate($entity, 'de_DE');
         assert($translation instanceof TranslatableOneToOneUnidirectional);
 
         $this->entityManager->flush();
         self::assertNotEquals($associatedEntity, $translation->getSimple());
-        self::assertEquals(self::TARGET_LOCALE, $translation->getSimple()->getLocale());
-        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertEquals('de_DE', $translation->getSimple()->getLocale());
+        self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 
     /**
@@ -43,20 +43,20 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
     public function testItCanShareTranslatableEntityValueAmongstTranslations(): void
     {
         $associatedEntity1 = new Scalar()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTitle('shared');
 
         $associatedEntity2 = new Scalar()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTitle('shared');
 
         $entity = new TranslatableOneToOneUnidirectional()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setShared($associatedEntity1);
 
         $this->entityManager->persist($entity);
 
-        $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        $translation = $this->translator->translate($entity, 'de_DE');
         assert($translation instanceof TranslatableOneToOneUnidirectional);
         $translation->setShared($associatedEntity2);
 
@@ -64,7 +64,7 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         self::assertEquals('shared', $translation->getShared()->getTitle());
-        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 
     /**
@@ -74,22 +74,22 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
     public function testItCanEmptyTranslatableEntityValue(): void
     {
         $associatedEntity = new Scalar()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTitle('empty');
 
         $entity = new TranslatableOneToOneUnidirectional()
-                ->setLocale('en')
+                ->setLocale('en_US')
                 ->setEmpty($associatedEntity);
 
         $this->entityManager->persist($entity);
 
-        $translation = $this->translator->translate($entity, self::TARGET_LOCALE);
+        $translation = $this->translator->translate($entity, 'de_DE');
         assert($translation instanceof TranslatableOneToOneUnidirectional);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         self::assertEquals(null, $translation->getEmpty());
-        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+        self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 }

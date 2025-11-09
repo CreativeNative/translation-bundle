@@ -40,7 +40,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testSupportsWithTranslatableInterface(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de');
+        $args = new TranslationArgs($translatable, 'en', 'de_DE');
 
         $this->assertTrue($this->handler->supports($args));
     }
@@ -48,7 +48,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testSupportsWithNonTranslatable(): void
     {
         $nonTranslatable = new stdClass();
-        $args = new TranslationArgs($nonTranslatable, 'en', 'de');
+        $args = new TranslationArgs($nonTranslatable, 'en', 'de_DE');
 
         $this->assertFalse($this->handler->supports($args));
     }
@@ -59,7 +59,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testHandleSharedAmongstTranslations(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de');
+        $args = new TranslationArgs($translatable, 'en', 'de_DE');
 
         // Set up the mocks so that translate will return the translatable mock
         $translatable->expects($this->once())
@@ -70,7 +70,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $repository->expects($this->once())
             ->method('findOneBy')
             ->with([
-                'locale' => 'de',
+                'locale' => 'de_DE',
                 'tuuid' => 'test-uuid',
             ])
             ->willReturn($translatable);
@@ -87,7 +87,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslate(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de');
+        $args = new TranslationArgs($translatable, 'en', 'de_DE');
 
         $result = $this->handler->handleEmptyOnTranslate($args);
         $this->assertNull($result);
@@ -109,7 +109,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en',
-            'de'
+            'de_DE'
         );
 
         // Mock repository to return existing translation
@@ -117,7 +117,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $repository->expects($this->once())
             ->method('findOneBy')
             ->with([
-                'locale' => 'de',
+                'locale' => 'de_DE',
                 'tuuid' => 'test-uuid',
             ])
             ->willReturn($existingTranslation);
@@ -146,7 +146,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en',
-            'de'
+            'de_DE'
         );
 
         // Mock repository to return null (no existing translation)
@@ -154,7 +154,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $repository->expects($this->once())
             ->method('findOneBy')
             ->with([
-                'locale' => 'de',
+                'locale' => 'de_DE',
                 'tuuid' => $tuuid,
             ])
             ->willReturn(null);
@@ -171,7 +171,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $this->assertNotSame($originalEntity, $result);
 
         // Verify the locale was set correctly
-        $this->assertEquals('de', $result->getLocale());
+        $this->assertEquals('de_DE', $result->getLocale());
 
         // Verify it's still the same type of object
         $this->assertInstanceOf(get_class($originalEntity), $result);
@@ -194,7 +194,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en',
-            'de'
+            'de_DE'
         );
 
         // Mock repository to return null (no existing translation)
@@ -202,7 +202,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $repository->expects($this->once())
             ->method('findOneBy')
             ->with([
-                'locale' => 'de',
+                'locale' => 'de_DE',
                 'tuuid' => 'test-uuid',
             ])
             ->willReturn(null);

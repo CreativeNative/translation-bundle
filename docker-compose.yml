@@ -1,0 +1,18 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    container_name: php
+    volumes:
+      - ./:/var/www/tmi/translation-bundle:cached
+      - var:/var/www/tmi/translation-bundle/var
+      - vendor:/var/www/tmi/translation-bundle/vendor
+    ports:
+      - "58759:58759"  # Xdebug
+    environment:
+      COMPOSER_ALLOW_XDEBUG: "0"
+
+volumes:
+  var:
+  vendor:

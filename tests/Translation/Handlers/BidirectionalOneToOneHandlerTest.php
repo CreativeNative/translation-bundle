@@ -67,7 +67,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         // 1. Use a TranslatableInterface entity
         $entity = new Scalar();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         // 2. Pick a property that exists but has NO #[OneToOne] attribute
         $prop = new ReflectionProperty($entity::class, 'title'); // title is a plain string
@@ -76,7 +76,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
 
         // 4. Create TranslationArgs
-        $args = new TranslationArgs($entity, 'en', 'de')
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -158,7 +158,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $prop = new ReflectionProperty($parent, 'simpleChild');
 
-        $args = new TranslationArgs($child, 'en', 'it');
+        $args = new TranslationArgs($child, 'en_US', 'it_IT');
         $args->setProperty($prop);
         $args->setTranslatedParent($parent);
 
@@ -167,6 +167,6 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         self::assertInstanceOf(TranslatableOneToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result);
         self::assertSame($parent, $result->getSimpleParent());
-        self::assertSame('it', $result->getLocale());
+        self::assertSame('it_IT', $result->getLocale());
     }
 }

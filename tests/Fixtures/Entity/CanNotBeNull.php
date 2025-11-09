@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Fixtures\Entity;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -16,11 +17,11 @@ final class CanNotBeNull implements TranslatableInterface
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER)]
     private int|null $id = null;
 
     #[EmptyOnTranslate]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING)]
+    #[ORM\Column(type: Types::STRING, nullable: false)]
     private string|null $emptyNotNullable = null;
 
     public function getId(): int|null

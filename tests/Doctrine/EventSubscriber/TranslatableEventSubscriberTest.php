@@ -32,7 +32,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
         $this->translator = $this->createMock(EntityTranslatorInterface::class);
         $this->subscriber = new TranslatableEventSubscriber(
-            'en',
+            'en_US',
             $this->translator
         );
     }
@@ -74,7 +74,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = $this->createMock(TranslatableInterface::class);
 
         $entity->method('getLocale')->willReturn(null);
-        $entity->expects($this->once())->method('setLocale')->with('en');
+        $entity->expects($this->once())->method('setLocale')->with('en_US');
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 
@@ -88,7 +88,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = $this->createMock(TranslatableInterface::class);
 
         $entity->method('getLocale')->willReturn('');
-        $entity->expects($this->once())->method('setLocale')->with('en');
+        $entity->expects($this->once())->method('setLocale')->with('en_US');
 
         $this->translator->expects($this->once())->method('afterLoad')->with($entity);
 

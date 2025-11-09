@@ -41,7 +41,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(false);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -65,7 +65,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         // AttributeHelper reports it's ManyToMany (to reach the next check)
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($anon->plain, 'en', 'de')
+        $args = new TranslationArgs($anon->plain, 'en', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($anon);
 
@@ -86,7 +86,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en', 'de')
+        $args = new TranslationArgs($entity, 'en', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -99,7 +99,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     {
          $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de');
+        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE');
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No translated parent provided');
 
@@ -113,7 +113,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $parent = new class {
             public string|null $any = null;
         };
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
+        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
             ->setTranslatedParent($parent);
 
         $this->expectException(RuntimeException::class);
@@ -138,7 +138,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
          $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
+        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
@@ -166,7 +166,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
          $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
+        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
@@ -194,7 +194,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
          $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de')
+        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
@@ -232,7 +232,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
          $handler = $this->createHandler();
 
-        $args = new TranslationArgs($data, 'en', 'de')
+        $args = new TranslationArgs($data, 'en', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
@@ -266,7 +266,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $propMock->method('getName')->willReturn('simpleChildren');
         $propMock->method('getDeclaringClass')->willReturn(new ReflectionClass($parent));
 
-        $args = new TranslationArgs($parent, 'en', 'de')
+        $args = new TranslationArgs($parent, 'en', 'de_DE')
             ->setProperty($propMock)
             ->setTranslatedParent($parent);
 
@@ -300,7 +300,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -316,7 +316,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs(
             dataToBeTranslated: new ArrayCollection(),
             sourceLocale: 'en',
-            targetLocale: 'de'
+            targetLocale: 'de_DE'
         );
 
         $result = $handler->handleSharedAmongstTranslations($args);
@@ -338,7 +338,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs(
             dataToBeTranslated: new ArrayCollection(),
             sourceLocale: 'en',
-            targetLocale: 'de'
+            targetLocale: 'de_DE'
         );
         $args->setProperty($prop)->setTranslatedParent($entity);
 
@@ -371,7 +371,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 

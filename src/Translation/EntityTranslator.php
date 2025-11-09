@@ -74,26 +74,24 @@ final class EntityTranslator implements EntityTranslatorInterface
             ));
         }
 
+        // Handle top-level entity translation
         if ($entity instanceof TranslatableInterface) {
             $tuuid = $entity->getTuuid();
+            $cacheKey = $tuuid ? $tuuid . ':' . $locale : null;
 
-            if ($tuuid !== null) {
-                $cacheKey = $tuuid . ':' . $locale;
+            // Return cached translation immediately if available
+            if ($cacheKey && isset($this->translationCache[$tuuid][$locale])) {
+                return $this->translationCache[$tuuid][$locale];
+            }
 
-                // Already cached? Return it immediately.
-                if (isset($this->translationCache[$tuuid][$locale])) {
-                    return $this->translationCache[$tuuid][$locale];
-                }
+            // Cycle detection: avoid infinite recursion
+            if ($cacheKey && isset($this->inProgress[$cacheKey])) {
+                return $entity;
+            }
 
-                // Cycle detection: If we hit an entity currently being translated, return original.
-                if (isset($this->inProgress[$cacheKey])) {
-                    return $entity;
-                }
-
-                // Mark as in progress
+            if ($cacheKey) {
                 $this->inProgress[$cacheKey] = true;
-
-                // Try to load existing translations from DB
+                // Warmup existing translations from DB
                 $this->warmupTranslations([$entity], $locale);
 
                 if (isset($this->translationCache[$tuuid][$locale])) {

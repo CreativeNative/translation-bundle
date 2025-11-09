@@ -19,11 +19,11 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
     public function testItCanTranslateSimpleValue(): void
     {
         $parent = new TranslatableOneToManyBidirectionalParent()
-            ->setLocale('de');
+            ->setLocale('de_DE');
         $this->entityManager->persist($parent);
 
         $child = new TranslatableManyToOneBidirectionalChild()
-            ->setLocale('de');
+            ->setLocale('de_DE');
         $child->setParentSimple($parent);
         $parent->getSimpleChildren()->add($child);
 
@@ -56,7 +56,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         // --- Step 1: Create and persist the original child ---
         $child = new TranslatableManyToOneBidirectionalChild();
         $child->setParentSimple(null);
-        $child->setLocale('de');
+        $child->setLocale('de_DE');
 
         $this->entityManager->persist($child);
         $this->entityManager->flush();
@@ -66,7 +66,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
 
         // --- Step 2: Create and persist the parent ---
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('de');
+        $parent->setLocale('de_DE');
         $parent->getSimpleChildren()->add($child);
         $child->setParentSimple($parent);
 
@@ -111,7 +111,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
     public function testItCanShareTranslatableEntityValueAmongstTranslations(): void
     {
         $child = new TranslatableManyToOneBidirectionalChild();
-        $child->setLocale('de');
+        $child->setLocale('de_DE');
 
         $this->entityManager->persist($child);
         $this->entityManager->flush();
@@ -123,7 +123,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('de');
+        $parent->setLocale('de_DE');
 
         $parent->getSimpleChildren()->add($translatedChild);
         $translatedChild->setParentSimple($parent);

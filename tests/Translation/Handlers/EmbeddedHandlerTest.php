@@ -54,7 +54,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
         // property reflection representing an embedded property
         $prop = new ReflectionProperty($obj::class, 'embedded');
-        $args = new TranslationArgs(null, 'en', 'de')
+        $args = new TranslationArgs(null, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($obj);
 
@@ -67,7 +67,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
             public string|null $prop = 'x';
         };
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->translate($args);
 
         self::assertNotSame($entity, $result, 'translate should return a clone');
@@ -79,7 +79,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
             public string $foo = 'bar';
         };
 
-        $args = new TranslationArgs($data, 'en', 'de');
+        $args = new TranslationArgs($data, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->handleSharedAmongstTranslations($args);
 
         $this->assertSame(

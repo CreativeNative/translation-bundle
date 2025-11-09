@@ -31,7 +31,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
     {
         $kernel = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
-        $request->setLocale('en');
+        $request->setLocale('en_US');
 
         $event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
 
@@ -42,7 +42,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $filter = $this->entityManager->getFilters()->getFilter('tmi_translation_locale_filter');
 
         $this->assertInstanceOf(LocaleFilter::class, $filter);
-        $this->assertSame("'en'", $filter->getParameter('locale')); // Doctrine stores parameter in SQL form
+        $this->assertSame("'en_US'", $filter->getParameter('locale')); // Doctrine stores parameter in SQL form
     }
 
     public function testFilterCanChangeLocale(): void
@@ -65,7 +65,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
     {
         $kernel = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
-        $request->setLocale('en');
+        $request->setLocale('en_US');
 
         $event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
 
@@ -89,7 +89,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
     {
         $kernel = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
-        $request->setLocale('de');
+        $request->setLocale('de_DE');
 
         $event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
 
@@ -99,7 +99,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
         $filter = $this->entityManager->getFilters()->getFilter('tmi_translation_locale_filter');
         $this->assertInstanceOf(LocaleFilter::class, $filter);
-        $this->assertSame("'de'", $filter->getParameter('locale'));
+        $this->assertSame("'de_DE'", $filter->getParameter('locale'));
     }
 
     public function testOnKernelRequestDoesNothingIfFilterNotRegistered(): void

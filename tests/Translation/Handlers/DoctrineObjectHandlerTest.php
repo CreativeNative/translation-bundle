@@ -43,7 +43,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
 
-        $args = new TranslationArgs(new stdClass(), 'en', 'de');
+        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
         $this->handler->supports($args);
     }
 
@@ -55,7 +55,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('DoctrineObjectHandler::translate expects an object');
 
-        $args = new TranslationArgs('not-an-object', 'en', 'de');
+        $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
         $this->handler->translate($args);
     }
 
@@ -67,7 +67,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('translateProperties expects object in TranslationArgs');
 
-        $args = new TranslationArgs('not-an-object', 'en', 'de');
+        $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
         $this->handler->translateProperties($args);
     }
 
@@ -99,7 +99,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
 
         // Execute translate() which internally calls translateProperties()
         $result = $handler->translate($args);
@@ -128,7 +128,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->handler->translate($args);
 
         $this->assertNotSame($entity, $result);
@@ -140,7 +140,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
     {
         $obj = new stdClass();
-        $args = new TranslationArgs($obj, 'en', 'de');
+        $args = new TranslationArgs($obj, 'en_US', 'de_DE');
         $this->assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
         $this->assertNull($this->handler->handleEmptyOnTranslate($args));
     }
@@ -152,7 +152,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new stdClass(), 'en', 'de');
+        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
 
         self::assertFalse($this->handler->supports($args));
     }
@@ -164,7 +164,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new stdClass(), 'en', 'de');
+        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
 
         self::assertTrue($this->handler->supports($args));
     }
@@ -191,7 +191,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->handler->translate($args);
 
         // translate() must return a clone, not the same instance

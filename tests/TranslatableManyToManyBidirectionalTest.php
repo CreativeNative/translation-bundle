@@ -33,16 +33,16 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     public function testItCanTranslateManyToMany(): void
     {
         // Create 3 children entities
-        $child1 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
-        $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
-        $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $child1 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
 
         $this->entityManager->persist($child1);
         $this->entityManager->persist($child2);
         $this->entityManager->persist($child3);
 
         // Create 1 parent entity
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent
             ->addSimpleChild($child1)
             ->addSimpleChild($child2)
@@ -72,16 +72,16 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     public function testItCanEmptyOnTranslate(): void
     {
         // Create 3 children entities
-        $child1 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
-        $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
-        $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $child1 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
 
         $this->entityManager->persist($child1);
         $this->entityManager->persist($child2);
         $this->entityManager->persist($child3);
 
         // Create 1 parent entity
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent
             ->addEmptyChild($child1)
             ->addEmptyChild($child2)
@@ -99,7 +99,7 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         // give the handler explicit property info so it can clear the correct collection
         $prop = new \ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'emptyChildren');
 
-        $args = new TranslationArgs($parent->getEmptyChildren(), 'en', self::TARGET_LOCALE)
+        $args = new TranslationArgs($parent->getEmptyChildren(), 'en_US', self::TARGET_LOCALE)
             ->setTranslatedParent($parentTranslation)
             ->setProperty($prop);
 
@@ -121,7 +121,7 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         $child = new TranslatableManyToManyBidirectionalChild();
         $this->entityManager->persist($child);
 
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent->addSharedChild($child);
         $this->entityManager->persist($parent);
         $this->entityManager->flush();

@@ -22,8 +22,8 @@ final class TmiTranslationExtensionTest extends TestCase
 
         $config = [
             [
-                'locales' => ['en', 'de', 'it'],
-                'default_locale' => 'en',
+                'locales' => ['en_US', 'de_DE', 'it_IT'],
+                'default_locale' => 'en_US',
                 'disabled_firewalls' => ['admin'],
             ],
         ];

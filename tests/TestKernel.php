@@ -32,7 +32,7 @@ final class TestKernel extends BaseKernel
 
     public function configureContainer(ContainerConfigurator $container): void
     {
-        $locales = ['de', 'en', 'it'];
+        $locales = ['en_US', 'de_DE', 'it_IT'];
 
         $container->extension('framework', [
             'secret' => 'test_secret',
@@ -69,7 +69,7 @@ final class TestKernel extends BaseKernel
 
         $container->extension('tmi_translation', [
             'locales' => $locales,
-            'default_locale' => 'en',
+            'default_locale' => 'en_US',
             'disabled_firewalls' => ['admin'],
         ]);
 

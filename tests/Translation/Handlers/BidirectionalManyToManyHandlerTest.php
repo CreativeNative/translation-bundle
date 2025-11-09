@@ -46,10 +46,10 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseIfNotCollectionOrMissingProperty(): void
     {
         self::assertFalse($this->handler->supports(
-            new TranslationArgs('not-a-collection', 'en', 'de')
+            new TranslationArgs('not-a-collection', 'en_US', 'de_DE')
         ));
         self::assertFalse($this->handler->supports(
-            new TranslationArgs(new ArrayCollection(), 'en', 'de')
+            new TranslationArgs(new ArrayCollection(), 'en_US', 'de_DE')
         ));
     }
 
@@ -70,7 +70,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         };
 
         $prop = new ReflectionProperty($parent::class, 'children');
-        $args = new TranslationArgs($parent->children, 'en', 'de')
+        $args = new TranslationArgs($parent->children, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -87,7 +87,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $anon = new class { public array $plain = [];
         };
         $prop = new ReflectionProperty($anon::class, 'plain');
-        $args = new TranslationArgs($anon->plain, 'en', 'de')->setProperty($prop)->setTranslatedParent($anon);
+        $args = new TranslationArgs($anon->plain, 'en_US', 'de_DE')->setProperty($prop)->setTranslatedParent($anon);
 
         self::assertFalse($this->handler->supports($args));
     }
@@ -113,7 +113,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $prop = new ReflectionProperty($anon::class, 'items');
 
         // Pass an actual Collection as the data to be translated
-        $args = new TranslationArgs($anon->items, 'en', 'de')
+        $args = new TranslationArgs($anon->items, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($anon);
 
@@ -133,7 +133,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->with($prop)->willReturn(false);
 
-        $args = new TranslationArgs($entity, 'en', 'de')
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -146,13 +146,13 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseWhenNoManyToManyAttributesPresent(): void
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         $prop = new ReflectionProperty($entity, 'title');
 
         $this->attributeHelper->method('isManyToMany')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en', 'de')
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -166,13 +166,13 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
 
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         $prop = new ReflectionProperty($entity, 'simpleChildren');
 
         $this->attributeHelper->method('isManyToMany')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en', 'it')
+        $args = new TranslationArgs($entity, 'en_US', 'it_IT')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -217,7 +217,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
         // Prepare args (no explicit property set) so handler will call discoverProperty()
-        $args = new TranslationArgs($collection, 'en', 'de')
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')
             ->setTranslatedParent($owner);
 
         // Read private property values before call using Closure::bind (avoids setAccessible)
@@ -289,7 +289,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($collection, 'en', 'de')->setTranslatedParent($owner);
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')->setTranslatedParent($owner);
         $result = $handler->handleEmptyOnTranslate($args);
 
         self::assertInstanceOf(ArrayCollection::class, $result);
@@ -302,7 +302,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testHandleEmptyOnTranslateReturnsEmptyWhenDataNotCollection(): void
     {
-        $args = new TranslationArgs('i am not a collection', 'en', 'de');
+        $args = new TranslationArgs('i am not a collection', 'en_US', 'de_DE');
 
         $result = $this->handler->handleEmptyOnTranslate($args);
 
@@ -333,7 +333,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         // attributeHelper should not block discovery
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($collection, 'en', 'de')->setTranslatedParent($owner);
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')->setTranslatedParent($owner);
 
         $returned = $this->handler->handleEmptyOnTranslate($args);
 
@@ -361,7 +361,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         };
 
         $prop = new \ReflectionProperty($entity::class, 'sharedChildren');
-        $args = new TranslationArgs($entity->sharedChildren, 'en', 'de')
+        $args = new TranslationArgs($entity->sharedChildren, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -387,14 +387,14 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslateTranslatesAndSetsInverseMappedBy(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
-        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $parent->addSimpleChild($child);
         $child->addSimpleParent($parent);
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')->setTranslatedParent($parent);
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en_US', 'de_DE')->setTranslatedParent($parent);
         $result = $this->handler->translate($args);
 
         self::assertInstanceOf(Collection::class, $result);
@@ -402,7 +402,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $translatedChild = $result->first();
         assert($translatedChild instanceof TranslatableManyToManyBidirectionalChild);
-        self::assertSame('en', $translatedChild->getLocale());
+        self::assertSame('en_US', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSimpleParents()->contains($parent));
     }
 
@@ -411,7 +411,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslateThrowsIfNotCollection(): void
     {
-        $args = new TranslationArgs('not-a-collection', 'en', 'de');
+        $args = new TranslationArgs('not-a-collection', 'en_US', 'de_DE');
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('CollectionHandler::translate expects a Collection.');
@@ -438,7 +438,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $meta->method('getAssociationMappings')->willReturn(['items' => ['mappedBy' => null]]);
         $this->entityManager->method('getClassMetadata')->willReturn($meta);
 
-        $args = new TranslationArgs($collection, 'en', 'de')->setTranslatedParent($parent)->setProperty($prop);
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')->setTranslatedParent($parent)->setProperty($prop);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('is not a bidirectional ManyToMany');
@@ -451,11 +451,11 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslateReturnsCopyWhenOwnerOrPropertyMissing(): void
     {
-        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $collection = new ArrayCollection([$child]);
 
         // do NOT set translatedParent nor property
-        $args = new TranslationArgs($collection, 'en', 'de');
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE');
 
         $result = $this->handler->translate($args);
 
@@ -485,7 +485,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $meta->method('getAssociationMappings')->willReturn([]);
         $this->entityManager->method('getClassMetadata')->willReturn($meta);
 
-        $args = new TranslationArgs($parent->items, 'en', 'de')->setTranslatedParent($parent)->setProperty($prop);
+        $args = new TranslationArgs($parent->items, 'en_US', 'de_DE')->setTranslatedParent($parent)->setProperty($prop);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('is not a bidirectional ManyToMany');
@@ -502,14 +502,14 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testHandleSharedAmongstTranslationsProcessesItemsAndSetsInverse(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
-        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $parent->addSharedChild($child);
         $child->addSharedParents($parent);
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($parent->getSharedChildren(), 'en', 'de')->setTranslatedParent($parent);
+        $args = new TranslationArgs($parent->getSharedChildren(), 'en_US', 'de_DE')->setTranslatedParent($parent);
         $result = $this->handler->handleSharedAmongstTranslations($args);
 
         self::assertInstanceOf(Collection::class, $result);
@@ -517,7 +517,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $translatedChild = $result->first();
         assert($translatedChild instanceof TranslatableManyToManyBidirectionalChild);
-        self::assertSame('en', $translatedChild->getLocale());
+        self::assertSame('en_US', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSharedParents()->contains($parent));
     }
 
@@ -526,7 +526,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testHandleSharedAmongstTranslationsThrowsIfNotCollection(): void
     {
-        $args = new TranslationArgs('not-a-collection', 'en', 'de');
+        $args = new TranslationArgs('not-a-collection', 'en_US', 'de_DE');
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
@@ -538,7 +538,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testHandleSharedAmongstTranslationsReturnsEmptyIfNoOwnerOrProperty(): void
     {
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de');
+        $args = new TranslationArgs(new ArrayCollection(), 'en_US', 'de_DE');
         $result = $this->handler->handleSharedAmongstTranslations($args);
 
         self::assertInstanceOf(ArrayCollection::class, $result);
@@ -566,7 +566,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($parent->items, 'en', 'de')
+        $args = new TranslationArgs($parent->items, 'en_US', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
@@ -584,12 +584,12 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testHandleEmptyOnTranslateClearsOwnerCollection(): void
     {
-        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en');
-        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en');
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
+        $child = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $parent->addSimpleChild($child);
         $child->addSimpleParent($parent);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de')->setTranslatedParent($parent);
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en_US', 'de_DE')->setTranslatedParent($parent);
         $result = $this->handler->handleEmptyOnTranslate($args);
 
         self::assertInstanceOf(ArrayCollection::class, $result);
@@ -618,7 +618,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $mockProp->method('setValue')
             ->willThrowException(new RuntimeException('simulated setValue failure'));
 
-        $args = new TranslationArgs($collection, 'en', 'de')->setTranslatedParent($owner)->setProperty($mockProp);
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')->setTranslatedParent($owner)->setProperty($mockProp);
 
 
         $result = $this->handler->handleEmptyOnTranslate($args);

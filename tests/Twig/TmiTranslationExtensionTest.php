@@ -13,7 +13,7 @@ final class TmiTranslationExtensionTest extends TestCase
 {
     public function testGetTestsReturnsTwigTestForTranslatableInterface(): void
     {
-        $locales = ['en', 'it'];
+        $locales = ['en_US', 'it_IT'];
         $extension = new TmiTranslationExtension($locales);
 
         $tests = $extension->getTests();
@@ -32,7 +32,7 @@ final class TmiTranslationExtensionTest extends TestCase
 
     public function testGetGlobalsReturnsLocalesArray(): void
     {
-        $locales = ['en', 'it'];
+        $locales = ['en_US', 'it_IT'];
         $extension = new TmiTranslationExtension($locales);
 
         $globals = $extension->getGlobals();

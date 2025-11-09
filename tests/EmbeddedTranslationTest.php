@@ -14,7 +14,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
  */
 final class EmbeddedTranslationTest extends IntegrationTestCase
 {
-    public const string TARGET_LOCALE = 'en';
+    public const string TARGET_LOCALE = 'en_US';
 
     /**
      * @throws OptimisticLockException
@@ -29,7 +29,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
             ->setCountry('France')
         ;
         $entity = new Translatable()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setAddress($address);
 
         $this->entityManager->persist($entity);
@@ -56,7 +56,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
             ->setCountry('France')
         ;
         $entity = new Translatable()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setEmptyAddress($address);
 
         $this->entityManager->persist($entity);

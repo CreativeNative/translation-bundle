@@ -25,7 +25,7 @@ class IntegrationTestCase extends KernelTestCase
 
     protected AttributeHelper|null $attributeHelper = null;
 
-    protected const string TARGET_LOCALE = 'de';
+    protected const string TARGET_LOCALE = 'de_DE';
 
     /**
      * {@inheritDoc}
@@ -67,7 +67,7 @@ class IntegrationTestCase extends KernelTestCase
         }
 
         $subscriber = new TranslatableEventSubscriber(
-            'en',
+            'en_US',
             $this->translator
         );
 

@@ -80,7 +80,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $this->attributeHelper->method('isOneToMany')->with($prop)->willReturn(true);
 
         // Create TranslationArgs
-        $args = new TranslationArgs($parent, 'en', 'de')
+        $args = new TranslationArgs($parent, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -147,7 +147,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $collection = $parent->getSimpleChildren();
 
-        $args = new TranslationArgs($collection, 'en', 'it');
+        $args = new TranslationArgs($collection, 'en', 'it_IT');
         $args->setProperty(new ReflectionProperty($parent, 'simpleChildren'));
         $args->setTranslatedParent($parent);
 
@@ -184,7 +184,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             ->with($parent::class)
             ->willReturn($metadata);
 
-        $args = new TranslationArgs($collection, 'en', 'it');
+        $args = new TranslationArgs($collection, 'en', 'it_IT');
         $args->setProperty(new ReflectionProperty($parent, 'simpleChildren'));
         $args->setTranslatedParent($parent);
 
@@ -217,7 +217,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($metadata);
 
-        $args = new TranslationArgs($collection, 'en', 'it');
+        $args = new TranslationArgs($collection, 'en', 'it_IT');
         $args->setProperty(new ReflectionProperty($parent, 'simpleChildren'));
         $args->setTranslatedParent($parent);
 
@@ -235,7 +235,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $handler = $this->createHandler();
         $collection = new ArrayCollection([new TranslatableManyToOneBidirectionalChild()]);
 
-        $args = new TranslationArgs($collection, 'en', 'it');
+        $args = new TranslationArgs($collection, 'en', 'it_IT');
         $args->setProperty(null);
         $args->setTranslatedParent(null);
 
@@ -268,7 +268,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             ->willReturn($metadata);
 
         // 5️⃣ Setup TranslationArgs
-        $args = new TranslationArgs($children, 'en', 'it');
+        $args = new TranslationArgs($children, 'en', 'it_IT');
         $args->setProperty($prop);
         $args->setTranslatedParent($parent);
 

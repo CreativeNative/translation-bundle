@@ -14,7 +14,7 @@ final class TranslateEventTest extends TestCase
     {
         $source = new stdClass();
         $translated = new stdClass();
-        $locale = 'en';
+        $locale = 'en_US';
 
         $event = new TranslateEvent($source, $locale, $translated);
 

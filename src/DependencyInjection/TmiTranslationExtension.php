@@ -22,10 +22,6 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        // Set defaults if missing
-        $config['default_locale'] ??= 'en';
-        $config['locales'] ??= ['de', 'en', 'it'];
-
         // Set configuration into params
         $rootName = 'tmi_translation';
         $container->setParameter($rootName, $config);

@@ -64,9 +64,9 @@ final class EntityTranslatorTest extends UnitTestCase
     {
         // entity with some locale
         $entity = new Scalar();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
-        $args = new TranslationArgs($entity, 'en', 'xx'); // "xx" is not in allowed locales
+        $args = new TranslationArgs($entity, 'en_US', 'xx'); // "xx" is not in allowed locales
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Locale "xx" is not allowed. Allowed locales:');
@@ -206,10 +206,10 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testLifecycleHooksUseEntityLocaleIfPresent(): void
     {
         $entity = new Scalar();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
         $entity->setTitle('Original Title');
         $translation = new Scalar();
-        $translation->setLocale('en');
+        $translation->setLocale('en_US');
         $translation->setTitle('Translated Title');
 
         // Make attribute helper report "no special attributes" for the property
@@ -234,10 +234,10 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testLifecycleHooksFallbackToDefaultLocaleWhenNull(): void
     {
         $entity = new Scalar();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
         $entity->setTitle('Original Title');
         $translation = new Scalar();
-        $translation->setLocale('en');
+        $translation->setLocale('en_US');
         $translation->setTitle('Translated Title');
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(false);
@@ -264,18 +264,18 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         // Prepare a cached translation instance
         $cached = clone $entity;
-        $cached->setLocale('de');
+        $cached->setLocale('de_DE');
 
         // Inject into private translationCache via reflection
         $rp = new ReflectionProperty($this->translator, 'translationCache');
-        $rp->setValue($this->translator, [$tuuid => ['de' => $cached]]);
+        $rp->setValue($this->translator, [$tuuid => ['de_DE' => $cached]]);
 
         // If cache exists, processTranslation should return cached item
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator->processTranslation($args);
 
         self::assertSame($cached, $result);
@@ -290,17 +290,17 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         // simulate cached translation directly
         $translated = clone $entity;
-        $translated->setLocale('de');
+        $translated->setLocale('de_DE');
 
         // manually inject into private cache
         $rp = new ReflectionProperty($this->translator, 'translationCache');
-        $rp->setValue($this->translator, [$tuuid => ['de' => $translated]]);
+        $rp->setValue($this->translator, [$tuuid => ['de_DE' => $translated]]);
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator->processTranslation($args);
 
         self::assertSame($translated, $result);
@@ -316,14 +316,14 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         // simulate inProgress being set for this tuuid + target locale
         $rp = new ReflectionProperty($this->translator, 'inProgress');
         $rp->setValue($this->translator, [$tuuid . ':de' => true]);
 
         // if inProgress is set, processTranslation should return the original entity (no clone)
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator->processTranslation($args);
 
         self::assertSame($entity, $result);
@@ -337,10 +337,10 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // create an entity without tuuid
         $entity = new Scalar();
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         // add a handler that will be called because no warmup will occur
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->expects($this->once())->method('supports')->with(
             self::isInstanceOf(TranslationArgs::class)
@@ -366,18 +366,18 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // --- 2nd continue: TranslatableInterface with null tuuid ---
         $scalarNullTuuid = new Scalar();
-        $scalarNullTuuid->setLocale('en');
+        $scalarNullTuuid->setLocale('en_US');
 
         // --- 3rd continue: TranslatableInterface with cached tuuid ---
 
         $tuuid = Uuid::uuid4()->toString();
 
         $scalarCached = new Scalar();
-        $scalarCached->setLocale('en');
+        $scalarCached->setLocale('en_US');
         $scalarCached->setTuuid($tuuid);
 
         // Inject cache directly
-        $translationCache = [$tuuid => ['de' => $scalarCached]];
+        $translationCache = [$tuuid => ['de_DE' => $scalarCached]];
         $rp = new ReflectionProperty($this->translator, 'translationCache');
         $rp->setValue($this->translator, $translationCache);
 
@@ -385,7 +385,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // Call warmupTranslations
         $method = new ReflectionMethod($this->translator, 'warmupTranslations');
-        $method->invoke($this->translator, $entities, 'de');
+        $method->invoke($this->translator, $entities, 'de_DE');
 
         // If execution reaches this point without error, continues were hit
         self::assertTrue(true);
@@ -402,25 +402,25 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $entity = new Scalar();
         $entity->setTuuid($sharedTuuid);
-        $entity->setLocale('en');
+        $entity->setLocale('en_US');
 
         $cachedTranslation = new Scalar();
         $cachedTranslation->setTuuid($sharedTuuid);
-        $cachedTranslation->setLocale('de');
+        $cachedTranslation->setLocale('de_DE');
 
         $reflection = new ReflectionClass($this->translator);
 
         // Pre-fill cache
         $translationCacheProperty = $reflection->getProperty('translationCache');
         $translationCacheProperty->setValue($this->translator, [
-            $sharedTuuid => ['de' => $cachedTranslation],
+            $sharedTuuid => ['de_DE' => $cachedTranslation],
         ]);
 
         // Mark as inProgress
         $inProgressProperty = $reflection->getProperty('inProgress');
         $inProgressProperty->setValue($this->translator, [$sharedTuuid . ':de' => true]);
 
-        $args = new TranslationArgs($entity, 'en', 'de');
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator->processTranslation($args);
 
         self::assertSame($cachedTranslation, $result);

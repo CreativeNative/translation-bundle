@@ -47,8 +47,8 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $entity = new Scalar();
 
-        $entity->setLocale('de');
-        $this->assertEquals('de', $entity->getLocale());
+        $entity->setLocale('de_DE');
+        $this->assertEquals('de_DE', $entity->getLocale());
 
         $entity->setLocale(null);
         $this->assertNull($entity->getLocale());
@@ -58,7 +58,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $entity = new Scalar();
 
-        $translations = ['de' => ['title' => 'Titel'], 'en' => ['title' => 'Title']];
+        $translations = ['de_DE' => ['title' => 'Titel'], 'en_US' => ['title' => 'Title']];
         $entity->setTranslations($translations);
         $this->assertEquals($translations, $entity->getTranslations());
 

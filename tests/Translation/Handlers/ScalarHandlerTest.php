@@ -18,13 +18,13 @@ final class ScalarHandlerTest extends UnitTestCase
     {
         $handler = new ScalarHandler();
 
-        $args = new TranslationArgs('hello', 'en', 'de');
+        $args = new TranslationArgs('hello', 'en_US', 'de_DE');
         self::assertTrue($handler->supports($args));
 
-        $args = new TranslationArgs(new DateTime(), 'en', 'de');
+        $args = new TranslationArgs(new DateTime(), 'en_US', 'de_DE');
         self::assertTrue($handler->supports($args));
 
-        $args = new TranslationArgs(new stdClass(), 'en', 'de');
+        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
         self::assertFalse($handler->supports($args));
     }
 
@@ -32,7 +32,7 @@ final class ScalarHandlerTest extends UnitTestCase
     {
         $handler = new ScalarHandler();
 
-        $args = new TranslationArgs('test-value', 'en', 'de');
+        $args = new TranslationArgs('test-value', 'en_US', 'de_DE');
         $result = $handler->translate($args);
 
         self::assertSame('test-value', $result);

@@ -37,7 +37,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $prop = new ReflectionProperty($parent::class, 'simpleChildren');
-        $args = new TranslationArgs($parent, 'en', self::TARGET_LOCALE)
+        $args = new TranslationArgs($parent, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -58,10 +58,10 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 
         // Create children and set source locale explicitly
         $child1 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTuuid($tuuid1);
         $child2 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en')
+            ->setLocale('en_US')
             ->setTuuid($tuuid2);
 
         $this->entityManager->persist($child1);
@@ -76,7 +76,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         // Translate the parent entity (this will create translated children as needed)
-        $parentTranslation = $this->translator->translate($parent, 'de');
+        $parentTranslation = $this->translator->translate($parent, 'de_DE');
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
 
@@ -94,8 +94,8 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         // IMPORTANT: the handler works on the translated parent – pass $parentTranslation here
         $property = new ReflectionProperty($parentTranslation::class, 'simpleChildren');
 
-        // Build args: translate from 'en' -> 'de', provide translated parent (the translated instance)
-        $args = new TranslationArgs($children, 'en', 'de')
+        // Build args: translate from 'en' -> 'de_DE', provide translated parent (the translated instance)
+        $args = new TranslationArgs($children, 'en_US', 'de_DE')
             ->setProperty($property)
             ->setTranslatedParent($parentTranslation);
 
@@ -106,7 +106,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         self::assertCount(2, $result, 'Translated collection should contain 2 items');
 
         foreach ($result as $item) {
-            self::assertSame('de', $item->getLocale(), 'Each translated child should have target locale "de"');
+            self::assertSame('de_DE', $item->getLocale(), 'Each translated child should have target locale "de"');
         }
     }
 
@@ -115,7 +115,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $children = $parent->getEmptyChildren();
 
-        $args = new TranslationArgs($children, 'en', 'de');
+        $args = new TranslationArgs($children, 'en_US', 'de_DE');
         $args->setTranslatedParent($parent);
 
         $result = $this->handler->handleEmptyOnTranslate($args);

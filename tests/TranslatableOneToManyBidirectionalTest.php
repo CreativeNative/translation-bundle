@@ -19,13 +19,13 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
     public function testItCanTranslateBidirectionalOneToMany(): void
     {
         $children = new ArrayCollection([
-            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
-            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
-            new TranslatableManyToOneBidirectionalChild()->setLocale('de'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de_DE'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de_DE'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('de_DE'),
         ]);
 
         $parent = new TranslatableOneToManyBidirectionalParent()
-            ->setLocale('de');
+            ->setLocale('de_DE');
 
         // Persist children first and assign parent
         foreach ($children as $child) {
@@ -58,11 +58,11 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
     public function testItCanTranslateBidirectionalManyToOne(): void
     {
         $parent = new TranslatableOneToManyBidirectionalParent()
-            ->setLocale('de');
+            ->setLocale('de_DE');
         $this->entityManager->persist($parent);
 
         $child = new TranslatableManyToOneBidirectionalChild()
-            ->setLocale('de')
+            ->setLocale('de_DE')
             ->setParentSimple($parent);
         $this->entityManager->persist($child);
 
