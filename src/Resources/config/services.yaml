@@ -29,59 +29,59 @@ services:
     # ----------------------------
     # Translation Handlers
     # ----------------------------
+    Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler:
+        arguments:
+            - '@tmi_translation.utils.attribute_helper'
+        tags: [ { name: tmi_translation.translation_handler, priority: 100 } ]
+
+    Tmi\TranslationBundle\Translation\Handlers\ScalarHandler:
+        tags: [ { name: tmi_translation.translation_handler, priority: 90 } ]
+
+    Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler:
+        arguments:
+            - '@tmi_translation.utils.attribute_helper'
+        tags: [ { name: tmi_translation.translation_handler, priority: 80 } ]
+
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler:
         arguments:
             - '@tmi_translation.utils.attribute_helper'
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
             - '@Tmi\TranslationBundle\Translation\EntityTranslator'
-        tags: [ { name: tmi_translation.translation_handler, priority: 100 } ]
+        tags: [ { name: tmi_translation.translation_handler, priority: 70 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler:
         arguments:
             - '@tmi_translation.utils.attribute_helper'
             - '@Tmi\TranslationBundle\Translation\EntityTranslator'
             - '@doctrine.orm.entity_manager'
-        tags: [ { name: tmi_translation.translation_handler, priority: 90 } ]
+        tags: [ { name: tmi_translation.translation_handler, priority: 60 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler:
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
             - '@tmi_translation.utils.attribute_helper'
-        tags: [ { name: tmi_translation.translation_handler, priority: 80 } ]
+        tags: [ { name: tmi_translation.translation_handler, priority: 50 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler:
         arguments:
             - '@tmi_translation.utils.attribute_helper'
             - '@doctrine.orm.entity_manager'
             - '@Tmi\TranslationBundle\Translation\EntityTranslator'
-        tags: [ { name: tmi_translation.translation_handler, priority: 70 } ]
-
-    Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler:
-        arguments:
-            - '@tmi_translation.utils.attribute_helper'
-        tags: [ { name: tmi_translation.translation_handler, priority: 60 } ]
-
-    Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler:
-        arguments:
-            - '@tmi_translation.utils.attribute_helper'
-        tags: [ { name: tmi_translation.translation_handler, priority: 50 } ]
-
-    Tmi\TranslationBundle\Translation\Handlers\ScalarHandler:
         tags: [ { name: tmi_translation.translation_handler, priority: 40 } ]
-
-    Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler:
-        arguments:
-            - '@doctrine.orm.entity_manager'
-            - '@Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler'
-        tags: [ { name: tmi_translation.translation_handler, priority: 30 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler:
         arguments:
             - '@tmi_translation.utils.attribute_helper'
             - '@Tmi\TranslationBundle\Translation\EntityTranslator'
             - '@doctrine.orm.entity_manager'
+        tags: [ { name: tmi_translation.translation_handler, priority: 30 } ]
+
+    Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler:
+        arguments:
+            - '@doctrine.orm.entity_manager'
+            - '@Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler'
         tags: [ { name: tmi_translation.translation_handler, priority: 20 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler:

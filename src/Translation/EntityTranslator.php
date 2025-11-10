@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
+use ReflectionProperty;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -61,11 +62,23 @@ final class EntityTranslator implements EntityTranslatorInterface
         return $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
     }
 
+    /**
+     * Process translation for a given entity or property.
+     *
+     * This method handles:
+     *  - Top-level entity translation
+     *  - Properties with #[SharedAmongstTranslations] or #[EmptyOnTranslate]
+     *  - Embedded properties that may contain shared or empty attributes internally
+     *
+     * @param TranslationArgs $args Contains the entity or property to translate, source/target locales, and parent entity.
+     * @return mixed Translated entity, embedded, or property value according to attribute rules
+     */
     public function processTranslation(TranslationArgs $args): mixed
     {
         $entity = $args->getDataToBeTranslated();
         $locale = $args->getTargetLocale() ?? $this->defaultLocale;
 
+        // Validate that the requested locale is allowed
         if (!in_array($locale, $this->locales, true)) {
             throw new LogicException(sprintf(
                 'Locale "%s" is not allowed. Allowed locales: %s',
@@ -74,7 +87,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             ));
         }
 
-        // Handle top-level entity translation
+        // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
             $tuuid = $entity->getTuuid();
             $cacheKey = $tuuid ? $tuuid . ':' . $locale : null;
@@ -84,11 +97,12 @@ final class EntityTranslator implements EntityTranslatorInterface
                 return $this->translationCache[$tuuid][$locale];
             }
 
-            // Cycle detection: avoid infinite recursion
+            // Detect cycles to avoid infinite recursion
             if ($cacheKey && isset($this->inProgress[$cacheKey])) {
                 return $entity;
             }
 
+            // Mark as in-progress and attempt to warm up existing translations from the database
             if ($cacheKey) {
                 $this->inProgress[$cacheKey] = true;
                 // Warmup existing translations from DB
@@ -103,12 +117,13 @@ final class EntityTranslator implements EntityTranslatorInterface
             }
         }
 
+        // Iterate through all registered translation handlers
         foreach ($this->handlers as $handler) {
             if (!$handler->supports($args)) {
                 continue;
             }
 
-            // PRE_TRANSLATE event
+            // Dispatch PRE_TRANSLATE event for top-level entities
             if ($entity instanceof TranslatableInterface) {
                 $this->eventDispatcher->dispatch(
                     new TranslateEvent($entity, $locale),
@@ -116,21 +131,43 @@ final class EntityTranslator implements EntityTranslatorInterface
                 );
             }
 
-            // Attribute logic
-            if (null !== $args->getProperty()) {
-                if ($this->attributeHelper->isSharedAmongstTranslations($args->getProperty())) {
+            // Handle attribute logic if a specific property is set in TranslationArgs
+            $property = $args->getProperty();
+            if ($property instanceof ReflectionProperty) {
+                // 1. Determine if the top-level property is Shared
+                if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
                     return $handler->handleSharedAmongstTranslations($args);
                 }
 
-                if ($this->attributeHelper->isEmptyOnTranslate($args->getProperty())) {
-                    if (!$this->attributeHelper->isNullable($args->getProperty())) {
+                // 2. Handle EmptyOnTranslate for this top-level property
+                if ($this->attributeHelper->isEmptyOnTranslate($property)) {
+                    if (!$this->attributeHelper->isNullable($property)) {
                         throw new LogicException(sprintf(
                             'The property %s::%s cannot use EmptyOnTranslate because it is not nullable.',
-                            $args->getProperty()->class,
-                            $args->getProperty()->name
+                            $property->class,
+                            $property->name
                         ));
                     }
                     return $handler->handleEmptyOnTranslate($args);
+                }
+
+                // Handle embeddable (even if they are NOT marked EmptyOnTranslate or Shared)
+                // ToDo: Support Embedded Entities with Both Shared and EmptyOnTranslate Properties
+                // https://github.com/CreativeNative/translation-bundle/issues/6
+                if ($this->attributeHelper->isEmbedded($property)) {
+                    // 1. Process empty able properties inside the embedded object
+                    $emptyResult = $handler->handleEmptyOnTranslate($args);
+
+                    // 2. Process shared properties inside the embedded object
+                    $sharedResult = $handler->handleSharedAmongstTranslations($args);
+
+                    // 3. Decide which result to return
+                    $original = $args->getDataToBeTranslated();
+                    if ($emptyResult !== $original) {
+                        return $emptyResult;
+                    }
+
+                    return $sharedResult;
                 }
             }
 

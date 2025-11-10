@@ -9,24 +9,47 @@ Key components:
 - `Handlers` — classes that manage translation of entities, embeddables, collections etc.  
 - `PropertyAccessor` — used to read/write object properties generically.  
 - `TranslationArgs` — container holding the context of a translation operation.  
-- `AttributeHelper` — utility to inspect attributes/annotations like `#[SharedAmongstTranslations]`.
+- `AttributeHelper` — utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`.
 
 ---
 
-## Core Concepts  
+## Core Concepts
 
-### Translation vs Shared Fields  
-- **Translatable fields**: Fields whose values differ by locale (e.g., title, description).  
-- **Shared fields**: Fields that remain identical across all locale versions (e.g., address, GPS coordinates, image set) — marked with `#[SharedAmongstTranslations]`.  
-- An entity is typically associated by a translation‑group ID (e.g., `tuuid`) so that all locale versions refer to the same “logical object”.
+### Translation vs. Shared Fields vs. Empty Fields
 
-### Workflow  
-1. A source entity (locale A) is passed to EntityTranslator to produce a target translation entity (locale B).  
-2. Handlers inspect each property of the source:  
-   - If the property is marked `SharedAmongstTranslations`, the same value is reused/propagated across siblings. 
-   - If the property is marked #[EmptyOnTranslate], the target value will be set to null or a defined empty state, regardless of the source.
-   - Otherwise, a clone or new value may be created for the target locale, depending on other attributes and the property type.
-3. PropertyAccessor is used to read source values and write to the target.  
+#### 1. Translatable Fields
+- Fields whose values differ per locale (e.g., title, description).
+- Each translated entity gets its own independent value.
+- During translation:
+  - Scalar values are copied.
+  - Objects or embedded values are cloned (deep copy).
+
+#### 2. Shared Fields (#[SharedAmongstTranslations])
+- Fields or embeddables that are identical across all translations of the same logical entity.
+- All translations reference the same object instance.
+- If the attribute is on the embeddable, the whole object is shared.
+- If the attribute is on properties within an embeddable, only those properties are shared; others may still be cloned.
+
+#### 3. Empty-on-Translate Fields (#[EmptyOnTranslate])
+- Fields that must be reset when creating a new translation.
+- Scalar values are set to null (no predefined defaults see [GitHub Issue #2](https://github.com/CreativeNative/translation-bundle/issues/2)).
+- Embedded objects are replaced with a new, empty instance.
+- Shared fields override this rule: if a field has both #[SharedAmongstTranslations] and #[EmptyOnTranslate], the shared behavior takes precedence and the value is not cleared.
+
+#### 4. Priority of Rules
+1. #[SharedAmongstTranslations] → always overrides others.
+2. #[EmptyOnTranslate] → only applies if not shared.
+3. Otherwise → default translation cloning behavior.
+
+---
+
+### Workflow
+1. A source entity (locale A) is passed to EntityTranslator to produce a target translation entity (locale B).
+2. Handlers inspect each property of the source:
+  - If the property is marked `#[SharedAmongstTranslations]`, the same value is reused/propagated across siblings.
+  - If the property is marked `#[EmptyOnTranslate]`, the target value will be set to null or a new empty instance, regardless of the source.
+  - Otherwise, a clone or new value may be created for the target locale, depending on other attributes and the property type.
+3. PropertyAccessor is used to read source values and write to the target.
 4. The result is a consistent set of entities: one per locale, sharing or translating fields as configured.
 
 ---
@@ -49,22 +72,9 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
-#### [EmbeddedHandler](src/Translation/Handlers/EmbeddedHandler.php)
-- **Purpose:** Handles **Doctrine embeddable objects** (`@Embeddable`).
-- **Priority:** 100
-- **Dependencies:** `AttributeHelper`.
-- **Methods:**
-    - `supports()` — Returns true if property is an embeddable.
-    - `translate()` — Returns a cloned embeddable.
-    - `handleSharedAmongstTranslations()` — Returns original object unchanged.
-    - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Works on value objects embedded in entities, preserves immutability.
-
----
-
 #### [PrimaryKeyHandler](src/Translation/Handlers/PrimaryKeyHandler.php)
 - **Purpose:** Handles **primary key properties** (IDs).
-- **Priority:** 90
+- **Priority:** 100
 - **Dependencies:** `AttributeHelper`.
 - **Methods:**
     - `supports()` — Returns true if property is a primary key.
@@ -73,9 +83,48 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
+#### [ScalarHandler](src/Translation/Handlers/ScalarHandler.php)
+- **Purpose:** Handles **scalar values** and `DateTime`.
+- **Priority:** 90
+- **Dependencies:** None.
+- **Methods:**
+  - `supports()` — Returns true if value is scalar or `DateTime`.
+  - `translate()` — Returns original value.
+  - `handleSharedAmongstTranslations()` — Returns original value.
+  - `handleEmptyOnTranslate()` — Returns `null`.
+- **Notes:** Leaf handler in the translation pipeline; no delegation required.
+
+---
+
+#### [EmbeddedHandler](src/Translation/Handlers/EmbeddedHandler.php)
+- **Purpose:** Handles **Doctrine embeddable objects** (`@Embeddable`).
+- **Priority:** 80
+- **Dependencies:** `AttributeHelper`.
+- **Methods:**
+  - `supports()` — Returns true if property is an embeddable.
+  - `translate()` — Returns a cloned embeddable.
+  - `handleSharedAmongstTranslations()` — Returns original object unchanged.
+  - `handleEmptyOnTranslate()` — Returns `null`.
+- **Notes:** Works on value objects embedded in entities, preserves immutability.
+
+---
+
+#### [BidirectionalManyToOneHandler](src/Translation/Handlers/BidirectionalManyToOneHandler.php)
+- **Purpose:** Handles translation of **bidirectional ManyToOne associations**.
+- **Priority:** 70
+- **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `PropertyAccessorInterface`, `EntityTranslatorInterface`.
+- **Methods:**
+  - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToOne association having `inversedBy`.
+  - `translate()` — Clones parent entity, translates related entity, sets translated entity on clone. Safe fallback to original if translation fails.
+  - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
+  - `handleEmptyOnTranslate()` — Returns `null`.
+- **Notes:** Ensures original objects are never mutated; integrates with `EntityTranslator` for nested translations.
+
+---
+
 #### [BidirectionalOneToManyHandler](src/Translation/Handlers/BidirectionalOneToManyHandler.php)
 - **Purpose:** Handles translation of **bidirectional OneToMany associations**.
-- **Priority:** 80
+- **Priority:** 60
 - **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
     - `supports()` — Returns true for `TranslatableInterface` entities with OneToMany having `mappedBy`.
@@ -86,22 +135,22 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
-#### [BidirectionalManyToOneHandler](src/Translation/Handlers/BidirectionalManyToOneHandler.php)
-- **Purpose:** Handles translation of **bidirectional ManyToOne associations**.
-- **Priority:** 70
-- **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `PropertyAccessorInterface`, `EntityTranslatorInterface`.
+#### [BidirectionalOneToOneHandler](src/Translation/Handlers/BidirectionalOneToOneHandler.php)
+- **Purpose:** Handles translation of **bidirectional OneToOne associations**.
+- **Priority:** 50
+- **Dependencies:** `EntityManagerInterface`, `PropertyAccessor`, `AttributeHelper`.
 - **Methods:**
-    - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToOne association having `inversedBy`.
-    - `translate()` — Clones parent entity, translates related entity, sets translated entity on clone. Safe fallback to original if translation fails.
-    - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
-    - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Ensures original objects are never mutated; integrates with `EntityTranslator` for nested translations.
+  - `supports()` — Returns true for `TranslatableInterface` entities with OneToOne having `mappedBy` or `inversedBy`.
+  - `translate()` — Clones entity, sets target locale, updates inverse property to link to translated parent.
+  - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
+  - `handleEmptyOnTranslate()` — Returns `null`.
+- **Notes:** Ensures bidirectional integrity between parent and child, clones original entities, works with `EntityTranslator`.
 
 ---
 
 #### [BidirectionalManyToManyHandler](src/Translation/Handlers/BidirectionalManyToManyHandler.php)
 - **Purpose:** Translates **bidirectional ManyToMany Doctrine associations** in `TranslatableInterface` entities.
-- **Priority:** 60
+- **Priority:** 40
 - **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `EntityTranslatorInterface`.
 - **Methods:**
     - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToMany association having `mappedBy` or `inversedBy`.
@@ -112,35 +161,29 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
-#### [BidirectionalOneToOneHandler](src/Translation/Handlers/BidirectionalOneToOneHandler.php)
-- **Purpose:** Handles translation of **bidirectional OneToOne associations**.
-- **Priority:** 50
-- **Dependencies:** `EntityManagerInterface`, `PropertyAccessor`, `AttributeHelper`.
+#### [UnidirectionalManyToManyHandler](src/Translation/Handlers/UnidirectionalManyToManyHandler.php)
+- **Purpose:** Handles translation of **unidirectional ManyToMany associations** in `TranslatableInterface` entities.
+- **Priority:** 30
+- **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
-    - `supports()` — Returns true for `TranslatableInterface` entities with OneToOne having `mappedBy` or `inversedBy`.
-    - `translate()` — Clones entity, sets target locale, updates inverse property to link to translated parent.
-    - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
-    - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Ensures bidirectional integrity between parent and child, clones original entities, works with `EntityTranslator`.
-
----
-
-#### [ScalarHandler](src/Translation/Handlers/ScalarHandler.php)
-- **Purpose:** Handles **scalar values** and `DateTime`.
-- **Priority:** 40
-- **Dependencies:** None.
-- **Methods:**
-    - `supports()` — Returns true if value is scalar or `DateTime`.
-    - `translate()` — Returns original value.
-    - `handleSharedAmongstTranslations()` — Returns original value.
-    - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Leaf handler in the translation pipeline; no delegation required.
+  - `supports()` — Returns true if the entity implements `TranslatableInterface` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
+  - `translate()` — Translates each item in the collection:
+    - Copies the original items to avoid modifying the source collection.
+    - Clears the target collection.
+    - Translates each item for the target locale using `EntityTranslator`.
+    - Adds the translated item to the target collection, preventing duplicates.
+  - `handleSharedAmongstTranslations()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported). Otherwise, delegates to `translate()`.
+  - `handleEmptyOnTranslate()` — Returns a new empty `ArrayCollection`.
+- **Notes:**
+  - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
+  - Maintains Doctrine collection integrity while cloning translated items.
+  - Prevents shared translation attributes from being misused on unidirectional relations.
 
 ---
 
 #### [TranslatableEntityHandler](src/Translation/Handlers/TranslatableEntityHandler.php)
 - **Purpose:** Handles **entities implementing `TranslatableInterface`**.
-- **Priority:** 30
+- **Priority:** 20
 - **Dependencies:** `EntityManagerInterface`, `DoctrineObjectHandler`.
 - **Methods:**
     - `supports()` — Returns true if entity implements `TranslatableInterface`.
@@ -148,26 +191,6 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
     - `handleSharedAmongstTranslations()` — Delegates to `translate()`.
     - `handleEmptyOnTranslate()` — Returns `null`.
 - **Notes:** Integrates entity-level and property-level translation, ensures unique translations per locale.
-
----
-
-#### [UnidirectionalManyToManyHandler](src/Translation/Handlers/UnidirectionalManyToManyHandler.php)
-- **Purpose:** Handles translation of **unidirectional ManyToMany associations** in `TranslatableInterface` entities.
-- **Priority:** 20
-- **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
-- **Methods:**
-    - `supports()` — Returns true if the entity implements `TranslatableInterface` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
-    - `translate()` — Translates each item in the collection:
-        - Copies the original items to avoid modifying the source collection.
-        - Clears the target collection.
-        - Translates each item for the target locale using `EntityTranslator`.
-        - Adds the translated item to the target collection, preventing duplicates.
-    - `handleSharedAmongstTranslations()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported). Otherwise, delegates to `translate()`.
-    - `handleEmptyOnTranslate()` — Returns a new empty `ArrayCollection`.
-- **Notes:**
-    - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
-    - Maintains Doctrine collection integrity while cloning translated items.
-    - Prevents shared translation attributes from being misused on unidirectional relations.
 
 ---
 

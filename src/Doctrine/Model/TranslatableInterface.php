@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Doctrine\Model;
 
 interface TranslatableInterface
 {
-
     public function getLocale(): string|null;
 
     public function setLocale(string|null $locale = null): self;

@@ -78,9 +78,9 @@
         "cs-fix": [
             "vendor/bin/phpcbf"
         ],
-        "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --ansi -vvv",
-        "stan-next": "vendor/bin/phpstan analyse -c phpstan.neon --level 2 --ansi -vvv",
-        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --ansi -vvv",
+        "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --memory-limit=512M --ansi -vvv",
+        "stan-next": "vendor/bin/phpstan analyse -c phpstan.neon --level 2 --memory-limit=512M --ansi -vvv",
+        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --memory-limit=512M --ansi -vvv",
         "rector": [
             "Composer\\Config::disableProcessTimeout",
             "vendor/bin/rector process --dry-run"

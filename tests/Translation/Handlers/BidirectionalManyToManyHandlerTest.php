@@ -21,9 +21,6 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
 
-/**
- * @covers \Tmi\TranslationBundle\Translation\Handlers\CollectionHandler
- */
 final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 {
     private BidirectionalManyToManyHandler $handler;

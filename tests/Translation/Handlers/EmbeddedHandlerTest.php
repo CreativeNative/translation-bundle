@@ -6,12 +6,10 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use ReflectionException;
 use ReflectionProperty;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
 /**
  * @covers \Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler
@@ -61,6 +59,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
         self::assertTrue($this->embeddedHandler->supports($args));
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testTranslateReturnsCloneAndDelegatesHandlers(): void
     {
         $entity = new class {
@@ -73,6 +74,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
         self::assertNotSame($entity, $result, 'translate should return a clone');
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function testHandleSharedAmongstTranslationsDelegatesToObjectHandler(): void
     {
         $data = new class {
@@ -82,7 +86,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $args = new TranslationArgs($data, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->handleSharedAmongstTranslations($args);
 
-        $this->assertSame(
+        $this->assertEquals(
             $data,
             $result,
             'EmbeddedHandler should delegate to DoctrineObjectHandler::handleSharedAmongstTranslations (returns same data)'

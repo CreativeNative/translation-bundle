@@ -2,17 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Tmi\TranslationBundle\Fixtures\Entity\Embedded;
+namespace Fixtures\Entity\Embedded;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 #[ORM\Embeddable]
-final class Address
+final class AddressWithEmptyAndSharedProperty
 {
-    // Normal property: will be cloned during translation
     #[ORM\Column(type: Types::STRING, nullable: true)]
+    #[EmptyOnTranslate]
     private string|null $street = null;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    #[EmptyOnTranslate]
+    private string|null $noSetter = 'no Setter';
 
     // Normal property: will be cloned during translation
     #[ORM\Column(type: Types::STRING, nullable: true)]
@@ -22,7 +28,7 @@ final class Address
     #[ORM\Column(type: Types::STRING, nullable: true)]
     private string|null $city = null;
 
-    // Normal property: will be cloned during translation
+    #[SharedAmongstTranslations]
     #[ORM\Column(type: Types::STRING, nullable: true)]
     private string|null $country = null;
 
@@ -35,6 +41,11 @@ final class Address
     {
         $this->street = $street;
         return $this;
+    }
+
+    public function getNoSetter(): string|null
+    {
+        return $this->noSetter;
     }
 
     public function getPostalCode(): string|null
