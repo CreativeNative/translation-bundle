@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Doctrine\ORM\EntityManagerInterface;
-use ReflectionProperty;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
-use Doctrine\ORM\Query;
 
 class UnitTestCase extends TestCase
 {
+    protected const string TARGET_LOCALE        = 'de_DE';
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;
@@ -28,8 +28,6 @@ class UnitTestCase extends TestCase
 
     protected PropertyAccessor|null $propertyAccessor = null;
 
-    protected const string TARGET_LOCALE = 'de_DE';
-
     /**
      * {@inheritDoc}
      */
@@ -39,12 +37,22 @@ class UnitTestCase extends TestCase
 
         // First create mocks for the core dependencies
         $this->eventDispatcherInterface = $this->createMock(EventDispatcherInterface::class);
-        $this->attributeHelper = $this->createMock(AttributeHelper::class);
-        $this->entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->propertyAccessor = new PropertyAccessor();
+        $this->attributeHelper          = $this->createMock(AttributeHelper::class);
+        $this->entityManager            = $this->createMock(EntityManagerInterface::class);
+        $this->propertyAccessor         = new PropertyAccessor();
 
         // Translator can be built afterwards, since it depends on the mocks
         $this->translator = $this->getTranslator();
+    }
+
+    public function getTranslationArgs(\ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
+    {
+        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
+        if (null !== $prop) {
+            $args->setProperty($prop);
+        }
+
+        return $args;
     }
 
     private function getTranslator(): EntityTranslator
@@ -86,17 +94,7 @@ class UnitTestCase extends TestCase
             ['de_DE', 'en_US', 'it_IT'],
             $this->eventDispatcherInterface,
             $this->attributeHelper,
-            $emMock
+            $emMock,
         );
-    }
-
-    public function getTranslationArgs(ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
-    {
-        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
-        if ($prop !== null) {
-            $args->setProperty($prop);
-        }
-
-        return $args;
     }
 }

@@ -13,7 +13,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 final readonly class PrimaryKeyHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper $attributeHelper
+        private AttributeHelper $attributeHelper,
     ) {
     }
 

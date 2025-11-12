@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Args;
 
-use ReflectionProperty;
-
 /**
  * Translation args DTO.
  */
@@ -14,7 +12,7 @@ final class TranslationArgs
     /** @var mixed|null */
     private mixed $translatedParent = null;
 
-    private ReflectionProperty|null $property = null;
+    private \ReflectionProperty|null $property = null;
 
     public function __construct(
         private mixed $dataToBeTranslated,
@@ -80,7 +78,6 @@ final class TranslationArgs
     /**
      * Returns the parent of the data translation.
      * Only set when translating association.
-     *
      */
     public function getTranslatedParent(): mixed
     {
@@ -89,8 +86,6 @@ final class TranslationArgs
 
     /**
      * Sets the parent of the data translation.
-     *
-     * @return TranslationArgs
      */
     public function setTranslatedParent(mixed $translatedParent): self
     {
@@ -103,7 +98,7 @@ final class TranslationArgs
      * Returns the property associated to the translation.
      * Only set when translating association.
      */
-    public function getProperty(): ReflectionProperty|null
+    public function getProperty(): \ReflectionProperty|null
     {
         return $this->property;
     }
@@ -111,7 +106,7 @@ final class TranslationArgs
     /**
      * Sets the property associated to the translation.
      */
-    public function setProperty(ReflectionProperty|null $property): self
+    public function setProperty(\ReflectionProperty|null $property): self
     {
         $this->property = $property;
 

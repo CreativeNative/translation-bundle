@@ -4,41 +4,37 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
-use ReflectionException;
-use ReflectionProperty;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 
-/**
- * @covers \Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(EmbeddedHandler::class)]
 final class EmbeddedHandlerTest extends UnitTestCase
 {
     private EmbeddedHandler $embeddedHandler;
-    private DoctrineObjectHandler $doctrineHandler;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
 
         // Create the real DoctrineObjectHandler (final -> cannot be mocked)
-        $this->doctrineHandler = new DoctrineObjectHandler(
+        $doctrineHandler = new DoctrineObjectHandler(
             $this->entityManager,
             $this->translator,
-            $this->propertyAccessor
+            $this->propertyAccessor,
         );
 
         // Create EmbeddedHandler that delegates to DoctrineObjectHandler
         $this->embeddedHandler = new EmbeddedHandler(
             $this->attributeHelper,
-            $this->doctrineHandler
+            $doctrineHandler,
         );
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsDelegatesToAttributeHelper(): void
     {
@@ -51,7 +47,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
         };
 
         // property reflection representing an embedded property
-        $prop = new ReflectionProperty($obj::class, 'embedded');
+        $prop = new \ReflectionProperty($obj::class, 'embedded');
         $args = new TranslationArgs(null, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($obj);
@@ -60,7 +56,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateReturnsCloneAndDelegatesHandlers(): void
     {
@@ -68,14 +64,14 @@ final class EmbeddedHandlerTest extends UnitTestCase
             public string|null $prop = 'x';
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->translate($args);
 
         self::assertNotSame($entity, $result, 'translate should return a clone');
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testHandleSharedAmongstTranslationsDelegatesToObjectHandler(): void
     {
@@ -83,13 +79,13 @@ final class EmbeddedHandlerTest extends UnitTestCase
             public string $foo = 'bar';
         };
 
-        $args = new TranslationArgs($data, 'en_US', 'de_DE');
+        $args   = new TranslationArgs($data, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->handleSharedAmongstTranslations($args);
 
         $this->assertEquals(
             $data,
             $result,
-            'EmbeddedHandler should delegate to DoctrineObjectHandler::handleSharedAmongstTranslations (returns same data)'
+            'EmbeddedHandler should delegate to DoctrineObjectHandler::handleSharedAmongstTranslations (returns same data)',
         );
     }
 }

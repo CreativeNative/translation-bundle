@@ -19,7 +19,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
@@ -42,26 +42,27 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
 
     public function __construct()
     {
-        $this->simpleChildren = new ArrayCollection();
-        $this->sharedChildren = new ArrayCollection();
-        $this->emptyChildren = new ArrayCollection();
+        $this->simpleChildren          = new ArrayCollection();
+        $this->sharedChildren          = new ArrayCollection();
+        $this->emptyChildren           = new ArrayCollection();
         $this->nonTranslatableChildren = new ArrayCollection();
     }
 
-    /**
-     */
     public function getId(): int|null
     {
         return $this->id;
     }
 
-
     public function setId(int|null $id): self
     {
         $this->id = $id;
+
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToOneBidirectionalChild>
+     */
     public function getSimpleChildren(): Collection
     {
         return $this->simpleChildren;
@@ -70,9 +71,13 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     public function setSimpleChildren(Collection $simpleChildren): self
     {
         $this->simpleChildren = $simpleChildren;
+
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToOneBidirectionalChild>
+     */
     public function getSharedChildren(): Collection
     {
         return $this->sharedChildren;
@@ -81,10 +86,13 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     public function setSharedChildren(Collection $sharedChildren): self
     {
         $this->sharedChildren = $sharedChildren;
+
         return $this;
     }
 
-
+    /**
+     * @return Collection<int, TranslatableManyToOneBidirectionalChild>
+     */
     public function getEmptyChildren(): Collection
     {
         return $this->emptyChildren;
@@ -93,9 +101,13 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     public function setEmptyChildren(Collection $emptyChildren): self
     {
         $this->emptyChildren = $emptyChildren;
+
         return $this;
     }
 
+    /**
+     * @return Collection<int, NonTranslatableManyToOneBidirectionalChild>
+     */
     public function getNonTranslatableChildren(): Collection
     {
         return $this->nonTranslatableChildren;
@@ -104,6 +116,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     public function setNonTranslatableChildren(Collection $nonTranslatableChildren): self
     {
         $this->nonTranslatableChildren = $nonTranslatableChildren;
+
         return $this;
     }
 

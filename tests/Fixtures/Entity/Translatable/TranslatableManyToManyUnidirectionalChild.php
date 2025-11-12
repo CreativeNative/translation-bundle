@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 final class TranslatableManyToManyUnidirectionalChild implements TranslatableInterface
@@ -16,19 +16,19 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
     private string|null $name = null;
 
     #[SharedAmongstTranslations]
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
     private string|null $sharedName = null;
 
     #[EmptyOnTranslate]
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::STRING, length: 255, nullable: true)]
     private string|null $emptyName = null;
 
     public function getId(): int|null
@@ -44,6 +44,7 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     public function setName(string|null $name): self
     {
         $this->name = $name;
+
         return $this;
     }
 
@@ -55,6 +56,7 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     public function setSharedName(string|null $sharedName): self
     {
         $this->sharedName = $sharedName;
+
         return $this;
     }
 
@@ -66,6 +68,7 @@ final class TranslatableManyToManyUnidirectionalChild implements TranslatableInt
     public function setEmptyName(string|null $emptyName): self
     {
         $this->emptyName = $emptyName;
+
         return $this;
     }
 }

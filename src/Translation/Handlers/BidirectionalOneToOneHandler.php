@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
-use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -22,7 +21,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     public function __construct(
         private EntityManagerInterface $entityManager,
         private PropertyAccessor $propertyAccessor,
-        private AttributeHelper $attributeHelper
+        private AttributeHelper $attributeHelper,
     ) {
     }
 
@@ -51,23 +50,17 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     }
 
     /**
-     * @throws ErrorException
+     * @throws \ErrorException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
         if ($this->attributeHelper->isOneToOne($args->getProperty())) {
-            $data = $args->getDataToBeTranslated();
-            $message =
-                '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared ' .
-                'amongst translations. Either remove the @SharedAmongstTranslation ' .
+            $data    = $args->getDataToBeTranslated();
+            $message = '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
+                'amongst translations. Either remove the @SharedAmongstTranslation '.
                 'annotation or choose another association type.';
 
-            throw new ErrorException(
-                strtr($message, [
-                    '%class%' => $data::class,
-                    '%prop%' => $args->getProperty()->name,
-                ])
-            );
+            throw new \ErrorException(strtr($message, ['%class%' => $data::class, '%prop%' => $args->getProperty()->name]));
         }
 
         return $args->getDataToBeTranslated();
@@ -80,9 +73,9 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
 
     public function translate(TranslationArgs $args): mixed
     {
-        $clone = clone $args->getDataToBeTranslated();
-        $fieldName = $args->getProperty()->name;
-        $associations = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
+        $clone           = clone $args->getDataToBeTranslated();
+        $fieldName       = $args->getProperty()->name;
+        $associations    = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
         $parentFieldName = null;
 
         foreach ($associations as $association) {
@@ -93,7 +86,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
 
         $clone->setLocale($args->getTargetLocale());
 
-        if ($parentFieldName !== null) {
+        if (null !== $parentFieldName) {
             $this->propertyAccessor->setValue($clone, $parentFieldName, $args->getTranslatedParent());
         }
 

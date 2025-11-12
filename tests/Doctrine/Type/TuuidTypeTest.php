@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Type;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
-use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -18,7 +17,7 @@ final class TuuidTypeTest extends TestCase
 
     public function setUp(): void
     {
-        $this->type = new TuuidType();
+        $this->type     = new TuuidType();
         $this->platform = $this->createMock(AbstractPlatform::class);
     }
 
@@ -32,7 +31,7 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToPHPValueReturnsNull(): void
     {
-        $this->assertNull($this->type->convertToPHPValue(null, $this->platform));
+        $this->assertNotInstanceOf(Tuuid::class, $this->type->convertToPHPValue(null, $this->platform));
     }
 
     /**
@@ -40,7 +39,7 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToPHPValueConvertsValidTuuid(): void
     {
-        $uuid = Tuuid::generate();
+        $uuid       = Tuuid::generate();
         $uuidString = $uuid->getValue();
 
         $tuuid = $this->type->convertToPHPValue($uuidString, $this->platform);
@@ -70,10 +69,10 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToDatabaseValueConvertsTuuidToString(): void
     {
-        $tuuid = Tuuid::generate();
+        $tuuid   = Tuuid::generate();
         $dbValue = $this->type->convertToDatabaseValue($tuuid, $this->platform);
 
-        $this->assertSame((string)$tuuid, $dbValue);
+        $this->assertSame((string) $tuuid, $dbValue);
     }
 
     /**
@@ -81,7 +80,7 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToDatabaseValueThrowsExceptionOnInvalidObject(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Value must be a Tuuid object.');
 
         $this->type->convertToDatabaseValue('not-a-tuuid', $this->platform);

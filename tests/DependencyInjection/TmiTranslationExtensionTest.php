@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\DependencyInjection;
 
-use Exception;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
@@ -13,7 +12,7 @@ use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 final class TmiTranslationExtensionTest extends TestCase
 {
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testLoad(): void
     {
@@ -22,8 +21,8 @@ final class TmiTranslationExtensionTest extends TestCase
 
         $config = [
             [
-                'locales' => ['en_US', 'de_DE', 'it_IT'],
-                'default_locale' => 'en_US',
+                'locales'            => ['en_US', 'de_DE', 'it_IT'],
+                'default_locale'     => 'en_US',
                 'disabled_firewalls' => ['admin'],
             ],
         ];
@@ -31,15 +30,15 @@ final class TmiTranslationExtensionTest extends TestCase
 
         $this->assertTrue(
             $container->has('tmi_translation.translation.entity_translator'),
-            'EntityTranslator service should be registered'
+            'EntityTranslator service should be registered',
         );
         $this->assertTrue(
             $container->has('tmi_translation.utils.attribute_helper'),
-            'AttributeHelper service should be registered'
+            'AttributeHelper service should be registered',
         );
         $this->assertTrue(
             $container->has(LocaleFilterConfigurator::class),
-            'LocaleFilterConfigurator subscriber should be registered'
+            'LocaleFilterConfigurator subscriber should be registered',
         );
     }
 
@@ -47,9 +46,9 @@ final class TmiTranslationExtensionTest extends TestCase
     {
         $container = new ContainerBuilder();
         $extension = new TmiTranslationExtension();
-// Call the empty prepend method, it should not throw any exceptions
+        // Call the empty prepend method, it should not throw any exceptions
         $extension->prepend($container);
-// Assert the container is still an instance of ContainerBuilder
+        // Assert the container is still an instance of ContainerBuilder
         $this->assertInstanceOf(ContainerBuilder::class, $container);
     }
 }

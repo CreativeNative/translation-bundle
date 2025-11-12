@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
 use Doctrine\ORM\Mapping as ORM;
-use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
 #[ORM\Entity]
 final class TranslatableOneToOneUnidirectional implements TranslatableInterface
@@ -23,7 +23,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
 
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(nullable: true)]
     private Scalar|null $simple = null;
@@ -31,7 +31,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[SharedAmongstTranslations]
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(name: 'shared_id')]
     private Scalar|null $shared = null;
@@ -39,7 +39,7 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     #[EmptyOnTranslate]
     #[ORM\OneToOne(
         targetEntity: Scalar::class,
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(nullable: true)]
     private Scalar|null $empty = null;
@@ -65,7 +65,6 @@ final class TranslatableOneToOneUnidirectional implements TranslatableInterface
     {
         return $this->shared;
     }
-
 
     public function setShared(Scalar|null $shared = null): self
     {

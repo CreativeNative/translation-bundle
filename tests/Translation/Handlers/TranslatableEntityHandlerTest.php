@@ -5,23 +5,22 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityRepository;
-
-use stdClass;
+use ReflectionException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
-use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
-use ReflectionException;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 final class TranslatableEntityHandlerTest extends UnitTestCase
 {
     private TranslatableEntityHandler $handler;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
@@ -30,41 +29,39 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $doctrineObjectHandler = new DoctrineObjectHandler(
             $this->entityManager,
             $this->translator,
-            $this->propertyAccessor
+            $this->propertyAccessor,
         );
 
         $this->handler = new TranslatableEntityHandler(
             $this->entityManager,
-            $doctrineObjectHandler
+            $doctrineObjectHandler,
         );
     }
 
     public function testSupportsWithTranslatableInterface(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
 
         $this->assertTrue($this->handler->supports($args));
     }
 
     public function testSupportsWithNonTranslatable(): void
     {
-        $nonTranslatable = new stdClass();
-        $args = new TranslationArgs($nonTranslatable, 'en_US', 'de_DE');
+        $nonTranslatable = new \stdClass();
+        $args            = new TranslationArgs($nonTranslatable, 'en_US', 'de_DE');
 
         $this->assertFalse($this->handler->supports($args));
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testHandleSharedAmongstTranslations(): void
     {
-
-
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
-        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $tuuid        = new Tuuid(Uuid::v4()->toRfc4122());
 
         // Set up the mocks so that translate will return the translatable mock
         $translatable->expects($this->once())
@@ -76,13 +73,13 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => (string) $tuuid,
+                'tuuid'  => (string) $tuuid,
             ])
             ->willReturn($translatable);
 
         $this->entityManager->expects($this->once())
             ->method('getRepository')
-            ->with(get_class($translatable))
+            ->with($translatable::class)
             ->willReturn($repository);
 
         $result = $this->handler->handleSharedAmongstTranslations($args);
@@ -92,19 +89,19 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslate(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
 
         $result = $this->handler->handleEmptyOnTranslate($args);
         $this->assertNull($result);
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateReturnsExistingTranslationWhenFound(): void
     {
         $existingTranslation = $this->createMock(TranslatableInterface::class);
-        $originalEntity = $this->createMock(TranslatableInterface::class);
+        $originalEntity      = $this->createMock(TranslatableInterface::class);
 
         $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
@@ -116,7 +113,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en_US',
-            'de_DE'
+            'de_DE',
         );
 
         // Mock repository to return existing translation
@@ -125,13 +122,13 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => (string) $tuuid,
+                'tuuid'  => (string) $tuuid,
             ])
             ->willReturn($existingTranslation);
 
         $this->entityManager->expects($this->once())
             ->method('getRepository')
-            ->with(get_class($originalEntity))
+            ->with($originalEntity::class)
             ->willReturn($repository);
 
         $result = $this->handler->translate($translationArgs);
@@ -140,7 +137,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateCreatesNewTranslationWhenNotFound(): void
     {
@@ -153,7 +150,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en_US',
-            'de_DE'
+            'de_DE',
         );
 
         // Mock repository to return null (no existing translation)
@@ -162,13 +159,13 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => (string) $tuuid,
+                'tuuid'  => (string) $tuuid,
             ])
             ->willReturn(null);
 
         $this->entityManager->expects($this->once())
             ->method('getRepository')
-            ->with(get_class($originalEntity))
+            ->with($originalEntity::class)
             ->willReturn($repository);
 
         // Call the method under test
@@ -178,18 +175,18 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $this->assertNotSame($originalEntity, $result);
 
         // Verify the locale was set correctly
-        $this->assertEquals('de_DE', $result->getLocale());
+        $this->assertSame('de_DE', $result->getLocale());
 
         // Verify it's still the same type of object
-        $this->assertInstanceOf(get_class($originalEntity), $result);
+        $this->assertInstanceOf($originalEntity::class, $result);
 
         // Verify the tuuid is preserved
-        $this->assertEquals((string) $tuuid, (string) $result->getTuuid());
+        $this->assertSame((string) $tuuid, (string) $result->getTuuid());
     }
 
     public function testTranslateWithReflectionException(): void
     {
-        $this->expectException(ReflectionException::class);
+        $this->expectException(\ReflectionException::class);
 
         $originalEntity = $this->createMock(TranslatableInterface::class);
 
@@ -203,7 +200,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $translationArgs = new TranslationArgs(
             $originalEntity,
             'en_US',
-            'de_DE'
+            'de_DE',
         );
 
         // Mock repository to return null (no existing translation)
@@ -212,31 +209,31 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => (string) $tuuid,
+                'tuuid'  => (string) $tuuid,
             ])
             ->willReturn(null);
 
         $this->entityManager->expects($this->once())
             ->method('getRepository')
-            ->with(get_class($originalEntity))
+            ->with($originalEntity::class)
             ->willReturn($repository);
 
         // Create a mock translator that throws ReflectionException
         $exceptionTranslator = $this->createMock(EntityTranslatorInterface::class);
         $exceptionTranslator->expects($this->once())
             ->method('processTranslation')
-            ->willThrowException(new ReflectionException('Test exception'));
+            ->willThrowException(new \ReflectionException('Test exception'));
 
         // Create a new DoctrineObjectHandler with the exception translator
         $exceptionDoctrineObjectHandler = new DoctrineObjectHandler(
             $this->entityManager,
             $exceptionTranslator,
-            $this->propertyAccessor
+            $this->propertyAccessor,
         );
 
         $exceptionHandler = new TranslatableEntityHandler(
             $this->entityManager,
-            $exceptionDoctrineObjectHandler
+            $exceptionDoctrineObjectHandler,
         );
 
         $exceptionHandler->translate($translationArgs);

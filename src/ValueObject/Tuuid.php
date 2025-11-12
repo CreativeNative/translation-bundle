@@ -4,37 +4,30 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\ValueObject;
 
-use InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * Value object for Translation UUID (Tuuid).
  */
-final class Tuuid
+final readonly class Tuuid implements \Stringable
 {
     private string $value;
 
     /**
      * Tuuid constructor.
      *
-     * @param string $value The UUID string.
+     * @param string $value the UUID string
      *
-     * @throws InvalidArgumentException if the provided string is not a valid UUID.
+     * @throws \InvalidArgumentException if the provided string is not a valid UUID
      */
     public function __construct(string $value)
     {
         if (!Uuid::isValid($value)) {
-            throw new InvalidArgumentException(sprintf('Invalid Tuuid value: "%s".', $value));
+            throw new \InvalidArgumentException(sprintf('Invalid Tuuid value: "%s".', $value));
         }
 
         // Normalize to lowercase RFC4122 format
         $this->value = strtolower(Uuid::fromString($value)->toRfc4122());
-    }
-
-    public static function generate(): self
-    {
-        // Creates a new UUIDv7 (time-based, SEO-friendly sequence)
-        return new self(Uuid::v7()->toRfc4122());
     }
 
     /**
@@ -43,6 +36,12 @@ final class Tuuid
     public function __toString(): string
     {
         return $this->value;
+    }
+
+    public static function generate(): self
+    {
+        // Creates a new UUIDv7 (time-based, SEO-friendly sequence)
+        return new self(Uuid::v7()->toRfc4122());
     }
 
     /**

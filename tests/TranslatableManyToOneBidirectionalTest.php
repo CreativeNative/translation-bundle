@@ -31,7 +31,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $translation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        assert($translation instanceof TranslatableOneToManyBidirectionalParent);
+        $this->assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
@@ -61,7 +61,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->persist($child);
         $this->entityManager->flush();
 
-        $this->assertNotNull($child->getTuuid());
+        $this->assertInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $child->getTuuid());
         $this->assertTrue(Uuid::isValid($child->getTuuid()->getValue()));
 
         // --- Step 2: Create and persist the parent ---
@@ -73,24 +73,24 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->persist($parent);
         $this->entityManager->flush();
 
-        $this->assertNotNull($parent->getTuuid());
+        $this->assertInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $parent->getTuuid());
         $this->assertTrue(Uuid::isValid($parent->getTuuid()->getValue()));
 
         $translatedChild = $this->translator->translate($child, self::TARGET_LOCALE);
-        assert($translatedChild instanceof TranslatableManyToOneBidirectionalChild);
+        $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $translatedChild);
         $parent->getSimpleChildren()->add($translatedChild);
         $translatedChild->setParentSimple($parent);
 
         // --- Step 3: Translate the parent (Child will be translated automatically) ---
         $translation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        assert($translation instanceof TranslatableOneToManyBidirectionalParent);
+        $this->assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         // --- Step 4: Assertions ---
         $translatedChildFromParent = $translation->getSimpleChildren()->first();
-        assert($translatedChildFromParent instanceof TranslatableManyToOneBidirectionalChild);
+        $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $translatedChildFromParent);
 
         // Adjust assertion for object identity
         if ($translatedChildFromParent->getLocale() !== $child->getLocale()) {
@@ -99,10 +99,9 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
             self::assertSame($child, $translatedChildFromParent);
         }
 
-        self::assertEquals(self::TARGET_LOCALE, $translatedChildFromParent->getLocale());
+        self::assertSame(self::TARGET_LOCALE, $translatedChildFromParent->getLocale());
         self::assertIsTranslation($parent, $translation, self::TARGET_LOCALE);
     }
-
 
     /**
      * @throws ORMException
@@ -117,7 +116,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $translatedChild = $this->translator->translate($child, self::TARGET_LOCALE);
-        assert($translatedChild instanceof TranslatableManyToOneBidirectionalChild);
+        $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $translatedChild);
 
         $this->entityManager->persist($translatedChild);
         $this->entityManager->flush();
@@ -131,7 +130,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager->persist($parent);
 
         $translation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        assert($translation instanceof TranslatableOneToManyBidirectionalParent);
+        $this->assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();

@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
-use Exception;
 use PHPUnit\Framework\TestCase;
-use ReflectionException;
-use ReflectionMethod;
-use ReflectionType;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tmi\TranslationBundle\TmiTranslationBundle;
@@ -24,7 +20,7 @@ final class TmiTranslationBundleTest extends TestCase
 
     public function testBuildMethodExistsAndIsCallable(): void
     {
-        $bundle = new TmiTranslationBundle();
+        $bundle    = new TmiTranslationBundle();
         $container = $this->createMock(ContainerBuilder::class);
 
         // Test that the method exists
@@ -34,8 +30,8 @@ final class TmiTranslationBundleTest extends TestCase
         try {
             $bundle->build($container);
             $this->assertTrue(true, 'build() method executed successfully');
-        } catch (Exception $e) {
-            $this->fail('build() method threw an exception: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            $this->fail('build() method threw an exception: '.$e->getMessage());
         }
     }
 
@@ -65,21 +61,21 @@ final class TmiTranslationBundleTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testBuildMethodSignature(): void
     {
         $bundle = new TmiTranslationBundle();
 
         // Test that build method has the correct signature
-        $reflection = new ReflectionMethod($bundle, 'build');
+        $reflection = new \ReflectionMethod($bundle, 'build');
         $parameters = $reflection->getParameters();
 
         $this->assertCount(1, $parameters);
         $this->assertSame('container', $parameters[0]->getName());
 
         $parameterType = $parameters[0]->getType();
-        $this->assertInstanceOf(ReflectionType::class, $parameterType);
+        $this->assertInstanceOf(\ReflectionType::class, $parameterType);
         $this->assertEquals(ContainerBuilder::class, $parameterType->getName());
     }
 
@@ -88,7 +84,7 @@ final class TmiTranslationBundleTest extends TestCase
         $bundle = new TmiTranslationBundle();
 
         // Test that name and namespace are meaningful
-        $name = $bundle->getName();
+        $name      = $bundle->getName();
         $namespace = $bundle->getNamespace();
 
         $this->assertNotEmpty($name);

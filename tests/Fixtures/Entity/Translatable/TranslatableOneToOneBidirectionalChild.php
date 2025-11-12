@@ -21,7 +21,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
         inversedBy: 'simpleChild',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToOneBidirectionalParent|null $simpleParent = null;
@@ -29,7 +29,7 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
         inversedBy: 'sharedChild',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToOneBidirectionalParent|null $sharedParent = null;
@@ -37,11 +37,10 @@ final class TranslatableOneToOneBidirectionalChild implements TranslatableInterf
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalParent::class,
         inversedBy: 'emptyChild',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinColumn(nullable: true)]
     private TranslatableOneToOneBidirectionalParent|null $emptyParent = null;
-
 
     public function getId(): int|null
     {

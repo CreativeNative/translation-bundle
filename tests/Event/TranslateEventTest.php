@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Event;
 
 use PHPUnit\Framework\TestCase;
-use stdClass;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 
 final class TranslateEventTest extends TestCase
 {
     public function testEventProperties(): void
     {
-        $source = new stdClass();
-        $translated = new stdClass();
-        $locale = 'en_US';
+        $source     = new \stdClass();
+        $translated = new \stdClass();
+        $locale     = 'en_US';
 
         $event = new TranslateEvent($source, $locale, $translated);
 
@@ -30,7 +29,7 @@ final class TranslateEventTest extends TestCase
 
     public function testTranslatedEntityCanBeNull(): void
     {
-        $source = new stdClass();
+        $source = new \stdClass();
         $locale = 'fr';
 
         $event = new TranslateEvent($source, $locale);

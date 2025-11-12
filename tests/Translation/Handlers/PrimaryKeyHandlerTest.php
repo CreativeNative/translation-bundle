@@ -5,19 +5,16 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\TestCase;
-use ReflectionException;
-use ReflectionProperty;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
-use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass(PrimaryKeyHandler::class)]
 final class PrimaryKeyHandlerTest extends UnitTestCase
 {
     private PrimaryKeyHandler $handler;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
@@ -26,32 +23,32 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsReturnsTrueWhenPropertyIsId(): void
     {
         $dummy = new class {
-            public int $id = 1;
+            public int $id      = 1;
             public string $name = 'test';
         };
 
-        $prop = new ReflectionProperty(get_class($dummy), 'id');
+        $prop = new \ReflectionProperty($dummy::class, 'id');
         $args = new TranslationArgs(123, 'en_US', 'de_DE')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(true);
         self::assertTrue($this->handler->supports($args));
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsReturnsFalseWhenPropertyIsNotId(): void
     {
         $dummy = new class {
-            public int $id = 1;
+            public int $id      = 1;
             public string $name = 'test';
         };
 
-        $prop = new ReflectionProperty(get_class($dummy), 'name');
+        $prop = new \ReflectionProperty($dummy::class, 'name');
         $args = new TranslationArgs('foo', 'en_US', 'de_DE')->setProperty($prop);
         $this->attributeHelper->method('isId')->with($prop)->willReturn(false);
         self::assertFalse($this->handler->supports($args));

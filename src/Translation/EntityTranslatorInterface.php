@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 

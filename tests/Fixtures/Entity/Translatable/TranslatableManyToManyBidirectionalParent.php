@@ -29,14 +29,14 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'simpleParents',
-        cascade: ['persist', 'remove']
+        cascade: ['persist', 'remove'],
     )]
     private Collection $simpleChildren;
 
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',
-        cascade: ['persist', 'remove']
+        cascade: ['persist', 'remove'],
     )]
     #[SharedAmongstTranslations]
     private Collection $sharedChildren;
@@ -44,7 +44,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
-        cascade: ['persist', 'remove']
+        cascade: ['persist', 'remove'],
     )]
     #[EmptyOnTranslate]
     private Collection $emptyChildren;
@@ -56,7 +56,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     {
         $this->simpleChildren = new ArrayCollection();
         $this->sharedChildren = new ArrayCollection();
-        $this->emptyChildren = new ArrayCollection();
+        $this->emptyChildren  = new ArrayCollection();
     }
 
     public function getId(): int|null

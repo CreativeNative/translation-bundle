@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation;
 
 use PHPUnit\Framework\TestCase;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
-use Doctrine\ORM\EntityManagerInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
 final class EntityTranslatorInterfaceTest extends TestCase
 {
@@ -27,7 +26,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
         foreach ($methods as $method) {
             self::assertTrue(
                 $reflection->hasMethod($method),
-                sprintf('Method %s should exist in EntityTranslatorInterface', $method)
+                sprintf('Method %s should exist in EntityTranslatorInterface', $method),
             );
         }
     }
@@ -35,7 +34,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
     public function testAfterLoadMethodSignature(): void
     {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method = $reflection->getMethod('afterLoad');
+        $method     = $reflection->getMethod('afterLoad');
         $parameters = $method->getParameters();
 
         self::assertCount(1, $parameters);
@@ -49,7 +48,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
     public function testBeforePersistMethodSignature(): void
     {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method = $reflection->getMethod('beforePersist');
+        $method     = $reflection->getMethod('beforePersist');
         $parameters = $method->getParameters();
 
         self::assertCount(1, $parameters);
@@ -63,7 +62,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
     public function testBeforeUpdateMethodSignature(): void
     {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method = $reflection->getMethod('beforeUpdate');
+        $method     = $reflection->getMethod('beforeUpdate');
         $parameters = $method->getParameters();
 
         self::assertCount(1, $parameters);
@@ -77,7 +76,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
     public function testBeforeRemoveMethodSignature(): void
     {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method = $reflection->getMethod('beforeRemove');
+        $method     = $reflection->getMethod('beforeRemove');
         $parameters = $method->getParameters();
 
         self::assertCount(1, $parameters);

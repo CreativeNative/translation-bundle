@@ -8,13 +8,12 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use RuntimeException;
+use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 /**
  * Handles ManyToMany unidirectional associations during translation.
@@ -42,7 +41,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         }
 
         $attributes = $property->getAttributes(ManyToMany::class);
-        if ($attributes === []) {
+        if ([] === $attributes) {
             return false;
         }
 
@@ -61,19 +60,14 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $collection = $args->getDataToBeTranslated();
 
         $prop = $args->getProperty();
-        if ($prop === null) {
+        if (null === $prop) {
             return $collection;
         }
 
         // Check for SharedAmongstTranslations attribute
         $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
         if (!empty($sharedAttrs)) {
-            throw new RuntimeException(sprintf(
-                'SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. '
-                . 'Property "%s" of class "%s" is invalid.',
-                $prop->getName(),
-                $args->getDataToBeTranslated()::class
-            ));
+            throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $args->getDataToBeTranslated()::class));
         }
 
         return $this->translate($args);
@@ -86,53 +80,37 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
     /**
      * Translate the collection items and replace the collection entries with translated items.
-     *
      */
     public function translate(TranslationArgs $args): Collection
     {
         $newOwner = $args->getTranslatedParent();
         $property = $args->getProperty();
 
-        if ($newOwner === null) {
-            throw new RuntimeException('No translated parent provided.');
+        if (null === $newOwner) {
+            throw new \RuntimeException('No translated parent provided.');
         }
 
-        if ($property === null) {
-            throw new RuntimeException(sprintf(
-                'No property given for parent of class "%s".',
-                $newOwner::class
-            ));
+        if (null === $property) {
+            throw new \RuntimeException(sprintf('No property given for parent of class "%s".', $newOwner::class));
         }
 
-        $meta = $this->entityManager->getClassMetadata($newOwner::class);
+        $meta         = $this->entityManager->getClassMetadata($newOwner::class);
         $associations = $meta->getAssociationMappings();
-        $association = $associations[$property->name] ?? null;
+        $association  = $associations[$property->name] ?? null;
 
-        if ($association === null) {
-            throw new RuntimeException(sprintf(
-                'Property "%s" is not a valid association in class "%s".',
-                $property->name,
-                $newOwner::class
-            ));
+        if (null === $association) {
+            throw new \RuntimeException(sprintf('Property "%s" is not a valid association in class "%s".', $property->name, $newOwner::class));
         }
 
         if (($association['isOwningSide'] ?? false) !== true) {
-            throw new RuntimeException(sprintf(
-                'Property "%s" on "%s" is not the owning side of the relation.',
-                $property->name,
-                $newOwner::class
-            ));
+            throw new \RuntimeException(sprintf('Property "%s" on "%s" is not the owning side of the relation.', $property->name, $newOwner::class));
         }
 
         $fieldName = (string) $association['fieldName'];
-        $accessor = new PropertyAccessor();
+        $accessor  = new PropertyAccessor();
 
         if (!property_exists($newOwner, $fieldName)) {
-            throw new RuntimeException(sprintf(
-                'Field "%s" not found in class "%s".',
-                $fieldName,
-                $newOwner::class
-            ));
+            throw new \RuntimeException(sprintf('Field "%s" not found in class "%s".', $fieldName, $newOwner::class));
         }
 
         /** @var Collection<int, object>|null $collection */

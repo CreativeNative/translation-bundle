@@ -17,7 +17,7 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
      */
     public function testItCanTranslateSimpleValue(): void
     {
-        $child = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
+        $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en_US');
 
         $parent->setSimpleChild($child);
@@ -38,7 +38,7 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
     {
         $this->expectException(\ErrorException::class);
 
-        $child = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
+        $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en_US');
 
         $parent->setSharedChild($child);

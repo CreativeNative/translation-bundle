@@ -14,7 +14,7 @@ final class TranslatableManyToOneBidirectionalChild implements TranslatableInter
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
@@ -43,6 +43,7 @@ final class TranslatableManyToOneBidirectionalChild implements TranslatableInter
     public function setParentSimple(TranslatableOneToManyBidirectionalParent|null $parentSimple): self
     {
         $this->parentSimple = $parentSimple;
+
         return $this;
     }
 
@@ -54,6 +55,7 @@ final class TranslatableManyToOneBidirectionalChild implements TranslatableInter
     public function setParentShared(TranslatableOneToManyBidirectionalParent|null $parentShared): self
     {
         $this->parentShared = $parentShared;
+
         return $this;
     }
 
@@ -65,6 +67,7 @@ final class TranslatableManyToOneBidirectionalChild implements TranslatableInter
     public function setParentEmpty(TranslatableOneToManyBidirectionalParent|null $parentEmpty): self
     {
         $this->parentEmpty = $parentEmpty;
+
         return $this;
     }
 }

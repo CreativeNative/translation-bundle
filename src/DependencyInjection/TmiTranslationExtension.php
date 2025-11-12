@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\DependencyInjection;
 
 use Doctrine\DBAL\Types\Exception\TypesException;
-use Exception;
 use Doctrine\DBAL\Types\Type;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -18,12 +17,13 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 {
     /**
      * @param array<array<string, mixed>> $configs
-     * @throws Exception|\Doctrine\DBAL\Exception|TypesException
+     *
+     * @throws \Exception|\Doctrine\DBAL\Exception|TypesException
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
-        $config = $this->processConfiguration($configuration, $configs);
+        $config        = $this->processConfiguration($configuration, $configs);
 
         // Set configuration into params
         $rootName = 'tmi_translation';
@@ -35,7 +35,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
             Type::addType(TuuidType::NAME, TuuidType::class);
         }
 
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
     }
 
@@ -45,12 +45,13 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
     /**
      * Add config keys as parameters.
+     *
      * @param array<string, mixed> $params
      */
     private function setConfigAsParameters(ContainerBuilder $container, array $params, string $parent): void
     {
         foreach ($params as $key => $value) {
-            $name = $parent . '.' . $key;
+            $name = $parent.'.'.$key;
             $container->setParameter($name, $value);
 
             if (is_array($value)) {

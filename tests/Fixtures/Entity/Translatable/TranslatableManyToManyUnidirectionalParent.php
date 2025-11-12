@@ -19,12 +19,12 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
     /**
-     * Simple children collection
+     * Simple children collection.
      *
      * @var Collection<int, TranslatableManyToManyUnidirectionalChild>
      */
@@ -33,7 +33,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     private Collection $simpleChildren;
 
     /**
-     * Empty-on-translate collection
+     * Empty-on-translate collection.
      *
      * @var Collection<int, TranslatableManyToManyUnidirectionalChild>
      */
@@ -43,7 +43,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     private Collection $emptyChildren;
 
     /**
-     * Shared-across-translations collection
+     * Shared-across-translations collection.
      *
      * @var Collection<int, TranslatableManyToManyUnidirectionalChild>
      */
@@ -55,7 +55,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
     public function __construct()
     {
         $this->simpleChildren = new ArrayCollection();
-        $this->emptyChildren = new ArrayCollection();
+        $this->emptyChildren  = new ArrayCollection();
         $this->sharedChildren = new ArrayCollection();
     }
 
@@ -64,6 +64,9 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
         return $this->id;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyUnidirectionalChild>
+     */
     public function getSimpleChildren(): Collection
     {
         return $this->simpleChildren;
@@ -74,9 +77,13 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
         if (!$this->simpleChildren->contains($child)) {
             $this->simpleChildren->add($child);
         }
+
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyUnidirectionalChild>
+     */
     public function getEmptyChildren(): Collection
     {
         return $this->emptyChildren;
@@ -87,9 +94,13 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
         if (!$this->emptyChildren->contains($child)) {
             $this->emptyChildren->add($child);
         }
+
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyUnidirectionalChild>
+     */
     public function getSharedChildren(): Collection
     {
         return $this->sharedChildren;
@@ -100,6 +111,7 @@ final class TranslatableManyToManyUnidirectionalParent implements TranslatableIn
         if (!$this->sharedChildren->contains($child)) {
             $this->sharedChildren->add($child);
         }
+
         return $this;
     }
 }

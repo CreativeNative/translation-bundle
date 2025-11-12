@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Model;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -23,12 +22,12 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
         $entity->setTitle('Test Entity');
 
-        $this->assertNull($entity->getTuuid());
+        $this->assertNotInstanceOf(Tuuid::class, $entity->getTuuid());
 
         $this->entityManager->persist($entity);
         $this->entityManager->flush();
 
-        $this->assertNotNull($entity->getTuuid());
+        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
         $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
         $this->assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
     }
@@ -37,7 +36,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $invalidTuuid = 'not-a-valid-uuid';
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage(sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
 
         // Invalid TUuID wird nun direkt im ValueObject validiert
@@ -49,7 +48,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
 
         $entity->setLocale('de_DE');
-        $this->assertEquals('de_DE', $entity->getLocale());
+        $this->assertSame('de_DE', $entity->getLocale());
 
         $entity->setLocale();
         $this->assertNull($entity->getLocale());
@@ -61,10 +60,10 @@ final class TranslatableTraitTest extends IntegrationTestCase
 
         $translations = ['de_DE' => ['title' => 'Titel'], 'en_US' => ['title' => 'Title']];
         $entity->setTranslations($translations);
-        $this->assertEquals($translations, $entity->getTranslations());
+        $this->assertSame($translations, $entity->getTranslations());
 
         $entity->setTranslation('fr', ['title' => 'Titre']);
-        $this->assertEquals(['title' => 'Titre'], $entity->getTranslation('fr'));
+        $this->assertSame(['title' => 'Titre'], $entity->getTranslation('fr'));
 
         $this->assertNull($entity->getTranslation('es'));
     }
@@ -72,11 +71,11 @@ final class TranslatableTraitTest extends IntegrationTestCase
     public function testTuuidMethods(): void
     {
         $entity = new Scalar();
-        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+        $tuuid  = new Tuuid(Uuid::v4()->toRfc4122());
 
         $entity->setTuuid($tuuid);
         $this->assertSame($tuuid, $entity->getTuuid());
-        $this->assertEquals((string) $tuuid, $entity->getTuuid()->__toString());
+        $this->assertSame((string) $tuuid, $entity->getTuuid()->__toString());
 
         $entity->setTuuid(null);
         $this->assertNull($entity->getTuuid());
@@ -85,7 +84,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
     public function testGenerateTuuid(): void
     {
         $entity = new Scalar();
-        $this->assertNull($entity->getTuuid());
+        $this->assertNotInstanceOf(Tuuid::class, $entity->getTuuid());
 
         $entity->generateTuuid();
         $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());

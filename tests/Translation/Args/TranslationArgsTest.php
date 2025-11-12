@@ -5,19 +5,16 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Args;
 
 use PHPUnit\Framework\TestCase;
-use ReflectionException;
-use ReflectionProperty;
-use stdClass;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 
 final class TranslationArgsTest extends TestCase
 {
     public function testConstructorAndGettersWork(): void
     {
-        $data = ['foo' => 'bar'];
+        $data   = ['foo' => 'bar'];
         $source = 'en_US';
         $target = 'de_DE';
-        $args = new TranslationArgs($data, $source, $target);
+        $args   = new TranslationArgs($data, $source, $target);
         self::assertSame($data, $args->getDataToBeTranslated());
         self::assertSame($source, $args->getSourceLocale());
         self::assertSame($target, $args->getTargetLocale());
@@ -26,16 +23,16 @@ final class TranslationArgsTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testFluentSettersAndMutability(): void
     {
-        $args = new TranslationArgs(null);
-        $parent = new stdClass();
-        $dummy = new class {
+        $args   = new TranslationArgs(null);
+        $parent = new \stdClass();
+        $dummy  = new class {
             public int $prop = 42;
         };
-        $property = new ReflectionProperty(get_class($dummy), 'prop');
+        $property = new \ReflectionProperty($dummy::class, 'prop');
         $args
             ->setDataToBeTranslated(123)
             ->setSourceLocale('fr')
@@ -63,7 +60,7 @@ final class TranslationArgsTest extends TestCase
     {
         $args = new TranslationArgs('foo');
         self::assertSame('foo', $args->getDataToBeTranslated());
-        $obj = new stdClass();
+        $obj = new \stdClass();
         $args->setDataToBeTranslated($obj);
         self::assertSame($obj, $args->getDataToBeTranslated());
         $arr = ['a' => 1];

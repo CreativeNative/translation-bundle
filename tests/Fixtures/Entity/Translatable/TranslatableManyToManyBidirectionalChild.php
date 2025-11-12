@@ -27,7 +27,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'simpleChildren',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinTable(name: 'parent_child')]
     private Collection $simpleParents;
@@ -38,7 +38,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'sharedChildren',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinTable(name: 'parent_shared_child')]
     private Collection $sharedParents;
@@ -49,7 +49,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'emptyChildren',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     #[ORM\JoinTable(name: 'parent_empty_child')]
     private Collection $emptyParents;
@@ -58,7 +58,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     {
         $this->simpleParents = new ArrayCollection();
         $this->sharedParents = new ArrayCollection();
-        $this->emptyParents = new ArrayCollection();
+        $this->emptyParents  = new ArrayCollection();
     }
 
     public function getId(): int|null
@@ -84,6 +84,9 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
         return $this;
     }
 
+    /**
+     * @return Collection<int, TranslatableManyToManyBidirectionalParent>
+     */
     public function getSharedParents(): Collection
     {
         return $this->sharedParents;

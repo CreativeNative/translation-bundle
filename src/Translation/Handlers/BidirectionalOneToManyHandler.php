@@ -8,8 +8,6 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToMany;
-use ErrorException;
-use ReflectionException;
 use ReflectionProperty;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -33,7 +31,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     public function __construct(
         private AttributeHelper $attributeHelper,
         private EntityTranslatorInterface $translator,
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -61,22 +59,16 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     }
 
     /**
-     * @throws ErrorException
+     * @throws \ErrorException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        $data = $args->getDataToBeTranslated();
-        $message =
-            '%class%::%prop% is a Bidirectional OneToMany, it cannot be shared ' .
-            'amongst translations. Either remove the SharedAmongstTranslation ' .
+        $data    = $args->getDataToBeTranslated();
+        $message = '%class%::%prop% is a Bidirectional OneToMany, it cannot be shared '.
+            'amongst translations. Either remove the SharedAmongstTranslation '.
             'attribute or choose another association type.';
 
-        throw new ErrorException(
-            strtr($message, [
-                '%class%' => $data::class,
-                '%prop%' => $args->getProperty()->name,
-            ])
-        );
+        throw new \ErrorException(strtr($message, ['%class%' => $data::class, '%prop%' => $args->getProperty()->name]));
     }
 
     public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
@@ -85,7 +77,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function translate(TranslationArgs $args): Collection
     {
@@ -93,7 +85,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         assert($children instanceof Collection);
 
         $translatedParent = $args->getTranslatedParent();
-        $property = $args->getProperty();
+        $property         = $args->getProperty();
 
         // Guard: must have both property and translated parent
         if (!$translatedParent || !$property) {
@@ -107,7 +99,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
             return $children; // not a valid relation → return original
         }
 
-        $mappedBy = $associations[$property->name]['mappedBy'];
+        $mappedBy      = $associations[$property->name]['mappedBy'];
         $newCollection = new ArrayCollection();
 
         foreach ($children as $child) {
@@ -119,14 +111,14 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
             $subArgs = new TranslationArgs($child, $args->getSourceLocale(), $args->getTargetLocale())
                 ->setTranslatedParent($translatedParent)
-                ->setProperty(new ReflectionProperty($child::class, $mappedBy));
+                ->setProperty(new \ReflectionProperty($child::class, $mappedBy));
 
             assert($this->translator instanceof EntityTranslator);
             $translatedChild = $this->translator->processTranslation($subArgs);
             $newCollection->add($translatedChild);
 
             // keep bidirectional consistency
-            $childProperty = new ReflectionProperty($translatedChild::class, $mappedBy);
+            $childProperty = new \ReflectionProperty($translatedChild::class, $mappedBy);
             $childProperty->setValue($translatedChild, $translatedParent);
         }
 

@@ -15,7 +15,7 @@ final class TranslationHandlerPassTest extends TestCase
     public function testProcessReturnsIfTranslatorServiceMissing(): void
     {
         $container = new ContainerBuilder();
-        $pass = new TranslationHandlerPass();
+        $pass      = new TranslationHandlerPass();
 
         // The container does NOT have the translator service
         $this->assertFalse($container->has('tmi_translation.translation.entity_translator'));

@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Filter;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
-use ReflectionClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -16,6 +15,7 @@ final class LocaleFilterTest extends IntegrationTestCase
 {
     private LocaleFilter $filter;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
@@ -23,7 +23,7 @@ final class LocaleFilterTest extends IntegrationTestCase
         // Enable the LocaleFilter through the real EntityManager
         $this->entityManager->getConfiguration()->addFilter(
             'tmi_translation_locale_filter',
-            LocaleFilter::class
+            LocaleFilter::class,
         );
         $this->filter = $this->entityManager->getFilters()->enable('tmi_translation_locale_filter');
     }
@@ -32,8 +32,8 @@ final class LocaleFilterTest extends IntegrationTestCase
     {
         $this->filter->setLocale('en_US');
 
-        $metadata = $this->createMock(ClassMetadata::class);
-        $reflection = $this->createMock(ReflectionClass::class);
+        $metadata   = $this->createMock(ClassMetadata::class);
+        $reflection = $this->createMock(\ReflectionClass::class);
         $reflection->method('getInterfaceNames')->willReturn([]); // not translatable
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
@@ -45,8 +45,8 @@ final class LocaleFilterTest extends IntegrationTestCase
     {
         $this->filter->setLocale('en_US');
 
-        $metadata = $this->createMock(ClassMetadata::class);
-        $reflection = $this->createMock(ReflectionClass::class);
+        $metadata   = $this->createMock(ClassMetadata::class);
+        $reflection = $this->createMock(\ReflectionClass::class);
         $reflection->method('getInterfaceNames')->willReturn([TranslatableInterface::class]);
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
@@ -58,8 +58,8 @@ final class LocaleFilterTest extends IntegrationTestCase
     {
         $this->filter->setLocale('en_US');
 
-        $metadata = $this->createMock(ClassMetadata::class);
-        $reflection = $this->createMock(ReflectionClass::class);
+        $metadata   = $this->createMock(ClassMetadata::class);
+        $reflection = $this->createMock(\ReflectionClass::class);
         $reflection->method('getInterfaceNames')->willReturn([]);
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
@@ -69,8 +69,8 @@ final class LocaleFilterTest extends IntegrationTestCase
 
     public function testAddFilterConstraintReturnsEmptyIfLocaleNotSet(): void
     {
-        $metadata = $this->createMock(ClassMetadata::class);
-        $reflection = $this->createMock(ReflectionClass::class);
+        $metadata   = $this->createMock(ClassMetadata::class);
+        $reflection = $this->createMock(\ReflectionClass::class);
         $reflection->method('getInterfaceNames')->willReturn([TranslatableInterface::class]);
         $metadata->method('getReflectionClass')->willReturn($reflection);
 

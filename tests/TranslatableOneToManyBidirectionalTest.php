@@ -38,7 +38,7 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        assert($parentTranslation instanceof TranslatableOneToManyBidirectionalParent);
+        $this->assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $parentTranslation);
 
         $this->entityManager->persist($parentTranslation);
         $this->entityManager->flush();
@@ -46,10 +46,9 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
         self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChildren()->first()->getLocale());
         self::assertEquals(
             $parent->getSimpleChildren()->first()->getTuuid(),
-            $parentTranslation->getSimpleChildren()->first()->getTuuid()
+            $parentTranslation->getSimpleChildren()->first()->getTuuid(),
         );
     }
-
 
     /**
      * @throws OptimisticLockException
@@ -67,16 +66,16 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
         $this->entityManager->persist($child);
 
         $childTranslation = $this->translator->translate($child, self::TARGET_LOCALE);
-        assert($childTranslation instanceof TranslatableManyToOneBidirectionalChild);
+        $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $childTranslation);
 
         $this->entityManager->persist($childTranslation);
 
         $this->entityManager->flush();
 
-        self::assertEquals(self::TARGET_LOCALE, $childTranslation->getParentSimple()->getLocale());
+        self::assertSame(self::TARGET_LOCALE, $childTranslation->getParentSimple()->getLocale());
         self::assertEquals(
             $childTranslation->getParentSimple()->getTuuid(),
-            $childTranslation->getParentSimple()->getTuuid()
+            $childTranslation->getParentSimple()->getTuuid(),
         );
     }
 }

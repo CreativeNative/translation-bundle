@@ -8,12 +8,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PrePersistEventArgs;
-use Doctrine\ORM\UnitOfWork;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\UnitOfWork;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use stdClass;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -30,10 +29,10 @@ final class TranslatableEventSubscriberTest extends TestCase
     public function setUp(): void
     {
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->translator = $this->createMock(EntityTranslatorInterface::class);
-        $this->subscriber = new TranslatableEventSubscriber(
+        $this->translator    = $this->createMock(EntityTranslatorInterface::class);
+        $this->subscriber    = new TranslatableEventSubscriber(
             'en_US',
-            $this->translator
+            $this->translator,
         );
     }
 
@@ -43,7 +42,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = new Scalar();
 
         // Initially, tuuid should be null
-        $this->assertNull($entity->getTuuid());
+        $this->assertNotInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $entity->getTuuid());
 
         $args = new PrePersistEventArgs($entity, $this->entityManager);
 
@@ -56,7 +55,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testPrePersistIgnoresNonTranslatableEntities(): void
     {
-        $entity = new stdClass(); // Non-translatable entity
+        $entity = new \stdClass(); // Non-translatable entity
 
         $args = new PrePersistEventArgs($entity, $this->entityManager);
 
@@ -113,7 +112,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testPostLoadIgnoresNonTranslatableEntities(): void
     {
-        $entity = new stdClass();
+        $entity = new \stdClass();
 
         $args = new PostLoadEventArgs($entity, $this->entityManager);
 
@@ -149,7 +148,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testNonTranslatableEntitiesAreIgnored(): void
     {
-        $entity = new stdClass();
+        $entity = new \stdClass();
 
         $uow = $this->createMock(UnitOfWork::class);
 

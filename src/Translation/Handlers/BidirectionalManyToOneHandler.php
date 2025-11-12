@@ -6,12 +6,11 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToOne;
-use ErrorException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * Translate a single entity which is on the many-side. If the related property is a translatable entity, translate that related entity
@@ -28,7 +27,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         private AttributeHelper $attributeHelper,
         private EntityManagerInterface $entityManager,
         private PropertyAccessorInterface $propertyAccessor,
-        private EntityTranslatorInterface $translator
+        private EntityTranslatorInterface $translator,
     ) {
     }
 
@@ -56,22 +55,16 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
     }
 
     /**
-     * @throws ErrorException
+     * @throws \ErrorException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        $data = $args->getDataToBeTranslated();
-        $message =
-            '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared ' .
-            'amongst translations. Either remove the @SharedAmongstTranslation ' .
+        $data    = $args->getDataToBeTranslated();
+        $message = '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
+            'amongst translations. Either remove the @SharedAmongstTranslation '.
             'annotation or choose another association type.';
 
-        throw new ErrorException(
-            strtr($message, [
-                '%class%' => $data::class,
-                '%prop%' => $args->getProperty()->name,
-            ])
-        );
+        throw new \ErrorException(strtr($message, ['%class%' => $data::class, '%prop%' => $args->getProperty()->name]));
     }
 
     public function handleEmptyOnTranslate(TranslationArgs $args): null

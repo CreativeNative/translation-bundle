@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
-use ErrorException;
-use PHPUnit\Framework\TestCase;
-use ReflectionException;
-use ReflectionProperty;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
@@ -21,34 +15,24 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 {
-    private function createHandler(): BidirectionalOneToOneHandler
-    {
-        return new BidirectionalOneToOneHandler(
-            $this->entityManager,
-            $this->propertyAccessor,
-            $this->attributeHelper
-        );
-    }
-
     /** ------------------------- Supports ------------------------- */
-
     public function testSupportsReturnsFalseIfNoProperty(): void
     {
         $handler = $this->createHandler();
-        $args = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
+        $args    = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
         $args->setProperty(null);
 
         self::assertFalse($handler->supports($args));
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsReturnsTrueIfOneToOneWithMappedBy(): void
     {
         $handler = $this->createHandler();
-        $entity = new TranslatableOneToOneBidirectionalParent();
-        $prop = new ReflectionProperty($entity, 'simpleChild');
+        $entity  = new TranslatableOneToOneBidirectionalParent();
+        $prop    = new \ReflectionProperty($entity, 'simpleChild');
 
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
 
@@ -59,7 +43,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsReturnsFalseWhenNoOneToOneAttributePresent(): void
     {
@@ -70,7 +54,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $entity->setLocale('en_US');
 
         // 2. Pick a property that exists but has NO #[OneToOne] attribute
-        $prop = new ReflectionProperty($entity::class, 'title'); // title is a plain string
+        $prop = new \ReflectionProperty($entity::class, 'title'); // title is a plain string
 
         // 3. Mock AttributeHelper to return true for isOneToOne
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
@@ -84,22 +68,21 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         self::assertFalse($handler->supports($args));
     }
 
-    /** ------------------------- Shared / Empty -------------------------
-     * @throws ReflectionException
+    /** ------------------------- Shared / Empty -------------------------.
+     * @throws \ReflectionException
      */
-
     public function testHandleSharedAmongstTranslationsThrows(): void
     {
         $handler = $this->createHandler();
-        $entity = new TranslatableOneToOneBidirectionalParent();
-        $prop = new ReflectionProperty($entity, 'sharedChild');
+        $entity  = new TranslatableOneToOneBidirectionalParent();
+        $prop    = new \ReflectionProperty($entity, 'sharedChild');
 
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->expectException(ErrorException::class);
+        $this->expectException(\ErrorException::class);
         $this->expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
 
         $handler->handleSharedAmongstTranslations($args);
@@ -108,7 +91,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslateReturnsNull(): void
     {
         $handler = $this->createHandler();
-        $args = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
+        $args    = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
 
         $result = $handler->handleEmptyOnTranslate($args);
 
@@ -116,14 +99,14 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws ErrorException
+     * @throws \ReflectionException
+     * @throws \ErrorException
      */
     public function testHandleSharedAmongstTranslationsReturnsDataIfNotOneToOne(): void
     {
         $handler = $this->createHandler();
-        $entity = new TranslatableOneToOneBidirectionalParent();
-        $prop = new ReflectionProperty($entity, 'simpleChild');
+        $entity  = new TranslatableOneToOneBidirectionalParent();
+        $prop    = new \ReflectionProperty($entity, 'simpleChild');
 
         $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(false);
 
@@ -135,19 +118,18 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         self::assertSame($entity, $result);
     }
 
-    /** ------------------------- Translate -------------------------
-     * @throws ReflectionException
+    /** ------------------------- Translate -------------------------.
+     * @throws \ReflectionException
      */
-
     public function testTranslateClonesChildAndSetsParentAndLocale(): void
     {
         $handler = $this->createHandler();
 
         $parent = new TranslatableOneToOneBidirectionalParent();
-        $child = new TranslatableOneToOneBidirectionalChild();
+        $child  = new TranslatableOneToOneBidirectionalChild();
         $parent->setSimpleChild($child);
 
-        $metadata = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
+        $metadata                      = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
         $metadata->associationMappings = [
             'simpleParent' => ['fieldName' => 'simpleParent', 'inversedBy' => 'simpleChild'],
         ];
@@ -156,7 +138,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
             ->with(TranslatableOneToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
-        $prop = new ReflectionProperty($parent, 'simpleChild');
+        $prop = new \ReflectionProperty($parent, 'simpleChild');
 
         $args = new TranslationArgs($child, 'en_US', 'it_IT');
         $args->setProperty($prop);
@@ -168,5 +150,14 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         self::assertNotSame($child, $result);
         self::assertSame($parent, $result->getSimpleParent());
         self::assertSame('it_IT', $result->getLocale());
+    }
+
+    private function createHandler(): BidirectionalOneToOneHandler
+    {
+        return new BidirectionalOneToOneHandler(
+            $this->entityManager,
+            $this->propertyAccessor,
+            $this->attributeHelper,
+        );
     }
 }

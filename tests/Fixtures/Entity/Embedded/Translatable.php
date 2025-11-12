@@ -38,8 +38,8 @@ final class Translatable implements TranslatableInterface
 
     public function __construct()
     {
-        $this->address = new Address();
-        $this->emptyAddress = new Address();
+        $this->address       = new Address();
+        $this->emptyAddress  = new Address();
         $this->sharedAddress = new Address();
     }
 
@@ -56,6 +56,7 @@ final class Translatable implements TranslatableInterface
     public function setAddress(Address|AddressWithEmptyAndSharedProperty|null $address = null): self
     {
         $this->address = $address;
+
         return $this;
     }
 
@@ -67,6 +68,7 @@ final class Translatable implements TranslatableInterface
     public function setEmptyAddress(Address|null $emptyAddress = null): self
     {
         $this->emptyAddress = $emptyAddress;
+
         return $this;
     }
 
@@ -78,6 +80,7 @@ final class Translatable implements TranslatableInterface
     public function setSharedAddress(Address|null $sharedAddress = null): self
     {
         $this->sharedAddress = $sharedAddress;
+
         return $this;
     }
 }

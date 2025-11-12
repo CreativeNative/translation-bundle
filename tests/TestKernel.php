@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
-use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
@@ -35,32 +35,32 @@ final class TestKernel extends BaseKernel
         $locales = ['en_US', 'de_DE', 'it_IT'];
 
         $container->extension('framework', [
-            'secret' => 'test_secret',
-            'test' => true,
+            'secret'  => 'test_secret',
+            'test'    => true,
             'session' => ['storage_factory_id' => 'session.storage.factory.mock_file'],
         ]);
 
         $container->extension('doctrine', [
             'dbal' => [
-                'driver' => 'pdo_sqlite',
-                'memory' => true,
+                'driver'  => 'pdo_sqlite',
+                'memory'  => true,
                 'charset' => 'utf8',
             ],
             'orm' => [
                 'auto_generate_proxy_classes' => true,
-                'naming_strategy' => 'doctrine.orm.naming_strategy.underscore_number_aware',
-                'auto_mapping' => true,
-                'mappings' => [
+                'naming_strategy'             => 'doctrine.orm.naming_strategy.underscore_number_aware',
+                'auto_mapping'                => true,
+                'mappings'                    => [
                     'TestBundle' => [
-                        'type' => 'attribute',
-                        'dir' => '%kernel.project_dir%/tests/Fixtures/Entity',
+                        'type'   => 'attribute',
+                        'dir'    => '%kernel.project_dir%/tests/Fixtures/Entity',
                         'prefix' => 'Tmi\TranslationBundle\Fixtures\Entity',
-                        'alias' => 'TestBundle',
+                        'alias'  => 'TestBundle',
                     ],
                 ],
                 'filters' => [
                     'tmi_translation_locale_filter' => [
-                        'class' => LocaleFilter::class,
+                        'class'   => LocaleFilter::class,
                         'enabled' => true,
                     ],
                 ],
@@ -68,8 +68,8 @@ final class TestKernel extends BaseKernel
         ]);
 
         $container->extension('tmi_translation', [
-            'locales' => $locales,
-            'default_locale' => 'en_US',
+            'locales'            => $locales,
+            'default_locale'     => 'en_US',
             'disabled_firewalls' => ['admin'],
         ]);
 

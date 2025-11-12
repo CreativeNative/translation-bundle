@@ -6,16 +6,14 @@ namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\FilterCollection;
-use ReflectionClass;
-use ReflectionException;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
-use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
 final class LocaleFilterConfiguratorTest extends IntegrationTestCase
@@ -29,7 +27,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
     public function testFilterIsEnabledAndLocaleSet(): void
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel  = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
         $request->setLocale('en_US');
 
@@ -47,7 +45,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
     public function testFilterCanChangeLocale(): void
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel  = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
         $request->setLocale('fr');
 
@@ -63,7 +61,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
     public function testFilterDisabledForDisabledFirewall(): void
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel  = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
         $request->setLocale('en_US');
 
@@ -81,13 +79,13 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $filters = $this->entityManager->getFilters();
         $this->assertFalse(
             $filters->isEnabled('tmi_translation_locale_filter'),
-            'Filter should not be active for a disabled firewall'
+            'Filter should not be active for a disabled firewall',
         );
     }
 
     public function testFilterWorksWhenFirewallMapIsNull(): void
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel  = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
         $request->setLocale('de_DE');
 
@@ -104,14 +102,12 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
     public function testOnKernelRequestDoesNothingIfFilterNotRegistered(): void
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel  = $this->createMock(HttpKernelInterface::class);
         $request = new Request();
-        $event = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
+        $event   = new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST);
 
         // Mock the EntityManager to return a Filters object that does NOT have our filter
-        $filtersMock = $this->getMockBuilder(FilterCollection::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $filtersMock = $this->createMock(FilterCollection::class);
         $filtersMock->method('has')->willReturn(false);
 
         $emMock = $this->createMock(EntityManagerInterface::class);
@@ -124,9 +120,11 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
         $this->assertTrue(true, 'Executed onKernelRequest with missing filter without errors');
     }
+
     /**
-     * Test isDisabledFirewall returns false when FirewallMap returns null
-     * @throws ReflectionException
+     * Test isDisabledFirewall returns false when FirewallMap returns null.
+     *
+     * @throws \ReflectionException
      */
     public function testIsDisabledFirewallReturnsFalseWhenConfigIsNull(): void
     {
@@ -136,21 +134,22 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $subscriber = new LocaleFilterConfigurator($this->entityManager, ['admin'], $firewallMap);
 
         $request = new Request();
-        $result = $this->invokePrivateMethod($subscriber, [$request]);
+        $result  = $this->invokePrivateMethod($subscriber, [$request]);
 
         $this->assertFalse($result, 'Expected isDisabledFirewall to return false if config is null');
     }
 
     /**
-     * Helper to call private methods
+     * Helper to call private methods.
      *
      * @param array<Request> $args Arguments to pass to the method
      *
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     private function invokePrivateMethod(object $object, array $args = []): mixed
     {
-        $reflection = new ReflectionClass($object);
+        $reflection = new \ReflectionClass($object);
+
         return $reflection->getMethod('isDisabledFirewall')->invokeArgs($object, $args);
     }
 }

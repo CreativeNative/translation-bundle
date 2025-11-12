@@ -30,8 +30,7 @@ final class Configuration implements ConfigurationInterface
                     ->scalarPrototype()->end()
                     ->defaultValue([])
                 ->end()
-            ->end()
-        ;
+            ->end();
 
         return $treeBuilder;
     }

@@ -24,13 +24,13 @@ class TranslateEvent extends Event
          */
         protected object $sourceEntity,
         /**
-         * The target locale
+         * The target locale.
          */
         private readonly string $locale,
         /**
          * The translated entity.
          */
-        protected object|null $translatedEntity = null
+        protected object|null $translatedEntity = null,
     ) {
     }
 

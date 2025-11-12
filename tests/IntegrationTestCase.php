@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
-use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
@@ -17,15 +16,14 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 class IntegrationTestCase extends KernelTestCase
 {
-    private static Container|null $container = null;
+    protected const string TARGET_LOCALE = 'de_DE';
 
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;
 
     protected AttributeHelper|null $attributeHelper = null;
-
-    protected const string TARGET_LOCALE = 'de_DE';
+    private static Container|null $container        = null;
 
     /**
      * {@inheritDoc}
@@ -38,13 +36,13 @@ class IntegrationTestCase extends KernelTestCase
 
         if (method_exists(self::class, 'getContainer')) {
             $container = self::getContainer();
-        } elseif (property_exists(self::class, 'container') && self::$container !== null) {
+        } elseif (property_exists(self::class, 'container') && null !== self::$container) {
             $container = self::$container;
         } else {
             $container = self::$kernel->getContainer();
         }
 
-        if ($container === null) {
+        if (null === $container) {
             self::fail('Container is null. Kernel boot failed.');
         }
 
@@ -68,7 +66,7 @@ class IntegrationTestCase extends KernelTestCase
 
         $subscriber = new TranslatableEventSubscriber(
             'en_US',
-            $this->translator
+            $this->translator,
         );
 
         $eventManager = $this->entityManager->getEventManager();
@@ -76,36 +74,19 @@ class IntegrationTestCase extends KernelTestCase
 
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 
-        if ($metadata !== null) {
+        if (null !== $metadata) {
             $schemaTool = new SchemaTool($this->entityManager);
 
             try {
                 $schemaTool->dropSchema($metadata);
-            } catch (Exception) {
+            } catch (\Exception) {
             }
 
             $schemaTool->createSchema($metadata);
         }
     }
 
-    final public static function assertIsTranslation(
-        TranslatableInterface $source,
-        TranslatableInterface $translation,
-        string $targetLocale
-    ): void {
-        self::assertSame($targetLocale, $translation->getLocale());
-        self::assertEquals($source->getTuuid(), $translation->getTuuid());
-
-        // Only enforce "different instance" if targetLocale is different
-        if ($source->getLocale() !== $targetLocale) {
-            self::assertNotSame(
-                spl_object_hash($source),
-                spl_object_hash($translation),
-                'Expected a cloned translation when target locale differs'
-            );
-        }
-    }
-
+    #[\Override]
     final public function tearDown(): void
     {
         restore_exception_handler();
@@ -116,8 +97,26 @@ class IntegrationTestCase extends KernelTestCase
         $this->translator = null;
 
         static::$container = null;
-        static::$kernel = null;
+        static::$kernel    = null;
 
         parent::tearDown();
+    }
+
+    final public static function assertIsTranslation(
+        TranslatableInterface $source,
+        TranslatableInterface $translation,
+        string $targetLocale,
+    ): void {
+        self::assertSame($targetLocale, $translation->getLocale());
+        self::assertEquals($source->getTuuid(), $translation->getTuuid());
+
+        // Only enforce "different instance" if targetLocale is different
+        if ($source->getLocale() !== $targetLocale) {
+            self::assertNotSame(
+                spl_object_hash($source),
+                spl_object_hash($translation),
+                'Expected a cloned translation when target locale differs',
+            );
+        }
     }
 }

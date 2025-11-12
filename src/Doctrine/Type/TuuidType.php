@@ -7,41 +7,38 @@ namespace Tmi\TranslationBundle\Doctrine\Type;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\GuidType;
-use InvalidArgumentException;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 final class TuuidType extends GuidType
 {
     public const string NAME = 'tuuid';
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): ?Tuuid
+    #[\Override]
+    public function convertToPHPValue($value, AbstractPlatform $platform): Tuuid|null
     {
-        if ($value === null) {
+        if (null === $value) {
             return null;
         }
 
         try {
             return new Tuuid($value);
-        } catch (InvalidArgumentException $e) {
-            throw new ConversionException(
-                sprintf('Cannot convert "%s" to Tuuid', $value),
-                0,
-                $e
-            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid', $value), 0, $e);
         }
     }
 
+    #[\Override]
     public function convertToDatabaseValue($value, AbstractPlatform $platform): string|null
     {
-        if ($value === null) {
+        if (null === $value) {
             return null;
         }
 
         if (!$value instanceof Tuuid) {
-            throw new InvalidArgumentException('Value must be a Tuuid object.');
+            throw new \InvalidArgumentException('Value must be a Tuuid object.');
         }
 
-        return (string)$value;
+        return (string) $value;
     }
 
     public function getName(): string

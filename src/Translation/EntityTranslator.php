@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
-use LogicException;
-use ReflectionProperty;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -18,7 +16,7 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
  * ToDo: Introduce a Translation Cache Service
- * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/3
+ * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/3.
  *
  * ToDo: Improve #[EmptyOnTranslate] handling for non-nullable and scalar fields
  * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2
@@ -54,7 +52,7 @@ final class EntityTranslator implements EntityTranslatorInterface
         private readonly array $locales,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AttributeHelper $attributeHelper,
-        private readonly EntityManagerInterface $entityManager
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -71,7 +69,8 @@ final class EntityTranslator implements EntityTranslatorInterface
      *  - Properties with #[SharedAmongstTranslations] or #[EmptyOnTranslate]
      *  - Embedded properties that may contain shared or empty attributes internally
      *
-     * @param TranslationArgs $args Contains the entity or property to translate, source/target locales, and parent entity.
+     * @param TranslationArgs $args contains the entity or property to translate, source/target locales, and parent entity
+     *
      * @return mixed Translated entity, embedded, or property value according to attribute rules
      */
     public function processTranslation(TranslationArgs $args): mixed
@@ -81,17 +80,13 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         // Validate that the requested locale is allowed
         if (!in_array($locale, $this->locales, true)) {
-            throw new LogicException(sprintf(
-                'Locale "%s" is not allowed. Allowed locales: %s',
-                $locale,
-                implode(', ', $this->locales)
-            ));
+            throw new \LogicException(sprintf('Locale "%s" is not allowed. Allowed locales: %s', $locale, implode(', ', $this->locales)));
         }
 
         // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
-            $tuuid = $entity->getTuuid();
-            $cacheKey = $tuuid instanceof Tuuid ? $tuuid->getValue() . ':' . $locale : null;
+            $tuuid    = $entity->getTuuid();
+            $cacheKey = $tuuid instanceof Tuuid ? $tuuid->getValue().':'.$locale : null;
 
             // Return cached translation immediately if available
             if ($cacheKey && isset($this->translationCache[(string) $tuuid][$locale])) {
@@ -112,6 +107,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                 if (isset($this->translationCache[(string) $tuuid][$locale])) {
                     // @codeCoverageIgnoreStart
                     unset($this->inProgress[$cacheKey]);
+
                     return $this->translationCache[(string) $tuuid][$locale];
                     // @codeCoverageIgnoreEnd
                 }
@@ -128,13 +124,13 @@ final class EntityTranslator implements EntityTranslatorInterface
             if ($entity instanceof TranslatableInterface) {
                 $this->eventDispatcher->dispatch(
                     new TranslateEvent($entity, $locale),
-                    TranslateEvent::PRE_TRANSLATE
+                    TranslateEvent::PRE_TRANSLATE,
                 );
             }
 
             // Handle attribute logic if a specific property is set in TranslationArgs
             $property = $args->getProperty();
-            if ($property instanceof ReflectionProperty) {
+            if ($property instanceof \ReflectionProperty) {
                 // 1. Determine if the top-level property is Shared
                 if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
                     return $handler->handleSharedAmongstTranslations($args);
@@ -143,12 +139,9 @@ final class EntityTranslator implements EntityTranslatorInterface
                 // 2. Handle EmptyOnTranslate for this top-level property
                 if ($this->attributeHelper->isEmptyOnTranslate($property)) {
                     if (!$this->attributeHelper->isNullable($property)) {
-                        throw new LogicException(sprintf(
-                            'The property %s::%s cannot use EmptyOnTranslate because it is not nullable.',
-                            $property->class,
-                            $property->name
-                        ));
+                        throw new \LogicException(sprintf('The property %s::%s cannot use EmptyOnTranslate because it is not nullable.', $property->class, $property->name));
                     }
+
                     return $handler->handleEmptyOnTranslate($args);
                 }
 
@@ -178,72 +171,24 @@ final class EntityTranslator implements EntityTranslatorInterface
             if ($entity instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
                 $this->eventDispatcher->dispatch(
                     new TranslateEvent($entity, $locale, $translated),
-                    TranslateEvent::POST_TRANSLATE
+                    TranslateEvent::POST_TRANSLATE,
                 );
             }
 
             // Store translation in cache for reuse
-            if ($translated instanceof TranslatableInterface && $translated->getTuuid() !== null) {
+            if ($translated instanceof TranslatableInterface && null !== $translated->getTuuid()) {
                 $this->translationCache[$translated->getTuuid()->getValue()][$translated->getLocale()] = $translated;
             }
 
             // Remove from in-progress set
-            if ($entity instanceof TranslatableInterface && $entity->getTuuid() !== null) {
-                unset($this->inProgress[$entity->getTuuid()->getValue() . ':' . $locale]);
+            if ($entity instanceof TranslatableInterface && null !== $entity->getTuuid()) {
+                unset($this->inProgress[$entity->getTuuid()->getValue().':'.$locale]);
             }
 
             return $translated;
         }
 
         return $entity;
-    }
-
-    /**
-     * Batch-load translations for given entities and target locale.
-     *
-     * @template T of TranslatableInterface
-     * @param array<T> $entities
-     */
-    private function warmupTranslations(array $entities, string $locale): void
-    {
-        $byClass = [];
-
-        foreach ($entities as $entity) {
-            if (!$entity instanceof TranslatableInterface) {
-                continue;
-            }
-            $tuuid = $entity->getTuuid();
-            if ($tuuid === null || isset($this->translationCache[(string) $tuuid][$locale])) {
-                continue;
-            }
-            $byClass[get_class($entity)][] = (string) $tuuid;
-        }
-
-        /** @var class-string<TranslatableInterface> $class */
-        foreach ($byClass as $class => $tuuids) {
-            if (empty($tuuids)) {
-                // @codeCoverageIgnoreStart
-                continue;
-                // @codeCoverageIgnoreEnd
-            }
-
-            $qb = $this->entityManager->createQueryBuilder()
-                ->select('t')
-                ->from($class, 't')
-                ->where('t.tuuid IN (:tuuids)')
-                ->andWhere('t.locale = :locale')
-                ->setParameter('tuuids', $tuuids)
-                ->setParameter('locale', $locale);
-
-            /** @var array<TranslatableInterface> $translations */
-            $translations = $qb->getQuery()->getResult();
-
-            foreach ($translations as $translation) {
-                // @codeCoverageIgnoreStart
-                $this->translationCache[(string) $translation->getTuuid()][$translation->getLocale()] = $translation;
-                // @codeCoverageIgnoreEnd
-            }
-        }
     }
 
     public function addTranslationHandler(TranslationHandlerInterface $handler, int|null $priority = null): void
@@ -275,5 +220,54 @@ final class EntityTranslator implements EntityTranslatorInterface
     public function beforeRemove(TranslatableInterface $entity): void
     {
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    /**
+     * Batch-load translations for given entities and target locale.
+     *
+     * @template T of TranslatableInterface
+     *
+     * @param array<T> $entities
+     */
+    private function warmupTranslations(array $entities, string $locale): void
+    {
+        $byClass = [];
+
+        foreach ($entities as $entity) {
+            if (!$entity instanceof TranslatableInterface) {
+                continue;
+            }
+            $tuuid = $entity->getTuuid();
+            if (null === $tuuid || isset($this->translationCache[(string) $tuuid][$locale])) {
+                continue;
+            }
+            $byClass[$entity::class][] = (string) $tuuid;
+        }
+
+        /** @var class-string<TranslatableInterface> $class */
+        foreach ($byClass as $class => $tuuids) {
+            if (empty($tuuids)) {
+                // @codeCoverageIgnoreStart
+                continue;
+                // @codeCoverageIgnoreEnd
+            }
+
+            $qb = $this->entityManager->createQueryBuilder()
+                ->select('t')
+                ->from($class, 't')
+                ->where('t.tuuid IN (:tuuids)')
+                ->andWhere('t.locale = :locale')
+                ->setParameter('tuuids', $tuuids)
+                ->setParameter('locale', $locale);
+
+            /** @var array<TranslatableInterface> $translations */
+            $translations = $qb->getQuery()->getResult();
+
+            foreach ($translations as $translation) {
+                // @codeCoverageIgnoreStart
+                $this->translationCache[(string) $translation->getTuuid()][$translation->getLocale()] = $translation;
+                // @codeCoverageIgnoreEnd
+            }
+        }
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
-use ReflectionException;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 
@@ -13,7 +12,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private DoctrineObjectHandler $doctrineObjectHandler
+        private DoctrineObjectHandler $doctrineObjectHandler,
     ) {
     }
 
@@ -23,7 +22,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): TranslatableInterface
     {
@@ -36,7 +35,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function translate(TranslationArgs $args): TranslatableInterface
     {
@@ -45,11 +44,12 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         // Search in database if the content exists, otherwise translate it.
         $existingTranslation = $this->entityManager->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
-            'tuuid' => (string) $data->getTuuid(),
+            'tuuid'  => (string) $data->getTuuid(),
         ]);
 
         if (null !== $existingTranslation) {
             assert($existingTranslation instanceof TranslatableInterface);
+
             return $existingTranslation;
         }
 
@@ -57,7 +57,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         assert($clone instanceof TranslatableInterface);
 
         $this->doctrineObjectHandler->translateProperties(
-            new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale())
+            new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale()),
         );
 
         $clone->setLocale($args->getTargetLocale());

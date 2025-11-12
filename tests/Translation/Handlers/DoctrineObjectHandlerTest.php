@@ -7,52 +7,48 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
-use ReflectionException;
-use RuntimeException;
-use stdClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
-/**
- * @covers \Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler
- */
+#[\PHPUnit\Framework\Attributes\CoversClass(DoctrineObjectHandler::class)]
 final class DoctrineObjectHandlerTest extends UnitTestCase
 {
     private DoctrineObjectHandler $handler;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
 
         $this->handler = new DoctrineObjectHandler(
             $this->entityManager,
-            $this->translator
+            $this->translator,
         );
     }
 
     public function testSupportsThrowsRuntimeExceptionWhenMetadataFactoryFails(): void
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
-        $metaFactory->method('isTransient')->willThrowException(new RuntimeException('meta boom'));
+        $metaFactory->method('isTransient')->willThrowException(new \RuntimeException('meta boom'));
 
         $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
 
-        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
+        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
         $this->handler->supports($args);
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateThrowsWhenDataIsNotObject(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('DoctrineObjectHandler::translate expects an object');
 
         $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
@@ -60,11 +56,11 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslatePropertiesThrowsWhenDataIsNotObject(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('translateProperties expects object in TranslationArgs');
 
         $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
@@ -72,8 +68,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     }
 
     /**
-     * Test the reflection fallback paths
-     * @throws ReflectionException
+     * Test the reflection fallback paths.
+     *
+     * @throws \ReflectionException
      */
     public function testTranslatePropertiesUsesReflectionFallbackWhenAccessorThrows(): void
     {
@@ -110,7 +107,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateSkipsNullAndEmptyCollectionProperties(): void
     {
@@ -128,7 +125,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->handler->translate($args);
 
         $this->assertNotSame($entity, $result);
@@ -139,7 +136,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
     public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
     {
-        $obj = new stdClass();
+        $obj  = new \stdClass();
         $args = new TranslationArgs($obj, 'en_US', 'de_DE');
         $this->assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
         $this->assertNull($this->handler->handleEmptyOnTranslate($args));
@@ -152,7 +149,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
+        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
 
         self::assertFalse($this->handler->supports($args));
     }
@@ -164,13 +161,13 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new stdClass(), 'en_US', 'de_DE');
+        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
 
         self::assertTrue($this->handler->supports($args));
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateClonesAndProcessesProperties(): void
     {
@@ -180,8 +177,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         // entity with public properties that PropertyAccessor can read/set
         $entity = new class {
-            public string $title = 'original';
-            public string $child = 'child-value';
+            public string $title          = 'original';
+            public string $child          = 'child-value';
             public string|null $maybeNull = null;
             public Collection $emptyCollection;
 
@@ -191,7 +188,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->handler->translate($args);
 
         // translate() must return a clone, not the same instance

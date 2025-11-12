@@ -8,8 +8,6 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Filter\SQLFilter;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
-use function in_array;
-
 /**
  * Filters translatable contents by the current locale.
  */
@@ -20,7 +18,7 @@ final class LocaleFilter extends SQLFilter
      */
     public function setLocale(string|null $locale): self
     {
-        if ($locale !== null) {
+        if (null !== $locale) {
             $this->setParameter('locale', $locale);
         }
 
@@ -35,8 +33,8 @@ final class LocaleFilter extends SQLFilter
 
         $locale = $this->getParameter('locale');
 
-        if (in_array(TranslatableInterface::class, $targetEntity->getReflectionClass()?->getInterfaceNames(), true)) {
-            return sprintf("%s.locale = %s", $targetTableAlias, $locale);
+        if (\in_array(TranslatableInterface::class, $targetEntity->getReflectionClass()?->getInterfaceNames(), true)) {
+            return sprintf('%s.locale = %s', $targetTableAlias, $locale);
         }
 
         return '';

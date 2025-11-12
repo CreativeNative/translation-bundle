@@ -17,7 +17,7 @@ interface TranslatableInterface
     public function setLocale(string|null $locale = null): self;
 
     /**
-     * Returns translations ids per locale
+     * Returns translations ids per locale.
      *
      * @return array<string, string>
      */

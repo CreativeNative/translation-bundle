@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use ReflectionClass;
-use ReflectionException;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
-use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 /**
  * Handler for Doctrine embeddable objects.
@@ -24,7 +23,7 @@ use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 final readonly class EmbeddedHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private AttributeHelper $attributeHelper
+        private AttributeHelper $attributeHelper,
     ) {
     }
 
@@ -39,7 +38,8 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
      * If the embeddable is marked shared (via parent property, class, or inner property)
      * then return the same instance so siblings share it.
      * If not shared, return a clone so each locale gets its own copy.
-     * @throws ReflectionException
+     *
+     * @throws \ReflectionException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
@@ -59,7 +59,8 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
      *
      * Important: If the embeddable (or any inner property) is shared, we must NOT empty it.
      * Only when NOT shared do we return null (empty).
-     * @throws ReflectionException
+     *
+     * @throws \ReflectionException
      */
     public function handleEmptyOnTranslate(TranslationArgs $args): mixed
     {
@@ -75,7 +76,7 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
         $clone = clone $embeddable;
 
         // Reflect the actual class of the embeddable
-        $reflection = new ReflectionClass($clone);
+        $reflection = new \ReflectionClass($clone);
 
         $changed = false;
 
@@ -87,7 +88,7 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
 
             // Only clear properties marked as #[EmptyOnTranslate]
             if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
-                $setter = 'set' . ucfirst($prop->getName());
+                $setter = 'set'.ucfirst($prop->getName());
                 if (method_exists($clone, $setter)) {
                     $clone->$setter(null);
                 } else {
@@ -114,7 +115,8 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
      *
      * Note: AttributeHelper provides helpers for ReflectionProperty checks.
      * For class-level attribute we check via ReflectionClass directly (no AttributeHelper method assumed).
-     * @throws ReflectionException
+     *
+     * @throws \ReflectionException
      */
     private function isShared(TranslationArgs $args): bool
     {
@@ -127,7 +129,8 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
         }
 
         // 2. Any inner property of the embeddable marked SharedAmongstTranslations
-        $reflection = new ReflectionClass($embeddable);
-        return array_any($reflection->getProperties(), fn($prop) => $this->attributeHelper->isSharedAmongstTranslations($prop));
+        $reflection = new \ReflectionClass($embeddable);
+
+        return array_any($reflection->getProperties(), $this->attributeHelper->isSharedAmongstTranslations(...));
     }
 }

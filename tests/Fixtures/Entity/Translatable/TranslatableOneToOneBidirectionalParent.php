@@ -24,7 +24,7 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'simpleParent',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     private TranslatableOneToOneBidirectionalChild|null $simpleChild = null;
 
@@ -32,7 +32,7 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'sharedParent',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     private TranslatableOneToOneBidirectionalChild|null $sharedChild = null;
 
@@ -40,7 +40,7 @@ final class TranslatableOneToOneBidirectionalParent implements TranslatableInter
     #[ORM\OneToOne(
         targetEntity: TranslatableOneToOneBidirectionalChild::class,
         mappedBy: 'emptyParent',
-        cascade: ['persist']
+        cascade: ['persist'],
     )]
     private TranslatableOneToOneBidirectionalChild|null $emptyChild = null;
 

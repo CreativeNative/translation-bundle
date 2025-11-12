@@ -8,8 +8,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\PersistentCollection;
-use ReflectionException;
-use ReflectionProperty;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
@@ -21,24 +19,25 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 {
     private UnidirectionalManyToManyHandler $handler;
 
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
         $this->handler = new UnidirectionalManyToManyHandler(
             $this->attributeHelper,
             $this->translator,
-            $this->entityManager
+            $this->entityManager,
         );
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testSupportsReturnsTrueForCollectionWithManyToMany(): void
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
-        $prop = new ReflectionProperty($parent::class, 'simpleChildren');
-        $args = new TranslationArgs($parent, 'en_US', 'de_DE')
+        $prop   = new \ReflectionProperty($parent::class, 'simpleChildren');
+        $args   = new TranslationArgs($parent, 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -46,11 +45,11 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
     }
 
     /**
-     * Integration test: translate the parent and ensure the handler replaces the parent's simpleChildren
+     * Integration test: translate the parent and ensure the handler replaces the parent's simpleChildren.
      *
      * @throws ORMException
      * @throws OptimisticLockException
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testTranslateAddsItemsToCollection(): void
     {
@@ -84,7 +83,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         // Reload the original parent if you need it; but for the handler we MUST pass the translated parent:
         $parent = $this->entityManager->find(
             TranslatableManyToManyUnidirectionalParent::class,
-            $parent->getId()
+            $parent->getId(),
         );
         self::assertNotNull($parent);
 
@@ -93,7 +92,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         self::assertInstanceOf(Collection::class, $children);
 
         // IMPORTANT: the handler works on the translated parent – pass $parentTranslation here
-        $property = new ReflectionProperty($parentTranslation::class, 'simpleChildren');
+        $property = new \ReflectionProperty($parentTranslation::class, 'simpleChildren');
 
         // Build args: translate from 'en' -> 'de_DE', provide translated parent (the translated instance)
         $args = new TranslationArgs($children, 'en_US', 'de_DE')
@@ -113,7 +112,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 
     public function testEmptyChildrenFieldReturnsEmptyCollection(): void
     {
-        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $parent   = new TranslatableManyToManyUnidirectionalParent();
         $children = $parent->getEmptyChildren();
 
         $args = new TranslationArgs($children, 'en_US', 'de_DE');

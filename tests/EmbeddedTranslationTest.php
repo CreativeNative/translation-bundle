@@ -36,33 +36,33 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         // Normal fields are cloned
         self::assertNotSame(
             $entity->getAddress(),
-            $translated->getAddress()
+            $translated->getAddress(),
         );
 
         self::assertEquals(
             $entity->getAddress(),
-            $translated->getAddress()
+            $translated->getAddress(),
         );
 
         // Properties within Address should remain same
         self::assertSame(
             $entity->getAddress()->getStreet(),
-            $translated->getAddress()->getStreet()
+            $translated->getAddress()->getStreet(),
         );
 
         self::assertSame(
             $entity->getAddress()->getPostalCode(),
-            $translated->getAddress()->getPostalCode()
+            $translated->getAddress()->getPostalCode(),
         );
 
         self::assertSame(
             $entity->getAddress()->getCity(),
-            $translated->getAddress()->getCity()
+            $translated->getAddress()->getCity(),
         );
 
         self::assertSame(
             $entity->getAddress()->getCountry(),
-            $translated->getAddress()->getCountry()
+            $translated->getAddress()->getCountry(),
         );
     }
 
@@ -85,13 +85,13 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         // Shared Address instance is identical
         self::assertSame(
             $entity->getSharedAddress(),
-            $translated->getSharedAddress()
+            $translated->getSharedAddress(),
         );
 
         // Shared property also identical
         self::assertSame(
             $entity->getSharedAddress()->getStreet(),
-            $translated->getSharedAddress()->getStreet()
+            $translated->getSharedAddress()->getStreet(),
         );
     }
 
@@ -119,7 +119,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
 
         self::assertNotSame(
             $entity->getEmptyAddress(),
-            $translated->getEmptyAddress()
+            $translated->getEmptyAddress(),
         );
     }
 
@@ -155,40 +155,41 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
 
         self::assertNotSame(
             $entity->getAddress()->getStreet(),
-            $translated->getAddress()->getStreet()
+            $translated->getAddress()->getStreet(),
         );
 
         // Other properties remain unchanged
         self::assertSame(
             $entity->getAddress()->getPostalCode(),
-            $translated->getAddress()->getPostalCode()
+            $translated->getAddress()->getPostalCode(),
         );
 
         self::assertSame(
             $entity->getAddress()->getCity(),
-            $translated->getAddress()->getCity()
+            $translated->getAddress()->getCity(),
         );
 
         self::assertSame(
             $entity->getAddress()->getCountry(),
-            $translated->getAddress()->getCountry()
+            $translated->getAddress()->getCountry(),
         );
 
         // Cloned embeddable is a new object
         self::assertNotSame(
             $entity->getAddress(),
-            $translated->getAddress()
+            $translated->getAddress(),
         );
     }
 
     /**
      * Helper to create a Translatable entity with optional attributes.
+     *
      * @throws ORMException
      */
     private function createTranslatableEntity(
         Address|AddressWithEmptyAndSharedProperty|null $address = null,
-        bool                                           $shared = false,
-        bool                                           $emptyOnTranslate = false
+        bool $shared = false,
+        bool $emptyOnTranslate = false,
     ): Translatable {
         $entity = new Translatable();
         $entity->setLocale('en_US');
@@ -203,6 +204,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         }
 
         $this->entityManager->persist($entity);
+
         return $entity;
     }
 
@@ -214,7 +216,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
     private function translateAndPersist(Translatable $entity): Translatable
     {
         $translated = $this->translator->translate($entity, self::TARGET_LOCALE);
-        assert($translated instanceof Translatable);
+        $this->assertInstanceOf(Translatable::class, $translated);
 
         $this->entityManager->persist($translated);
         $this->entityManager->flush();

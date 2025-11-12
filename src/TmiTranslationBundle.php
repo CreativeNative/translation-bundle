@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle;
 
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 final class TmiTranslationBundle extends Bundle
 {

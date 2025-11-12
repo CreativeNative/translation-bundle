@@ -13,8 +13,6 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 
-use function in_array;
-
 #[AsEventListener(event: KernelEvents::REQUEST, method: 'onKernelRequest', priority: 2)]
 final readonly class LocaleFilterConfigurator implements EventSubscriberInterface
 {
@@ -52,6 +50,7 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
             if ($filters->isEnabled('tmi_translation_locale_filter')) {
                 $filters->disable('tmi_translation_locale_filter');
             }
+
             return;
         }
 
@@ -62,15 +61,15 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
 
     private function isDisabledFirewall(Request $request): bool
     {
-        if ($this->firewallMap === null) {
+        if (null === $this->firewallMap) {
             return false;
         }
 
         $config = $this->firewallMap->getFirewallConfig($request);
-        if ($config === null) {
+        if (null === $config) {
             return false;
         }
 
-        return in_array($config->getName(), $this->disabledFirewalls, true);
+        return \in_array($config->getName(), $this->disabledFirewalls, true);
     }
 }

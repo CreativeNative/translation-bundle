@@ -34,6 +34,7 @@ final class Address
     public function setStreet(string|null $street = null): self
     {
         $this->street = $street;
+
         return $this;
     }
 
@@ -45,6 +46,7 @@ final class Address
     public function setPostalCode(string|null $postalCode = null): self
     {
         $this->postalCode = $postalCode;
+
         return $this;
     }
 
@@ -56,6 +58,7 @@ final class Address
     public function setCity(string|null $city = null): self
     {
         $this->city = $city;
+
         return $this;
     }
 
@@ -67,6 +70,7 @@ final class Address
     public function setCountry(string|null $country = null): self
     {
         $this->country = $country;
+
         return $this;
     }
 }

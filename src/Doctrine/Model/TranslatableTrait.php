@@ -7,8 +7,8 @@ namespace Tmi\TranslationBundle\Doctrine\Model;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
-use Tmi\TranslationBundle\ValueObject\Tuuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 trait TranslatableTrait
 {
@@ -24,17 +24,18 @@ trait TranslatableTrait
 
     final public function generateTuuid(): void
     {
-        if ($this->tuuid === null) {
+        if (null === $this->tuuid) {
             $this->tuuid = new Tuuid(Uuid::v4()->toRfc4122());
         }
     }
 
     /**
-     * Set the Translation UUID
+     * Set the Translation UUID.
      */
     final public function setTuuid(Tuuid|null $tuuid): self
     {
         $this->tuuid = $tuuid;
+
         return $this;
     }
 
@@ -89,8 +90,6 @@ trait TranslatableTrait
         return $this;
     }
 
-    /**
-     */
     final public function getTranslation(string $locale): array|null
     {
         return $this->translations[$locale] ?? null;

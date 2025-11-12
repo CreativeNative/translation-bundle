@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use LogicException;
 use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
@@ -22,22 +21,23 @@ final class ScalarTranslationTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $translation = $this->translator->translate($entity, 'de_DE');
-        assert($translation instanceof Scalar);
+        $this->assertInstanceOf(Scalar::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
 
         self::assertIsTranslation($entity, $translation, 'de_DE');
+
         self::assertTrue(property_exists($translation, 'title'));
-        self::assertEquals('English title', $translation->getTitle());
-        self::assertEquals('Shared english attribute', $translation->getShared());
-        self::assertNotEquals('Empty english attribute', $translation->getEmpty());
+        self::assertSame('English title', $translation->getTitle());
+        self::assertSame('Shared english attribute', $translation->getShared());
+        self::assertNotSame('Empty english attribute', $translation->getEmpty());
         self::assertNull($translation->getEmpty());
     }
 
-
     /**
      * @todo fixme: This test is broken because of TranslatableEventSubscriber->alreadySyncedEntities. I don't know yet how to fix it.
+     *
      * @throws ORMException
      */
     public function testItCanShareScalarValueAmongstTranslations(): void
@@ -45,7 +45,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
         $entity = $this->createEntity();
 
         $translation = $this->translator->translate($entity, 'de_DE');
-        assert($translation instanceof Scalar);
+        $this->assertInstanceOf(Scalar::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
@@ -55,7 +55,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         self::assertTrue(property_exists($entity, 'shared'));
-//        self::assertEquals('Updated shared', $entity->getShared());
+        //        self::assertEquals('Updated shared', $entity->getShared());
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 
@@ -65,9 +65,9 @@ final class ScalarTranslationTest extends IntegrationTestCase
      */
     public function testItCanEmptyScalarValueOnTranslate(): void
     {
-        $entity = $this->createEntity();
+        $entity      = $this->createEntity();
         $translation = $this->translator->translate($entity, 'de_DE');
-        assert($translation instanceof Scalar);
+        $this->assertInstanceOf(Scalar::class, $translation);
 
         $this->entityManager->persist($translation);
         $this->entityManager->flush();
@@ -83,7 +83,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
      */
     public function testItCanNotEmptyNotNullableScalarValueOnTranslate(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(\LogicException::class);
 
         $entity = new CanNotBeNull()
             ->setLocale('en_US')
@@ -92,7 +92,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
         $this->entityManager->persist($entity);
 
         $translation = $this->translator->translate($entity, 'de_DE');
-        assert($translation instanceof CanNotBeNull);
+        $this->assertInstanceOf(CanNotBeNull::class, $translation);
 
         $this->entityManager->flush();
 
@@ -104,6 +104,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
 
     /**
      * Creates test entity.
+     *
      * @throws ORMException
      */
     private function createEntity(): Scalar
@@ -115,6 +116,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
             ->setEmpty('Empty english attribute');
 
         $this->entityManager->persist($entity);
+
         return $entity;
     }
 }
