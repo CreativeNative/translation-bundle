@@ -7,9 +7,10 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Model;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use InvalidArgumentException;
-use Ramsey\Uuid\Uuid;
+use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 final class TranslatableTraitTest extends IntegrationTestCase
 {
@@ -28,19 +29,19 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $this->entityManager->flush();
 
         $this->assertNotNull($entity->getTuuid());
-        $this->assertTrue(Uuid::isValid($entity->getTuuid()));
+        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        $this->assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
     }
 
-    public function testSetTuuid(): void
+    public function testSetInvalidTuuidThrowsException(): void
     {
-        $invalidUuid = 'not-a-valid-uuid';
-
-        $entity = new Scalar();
+        $invalidTuuid = 'not-a-valid-uuid';
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('Invalid UUID provided for tuuid: "%s"', $invalidUuid));
+        $this->expectExceptionMessage(sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
 
-        $entity->setTuuid($invalidUuid);
+        // Invalid TUuID wird nun direkt im ValueObject validiert
+        new Tuuid($invalidTuuid);
     }
 
     public function testLocaleMethods(): void
@@ -50,7 +51,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity->setLocale('de_DE');
         $this->assertEquals('de_DE', $entity->getLocale());
 
-        $entity->setLocale(null);
+        $entity->setLocale();
         $this->assertNull($entity->getLocale());
     }
 
@@ -71,12 +72,28 @@ final class TranslatableTraitTest extends IntegrationTestCase
     public function testTuuidMethods(): void
     {
         $entity = new Scalar();
-        $uuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
-        $entity->setTuuid($uuid);
-        $this->assertEquals($uuid, $entity->getTuuid());
+        $entity->setTuuid($tuuid);
+        $this->assertSame($tuuid, $entity->getTuuid());
+        $this->assertEquals((string) $tuuid, $entity->getTuuid()->__toString());
 
         $entity->setTuuid(null);
         $this->assertNull($entity->getTuuid());
+    }
+
+    public function testGenerateTuuid(): void
+    {
+        $entity = new Scalar();
+        $this->assertNull($entity->getTuuid());
+
+        $entity->generateTuuid();
+        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        $this->assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
+
+        // Generate again should not overwrite existing TUuID
+        $existing = $entity->getTuuid();
+        $entity->generateTuuid();
+        $this->assertSame($existing, $entity->getTuuid());
     }
 }

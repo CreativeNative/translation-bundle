@@ -7,16 +7,17 @@ namespace Tmi\TranslationBundle\Test\Translation;
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
-use Ramsey\Uuid\Uuid;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 use ReflectionProperty;
 use stdClass;
+use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[CoversClass(EntityTranslator::class)]
 final class EntityTranslatorTest extends UnitTestCase
@@ -260,7 +261,7 @@ final class EntityTranslatorTest extends UnitTestCase
      */
     public function testProcessTranslationUsesExistingCacheEntry(): void
     {
-        $tuuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
@@ -272,7 +273,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // Inject into private translationCache via reflection
         $rp = new ReflectionProperty($this->translator, 'translationCache');
-        $rp->setValue($this->translator, [$tuuid => ['de_DE' => $cached]]);
+        $rp->setValue($this->translator, [(string) $tuuid => ['de_DE' => $cached]]);
 
         // If cache exists, processTranslation should return cached item
         $args = new TranslationArgs($entity, 'en_US', 'de_DE');
@@ -286,7 +287,7 @@ final class EntityTranslatorTest extends UnitTestCase
      */
     public function testWarmupTranslationsPopulatesCacheWithoutQuery(): void
     {
-        $tuuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
@@ -298,7 +299,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // manually inject into private cache
         $rp = new ReflectionProperty($this->translator, 'translationCache');
-        $rp->setValue($this->translator, [$tuuid => ['de_DE' => $translated]]);
+        $rp->setValue($this->translator, [(string) $tuuid => ['de_DE' => $translated]]);
 
         $args = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator->processTranslation($args);
@@ -312,7 +313,7 @@ final class EntityTranslatorTest extends UnitTestCase
      */
     public function testInProgressPreventsRecursiveTranslation(): void
     {
-        $tuuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $entity = new Scalar();
         $entity->setTuuid($tuuid);
@@ -320,7 +321,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // simulate inProgress being set for this tuuid + target locale
         $rp = new ReflectionProperty($this->translator, 'inProgress');
-        $rp->setValue($this->translator, [$tuuid . ':de' => true]);
+        $rp->setValue($this->translator, [$tuuid->getValue() . ':de' => true]);
 
         // if inProgress is set, processTranslation should return the original entity (no clone)
         $args = new TranslationArgs($entity, 'en_US', 'de_DE');
@@ -370,14 +371,14 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // --- 3rd continue: TranslatableInterface with cached tuuid ---
 
-        $tuuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $scalarCached = new Scalar();
         $scalarCached->setLocale('en_US');
         $scalarCached->setTuuid($tuuid);
 
         // Inject cache directly
-        $translationCache = [$tuuid => ['de_DE' => $scalarCached]];
+        $translationCache = [(string) $tuuid => ['de_DE' => $scalarCached]];
         $rp = new ReflectionProperty($this->translator, 'translationCache');
         $rp->setValue($this->translator, $translationCache);
 
@@ -398,7 +399,7 @@ final class EntityTranslatorTest extends UnitTestCase
      */
     public function testProcessTranslationUsesCacheAndKeepsInProgressOnCacheHit(): void
     {
-        $sharedTuuid = Uuid::uuid4()->toString();
+        $sharedTuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $entity = new Scalar();
         $entity->setTuuid($sharedTuuid);
@@ -413,7 +414,7 @@ final class EntityTranslatorTest extends UnitTestCase
         // Pre-fill cache
         $translationCacheProperty = $reflection->getProperty('translationCache');
         $translationCacheProperty->setValue($this->translator, [
-            $sharedTuuid => ['de_DE' => $cachedTranslation],
+            $sharedTuuid->getValue() => ['de_DE' => $cachedTranslation],
         ]);
 
         // Mark as inProgress

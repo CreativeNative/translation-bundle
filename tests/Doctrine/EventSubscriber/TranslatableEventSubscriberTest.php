@@ -13,8 +13,8 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Ramsey\Uuid\Uuid;
 use stdClass;
+use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -50,8 +50,8 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->prePersist($args);
 
         // After prePersist, tuuid should be generated
-        $this->assertNotNull($entity->getTuuid());
-        $this->assertTrue(Uuid::isValid($entity->getTuuid()));
+        $this->assertNotNull($entity->getTuuid()->getValue());
+        $this->assertTrue(Uuid::isValid($entity->getTuuid()->getValue()));
     }
 
     public function testPrePersistIgnoresNonTranslatableEntities(): void

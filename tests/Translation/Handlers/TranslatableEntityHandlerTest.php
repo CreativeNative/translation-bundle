@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityRepository;
-use Ramsey\Uuid\Uuid;
+
 use stdClass;
+use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
@@ -15,6 +16,7 @@ use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
 use ReflectionException;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 final class TranslatableEntityHandlerTest extends UnitTestCase
 {
@@ -40,7 +42,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testSupportsWithTranslatableInterface(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de_DE');
+        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
 
         $this->assertTrue($this->handler->supports($args));
     }
@@ -48,7 +50,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testSupportsWithNonTranslatable(): void
     {
         $nonTranslatable = new stdClass();
-        $args = new TranslationArgs($nonTranslatable, 'en', 'de_DE');
+        $args = new TranslationArgs($nonTranslatable, 'en_US', 'de_DE');
 
         $this->assertFalse($this->handler->supports($args));
     }
@@ -58,20 +60,23 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
      */
     public function testHandleSharedAmongstTranslations(): void
     {
+
+
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de_DE');
+        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         // Set up the mocks so that translate will return the translatable mock
         $translatable->expects($this->once())
             ->method('getTuuid')
-            ->willReturn('test-uuid');
+            ->willReturn($tuuid);
 
         $repository = $this->createMock(EntityRepository::class);
         $repository->expects($this->once())
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => 'test-uuid',
+                'tuuid' => (string) $tuuid,
             ])
             ->willReturn($translatable);
 
@@ -87,7 +92,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslate(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args = new TranslationArgs($translatable, 'en', 'de_DE');
+        $args = new TranslationArgs($translatable, 'en_US', 'de_DE');
 
         $result = $this->handler->handleEmptyOnTranslate($args);
         $this->assertNull($result);
@@ -101,14 +106,16 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $existingTranslation = $this->createMock(TranslatableInterface::class);
         $originalEntity = $this->createMock(TranslatableInterface::class);
 
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
         // Set up expectations
         $originalEntity->expects($this->once())
             ->method('getTuuid')
-            ->willReturn('test-uuid');
+            ->willReturn($tuuid);
 
         $translationArgs = new TranslationArgs(
             $originalEntity,
-            'en',
+            'en_US',
             'de_DE'
         );
 
@@ -118,7 +125,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => 'test-uuid',
+                'tuuid' => (string) $tuuid,
             ])
             ->willReturn($existingTranslation);
 
@@ -137,15 +144,15 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
      */
     public function testTranslateCreatesNewTranslationWhenNotFound(): void
     {
-        $tuuid = Uuid::uuid4()->toString();
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
 
         $originalEntity = new Scalar()
             ->setTuuid($tuuid)
-            ->setLocale('en');
+            ->setLocale('en_US');
 
         $translationArgs = new TranslationArgs(
             $originalEntity,
-            'en',
+            'en_US',
             'de_DE'
         );
 
@@ -155,7 +162,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => $tuuid,
+                'tuuid' => (string) $tuuid,
             ])
             ->willReturn(null);
 
@@ -177,7 +184,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $this->assertInstanceOf(get_class($originalEntity), $result);
 
         // Verify the tuuid is preserved
-        $this->assertEquals($tuuid, $result->getTuuid());
+        $this->assertEquals((string) $tuuid, (string) $result->getTuuid());
     }
 
     public function testTranslateWithReflectionException(): void
@@ -186,14 +193,16 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
 
         $originalEntity = $this->createMock(TranslatableInterface::class);
 
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
         // Set up expectations
         $originalEntity->expects($this->once())
             ->method('getTuuid')
-            ->willReturn('test-uuid');
+            ->willReturn($tuuid);
 
         $translationArgs = new TranslationArgs(
             $originalEntity,
-            'en',
+            'en_US',
             'de_DE'
         );
 
@@ -203,7 +212,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('findOneBy')
             ->with([
                 'locale' => 'de_DE',
-                'tuuid' => 'test-uuid',
+                'tuuid' => (string) $tuuid,
             ])
             ->willReturn(null);
 

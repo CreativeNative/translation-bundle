@@ -8,13 +8,14 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\PersistentCollection;
-use Ramsey\Uuid\Uuid;
 use ReflectionException;
 use ReflectionProperty;
+use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 {
@@ -53,8 +54,8 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
      */
     public function testTranslateAddsItemsToCollection(): void
     {
-        $tuuid1 = Uuid::uuid4()->toString();
-        $tuuid2 = Uuid::uuid4()->toString();
+        $tuuid1 = new Tuuid(Uuid::v4()->toRfc4122());
+        $tuuid2 = new Tuuid(Uuid::v4()->toRfc4122());
 
         // Create children and set source locale explicitly
         $child1 = new TranslatableManyToManyUnidirectionalChild()

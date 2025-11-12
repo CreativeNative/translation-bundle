@@ -6,16 +6,15 @@ namespace Tmi\TranslationBundle\Doctrine\Model;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use InvalidArgumentException;
-use Ramsey\Uuid\Exception\InvalidUuidStringException;
-use Ramsey\Uuid\Uuid;
+use Symfony\Component\Uid\Uuid;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 
 trait TranslatableTrait
 {
     #[ORM\Column(type: Types::GUID, length: 36, nullable: true)]
     #[SharedAmongstTranslations]
-    private string|null $tuuid = null;
+    private Tuuid|null $tuuid = null;
 
     #[ORM\Column(type: Types::STRING, length: 7, nullable: true)]
     private string|null $locale = null;
@@ -26,8 +25,25 @@ trait TranslatableTrait
     final public function generateTuuid(): void
     {
         if ($this->tuuid === null) {
-            $this->tuuid = Uuid::uuid4()->toString();
+            $this->tuuid = new Tuuid(Uuid::v4()->toRfc4122());
         }
+    }
+
+    /**
+     * Set the Translation UUID
+     */
+    final public function setTuuid(Tuuid|null $tuuid): self
+    {
+        $this->tuuid = $tuuid;
+        return $this;
+    }
+
+    /**
+     * Returns entity's Translation UUID.
+     */
+    final public function getTuuid(): Tuuid|null
+    {
+        return $this->tuuid;
     }
 
     final public function setLocale(string|null $locale = null): self
@@ -43,36 +59,6 @@ trait TranslatableTrait
     final public function getLocale(): string|null
     {
         return $this->locale;
-    }
-
-    /**
-     * Set the Translation UUID
-     */
-    final public function setTuuid(string|null $tuuid): self
-    {
-        if ($tuuid !== null) {
-            try {
-                // This will throw if the string is not a valid UUID
-                Uuid::fromString($tuuid);
-            } catch (InvalidUuidStringException $e) {
-                throw new InvalidArgumentException(sprintf(
-                    'Invalid UUID provided for tuuid: "%s"',
-                    $tuuid
-                ));
-            }
-        }
-
-        $this->tuuid = $tuuid;
-
-        return $this;
-    }
-
-    /**
-     * Returns entity's Translation UUID.
-     */
-    final public function getTuuid(): string|null
-    {
-        return $this->tuuid;
     }
 
     /**

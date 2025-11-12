@@ -45,7 +45,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         // Search in database if the content exists, otherwise translate it.
         $existingTranslation = $this->entityManager->getRepository($data::class)->findOneBy([
             'locale' => $args->getTargetLocale(),
-            'tuuid' => $data->getTuuid(),
+            'tuuid' => (string) $data->getTuuid(),
         ]);
 
         if (null !== $existingTranslation) {

@@ -14,6 +14,7 @@ use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
  * ToDo: Introduce a Translation Cache Service
@@ -90,11 +91,11 @@ final class EntityTranslator implements EntityTranslatorInterface
         // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
             $tuuid = $entity->getTuuid();
-            $cacheKey = $tuuid ? $tuuid . ':' . $locale : null;
+            $cacheKey = $tuuid instanceof Tuuid ? $tuuid->getValue() . ':' . $locale : null;
 
             // Return cached translation immediately if available
-            if ($cacheKey && isset($this->translationCache[$tuuid][$locale])) {
-                return $this->translationCache[$tuuid][$locale];
+            if ($cacheKey && isset($this->translationCache[(string) $tuuid][$locale])) {
+                return $this->translationCache[(string) $tuuid][$locale];
             }
 
             // Detect cycles to avoid infinite recursion
@@ -108,10 +109,10 @@ final class EntityTranslator implements EntityTranslatorInterface
                 // Warmup existing translations from DB
                 $this->warmupTranslations([$entity], $locale);
 
-                if (isset($this->translationCache[$tuuid][$locale])) {
+                if (isset($this->translationCache[(string) $tuuid][$locale])) {
                     // @codeCoverageIgnoreStart
                     unset($this->inProgress[$cacheKey]);
-                    return $this->translationCache[$tuuid][$locale];
+                    return $this->translationCache[(string) $tuuid][$locale];
                     // @codeCoverageIgnoreEnd
                 }
             }
@@ -183,12 +184,12 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             // Store translation in cache for reuse
             if ($translated instanceof TranslatableInterface && $translated->getTuuid() !== null) {
-                $this->translationCache[$translated->getTuuid()][$translated->getLocale()] = $translated;
+                $this->translationCache[$translated->getTuuid()->getValue()][$translated->getLocale()] = $translated;
             }
 
             // Remove from in-progress set
             if ($entity instanceof TranslatableInterface && $entity->getTuuid() !== null) {
-                unset($this->inProgress[$entity->getTuuid() . ':' . $locale]);
+                unset($this->inProgress[$entity->getTuuid()->getValue() . ':' . $locale]);
             }
 
             return $translated;
@@ -212,10 +213,10 @@ final class EntityTranslator implements EntityTranslatorInterface
                 continue;
             }
             $tuuid = $entity->getTuuid();
-            if ($tuuid === null || isset($this->translationCache[$tuuid][$locale])) {
+            if ($tuuid === null || isset($this->translationCache[(string) $tuuid][$locale])) {
                 continue;
             }
-            $byClass[get_class($entity)][] = $tuuid;
+            $byClass[get_class($entity)][] = (string) $tuuid;
         }
 
         /** @var class-string<TranslatableInterface> $class */
@@ -239,7 +240,7 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             foreach ($translations as $translation) {
                 // @codeCoverageIgnoreStart
-                $this->translationCache[$translation->getTuuid()][$translation->getLocale()] = $translation;
+                $this->translationCache[(string) $translation->getTuuid()][$translation->getLocale()] = $translation;
                 // @codeCoverageIgnoreEnd
             }
         }
