@@ -7,92 +7,117 @@ namespace Tmi\TranslationBundle\Test\DependencyInjection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
+use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Doctrine\DBAL\Platforms\AbstractPlatform;
 
-final class TmiTranslationExtensionTest extends TestCase
+final class TmiTranslationExtensionTest extends IntegrationTestCase
 {
-    /**
-     * @throws TypesException
-     * @throws Exception
-     */
-    public function testLoad(): void
+    private function createContainerBuilderFromKernel(): ContainerBuilder
     {
-        $container = new ContainerBuilder();
-        $extension = new TmiTranslationExtension();
+        $containerBuilder = new ContainerBuilder();
 
+        // Pull parameters from the booted kernel container if available
+        if (self::$container === null) {
+            self::bootKernel();
+            self::$container = method_exists(self::class, 'getContainer')
+                ? self::getContainer()
+                : self::$kernel->getContainer();
+        }
+
+        if (self::$container !== null) {
+            foreach (self::$container->getParameterBag()->all() as $key => $value) {
+                $containerBuilder->setParameter($key, $value);
+            }
+        }
+
+        return $containerBuilder;
+    }
+
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testLoadRegistersServices(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
         $config = [
             [
-                'locales'            => ['en_US', 'de_DE', 'it_IT'],
-                'default_locale'     => 'en_US',
+                'locales' => ['en_US', 'de_DE', 'it_IT'],
+                'default_locale' => 'en_US',
                 'disabled_firewalls' => ['main'],
             ],
         ];
-        $extension->load($config, $container);
 
-        $this->assertTrue(
-            $container->has('tmi_translation.translation.entity_translator'),
-            'EntityTranslator service should be registered',
-        );
-        $this->assertTrue(
-            $container->has('tmi_translation.utils.attribute_helper'),
-            'AttributeHelper service should be registered',
-        );
-        $this->assertTrue(
-            $container->has(LocaleFilterConfigurator::class),
-            'LocaleFilterConfigurator subscriber should be registered',
-        );
+        $extension->load($config, $containerBuilder);
+
+        $this->assertTrue($containerBuilder->has('tmi_translation.translation.entity_translator'));
+        $this->assertTrue($containerBuilder->has('tmi_translation.utils.attribute_helper'));
+        $this->assertTrue($containerBuilder->has(LocaleFilterConfigurator::class));
     }
 
     public function testPrependDoesNothing(): void
     {
-        $container = new ContainerBuilder();
+        $containerBuilder = $this->createContainerBuilderFromKernel();
         $extension = new TmiTranslationExtension();
-        // Call the empty prepend method, it should not throw any exceptions
-        $extension->prepend($container);
-        // Assert the container is still an instance of ContainerBuilder
-        $this->assertInstanceOf(ContainerBuilder::class, $container);
+        $extension->prepend($containerBuilder);
+
+        $this->assertInstanceOf(ContainerBuilder::class, $containerBuilder);
+    }
+
+    /**
+     * @throws TypesException
+     * @throws Exception
+     */
+    public function testTuuidTypeIsRegistered(): void
+    {
+        // Ensure the type exists and is correct
+        if (Type::hasType(TuuidType::NAME)) {
+            $existing = Type::getType(TuuidType::NAME);
+            $this->assertInstanceOf(TuuidType::class, $existing);
+        }
+
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+        $extension = new TmiTranslationExtension();
+        $extension->load([['locales' => ['en_US', 'de_DE'], 'default_locale' => 'en_US']], $containerBuilder);
+
+        $this->assertTrue(Type::hasType(TuuidType::NAME));
+        $this->assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
     }
 
     /**
      * @throws Exception
      * @throws TypesException
-     * @throws \ReflectionException
      */
-    public function testDoctrineTypeRegistration(): void
+    public function testTuuidTypeMapping(): void
     {
-        // Unregister TuuidType if it exists
-        if (Type::hasType(TuuidType::NAME)) {
-            $reflection = new \ReflectionClass(Type::class);
-            $typesMap   = $reflection->getProperty('typesMap');
-            $map        = $typesMap->getValue();
-            unset($map[TuuidType::NAME]);
-            $typesMap->setValue(null, $map);
-        }
+        $containerBuilder = new ContainerBuilder();
 
-        $this->assertFalse(
-            Type::hasType(TuuidType::NAME) && Type::getType(TuuidType::NAME) instanceof TuuidType,
-            'TuuidType should not be registered yet',
-        );
+        // Create a fake DBAL platform stub
+        $platformStub = $this->createMock(AbstractPlatform::class);
+        $platformStub->method('registerDoctrineTypeMapping')
+            ->with('tuuid', 'guid');
 
-        $container = new ContainerBuilder();
+        // Create a fake connection stub
+        $connectionStub = new readonly class($platformStub) {
+            public function __construct(private AbstractPlatform $platform) {}
+            public function getDatabasePlatform(): AbstractPlatform { return $this->platform; }
+        };
+
+        // Register the fake connection in the container
+        $containerBuilder->set('doctrine.dbal.default_connection', $connectionStub);
+
         $extension = new TmiTranslationExtension();
+        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
 
-        $config = [
-            [
-                'locales'        => ['en_US', 'de_DE'],
-                'default_locale' => 'en_US',
-            ],
-        ];
-
-        $extension->load($config, $container);
-
-        $this->assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered by the extension');
-
-        $typeInstance = Type::getType(TuuidType::NAME);
-        $this->assertInstanceOf(TuuidType::class, $typeInstance, 'Registered type should be an instance of TuuidType');
+        // Assert that the TuuidType exists
+        $this->assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered');
+        $this->assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
     }
 }

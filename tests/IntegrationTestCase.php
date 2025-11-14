@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -26,7 +27,8 @@ class IntegrationTestCase extends KernelTestCase
     protected EntityManagerInterface|null $entityManager = null;
 
     protected AttributeHelper|null $attributeHelper = null;
-    private static Container|null $container        = null;
+
+    protected static Container|null $container        = null;
 
     /**
      * {@inheritDoc}
