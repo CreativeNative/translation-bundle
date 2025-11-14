@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 final class NonTranslatableManyToOneBidirectionalChild
 {
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
 

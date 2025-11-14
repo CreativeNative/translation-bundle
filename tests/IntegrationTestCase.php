@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
+use Doctrine\DBAL\Types\Exception\TypesException;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -11,6 +13,7 @@ use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -27,10 +30,17 @@ class IntegrationTestCase extends KernelTestCase
 
     /**
      * {@inheritDoc}
+     *
+     * @throws TypesException|\Doctrine\DBAL\Exception
      */
     public function setUp(): void
     {
         parent::setUp();
+
+        // --- TUuID Type registry ---
+        if (!Type::hasType(TuuidType::NAME)) {
+            Type::addType(TuuidType::NAME, TuuidType::class);
+        }
 
         self::bootKernel();
 
@@ -51,6 +61,9 @@ class IntegrationTestCase extends KernelTestCase
         } catch (ServiceNotFoundException) {
             self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager');
         }
+
+        $platform = $this->entityManager->getConnection()->getDatabasePlatform();
+        $platform->registerDoctrineTypeMapping('tuuid', 'guid');
 
         try {
             $this->translator = $container->get('tmi_translation.translation.entity_translator');

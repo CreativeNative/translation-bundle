@@ -6,17 +6,16 @@ namespace Tmi\TranslationBundle\Doctrine\Model;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 trait TranslatableTrait
 {
-    #[ORM\Column(type: Types::GUID, length: 36, nullable: true)]
+    #[ORM\Column(type: 'tuuid', length: 36, nullable: true)]
     #[SharedAmongstTranslations]
     private Tuuid|null $tuuid = null;
 
-    #[ORM\Column(type: Types::STRING, length: 7, nullable: true)]
+    #[ORM\Column(type: Types::STRING, length: 5, nullable: true)]
     private string|null $locale = null;
 
     #[ORM\Column(type: Types::JSON)]
@@ -25,7 +24,7 @@ trait TranslatableTrait
     final public function generateTuuid(): void
     {
         if (null === $this->tuuid) {
-            $this->tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+            $this->tuuid = Tuuid::generate();
         }
     }
 
@@ -34,16 +33,33 @@ trait TranslatableTrait
      */
     final public function setTuuid(Tuuid|null $tuuid): self
     {
-        $this->tuuid = $tuuid;
+        // Initial assignment always allowed (including null for cloning/tests)
+        if (null === $this->tuuid) {
+            $this->tuuid = $tuuid;
 
-        return $this;
+            return $this;
+        }
+
+        // Doctrine rehydration of the same value:
+        // - Only applies if both sides are Tuuid instances
+        // - Compare via Tuuid::equals()
+        if ($tuuid instanceof Tuuid && $this->tuuid->equals($tuuid)) {
+            return $this;
+        }
+
+        // Everything else would reassign a previously set Tuuid
+        throw new \LogicException('Tuuid is immutable and cannot be reassigned.');
     }
 
     /**
      * Returns entity's Translation UUID.
      */
-    final public function getTuuid(): Tuuid|null
+    final public function getTuuid(): Tuuid
     {
+        if (null === $this->tuuid) {
+            $this->tuuid = Tuuid::generate();
+        }
+
         return $this->tuuid;
     }
 

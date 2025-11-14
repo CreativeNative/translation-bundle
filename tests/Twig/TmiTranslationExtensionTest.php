@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tmi\TranslationBundle\Tests\Twig;
+namespace Tmi\TranslationBundle\Test\Twig;
 
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;

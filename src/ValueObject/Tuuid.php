@@ -41,7 +41,7 @@ final readonly class Tuuid implements \Stringable
     public static function generate(): self
     {
         // Creates a new UUIDv7 (time-based, SEO-friendly sequence)
-        return new self(Uuid::v7()->toRfc4122());
+        return new self(strtolower(Uuid::v7()->toRfc4122()));
     }
 
     /**

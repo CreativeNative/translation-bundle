@@ -18,6 +18,7 @@ use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[CoversClass(TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberTest extends TestCase
@@ -41,8 +42,8 @@ final class TranslatableEventSubscriberTest extends TestCase
         // Use a real entity that implements TranslatableInterface instead of a mock
         $entity = new Scalar();
 
-        // Initially, tuuid should be null
-        $this->assertNotInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $entity->getTuuid());
+        // tuuid should be initialised
+        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
 
         $args = new PrePersistEventArgs($entity, $this->entityManager);
 

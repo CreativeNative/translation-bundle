@@ -17,7 +17,8 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 class UnitTestCase extends TestCase
 {
-    protected const string TARGET_LOCALE        = 'de_DE';
+    protected const string TARGET_LOCALE = 'de_DE';
+
     protected EntityTranslator|null $translator = null;
 
     protected EntityManagerInterface|null $entityManager = null;

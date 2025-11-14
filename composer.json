@@ -84,6 +84,17 @@
         "rector": [
             "Composer\\Config::disableProcessTimeout",
             "vendor/bin/rector process --dry-run"
+        ],
+        "check": [
+            "@test",
+            "@cs-check",
+            "@stan-min"
+        ],
+        "post-install-cmd": [
+            "@check"
+        ],
+        "post-update-cmd": [
+            "@check"
         ]
     },
     "config": {

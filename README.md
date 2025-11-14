@@ -64,12 +64,10 @@ Configure your available locales and, optionally, the default one and disabled f
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    locales: [en, fr, ja]            # Required: available locales
-    # default_locale: en             # Optional: uses kernel.default_locale if not set
-    # disabled_firewalls: ['admin']  # Optional: disable filter for specific firewalls
+    locales: ['en_US', 'de_DE', 'it_IT'] # Required: available locales
+    # default_locale: 'en_US'            # Optional: uses kernel.default_locale if not set
+    # disabled_firewalls: ['main']       # Optional: disable filter for specific firewalls
 ```
-
-
 
 ## 🚀 Quick Start
 
@@ -103,7 +101,7 @@ class Product implements TranslatableInterface
 Use the service `tmi_translation.translator.entity_translator` to translate a source entity to a target language.
 
 ```php
-$translatedEntity = $this->get('tmi_translation.translator.entity_translator')->translate($entity, 'de');
+$translatedEntity = $this->get('tmi_translation.translator.entity_translator')->translate($entity, 'de_DE');
 ```
 
 Every attribute of the source entity will be cloned into a new entity, unless specified otherwise with the `EmptyOnTranslate`
@@ -179,7 +177,7 @@ For doing so, you can disable the filter by configuring the disabled_firewalls o
 # config/packages/tmi_translation.yaml
 tmi_translation:
   locales: [en, de, it]
-  disabled_firewalls: ['admin']  # Disable filter for 'admin' firewall
+  disabled_firewalls: ['main']  # Disable filter for 'main' firewall
 ```
 
 ### Quick Fix for unique fields

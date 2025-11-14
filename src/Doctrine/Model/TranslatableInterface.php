@@ -10,8 +10,6 @@ interface TranslatableInterface
 {
     public function getTuuid(): Tuuid|null;
 
-    public function setTuuid(Tuuid|null $tuuid): self;
-
     public function getLocale(): string|null;
 
     public function setLocale(string|null $locale = null): self;

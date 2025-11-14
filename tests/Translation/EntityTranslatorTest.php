@@ -152,15 +152,13 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testLifecycleHooksUseEntityLocaleIfPresent(): void
     {
         $entity = new Scalar();
-        $entity->setLocale('en_US');
         $entity->setTitle('Original Title');
-        $translation = new Scalar();
-        $translation->setLocale('en_US');
-        $translation->setTitle('Translated Title');
 
         // Make attribute helper report "no special attributes" for the property
-        $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(false);
-        $this->attributeHelper->method('isEmptyOnTranslate')->willReturn(false);
+        $this->attributeHelper->method('isSharedAmongstTranslations')
+            ->willReturnCallback(fn ($property) => false);
+        $this->attributeHelper->method('isEmptyOnTranslate')
+            ->willReturnCallback(fn ($property) => false);
 
         // Handler that will be called once per translate() invocation (per property)
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -170,7 +168,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn($entity);
 
         // translate() should be invoked exactly 3 times (afterLoad + beforePersist + beforeUpdate) for the single property
-        $handler->expects($this->exactly(3))->method('translate');
+        $handler->expects($this->exactly(3))->method('translate')->willReturn($entity);
+
         $this->translator->addTranslationHandler($handler);
         $this->translator->afterLoad($entity);
         $this->translator->beforePersist($entity);
@@ -180,21 +179,20 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testLifecycleHooksFallbackToDefaultLocaleWhenNull(): void
     {
         $entity = new Scalar();
-        $entity->setLocale('en_US');
         $entity->setTitle('Original Title');
-        $translation = new Scalar();
-        $translation->setLocale('en_US');
-        $translation->setTitle('Translated Title');
 
         $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper->method('isEmptyOnTranslate')->willReturn(false);
+
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
         $handler->method('translate')->willReturn($entity);
 
         // now 4 lifecycle methods (afterLoad + beforePersist + beforeUpdate + beforeRemove)
-        $handler->expects($this->exactly(4))->method('translate');
+        $handler->expects($this->exactly(4))->method('translate')->willReturn($entity);
+
         $this->translator->addTranslationHandler($handler);
+
         $this->translator->afterLoad($entity);
         $this->translator->beforePersist($entity);
         $this->translator->beforeUpdate($entity);
