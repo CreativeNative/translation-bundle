@@ -46,13 +46,21 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      # Check coding standards
-      # - name: Check coding standards (PHPCS)
-      #   run: composer run-script cs-check
+      # Create var/cache folder for PHP-CS-Fixer (optional if using cache)
+      - name: Create cache folder
+        run: mkdir -p var/cache
 
-      # Run PHPUnit with coverage
+      # PHPUnit
       - name: Run PHPUnit tests with coverage
-        run: composer run-script test
+        run: XDEBUG_MODE=coverage vendor/bin/phpunit
+
+      # PHPCS
+      - name: Check coding standards
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no
+
+      # PHPStan
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse -c phpstan.neon
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
