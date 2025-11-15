@@ -42,13 +42,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-
 
-      # Install dependencies
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction
-
       # Create var/cache folder for PHP-CS-Fixer (optional if using cache)
       - name: Create cache folder
         run: mkdir -p var/cache
+
+      # Install dependencies
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
 
       # PHPUnit
       - name: Run PHPUnit tests with coverage

@@ -89,12 +89,6 @@
             "@test",
             "@cs-check",
             "@stan-min"
-        ],
-        "post-install-cmd": [
-            "@check"
-        ],
-        "post-update-cmd": [
-            "@check"
         ]
     },
     "config": {
