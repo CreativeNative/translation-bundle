@@ -105,9 +105,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
         $newOwner = $args->getTranslatedParent();
 
-        $prop = $args->getProperty() ?? ($newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+        $prop = $args->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
 
-        if ($newOwner && $prop) {
+        if (null !== $newOwner && $prop) {
             try {
                 $prop->setValue($newOwner, new ArrayCollection());
             } catch (\Throwable) {
@@ -130,7 +130,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         }
 
         $newOwner = $args->getTranslatedParent();
-        $prop     = $args->getProperty() ?? ($newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+        $prop     = $args->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
 
         if (null === $newOwner || null === $prop) {
             return new ArrayCollection($collection->toArray());

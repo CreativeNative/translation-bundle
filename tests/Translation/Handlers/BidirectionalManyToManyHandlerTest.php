@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
-use Closure;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\MappingException;
-use ReflectionProperty;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
@@ -56,7 +54,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $this->attributeHelper->method('isManyToMany')->willReturn(false);
 
         $parent = new class {
-            #[ManyToMany(mappedBy: 'parents')]
+            #[ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'parents')]
             public Collection $children;
 
             public function __construct()
@@ -218,8 +216,16 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs($collection, 'en_US', 'de_DE')
             ->setTranslatedParent($owner);
 
-        // Read private property values before call using Closure::bind (avoids setAccessible)
-        $read = \Closure::bind(fn (string $name) => $this->$name, $owner, $owner::class);
+        // Read private/protected property values safely using Closure::bind (PHP 8.4 compliant)
+        $read = static function (string $name) use ($owner): mixed {
+            $reflection = new \ReflectionObject($owner);
+
+            if (!$reflection->hasProperty($name)) {
+                throw new \RuntimeException(sprintf('Property "%s" does not exist on class "%s".', $name, get_class($owner)));
+            }
+
+            return $reflection->getProperty($name)->getValue($owner);
+        };
 
         $aBefore = $read('a');
         $bBefore = $read('b');
@@ -260,7 +266,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $owner = new class($collection) {
             private readonly Collection $secret;
 
-            public function __construct(#[ManyToMany(mappedBy: 'simpleParents')]
+            public function __construct(#[ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'simpleParents')]
                 public Collection $visible)
             {
                 $this->secret = new ArrayCollection([new TranslatableManyToManyBidirectionalChild()]);
@@ -318,7 +324,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $owner = new class($collection) {
             private readonly Collection $a;
 
-            public function __construct(#[ManyToMany(mappedBy: 'sharedParents')]
+            public function __construct(#[ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'sharedParents')]
                 public Collection $b)
             {
                 $this->a = new ArrayCollection();
@@ -601,7 +607,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $collection = new ArrayCollection([new TranslatableManyToManyBidirectionalChild()]);
 
         $owner = new class {
-            #[ManyToMany(mappedBy: 'dummy')]
+            #[ManyToMany(targetEntity: TranslatableManyToManyBidirectionalChild::class, mappedBy: 'dummy')]
             public Collection $trouble;
 
             public function __construct()

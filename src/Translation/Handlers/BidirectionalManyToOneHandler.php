@@ -45,7 +45,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         }
 
         $attributes = $property->getAttributes(ManyToOne::class);
-        if (empty($attributes)) {
+        if (0 === count($attributes)) {
             return false;
         }
 

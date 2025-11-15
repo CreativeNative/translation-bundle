@@ -89,12 +89,15 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
             // Only clear properties marked as #[EmptyOnTranslate]
             if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
                 $setter = 'set'.ucfirst($prop->getName());
+
                 if (method_exists($clone, $setter)) {
-                    $clone->$setter(null);
+                    $callable = \Closure::fromCallable([$clone, $setter]);
+                    $callable(null);
                 } else {
-                    // fallback in case no setter exists
+                    // Fallback: set value via ReflectionProperty
                     $prop->setValue($clone, null);
                 }
+
                 $changed = true;
             }
         }

@@ -68,6 +68,21 @@ tmi_translation:
     # disabled_firewalls: ['main']       # Optional: disable filter for specific firewalls
 ```
 
+### Doctrine DBAL Custom Type - TuuidType
+
+To use the `TuuidType` in your Symfony project, you must register it in your Doctrine configuration:
+
+```yaml
+# config/packages/doctrine.yaml
+doctrine:
+    dbal:
+        types:
+            tuuid: Tmi\TranslationBundle\Doctrine\Type\TuuidType
+```
+This ensures that Doctrine recognizes the tuuid type and avoids errors like:
+```pgsql
+Unknown column type "tuuid" requested. Any Doctrine type that you use has to be registered with \Doctrine\DBAL\Types\Type::addType(). 
+```
 ## 🚀 Quick Start
 
 ### Make your entity translatable

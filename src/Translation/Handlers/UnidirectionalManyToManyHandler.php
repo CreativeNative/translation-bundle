@@ -66,7 +66,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
         // Check for SharedAmongstTranslations attribute
         $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-        if (!empty($sharedAttrs)) {
+        if (count($sharedAttrs) > 0) {
             throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $args->getDataToBeTranslated()::class));
         }
 

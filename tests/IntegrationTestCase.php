@@ -10,7 +10,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -28,7 +27,7 @@ class IntegrationTestCase extends KernelTestCase
 
     protected AttributeHelper|null $attributeHelper = null;
 
-    protected static Container|null $container        = null;
+    protected static Container|null $container = null;
 
     /**
      * {@inheritDoc}
@@ -58,14 +57,23 @@ class IntegrationTestCase extends KernelTestCase
             self::fail('Container is null. Kernel boot failed.');
         }
 
+        if ($container->has('doctrine.dbal.default_connection')) {
+            $connection = $container->get('doctrine.dbal.default_connection');
+            $platform   = $connection->getDatabasePlatform();
+            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
+        }
+
         try {
             $this->entityManager = $container->get('doctrine.orm.entity_manager');
         } catch (ServiceNotFoundException) {
             self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager');
         }
 
-        $platform = $this->entityManager->getConnection()->getDatabasePlatform();
-        $platform->registerDoctrineTypeMapping('tuuid', 'guid');
+        if ($container->has('doctrine.dbal.default_connection')) {
+            $connection = $container->get('doctrine.dbal.default_connection');
+            $platform   = $connection->getDatabasePlatform();
+            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
+        }
 
         try {
             $this->translator = $container->get('tmi_translation.translation.entity_translator');

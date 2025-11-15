@@ -30,18 +30,19 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         $container->setParameter($rootName, $config);
         $this->setConfigAsParameters($container, $config, $rootName);
 
-        // Register Doctrine Type for Tuuid if not already registered
+        // Register Doctrine Type for Tuuid
         if (!Type::hasType(TuuidType::NAME)) {
+            // In DBAL >3 you can't easily unregister, so we skip
             // @codeCoverageIgnoreStart
             Type::addType(TuuidType::NAME, TuuidType::class);
             // @codeCoverageIgnoreEnd
         }
 
-        // Safely map 'tuuid' to 'guid' for all platforms
+        // Safely map 'tuuid' to 'tuuid' for all platforms
         if ($container->has('doctrine.dbal.default_connection')) {
             $connection = $container->get('doctrine.dbal.default_connection');
-            $platform = $connection->getDatabasePlatform();
-            $platform->registerDoctrineTypeMapping('tuuid', 'guid');
+            $platform   = $connection->getDatabasePlatform();
+            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
         }
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));

@@ -88,7 +88,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             $cacheKey = null;
 
             $tuuid = $entity->getTuuid();
-            if ($tuuid instanceof Tuuid && !empty($tuuid->getValue())) {
+            if ($tuuid instanceof Tuuid && '' !== $tuuid->getValue()) {
                 $cacheKey = $tuuid->getValue().':'.$locale;
             }
 
@@ -246,7 +246,7 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         /** @var class-string<TranslatableInterface> $class */
         foreach ($byClass as $class => $tuuids) {
-            if (empty($tuuids)) {
+            if (!is_array($tuuids) || 0 === count($tuuids)) {
                 // @codeCoverageIgnoreStart
                 continue;
                 // @codeCoverageIgnoreEnd

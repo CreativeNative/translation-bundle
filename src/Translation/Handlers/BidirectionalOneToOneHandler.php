@@ -39,7 +39,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         }
 
         $attributes = $property->getAttributes(OneToOne::class);
-        if (empty($attributes)) {
+        if (0 === count($attributes)) {
             return false;
         }
 

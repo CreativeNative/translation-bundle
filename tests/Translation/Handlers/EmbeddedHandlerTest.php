@@ -29,7 +29,6 @@ final class EmbeddedHandlerTest extends UnitTestCase
         // Create EmbeddedHandler that delegates to DoctrineObjectHandler
         $this->embeddedHandler = new EmbeddedHandler(
             $this->attributeHelper,
-            $doctrineHandler,
         );
     }
 

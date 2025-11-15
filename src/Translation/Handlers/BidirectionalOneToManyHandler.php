@@ -49,7 +49,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         }
 
         $attributes = $property->getAttributes(OneToMany::class);
-        if (empty($attributes)) {
+        if (0 === count($attributes)) {
             return false;
         }
 
@@ -88,7 +88,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         $property         = $args->getProperty();
 
         // Guard: must have both property and translated parent
-        if (!$translatedParent || !$property) {
+        if (null === $translatedParent || null === $property) {
             return $children; // nothing to translate → return original
         }
 
