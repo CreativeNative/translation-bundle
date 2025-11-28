@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
@@ -16,7 +17,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 
-#[\PHPUnit\Framework\Attributes\CoversClass(UnidirectionalManyToManyHandler::class)]
+#[CoversClass(UnidirectionalManyToManyHandler::class)]
 final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 {
     /**

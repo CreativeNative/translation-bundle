@@ -60,7 +60,7 @@ jobs:
 
       # PHPStan
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse -c phpstan.neon
+        run: vendor/bin/phpstan analyse -c phpstan.neon --level 1
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov

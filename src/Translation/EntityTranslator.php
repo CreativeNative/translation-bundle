@@ -244,7 +244,6 @@ final class EntityTranslator implements EntityTranslatorInterface
             $byClass[$entity::class][] = $tuuid->getValue();
         }
 
-        /** @var class-string<TranslatableInterface> $class */
         foreach ($byClass as $class => $tuuids) {
             if (!is_array($tuuids) || 0 === count($tuuids)) {
                 // @codeCoverageIgnoreStart

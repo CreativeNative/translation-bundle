@@ -5,7 +5,7 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "7.3.*"
+            "require": "^7.3 || ^8.0"
         }
     },
     "keywords": [
@@ -25,32 +25,29 @@
         "php": ">=8.4",
         "doctrine/doctrine-bundle": "^2.18.1",
         "doctrine/orm": "^3.5.7",
-        "symfony/framework-bundle": "^v7.3.6",
-        "symfony/security-bundle": "^v7.3.4",
-        "symfony/yaml": "^v7.3.5",
-        "symfony/property-access": "^v7.3.3",
-        "twig/twig": "^v3.22.0",
+        "symfony/framework-bundle": "^7.3 || ^8.0",
+        "symfony/security-bundle": "^7.3 || ^8.0",
+        "symfony/yaml": "^7.3 || ^8.0",
+        "symfony/property-access": "^7.3 || ^8.0",
+        "twig/twig": "^3.22.0",
         "symfony/translation-contracts": "^3.6.1",
         "ext-json": "*",
         "ext-mbstring": "*",
-        "symfony/uid": "^7.3.1"
+        "symfony/uid": "^7.3 || ^8.0"
     },
     "require-dev": {
         "roave/security-advisories": "dev-latest",
-        "symfony/phpunit-bridge": "^7.3.4",
-        "phpunit/phpunit": "^12.4.2",
+        "symfony/phpunit-bridge": "^7.3 || ^8.0",
+        "phpunit/phpunit": "^12.4.4",
         "php-parallel-lint/php-parallel-lint": "^v1.4.0",
         "friendsofphp/php-cs-fixer": "@stable",
-        "dealerdirect/phpcodesniffer-composer-installer": "^1.2.0",
         "phpstan/phpstan": "^2.1.32",
         "phpstan/extension-installer": "^1.4.3",
         "phpstan/phpstan-deprecation-rules": "^2.0.3",
         "phpstan/phpstan-strict-rules": "^2.0.7",
         "phpstan/phpstan-symfony": "^2.0.8",
         "phpstan/phpstan-phpunit": "^2.0.8",
-        "rector/rector": "^2.2.7",
-        "phpcompatibility/php-compatibility": "^9.3.5",
-        "slevomat/coding-standard": "^8.22.1",
+        "rector/rector": "^2.2.9",
         "ext-pdo": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",
@@ -93,8 +90,7 @@
     },
     "config": {
         "allow-plugins": {
-            "phpstan/extension-installer": true,
-            "dealerdirect/phpcodesniffer-composer-installer": true
+            "phpstan/extension-installer": true
         },
         "sort-packages": true
     }

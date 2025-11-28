@@ -21,11 +21,11 @@ class UnitTestCase extends TestCase
 
     protected EntityTranslator|null $translator = null;
 
-    protected EntityManagerInterface|null $entityManager = null;
+    protected (MockObject&EntityManagerInterface)|null $entityManager = null;
 
-    protected EventDispatcherInterface|null $eventDispatcherInterface = null;
+    protected (MockObject&EventDispatcherInterface)|null $eventDispatcherInterface = null;
 
-    protected AttributeHelper|null $attributeHelper = null;
+    protected (MockObject&AttributeHelper)|null $attributeHelper = null;
 
     protected PropertyAccessor|null $propertyAccessor = null;
 

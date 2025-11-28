@@ -8,6 +8,8 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 interface TranslatableInterface
 {
+    public function generateTuuid(): void;
+
     public function getTuuid(): Tuuid|null;
 
     public function getLocale(): string|null;

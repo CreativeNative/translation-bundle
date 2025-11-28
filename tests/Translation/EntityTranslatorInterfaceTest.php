@@ -31,59 +31,55 @@ final class EntityTranslatorInterfaceTest extends TestCase
         }
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function testAfterLoadMethodSignature(): void
     {
-        $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method     = $reflection->getMethod('afterLoad');
-        $parameters = $method->getParameters();
-
-        self::assertCount(1, $parameters);
-        self::assertSame('entity', $parameters[0]->getName());
-
-        $type = $parameters[0]->getType();
-        self::assertNotNull($type);
-        self::assertEquals(TranslatableInterface::class, $type->getName());
+        $this->assertParameterType('afterLoad');
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function testBeforePersistMethodSignature(): void
     {
-        $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method     = $reflection->getMethod('beforePersist');
-        $parameters = $method->getParameters();
-
-        self::assertCount(1, $parameters);
-        self::assertSame('entity', $parameters[0]->getName());
-
-        $entityType = $parameters[0]->getType();
-        self::assertNotNull($entityType);
-        self::assertEquals(TranslatableInterface::class, $entityType->getName());
+        $this->assertParameterType('beforePersist');
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function testBeforeUpdateMethodSignature(): void
     {
-        $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method     = $reflection->getMethod('beforeUpdate');
-        $parameters = $method->getParameters();
-
-        self::assertCount(1, $parameters);
-        self::assertSame('entity', $parameters[0]->getName());
-
-        $entityType = $parameters[0]->getType();
-        self::assertNotNull($entityType);
-        self::assertEquals(TranslatableInterface::class, $entityType->getName());
+        $this->assertParameterType('beforeUpdate');
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function testBeforeRemoveMethodSignature(): void
     {
+        $this->assertParameterType('beforeRemove');
+    }
+
+    /**
+     * Helper to assert that a method parameter has the expected type.
+     *
+     * @throws \ReflectionException
+     */
+    private function assertParameterType(string $methodName): void
+    {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
-        $method     = $reflection->getMethod('beforeRemove');
+        $method     = $reflection->getMethod($methodName);
         $parameters = $method->getParameters();
 
-        self::assertCount(1, $parameters);
-        self::assertSame('entity', $parameters[0]->getName());
+        self::assertCount(0 + 1, $parameters);
+        $param = $parameters[0];
+        self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
 
-        $entityType = $parameters[0]->getType();
-        self::assertNotNull($entityType);
-        self::assertEquals(TranslatableInterface::class, $entityType->getName());
+        $type = $param->getType();
+        self::assertInstanceOf(\ReflectionNamedType::class, $type);
+        self::assertSame(TranslatableInterface::class, $type->getName());
     }
 }
