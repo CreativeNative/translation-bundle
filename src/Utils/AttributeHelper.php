@@ -4,24 +4,31 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Utils;
 
-use Doctrine\ORM\Mapping\Column;
-use Doctrine\ORM\Mapping\Embedded;
-use Doctrine\ORM\Mapping\Id;
-use Doctrine\ORM\Mapping\ManyToMany;
-use Doctrine\ORM\Mapping\ManyToOne;
-use Doctrine\ORM\Mapping\OneToMany;
-use Doctrine\ORM\Mapping\OneToOne;
-use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
-use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Doctrine\ORM\Mapping as ORM;
+use Tmi\TranslationBundle\Doctrine\Attribute as TranslationAttribute;
 
 class AttributeHelper
 {
+    private const array DOCTRINE_ATTRIBUTES = [
+        'isEmbedded'   => ORM\Embedded::class,
+        'isOneToOne'   => ORM\OneToOne::class,
+        'isId'         => ORM\Id::class,
+        'isManyToOne'  => ORM\ManyToOne::class,
+        'isOneToMany'  => ORM\OneToMany::class,
+        'isManyToMany' => ORM\ManyToMany::class,
+    ];
+
+    private const array TRANSLATION_ATTRIBUTES = [
+        'isSharedAmongstTranslations' => TranslationAttribute\SharedAmongstTranslations::class,
+        'isEmptyOnTranslate'          => TranslationAttribute\EmptyOnTranslate::class,
+    ];
+
     /**
      * Defines if the property is embedded.
      */
     public function isEmbedded(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(Embedded::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -29,7 +36,7 @@ class AttributeHelper
      */
     public function isSharedAmongstTranslations(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(SharedAmongstTranslations::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::TRANSLATION_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -37,7 +44,7 @@ class AttributeHelper
      */
     public function isEmptyOnTranslate(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(EmptyOnTranslate::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::TRANSLATION_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -45,7 +52,7 @@ class AttributeHelper
      */
     public function isOneToOne(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(OneToOne::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -53,7 +60,7 @@ class AttributeHelper
      */
     public function isId(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(Id::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -61,15 +68,15 @@ class AttributeHelper
      */
     public function isManyToOne(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(ManyToOne::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
-     * Defines if the property is a ManyToOne relation.
+     * Defines if the property is a OneToMany relation.
      */
     public function isOneToMany(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(OneToMany::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -77,7 +84,7 @@ class AttributeHelper
      */
     public function isManyToMany(\ReflectionProperty $property): bool
     {
-        return [] !== $property->getAttributes(ManyToMany::class, \ReflectionAttribute::IS_INSTANCEOF);
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }
 
     /**
@@ -85,15 +92,16 @@ class AttributeHelper
      */
     public function isNullable(\ReflectionProperty $property): bool
     {
-        $ra = $property->getAttributes(Column::class, \ReflectionAttribute::IS_INSTANCEOF);
+        $type = $property->getType();
 
-        if (0 < count($ra)) {
-            $ra   = reset($ra);
-            $args = $ra->getArguments();
+        return $type && $type->allowsNull();
+    }
 
-            return array_key_exists('nullable', $args) && true === $args['nullable'];
-        }
-
-        return true;
+    /**
+     * Generic attribute check with consistent configuration.
+     */
+    private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
+    {
+        return [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
     }
 }

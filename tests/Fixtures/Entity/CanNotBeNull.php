@@ -22,7 +22,7 @@ final class CanNotBeNull implements TranslatableInterface
 
     #[EmptyOnTranslate]
     #[ORM\Column(type: Types::STRING, nullable: false)]
-    private string|null $emptyNotNullable = null;
+    private string $emptyNotNullable;
 
     public function getId(): int|null
     {

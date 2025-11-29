@@ -47,10 +47,9 @@ final class TestKernel extends BaseKernel
                 'charset' => 'utf8',
             ],
             'orm' => [
-                'auto_generate_proxy_classes' => true,
-                'naming_strategy'             => 'doctrine.orm.naming_strategy.underscore_number_aware',
-                'auto_mapping'                => true,
-                'mappings'                    => [
+                'naming_strategy' => 'doctrine.orm.naming_strategy.underscore_number_aware',
+                'auto_mapping'    => true,
+                'mappings'        => [
                     'TestBundle' => [
                         'type'   => 'attribute',
                         'dir'    => '%kernel.project_dir%/tests/Fixtures/Entity',
