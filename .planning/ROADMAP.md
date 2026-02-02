@@ -126,10 +126,10 @@ Plans:
 4. llms.txt is served as text/plain content type
 5. llms.txt validates against llmstxt.org specification
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 09-01: [Description pending plan-phase]
+- [ ] 09-01-PLAN.md - Create llms.txt with structured navigation and validation
 
 ## Progress
 
@@ -141,8 +141,8 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | 6. Foundation Documentation | 2/2 | Complete | 2026-02-02 |
 | 7. Core Implementation Skill | 1/1 | Complete | 2026-02-02 |
 | 8. Advanced Skills | 2/2 | Complete | 2026-02-02 |
-| 9. Web Discovery | 0/TBD | Ready | - |
+| 9. Web Discovery | 0/1 | Ready | - |
 
 ---
 *Roadmap created: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 8 execution*
+*Last updated: 2026-02-02 after Phase 9 planning*
