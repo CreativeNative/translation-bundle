@@ -448,6 +448,206 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 ---
 
+## Troubleshooting
+
+### Locale Not Allowed
+
+**Symptom:** `LogicException: Locale "xx" is not allowed`
+
+**Cause:** Target locale not configured in bundle configuration
+
+**Fix:** Add the locale to `tmi_translation.locales` in your bundle configuration file:
+
+```yaml
+# config/packages/tmi_translation.yaml
+tmi_translation:
+    locales: [en, fr, de, es]  # Add your target locale here
+```
+
+### EmptyOnTranslate on Non-Nullable Field
+
+**Symptom:** `LogicException: cannot use EmptyOnTranslate because it is not nullable`
+
+**Cause:** `#[EmptyOnTranslate]` attribute applied to a non-nullable property. The attribute sets the value to null during translation, which conflicts with the type constraint.
+
+**Fix:** Either make the property nullable (`?string`) or remove the `#[EmptyOnTranslate]` attribute:
+
+```php
+// Option 1: Make nullable
+#[EmptyOnTranslate]
+#[ORM\Column(type: Types::TEXT, nullable: true)]
+private ?string $description = null;
+
+// Option 2: Remove attribute
+#[ORM\Column(type: Types::TEXT)]
+private string $description;
+```
+
+### Missing TranslatableInterface
+
+**Symptom:** Entity not recognized by TranslatableEntityHandler; translation fails silently or entity is not cloned
+
+**Cause:** Entity class does not implement `TranslatableInterface`
+
+**Fix:** Add `implements TranslatableInterface` and use `TranslatableTrait`:
+
+```php
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
+
+#[ORM\Entity]
+class Product implements TranslatableInterface
+{
+    use TranslatableTrait;
+    // ...
+}
+```
+
+### Missing Tuuid Property
+
+**Symptom:** Translation fails with null tuuid; `InvalidArgumentException` or database constraint violation
+
+**Cause:** TranslatableTrait expects `$tuuid` property but entity lacks proper initialization
+
+**Fix:** Ensure `TranslatableTrait` is used. The trait provides the `$tuuid` property automatically. If you're implementing manually, initialize it:
+
+```php
+use Tmi\TranslationBundle\Doctrine\ValueObject\Tuuid;
+
+private Tuuid $tuuid;
+
+public function __construct()
+{
+    $this->tuuid = Tuuid::generate();
+}
+```
+
+### Doctrine Filter Not Enabled
+
+**Symptom:** Queries return entities from all locales instead of filtering by current locale
+
+**Cause:** Translation filter not enabled in Doctrine configuration
+
+**Fix:** Enable the filter in your Doctrine configuration or manually via EntityManager:
+
+```yaml
+# config/packages/doctrine.yaml
+doctrine:
+    orm:
+        filters:
+            translation_locale:
+                class: Tmi\TranslationBundle\Doctrine\Filter\TranslationFilter
+                enabled: true
+```
+
+Or enable at runtime:
+
+```php
+$entityManager->getFilters()->enable('translation_locale');
+```
+
+### SharedAmongstTranslations on Bidirectional Relation
+
+**Symptom:** `RuntimeException` when translating entity with bidirectional relation
+
+**Cause:** Bidirectional relation handlers (ManyToOne, OneToMany, OneToOne, ManyToMany) throw when `#[SharedAmongstTranslations]` is present because sharing bidirectional relations creates circular reference issues
+
+**Fix:** Remove `#[SharedAmongstTranslations]` from bidirectional relations. Use unidirectional relations if sharing is required, or accept that each locale will have its own copy:
+
+```php
+// DON'T: SharedAmongstTranslations on bidirectional
+#[SharedAmongstTranslations]
+#[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+private ?Category $category = null;
+
+// DO: Remove attribute, each locale gets its own relation
+#[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+private ?Category $category = null;
+
+// OR: Use unidirectional relation if sharing is needed
+#[SharedAmongstTranslations]
+#[ORM\ManyToOne(targetEntity: Category::class)]  // No inversedBy
+private ?Category $category = null;
+```
+
+### Translations Not Persisted
+
+**Symptom:** Translation appears to work but translated entity is not in the database
+
+**Diagnosis:** Check if `persist()` and `flush()` were called on the translated entity. The translator creates a NEW entity, not an update to existing.
+
+**Resolution:** Always persist and flush the translated entity returned by the translator:
+
+```php
+$frenchProduct = $entityTranslator->translate($product, 'fr');
+$entityManager->persist($frenchProduct);  // Required!
+$entityManager->flush();
+```
+
+### Wrong Handler Processes Field
+
+**Symptom:** Field value unexpected after translation (null when should have value, or vice versa)
+
+**Diagnosis:** Check handler priority order in the decision tree. More specific handlers must have higher priority. Examine Doctrine mapping annotations - handler selection depends on metadata.
+
+**Resolution:** Verify your field's Doctrine annotations match the expected handler:
+- `#[ORM\Id]` → PrimaryKeyHandler (always null)
+- Scalar types → ScalarHandler (copies value)
+- `#[ORM\Embedded]` → EmbeddedHandler (clones object)
+- Relations with `inversedBy`/`mappedBy` → Bidirectional handlers
+
+If annotations are correct but behavior is wrong, check for attribute conflicts (`#[SharedAmongstTranslations]` vs `#[EmptyOnTranslate]`).
+
+### Embedded Object Shared Unexpectedly
+
+**Symptom:** Changing an embedded value on one locale changes all locales
+
+**Cause:** `#[SharedAmongstTranslations]` on embedded property shares the instance across all translations
+
+**Resolution:** Remove the attribute if per-locale values are needed. Keep it if sharing is intentional (e.g., postal address same across all language variants):
+
+```php
+// Shared: All locales reference same Address instance
+#[SharedAmongstTranslations]
+#[ORM\Embedded(class: Address::class)]
+private Address $address;
+
+// Per-locale: Each translation gets cloned Address
+#[ORM\Embedded(class: Address::class)]
+private Address $address;
+```
+
+### Collection Translation Creates Duplicates
+
+**Symptom:** OneToMany or ManyToMany collection has duplicate items after translation
+
+**Diagnosis:** Check if collection items implement `TranslatableInterface`. If they do, the handler recursively translates them. If they don't, items might be copied incorrectly.
+
+**Resolution:** Ensure child entities in the collection are themselves translatable if they need per-locale variants:
+
+```php
+// If Photo needs translation (different caption per locale)
+#[ORM\Entity]
+class Photo implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    #[ORM\Column]
+    private string $caption;  // Translated
+
+    #[SharedAmongstTranslations]
+    #[ORM\Column]
+    private string $url;  // Same across locales
+}
+
+// OR: Use SharedAmongstTranslations to reuse the same collection
+#[SharedAmongstTranslations]
+#[ORM\OneToMany(targetEntity: Photo::class, mappedBy: 'product')]
+private Collection $photos;
+```
+
+---
+
 ## Tips & Best Practices  
 
 - Always define a clear **shared vs translate** decision at entity design time. Changing this later is error‑prone.  
