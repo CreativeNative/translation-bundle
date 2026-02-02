@@ -1,0 +1,53 @@
+# TMI Translation Bundle (tmi/translation-bundle)
+
+> Make any Doctrine entity translatable by adding a single trait and interface. Translations are stored in the same table as the source entity, eliminating expensive joins and delivering the same query performance as non-translated entities. Built for Symfony developers building multilingual applications.
+
+## Getting Started
+
+- [README](https://github.com/CreativeNative/translation-bundle/blob/master/README.md): Installation, configuration, and quick start guide
+- [Architecture](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/architecture.md): Core concepts and design patterns
+- [Code Style](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/code-style.md): Development standards and conventions
+- [Testing](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/testing.md): Test strategy and guidelines
+
+## AI Skills
+
+- [Entity Translation Setup](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/entity-translation-setup/SKILL.md): Make any Doctrine entity translatable with guided workflow
+- [Translation Debugger](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/translation-debugger/SKILL.md): Diagnose and fix translation configuration issues
+- [Custom Handler Creator](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/SKILL.md): Build custom handlers for specialized field types
+
+## Core Interfaces
+
+- [TranslatableInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Model/TranslatableInterface.php): Entity translation contract that entities must implement
+- [TranslatableTrait](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Model/TranslatableTrait.php): Default implementation providing locale and tuuid management
+- [EntityTranslatorInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/EntityTranslatorInterface.php): Translation orchestrator service contract
+- [TranslationHandlerInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/TranslationHandlerInterface.php): Handler chain protocol for field translation
+
+## Attributes
+
+- [SharedAmongstTranslations](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/SharedAmongstTranslations.php): Mark fields to be synchronized across all translations
+- [EmptyOnTranslate](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/EmptyOnTranslate.php): Mark fields to be cleared when creating new translations
+
+## Handler Reference
+
+- [PrimaryKeyHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/PrimaryKeyHandler.php): Handles ID field generation for new translations
+- [ScalarHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/ScalarHandler.php): Handles primitive types (string, int, float, bool)
+- [TranslatableEntityHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/TranslatableEntityHandler.php): Handles nested translatable entities
+- [DoctrineObjectHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/DoctrineObjectHandler.php): Handles non-translatable Doctrine entity references
+- [EmbeddedHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/EmbeddedHandler.php): Handles Doctrine embeddables
+- [Handler Priority Guide](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/references/handler-priority.md): Priority decision matrix for handler ordering
+
+## Value Objects
+
+- [Tuuid](https://github.com/CreativeNative/translation-bundle/blob/master/src/ValueObject/Tuuid.php): Translation UUID linking related translations
+- [TuuidType](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Type/TuuidType.php): Doctrine DBAL type for Tuuid persistence
+
+## Events and Filters
+
+- [TranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/TranslateEvent.php): Pre/post translation event for customization hooks
+- [LocaleFilter](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Filter/LocaleFilter.php): Automatic query filtering by current locale
+
+## Optional
+
+- [Doctrine Integration](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/doctrine.md): ORM-specific implementation details
+- [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures
+- [Handler Examples](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/references/examples.md): Real-world custom handler implementations
