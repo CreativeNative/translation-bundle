@@ -53,20 +53,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | TBD | Pending |
-| FOUND-02 | TBD | Pending |
-| FOUND-03 | TBD | Pending |
-| FOUND-04 | TBD | Pending |
-| SKILL-01 | TBD | Pending |
-| SKILL-02 | TBD | Pending |
-| SKILL-03 | TBD | Pending |
-| WEB-01 | TBD | Pending |
+| FOUND-01 | Phase 6 | Pending |
+| FOUND-02 | Phase 6 | Pending |
+| FOUND-03 | Phase 6 | Pending |
+| FOUND-04 | Phase 6 | Pending |
+| SKILL-01 | Phase 7 | Pending |
+| SKILL-02 | Phase 8 | Pending |
+| SKILL-03 | Phase 8 | Pending |
+| WEB-01 | Phase 9 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 (pending roadmap)
+- Mapped to phases: 8
+- Unmapped: 0 (100% coverage)
 
 ---
 *Requirements defined: 2026-02-02*
-*Last updated: 2026-02-02 after initial definition*
+*Last updated: 2026-02-02 after roadmap creation*
