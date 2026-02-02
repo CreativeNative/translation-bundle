@@ -44,7 +44,7 @@ Phases 1-5 (implied structure from existing codebase):
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 6: Foundation Documentation** - Enhanced llms.md with handler decision tree and troubleshooting
-- [ ] **Phase 7: Core Implementation Skill** - entity-translation-setup skill with references
+- [x] **Phase 7: Core Implementation Skill** - entity-translation-setup skill with references
 - [ ] **Phase 8: Advanced Skills** - Debugging and custom handler creation workflows
 - [ ] **Phase 9: Web Discovery** - llms.txt for AI crawler discovery
 
@@ -105,10 +105,11 @@ Plans:
 4. Custom handler skill guides priority selection with decision matrix
 5. Both skills under 200 lines with details in references/ subdirectories
 
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 08-01: [Description pending plan-phase]
+- [ ] 08-01-PLAN.md - Create translation-debugger skill with diagnostic workflow
+- [ ] 08-02-PLAN.md - Create custom-handler-creator skill with templates
 
 ### Phase 9: Web Discovery
 
@@ -139,9 +140,9 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 |-------|----------------|--------|-----------|
 | 6. Foundation Documentation | 2/2 | Complete | 2026-02-02 |
 | 7. Core Implementation Skill | 1/1 | Complete | 2026-02-02 |
-| 8. Advanced Skills | 0/TBD | Ready | - |
+| 8. Advanced Skills | 0/2 | Ready | - |
 | 9. Web Discovery | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 7 execution*
+*Last updated: 2026-02-02 after Phase 8 planning*
