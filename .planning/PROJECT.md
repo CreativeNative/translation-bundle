@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Symfony bundle for managing multilingual entity translations stored in the same database table as the source entity, eliminating expensive joins. Uses a Tuuid (Translation UUID) to group language variants and automatic locale filtering.
+A Symfony bundle for managing multilingual entity translations stored in the same database table as the source entity, eliminating expensive joins. Uses a Tuuid (Translation UUID) to group language variants and automatic locale filtering. Now includes comprehensive AI-optimized documentation enabling any LLM assistant to help users implement translations correctly.
 
 ## Core Value
 
@@ -14,30 +14,49 @@ Any entity becomes translatable with a single trait and interface, storing all t
 
 <!-- Shipped and confirmed valuable. -->
 
-- [x] TranslatableInterface and TranslatableTrait for entity translation
-- [x] Tuuid (Translation UUID) value object for grouping translations
-- [x] Handler chain pattern for translating all field types
-- [x] Automatic locale filtering via Doctrine filter
-- [x] SharedAmongstTranslations attribute for synced fields
-- [x] EmptyOnTranslate attribute for cleared fields
-- [x] Full relationship support (OneToOne, OneToMany, ManyToOne, ManyToMany)
-- [x] Event system (PRE_TRANSLATE, POST_TRANSLATE)
-- [x] 100% test coverage
+**v1.0 Core Bundle:**
+- [x] TranslatableInterface and TranslatableTrait for entity translation — v1.0
+- [x] Tuuid (Translation UUID) value object for grouping translations — v1.0
+- [x] Handler chain pattern for translating all field types — v1.0
+- [x] Automatic locale filtering via Doctrine filter — v1.0
+- [x] SharedAmongstTranslations attribute for synced fields — v1.0
+- [x] EmptyOnTranslate attribute for cleared fields — v1.0
+- [x] Full relationship support (OneToOne, OneToMany, ManyToOne, ManyToMany) — v1.0
+- [x] Event system (PRE_TRANSLATE, POST_TRANSLATE) — v1.0
+- [x] 100% test coverage — v1.0
+
+**v1.1 AI-Ready Documentation:**
+- [x] llms.md handler chain decision tree showing field-to-handler routing — v1.1
+- [x] llms.md troubleshooting section with 10 common problems — v1.1
+- [x] llms.md minimal working example with Product entity walkthrough — v1.1
+- [x] Consistent terminology across all documentation (Tuuid canonical) — v1.1
+- [x] entity-translation-setup skill for AI-guided implementation — v1.1
+- [x] translation-debugger skill for AI-assisted issue diagnosis — v1.1
+- [x] custom-handler-creator skill for handler chain extension — v1.1
+- [x] llms.txt for AI crawler discovery — v1.1
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Claude Code skill for AI-assisted implementation
-- [ ] llms.md with integration examples for AI consumption
+(None — planning next milestone)
 
 ### Out of Scope
 
 - Mobile SDK — Symfony bundle only
 - Admin UI — Code-level integration only
 - Translation memory/TMS integration — Bundle handles storage, not content management
+- Video tutorials — Text-based AI docs only
+- Interactive playground — Beyond documentation scope
+- Multi-language docs (i18n) — English-first
 
 ## Context
+
+**Current state (after v1.1):**
+- Core bundle: Production-ready with 100% test coverage
+- Documentation: ~6,800 lines of AI-optimized content
+- AI Skills: 3 Claude Code skills (setup, debug, extend)
+- Discovery: llms.txt with 27 navigation links
 
 **Technical environment:**
 - PHP 8.4+ with strict types
@@ -45,7 +64,7 @@ Any entity becomes translatable with a single trait and interface, storing all t
 - Doctrine ORM 3.5.7+
 - PHPStan level 1+ with 100% test coverage
 
-**Target audience for AI documentation:**
+**Target audience:**
 - Open source Symfony developers discovering the bundle
 - AI assistants helping users implement translations
 
@@ -67,15 +86,18 @@ Any entity becomes translatable with a single trait and interface, storing all t
 | Same-table storage | Eliminates joins, simpler queries | ✓ Good |
 | Handler chain pattern | Extensible, handles all field types | ✓ Good |
 | UUIDv7 for Tuuid | Time-ordered, SEO-friendly | ✓ Good |
+| Tuuid as canonical term | Consistent terminology for AI consumption | ✓ Good |
+| ASCII decision tree | Visual handler routing for AI assistants | ✓ Good |
+| 4-layer diagnostic structure | Systematic issue diagnosis | ✓ Good |
+| Examples-first skill guidance | Aligns with user mental model | ✓ Good |
+| llms.txt for discovery | Standard AI crawler entry point | ✓ Good |
 
-## Current Milestone: v1.1 AI-Ready Documentation
+## Completed Milestones
 
-**Goal:** Make the bundle AI-friendly so any LLM assistant can help open source users implement translations correctly, understand architectural advantages, and handle edge cases.
+- **v1.0 Core Bundle** — Production-ready translation bundle (git tag: v1.6.0)
+- **v1.1 AI-Ready Documentation** — Comprehensive AI-optimized docs (git tag: v1.7.0)
 
-**Target features:**
-- Claude Code skill with complete implementation guide
-- llms.md with real-world integration examples
-- Coverage of setup, usage patterns, debugging, and pitfalls
+See `.planning/MILESTONES.md` for full history.
 
 ---
-*Last updated: 2026-02-02 after milestone v1.1 start*
+*Last updated: 2026-02-02 after v1.1 milestone*

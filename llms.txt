@@ -48,6 +48,7 @@
 
 ## Optional
 
+- [Developer & AI Guide](https://github.com/CreativeNative/translation-bundle/blob/master/llms.md): Comprehensive glossary, handler chain decision tree, troubleshooting guide, and minimal working example
 - [Doctrine Integration](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/doctrine.md): ORM-specific implementation details
 - [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures
 - [Handler Examples](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/references/examples.md): Real-world custom handler implementations
