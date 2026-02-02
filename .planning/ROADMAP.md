@@ -2,8 +2,8 @@
 
 ## Milestones
 
-- ✅ **v1.0 Core Bundle** - Phases 1-5 (shipped, existing codebase)
-- 🚧 **v1.1 AI-Ready Documentation** - Phases 6-9 (in progress)
+- v1.0 Core Bundle - Phases 1-5 (shipped, existing codebase)
+- v1.1 AI-Ready Documentation - Phases 6-9 (in progress)
 
 ## Overview
 
@@ -12,7 +12,7 @@ Transform the TMI Translation Bundle into an AI-friendly open source project by 
 ## Phases
 
 <details>
-<summary>✅ v1.0 Core Bundle (Phases 1-5) - SHIPPED</summary>
+<summary>v1.0 Core Bundle (Phases 1-5) - SHIPPED</summary>
 
 The v1.0 milestone delivered the core translation bundle with 100% test coverage:
 
@@ -33,7 +33,7 @@ Phases 1-5 (implied structure from existing codebase):
 
 </details>
 
-### 🚧 v1.1 AI-Ready Documentation (In Progress)
+### v1.1 AI-Ready Documentation (In Progress)
 
 **Milestone Goal:** Make bundle AI-friendly so any LLM assistant can help open source users implement translations correctly, understand architectural advantages, and handle edge cases.
 
@@ -85,10 +85,10 @@ Plans:
 4. AI can invoke skill automatically when user asks to make entity translatable
 5. Skill references point to handler documentation for field-specific details
 
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 07-01: [Description pending plan-phase]
+- [ ] 07-01-PLAN.md - Create entity-translation-setup skill with workflow and templates
 
 ### Phase 8: Advanced Skills
 
@@ -133,15 +133,15 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 6 → 7 → 8 → 9
+Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 6. Foundation Documentation | 2/2 | ✓ Complete | 2026-02-02 |
-| 7. Core Implementation Skill | 0/TBD | Not started | - |
+| 6. Foundation Documentation | 2/2 | Complete | 2026-02-02 |
+| 7. Core Implementation Skill | 0/1 | Ready | - |
 | 8. Advanced Skills | 0/TBD | Not started | - |
 | 9. Web Discovery | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 6 completion*
+*Last updated: 2026-02-02 after Phase 7 planning*
