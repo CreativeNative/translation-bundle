@@ -22,7 +22,7 @@ Requirements for AI-Ready Documentation milestone.
 
 ### Web Discovery
 
-- [ ] **WEB-01**: llms.txt exists at repository root for AI crawler discovery
+- [x] **WEB-01**: llms.txt exists at repository root for AI crawler discovery
 
 ## Future Requirements
 
@@ -60,7 +60,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKILL-01 | Phase 7 | Complete |
 | SKILL-02 | Phase 8 | Complete |
 | SKILL-03 | Phase 8 | Complete |
-| WEB-01 | Phase 9 | Pending |
+| WEB-01 | Phase 9 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 8 total
@@ -69,4 +69,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 8 completion*
+*Last updated: 2026-02-02 after Phase 9 completion*

@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 Core Bundle - Phases 1-5 (shipped, existing codebase)
-- v1.1 AI-Ready Documentation - Phases 6-9 (in progress)
+- v1.1 AI-Ready Documentation - Phases 6-9 (complete)
 
 ## Overview
 
@@ -33,7 +33,7 @@ Phases 1-5 (implied structure from existing codebase):
 
 </details>
 
-### v1.1 AI-Ready Documentation (In Progress)
+### v1.1 AI-Ready Documentation (Complete)
 
 **Milestone Goal:** Make bundle AI-friendly so any LLM assistant can help open source users implement translations correctly, understand architectural advantages, and handle edge cases.
 
@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Foundation Documentation** - Enhanced llms.md with handler decision tree and troubleshooting
 - [x] **Phase 7: Core Implementation Skill** - entity-translation-setup skill with references
 - [x] **Phase 8: Advanced Skills** - Debugging and custom handler creation workflows
-- [ ] **Phase 9: Web Discovery** - llms.txt for AI crawler discovery
+- [x] **Phase 9: Web Discovery** - llms.txt for AI crawler discovery
 
 ## Phase Details
 
@@ -129,7 +129,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 09-01-PLAN.md - Create llms.txt with structured navigation and validation
+- [x] 09-01-PLAN.md - Create llms.txt with structured navigation and validation
 
 ## Progress
 
@@ -141,8 +141,8 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | 6. Foundation Documentation | 2/2 | Complete | 2026-02-02 |
 | 7. Core Implementation Skill | 1/1 | Complete | 2026-02-02 |
 | 8. Advanced Skills | 2/2 | Complete | 2026-02-02 |
-| 9. Web Discovery | 0/1 | Ready | - |
+| 9. Web Discovery | 1/1 | Complete | 2026-02-02 |
 
 ---
 *Roadmap created: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 9 planning*
+*Last updated: 2026-02-02 after Phase 9 execution*
