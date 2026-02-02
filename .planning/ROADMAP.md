@@ -64,10 +64,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 3. llms.md includes minimal working example walking through entity-to-translatable transformation
 4. All terminology is consistent across llms.md (single term per concept, no confusing synonyms)
 
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 06-01: [Description pending plan-phase]
+- [ ] 06-01-PLAN.md - Glossary and handler chain decision tree
+- [ ] 06-02-PLAN.md - Troubleshooting section and minimal working example
 
 ### Phase 7: Core Implementation Skill
 
@@ -136,7 +137,7 @@ Phases execute in numeric order: 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 6. Foundation Documentation | 0/TBD | Not started | - |
+| 6. Foundation Documentation | 0/2 | Planned | - |
 | 7. Core Implementation Skill | 0/TBD | Not started | - |
 | 8. Advanced Skills | 0/TBD | Not started | - |
 | 9. Web Discovery | 0/TBD | Not started | - |
