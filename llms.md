@@ -1,15 +1,33 @@
 # CreativeNative Translation Bundle – Developer & AI Guide  
 *(for Symfony 7.x, Doctrine ORM 3.5, PHP 8.4)*
 
-## Overview  
+## Overview
 The bundle provides a framework to make Doctrine entities translatable into multiple locales, with control over which fields are **language‑specific** and which are **shared across translations**. It operates by cloning or sharing entities/properties, using handlers and attributes to guide behaviour.
 
-Key components:  
-- `EntityTranslator` — central translation orchestrator.  
-- `Handlers` — classes that manage translation of entities, embeddables, collections etc.  
-- `PropertyAccessor` — used to read/write object properties generically.  
-- `TranslationArgs` — container holding the context of a translation operation.  
+Key components:
+- `EntityTranslator` — central translation orchestrator.
+- `Handlers` — classes that manage translation of entities, embeddables, collections etc.
+- `PropertyAccessor` — used to read/write object properties generically.
+- `TranslationArgs` — container holding the context of a translation operation.
 - `AttributeHelper` — utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`.
+
+---
+
+## Glossary
+
+**Tuuid** (Translation UUID): UUIDv7 value object that groups all language variants of an entity. Stored as VARCHAR(36). Each translatable entity shares the same Tuuid across all its translations.
+
+**Translatable entity**: Any Doctrine entity implementing `TranslatableInterface` and using `TranslatableTrait`. These entities can be translated into multiple locales.
+
+**Handler**: A class implementing `TranslationHandlerInterface` that processes specific field types during translation. Each handler specializes in one type of data (scalars, relations, embedded objects, etc.).
+
+**Handler chain**: Priority-ordered sequence of handlers where the first handler whose `supports()` method returns true processes the field. Higher priority numbers are checked first.
+
+**Locale**: Language/region code (e.g., "en", "fr", "de") identifying a translation variant.
+
+**Source entity**: The original entity being translated from.
+
+**Target entity**: The new entity being created for the target locale.
 
 ---
 
@@ -58,9 +76,9 @@ Key components:
 
 ### [EntityTranslator](src/Translation/EntityTranslator.php)
 - Class/interface: [`EntityTranslatorInterface`](src/Translation/EntityTranslatorInterface.php) (provided by the bundle).  
-- Responsible for initiating translation: taking a source object + sourceLocale + targetLocale, and returning the translated object.  
-- Internally delegates to appropriate Handler(s) depending on object type (entity vs embeddable vs collection).  
-- Ensures metadata (locale property, translation‑group id) is set correctly.
+- Responsible for initiating translation: taking a source object + sourceLocale + targetLocale, and returning the translated object.
+- Internally delegates to appropriate handler(s) depending on object type (entity vs embeddable vs collection).
+- Ensures metadata (locale property, Tuuid) is set correctly.
 
 ### Translation Handlers
 
@@ -282,11 +300,11 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 ## Step‑by‑Step Integration  
 
-1. **Install bundle via Composer** and enable in `bundles.php`.  
-2. For any entity you wish to translate:  
-   - Add a locale field (e.g., `$locale`, or use your own strategy).  
-   - Add a translation‑group field (e.g., `$tuuid`) so you can link all variants.  
-   - Implement or tag the entity as “translatable” (depending on bundle setup).  
+1. **Install bundle via Composer** and enable in `bundles.php`.
+2. For any entity you wish to translate:
+   - Add a locale field (e.g., `$locale`, or use your own strategy).
+   - Add a Tuuid field (e.g., `$tuuid`) so you can link all variants.
+   - Implement or tag the entity as "translatable" (depending on bundle setup).  
 3. On properties that should be shared across locale versions, add the `#[SharedAmongstTranslations]` attribute.  
 4. In your code when creating a translation:  
    ```php
@@ -299,7 +317,7 @@ No special attribute => treated as locale‑specific. The translator clones the 
 6. If you require custom behaviour (e.g., clearing a field on translation, propagating changes across siblings when shared fields are updated), you may:  
    - Configure custom handler by implementing `TranslationHandlerInterface`.  
    - Write a Doctrine Event Subscriber to post‑update shared fields across sibling entities (if your bundle does *not* yet automatically propagate).  
-7. Make sure your repository/finder logic considers translation‑group and locale filters so you fetch the correct variant for current locale or fallback.
+7. Make sure your repository/finder logic considers Tuuid and locale filters so you fetch the correct variant for current locale or fallback.
 
 ---
 
@@ -316,24 +334,24 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 ## “How can I achieve X?” Quick Answers  
 
-- **“How do I share the address across locales?”**  
-  Mark the embedded property with `#[SharedAmongstTranslations]`, ensure all locale entities share the same translation‑group ID, and use the translator to clone/translate the rest.
+- **"How do I share the address across locales?"**
+  Mark the embedded property with `#[SharedAmongstTranslations]`, ensure all locale entities share the same Tuuid, and use the translator to clone/translate the rest.
 
 - **“How do I translate only title and description but keep category and tags shared?”**  
   On the entity: mark category and tags with `#[SharedAmongstTranslations]`, leave title & description un‑marked. On translation, only title/description will be locale‑specific.
 
-- **“How do I propagate a change in a shared field (e.g., latitude) to all language variants after creation?”**  
-  Ideally your bundle provides a service to iterate sibling entities (same translation‑group ID) and update the shared field. If not, implement a Doctrine Subscriber on `PostUpdate`, detect changes to a `#[SharedAmongstTranslations]` property, load siblings and update them.
+- **"How do I propagate a change in a shared field (e.g., latitude) to all language variants after creation?"**
+  Ideally your bundle provides a service to iterate sibling entities (same Tuuid) and update the shared field. If not, implement a Doctrine Subscriber on `PostUpdate`, detect changes to a `#[SharedAmongstTranslations]` property, load siblings and update them.
 
 - **“How can I handle OneToMany relations differently for shared vs per‑locale?”**  
   If the relation should be shared: mark property `#[SharedAmongstTranslations]`. If per‑locale: leave un‑marked. Use or extend handler logic if custom merging is needed.
 
 ---
 
-## Summary  
-This bundle gives you a robust way to manage multilingual domain models in Symfony/Doctrine with precise control over shared vs locale‑specific fields. By leveraging the EntityTranslator, the set of Handlers, the PropertyAccessor, TranslationArgs, and AttributeHelper, you create a consistent and maintainable translation architecture.
+## Summary
+This bundle gives you a robust way to manage multilingual domain models in Symfony/Doctrine with precise control over shared vs locale‑specific fields. By leveraging the EntityTranslator, the set of handlers, the PropertyAccessor, TranslationArgs, and AttributeHelper, you create a consistent and maintainable translation architecture.
 
-Proper annotation (`#[SharedAmongstTranslations]`), common translation‑group IDs, and correct use of the translator service are the keys to making this work smoothly.
+Proper annotation (`#[SharedAmongstTranslations]`), common Tuuids, and correct use of the translator service are the keys to making this work smoothly.
 
 ---
 
