@@ -17,8 +17,8 @@ Requirements for AI-Ready Documentation milestone.
 ### Skills
 
 - [x] **SKILL-01**: entity-translation-setup skill guides AI through making any entity translatable
-- [ ] **SKILL-02**: translation-debugger skill helps AI diagnose and fix translation issues
-- [ ] **SKILL-03**: custom-handler-creator skill guides AI through extending the handler chain
+- [x] **SKILL-02**: translation-debugger skill helps AI diagnose and fix translation issues
+- [x] **SKILL-03**: custom-handler-creator skill guides AI through extending the handler chain
 
 ### Web Discovery
 
@@ -58,8 +58,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-03 | Phase 6 | Complete |
 | FOUND-04 | Phase 6 | Complete |
 | SKILL-01 | Phase 7 | Complete |
-| SKILL-02 | Phase 8 | Pending |
-| SKILL-03 | Phase 8 | Pending |
+| SKILL-02 | Phase 8 | Complete |
+| SKILL-03 | Phase 8 | Complete |
 | WEB-01 | Phase 9 | Pending |
 
 **Coverage:**
@@ -69,4 +69,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Last updated: 2026-02-02 after Phase 7 completion*
+*Last updated: 2026-02-02 after Phase 8 completion*
