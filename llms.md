@@ -31,6 +31,133 @@ Key components:
 
 ---
 
+## Handler Chain Decision Tree
+
+When a field needs translation, the EntityTranslator routes it through the handler chain based on field type. This ASCII diagram shows the routing logic:
+
+```
+Field Processing Flow
+=====================
+
+                    [Field to translate]
+                            |
+                    Is it a primary key?
+                      /            \
+                   YES              NO
+                    |                |
+            PrimaryKeyHandler        |
+              (priority 100)         |
+                    |                |
+                 Returns null        |
+                                     |
+                            Is it scalar/DateTime?
+                              /            \
+                           YES              NO
+                            |                |
+                     ScalarHandler           |
+                      (priority 90)          |
+                            |                |
+                       Copies value          |
+                                             |
+                                    Is it embedded?
+                                      /          \
+                                   YES            NO
+                                    |              |
+                             EmbeddedHandler       |
+                              (priority 80)        |
+                                    |              |
+                               Clones object       |
+                                                   |
+                                    Is it ManyToOne with inversedBy?
+                                            /              \
+                                         YES                NO
+                                          |                  |
+                        BidirectionalManyToOneHandler        |
+                               (priority 70)                 |
+                                          |                  |
+                           Clones and translates parent      |
+                                                             |
+                                        Is it OneToMany with mappedBy?
+                                                /                    \
+                                             YES                      NO
+                                              |                        |
+                              BidirectionalOneToManyHandler            |
+                                       (priority 60)                   |
+                                              |                        |
+                                   Translates collection               |
+                                                                       |
+                                    Is it OneToOne with mappedBy/inversedBy?
+                                                /                          \
+                                             YES                            NO
+                                              |                              |
+                                BidirectionalOneToOneHandler                 |
+                                       (priority 50)                         |
+                                              |                              |
+                                 Clones and maintains link                   |
+                                                                             |
+                                        Is it ManyToMany bidirectional?
+                                                  /                \
+                                               YES                  NO
+                                                |                    |
+                              BidirectionalManyToManyHandler         |
+                                       (priority 40)                 |
+                                                |                    |
+                                   Translates both sides              |
+                                                                     |
+                                             Is it ManyToMany unidirectional?
+                                                      /                    \
+                                                   YES                      NO
+                                                    |                        |
+                                  UnidirectionalManyToManyHandler            |
+                                           (priority 30)                     |
+                                                    |                        |
+                                       Translates one side only              |
+                                                                             |
+                                                Does it implement TranslatableInterface?
+                                                             /                           \
+                                                          YES                             NO
+                                                           |                               |
+                                                 TranslatableEntityHandler                 |
+                                                      (priority 20)                        |
+                                                           |                               |
+                                          Recursively translates entity                    |
+                                                                                           |
+                                                            Is it a Doctrine-managed object?
+                                                                         /               \
+                                                                      YES                 NO
+                                                                       |                   |
+                                                          DoctrineObjectHandler      No handler
+                                                               (priority 10)            matches
+                                                                       |
+                                                          Clones and translates
+                                                             properties
+```
+
+### Why Priority Order Matters
+
+The handler chain uses **priority-based routing** where higher numbers are checked first. This order is critical for correctness:
+
+**100 - PrimaryKeyHandler**: Must run first to ensure entity IDs are never translated. IDs are database-generated identifiers that must remain null for new translations.
+
+**90 - ScalarHandler**: Catches simple values (strings, integers, booleans, DateTime) before relationship handlers. This prevents scalars from being misinterpreted as relations.
+
+**80 - EmbeddedHandler**: Processes embedded value objects (like Address, Money) before relationship handlers, since embedded objects use different metadata than relations.
+
+**70-30 - Relationship Handlers**: Ordered by specificity, from most specific to least:
+- **70 - BidirectionalManyToOne**: Most specific (has inversedBy)
+- **60 - BidirectionalOneToMany**: Next (has mappedBy)
+- **50 - BidirectionalOneToOne**: Bidirectional singular relation
+- **40 - BidirectionalManyToMany**: Bidirectional collection
+- **30 - UnidirectionalManyToMany**: Least specific (no mappedBy/inversedBy)
+
+**20 - TranslatableEntityHandler**: Handles nested translatable entities. Lower priority ensures relationships are processed by their specific handlers first.
+
+**10 - DoctrineObjectHandler**: Fallback for any Doctrine-managed object not caught by specialized handlers. Lowest priority means it only runs when nothing else matches.
+
+If handlers were out of order, critical issues would occur. For example, if DoctrineObjectHandler (10) ran before PrimaryKeyHandler (100), IDs might be incorrectly cloned, causing database constraint violations.
+
+---
+
 ## Core Concepts
 
 ### Translation vs. Shared Fields vs. Empty Fields
