@@ -9,10 +9,10 @@ Requirements for AI-Ready Documentation milestone.
 
 ### Foundation
 
-- [ ] **FOUND-01**: llms.md includes handler chain decision tree showing which handler processes each field type
-- [ ] **FOUND-02**: llms.md includes troubleshooting section with common problems and solutions
-- [ ] **FOUND-03**: llms.md includes minimal working example (entity to translatable walkthrough)
-- [ ] **FOUND-04**: Terminology is consistent across all documentation files
+- [x] **FOUND-01**: llms.md includes handler chain decision tree showing which handler processes each field type
+- [x] **FOUND-02**: llms.md includes troubleshooting section with common problems and solutions
+- [x] **FOUND-03**: llms.md includes minimal working example (entity to translatable walkthrough)
+- [x] **FOUND-04**: Terminology is consistent across all documentation files
 
 ### Skills
 
@@ -53,10 +53,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 6 | Pending |
-| FOUND-02 | Phase 6 | Pending |
-| FOUND-03 | Phase 6 | Pending |
-| FOUND-04 | Phase 6 | Pending |
+| FOUND-01 | Phase 6 | Complete |
+| FOUND-02 | Phase 6 | Complete |
+| FOUND-03 | Phase 6 | Complete |
+| FOUND-04 | Phase 6 | Complete |
 | SKILL-01 | Phase 7 | Pending |
 | SKILL-02 | Phase 8 | Pending |
 | SKILL-03 | Phase 8 | Pending |
@@ -69,4 +69,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Last updated: 2026-02-02 after roadmap creation*
+*Last updated: 2026-02-02 after Phase 6 completion*
