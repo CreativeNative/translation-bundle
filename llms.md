@@ -391,6 +391,181 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
+## Minimal Working Example
+
+This walkthrough demonstrates transforming a standard Doctrine entity into a translatable entity. You have a Product entity with name, description, price, and a category relationship. To make it translatable, follow these steps:
+
+### Starting Point: Standard Product Entity
+
+```php
+#[ORM\Entity]
+class Product
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 255)]
+    private string $name;
+
+    #[ORM\Column(type: Types::TEXT)]
+    private string $description;
+
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+    private string $price;
+
+    #[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+    private ?Category $category = null;
+
+    // getters/setters...
+}
+```
+
+### Step 1: Add the Interface and Trait
+
+**What to do:** Add `implements TranslatableInterface` to the class declaration and `use TranslatableTrait` inside the class body.
+
+**Why this matters:**
+- **TranslatableInterface** tells the bundle this entity can be translated. The TranslatableEntityHandler (priority 20) checks for this interface using `supports()` to determine if it should process the entity.
+- **TranslatableTrait** provides three essential properties automatically:
+  - `$tuuid` — Groups all language variants together (same Tuuid = same product in different languages)
+  - `$locale` — Identifies which language this specific entity represents
+  - `$translations` — Collection linking to sibling translations
+
+Without the interface, the entity would fall through to DoctrineObjectHandler (priority 10), which doesn't understand translation semantics. Without the trait, you'd have to manually implement these properties and their getters/setters.
+
+```php
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
+
+#[ORM\Entity]
+class Product implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    // ... rest of entity
+}
+```
+
+### Step 2: Identify Shared vs Translated Fields
+
+Now decide which fields should be **shared across all translations** and which should be **translated per locale**.
+
+**Shared fields (same in all languages):**
+- **Price:** Typically the same regardless of language (unless you have locale-specific pricing). A laptop costs €999 whether the page is in English or French.
+- **Category:** The product belongs to one category regardless of language. The category itself might be translatable, but the relationship remains the same.
+
+**Translated fields (different per language):**
+- **Name:** "Laptop" in English, "Ordinateur portable" in French
+- **Description:** Product details written in each language
+
+**Why this distinction matters:**
+The handler chain processes each field during translation. By default, ScalarHandler (priority 90) copies scalar values, and relationship handlers clone relations. Using `#[SharedAmongstTranslations]` overrides this behavior, ensuring all translations reference the same instance instead of creating copies.
+
+### Step 3: Apply SharedAmongstTranslations Attribute
+
+Mark the fields identified as shared:
+
+```php
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+
+#[SharedAmongstTranslations]
+#[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+private string $price;
+
+#[SharedAmongstTranslations]
+#[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+private ?Category $category = null;
+```
+
+**Why the attribute matters:**
+When EntityTranslator processes these properties, it checks for `#[SharedAmongstTranslations]` via AttributeHelper. If present, instead of calling `translate()`, it calls `handleSharedAmongstTranslations()`, which returns the original value unchanged. This ensures all language variants share the same price and category reference.
+
+### Complete Translatable Product Entity
+
+```php
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
+
+#[ORM\Entity]
+class Product implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 255)]
+    private string $name;           // Translated per locale
+
+    #[ORM\Column(type: Types::TEXT)]
+    private string $description;    // Translated per locale
+
+    #[SharedAmongstTranslations]
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+    private string $price;          // Same across all locales
+
+    #[SharedAmongstTranslations]
+    #[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+    private ?Category $category = null;  // Same category for all locales
+
+    // getters/setters remain unchanged
+}
+```
+
+### Using the Translatable Entity
+
+```php
+// Create English product
+$product = new Product();
+$product->setName('Laptop');
+$product->setDescription('High-performance laptop with 16GB RAM');
+$product->setPrice('999.00');
+$product->setCategory($electronicsCategory);
+$entityManager->persist($product);
+$entityManager->flush();
+
+// Create French translation
+$frenchProduct = $entityTranslator->translate($product, 'fr');
+$frenchProduct->setName('Ordinateur portable');
+$frenchProduct->setDescription('Ordinateur portable haute performance avec 16 Go de RAM');
+// Note: price and category are automatically shared
+$entityManager->persist($frenchProduct);
+$entityManager->flush();
+
+// Both share the same Tuuid - they're the same product in different languages
+$product->getTuuid() === $frenchProduct->getTuuid(); // true
+
+// But they have different locales
+$product->getLocale(); // 'en'
+$frenchProduct->getLocale(); // 'fr'
+
+// Price and category are identical references
+$product->getPrice() === $frenchProduct->getPrice(); // true (same value)
+$product->getCategory() === $frenchProduct->getCategory(); // true (same object)
+```
+
+### What Happens During Translation
+
+When you call `$entityTranslator->translate($product, 'fr')`:
+
+1. **TranslatableEntityHandler** (priority 20) recognizes the entity implements TranslatableInterface
+2. It checks the database for an existing translation with the same Tuuid and locale 'fr'
+3. If not found, it delegates to **DoctrineObjectHandler** to clone the entity
+4. DoctrineObjectHandler iterates through each property:
+   - **$id**: **PrimaryKeyHandler** (100) returns null — new entity needs new ID
+   - **$name**: **ScalarHandler** (90) copies the value — you'll update this manually
+   - **$description**: **ScalarHandler** (90) copies the value — you'll update this manually
+   - **$price**: Marked `#[SharedAmongstTranslations]` → returns original value
+   - **$category**: Marked `#[SharedAmongstTranslations]` → returns original value
+5. The Tuuid is copied (same product group), locale is set to 'fr', and the new entity is returned
+
+---
+
 ## Practical Usage Scenarios  
 
 ### A. Shared Embeddable (Address)  
