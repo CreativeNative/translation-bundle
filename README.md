@@ -224,6 +224,46 @@ class Product
 | Join operations         | Required            | **None**               |
 | Cache efficiency        | Low                 | **High**               |
 
+## 🤖 AI-Assisted Development
+
+This bundle includes AI skills that help you implement translations correctly. These skills work with [Claude Code](https://claude.ai/claude-code) and other AI coding assistants.
+
+### Available Skills
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| **Entity Translation Setup** | Guides you through making any Doctrine entity translatable | "Make my Product entity translatable" |
+| **Translation Debugger** | Diagnoses and fixes translation configuration issues | "Translation not working", "Why isn't my entity translating?" |
+| **Custom Handler Creator** | Helps create custom handlers for specialized field types | "Create a handler for encrypted fields" |
+
+### Using with Claude Code
+
+If you're using [Claude Code](https://claude.ai/claude-code), the skills are automatically available when working in this project. Simply describe what you need:
+
+```
+# Make an entity translatable
+"Make my Article entity translatable with shared author and translated title/content"
+
+# Debug translation issues
+"Translation is not working for my Product entity"
+
+# Create custom handlers
+"Create a custom handler for my Money value object"
+```
+
+Claude Code will automatically invoke the appropriate skill and guide you through the process.
+
+### Using with Other AI Assistants
+
+The skills are defined in `.agents/skills/` and follow a standard markdown format. Point your AI assistant to:
+
+- [Entity Translation Setup](.agents/skills/entity-translation-setup/SKILL.md)
+- [Translation Debugger](.agents/skills/translation-debugger/SKILL.md)
+- [Custom Handler Creator](.agents/skills/custom-handler-creator/SKILL.md)
+
+For comprehensive documentation optimized for AI assistants, see:
+- [llms.txt](llms.txt) - Quick reference with all important links
+- [llms.md](llms.md) - Detailed guide with handler chain decision tree and troubleshooting
 
 ## 🤝 Contributing
 
