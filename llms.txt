@@ -5,15 +5,13 @@
 ## Getting Started
 
 - [README](https://github.com/CreativeNative/translation-bundle/blob/master/README.md): Installation, configuration, and quick start guide
-- [Architecture](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/architecture.md): Core concepts and design patterns
-- [Code Style](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/code-style.md): Development standards and conventions
-- [Testing](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/testing.md): Test strategy and guidelines
+- [Developer & AI Guide](https://github.com/CreativeNative/translation-bundle/blob/master/llms.md): Comprehensive glossary, handler chain decision tree, troubleshooting guide, and minimal working example
 
 ## AI Skills
 
-- [Entity Translation Setup](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/entity-translation-setup/SKILL.md): Make any Doctrine entity translatable with guided workflow
-- [Translation Debugger](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/translation-debugger/SKILL.md): Diagnose and fix translation configuration issues
-- [Custom Handler Creator](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/SKILL.md): Build custom handlers for specialized field types
+- [Entity Translation Setup](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/entity-translation-setup/SKILL.md): Make any Doctrine entity translatable with guided workflow
+- [Translation Debugger](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/translation-debugger/SKILL.md): Diagnose and fix translation configuration issues
+- [Custom Handler Creator](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/custom-handler-creator/SKILL.md): Build custom handlers for specialized field types
 
 ## Core Interfaces
 
@@ -34,7 +32,7 @@
 - [TranslatableEntityHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/TranslatableEntityHandler.php): Handles nested translatable entities
 - [DoctrineObjectHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/DoctrineObjectHandler.php): Handles non-translatable Doctrine entity references
 - [EmbeddedHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/EmbeddedHandler.php): Handles Doctrine embeddables
-- [Handler Priority Guide](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/references/handler-priority.md): Priority decision matrix for handler ordering
+- [Handler Priority Guide](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/custom-handler-creator/references/handler-priority.md): Priority decision matrix for handler ordering
 
 ## Value Objects
 
@@ -48,7 +46,5 @@
 
 ## Optional
 
-- [Developer & AI Guide](https://github.com/CreativeNative/translation-bundle/blob/master/llms.md): Comprehensive glossary, handler chain decision tree, troubleshooting guide, and minimal working example
-- [Doctrine Integration](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/doctrine.md): ORM-specific implementation details
-- [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures
-- [Handler Examples](https://github.com/CreativeNative/translation-bundle/blob/master/.claude/skills/custom-handler-creator/references/examples.md): Real-world custom handler implementations
+- [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures
+- [Handler Examples](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/custom-handler-creator/references/examples.md): Real-world custom handler implementations
