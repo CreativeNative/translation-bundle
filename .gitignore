@@ -2,9 +2,20 @@ tests/phpunit.xml
 tests/Fixtures/App/cache
 tests/build
 var
-/vendor
-/bin
+vendor
+bin
 !.gitkeep
-grumphp.yml
 .idea/
 composer.lock
+
+# Personal AI configuration (not committed)
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/entity-translation-setup/
+!.agents/skills/translation-debugger/
+!.agents/skills/custom-handler-creator/
+.claude/
+.planning/
+AGENTS.md
+CLAUDE.md
