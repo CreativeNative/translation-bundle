@@ -31,6 +31,7 @@ This bundle solves: **Symfony Doctrine translation**, **entity localization**, *
 - **🎯 Inherited entity support** - Works with complex entity hierarchies
 - **🛡️ Type-safe** - Full PHP 8.4 type declarations throughout
 - **🧪 100% tested** - Comprehensive test suite with full coverage
+- **🤖 AI-ready** - Includes [AI skills](#-ai-assisted-development) for Claude Code and other assistants
 
 ## 🏗️ About This Version
 
@@ -226,7 +227,7 @@ class Product
 
 ## 🤖 AI-Assisted Development
 
-This bundle includes AI skills that help you implement translations correctly. These skills work with [Claude Code](https://claude.ai/claude-code) and other AI coding assistants.
+This bundle includes AI skills that help you implement translations correctly. These skills work with [Claude Code](https://claude.com/product/claude-code) and other AI coding assistants.
 
 ### Available Skills
 
