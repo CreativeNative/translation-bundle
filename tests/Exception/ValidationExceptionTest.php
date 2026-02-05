@@ -20,7 +20,7 @@ final class ValidationExceptionTest extends TestCase
 
     public function testMessageFormatWithSingleError(): void
     {
-        $error = new \LogicException('First error message');
+        $error     = new \LogicException('First error message');
         $exception = new ValidationException([$error]);
 
         self::assertStringContainsString('TMI Translation validation failed with 1 error(s)', $exception->getMessage());

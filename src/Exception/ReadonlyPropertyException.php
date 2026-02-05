@@ -19,6 +19,16 @@ final class ReadonlyPropertyException extends \LogicException
         parent::__construct($this->buildMessage());
     }
 
+    public function getClassName(): string
+    {
+        return $this->className;
+    }
+
+    public function getPropertyName(): string
+    {
+        return $this->propertyName;
+    }
+
     private function buildMessage(): string
     {
         return <<<MSG
@@ -44,15 +54,5 @@ Example of valid usage:
     #[ORM\\Column]
     private readonly string \$immutableValue;
 MSG;
-    }
-
-    public function getClassName(): string
-    {
-        return $this->className;
-    }
-
-    public function getPropertyName(): string
-    {
-        return $this->propertyName;
     }
 }

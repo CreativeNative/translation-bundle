@@ -21,7 +21,7 @@ final class ValidationException extends \LogicException
     public function __construct(array $errors)
     {
         $this->errors = $errors;
-        $messages = array_map(
+        $messages     = array_map(
             static fn (\LogicException $e) => $e->getMessage(),
             $errors,
         );

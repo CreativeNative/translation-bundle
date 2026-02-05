@@ -21,6 +21,26 @@ final class AttributeConflictException extends \LogicException
         parent::__construct($this->buildMessage());
     }
 
+    public function getClassName(): string
+    {
+        return $this->className;
+    }
+
+    public function getPropertyName(): string
+    {
+        return $this->propertyName;
+    }
+
+    public function getAttribute1(): string
+    {
+        return $this->attribute1;
+    }
+
+    public function getAttribute2(): string
+    {
+        return $this->attribute2;
+    }
+
     private function buildMessage(): string
     {
         return <<<MSG
@@ -47,25 +67,5 @@ Example of valid usage:
     #[ORM\\Column(nullable: true)]
     private ?string \$cachedSlug = null;
 MSG;
-    }
-
-    public function getClassName(): string
-    {
-        return $this->className;
-    }
-
-    public function getPropertyName(): string
-    {
-        return $this->propertyName;
-    }
-
-    public function getAttribute1(): string
-    {
-        return $this->attribute1;
-    }
-
-    public function getAttribute2(): string
-    {
-        return $this->attribute2;
     }
 }
