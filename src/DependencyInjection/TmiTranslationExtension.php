@@ -12,6 +12,7 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 
 final class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
@@ -47,6 +48,17 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
+
+        // Configure logging for EntityTranslator
+        if ($container->has(EntityTranslator::class)) {
+            $definition = $container->getDefinition(EntityTranslator::class);
+
+            if (!($config['logging']['enabled'] ?? true)) {
+                // Explicitly disable - don't inject logger even if available
+                $definition->setArgument('$logger', null);
+            }
+            // If enabled (default), let autowiring handle it via services.yaml
+        }
     }
 
     public function prepend(ContainerBuilder $container): void

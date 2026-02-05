@@ -30,6 +30,15 @@ final class Configuration implements ConfigurationInterface
                     ->scalarPrototype()->end()
                     ->defaultValue([])
                 ->end()
+                ->arrayNode('logging')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')
+                            ->defaultTrue()
+                            ->info('Enable debug logging when PSR-3 logger is available')
+                        ->end()
+                    ->end()
+                ->end()
             ->end();
 
         return $treeBuilder;
