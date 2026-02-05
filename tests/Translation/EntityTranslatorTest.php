@@ -9,6 +9,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
@@ -549,6 +552,84 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $args = $this->getTranslationArgs($prop, 'test-data');
         $this->translator->processTranslation($args);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testProcessTranslationCallsValidatePropertyBeforeAttributeChecks(): void
+    {
+        $propClass = new class {
+            #[SharedAmongstTranslations]
+            #[EmptyOnTranslate]
+            public ?string $conflicting = null;
+        };
+        $prop = new \ReflectionProperty($propClass, 'conflicting');
+        $args = $this->getTranslationArgs($prop);
+
+        // Configure mock to throw ValidationException when validateProperty is called
+        $this->attributeHelper->expects($this->once())
+            ->method('validateProperty')
+            ->with($prop, $this->logger)
+            ->willThrowException(new ValidationException([
+                new \LogicException('Test error'),
+            ]));
+
+        // These methods should NOT be called because validation fails first
+        $this->attributeHelper->expects($this->never())->method('isSharedAmongstTranslations');
+        $this->attributeHelper->expects($this->never())->method('isEmptyOnTranslate');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $this->translator->addTranslationHandler($handler);
+
+        $this->expectException(ValidationException::class);
+
+        $this->translator->processTranslation($args);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testProcessTranslationPassesLoggerToValidateProperty(): void
+    {
+        $propClass = new class {
+            public ?string $normalProperty = null;
+        };
+        $prop = new \ReflectionProperty($propClass, 'normalProperty');
+        $args = $this->getTranslationArgs($prop);
+
+        // Verify that logger is passed to validateProperty
+        $this->attributeHelper->expects($this->once())
+            ->method('validateProperty')
+            ->with($prop, $this->logger);
+
+        $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper->method('isEmptyOnTranslate')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn('result');
+        $this->translator->addTranslationHandler($handler);
+
+        $this->translator->processTranslation($args);
+    }
+
+    public function testProcessTranslationSkipsValidationForNonReflectionProperty(): void
+    {
+        // When property is not a ReflectionProperty, validation should not be called
+        $args = $this->getTranslationArgs(null, 'fallback');
+
+        $this->attributeHelper->expects($this->never())->method('validateProperty');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn('result');
+        $this->translator->addTranslationHandler($handler);
+
+        $result = $this->translator->processTranslation($args);
+
+        self::assertSame('result', $result);
     }
 
     /**
