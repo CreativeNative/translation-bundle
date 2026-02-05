@@ -5,10 +5,17 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Utils;
 
 use Doctrine\ORM\Mapping as ORM;
+use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Doctrine\Attribute as TranslationAttribute;
+use Tmi\TranslationBundle\Exception\AttributeConflictException;
+use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
+use Tmi\TranslationBundle\Exception\ValidationException;
 
 class AttributeHelper
 {
+    /** @var array<string, true> */
+    private array $validatedProperties = [];
+
     private const array DOCTRINE_ATTRIBUTES = [
         'isEmbedded'   => ORM\Embedded::class,
         'isOneToOne'   => ORM\OneToOne::class,
@@ -103,5 +110,61 @@ class AttributeHelper
     private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
     {
         return [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
+    }
+
+    /**
+     * Validates property attributes for conflicts.
+     * Collects all errors before throwing ValidationException.
+     * Results are cached per class::property.
+     *
+     * @throws ValidationException When validation errors are found
+     */
+    public function validateProperty(
+        \ReflectionProperty $property,
+        LoggerInterface|null $logger = null,
+    ): void {
+        $cacheKey = $property->class.'::$'.$property->name;
+
+        if (isset($this->validatedProperties[$cacheKey])) {
+            return;
+        }
+
+        $this->validatedProperties[$cacheKey] = true;
+
+        $errors = $this->collectValidationErrors($property);
+
+        if ([] !== $errors) {
+            foreach ($errors as $error) {
+                $logger?->error('[TMI Translation] '.$error->getMessage());
+            }
+
+            throw new ValidationException($errors);
+        }
+    }
+
+    /**
+     * @return array<\LogicException>
+     */
+    private function collectValidationErrors(\ReflectionProperty $property): array
+    {
+        $errors = [];
+
+        if ($this->isSharedAmongstTranslations($property) && $this->isEmptyOnTranslate($property)) {
+            $errors[] = new AttributeConflictException(
+                $property->class,
+                $property->name,
+                'SharedAmongstTranslations',
+                'EmptyOnTranslate',
+            );
+        }
+
+        if ($this->isEmptyOnTranslate($property) && $property->isReadOnly()) {
+            $errors[] = new ReadonlyPropertyException(
+                $property->class,
+                $property->name,
+            );
+        }
+
+        return $errors;
     }
 }
