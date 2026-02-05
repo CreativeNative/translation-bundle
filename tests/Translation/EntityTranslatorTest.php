@@ -8,10 +8,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
-use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Exception\ValidationException;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
@@ -562,7 +562,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             #[SharedAmongstTranslations]
             #[EmptyOnTranslate]
-            public ?string $conflicting = null;
+            public string|null $conflicting = null;
         };
         $prop = new \ReflectionProperty($propClass, 'conflicting');
         $args = $this->getTranslationArgs($prop);
@@ -594,7 +594,7 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testProcessTranslationPassesLoggerToValidateProperty(): void
     {
         $propClass = new class {
-            public ?string $normalProperty = null;
+            public string|null $normalProperty = null;
         };
         $prop = new \ReflectionProperty($propClass, 'normalProperty');
         $args = $this->getTranslationArgs($prop);

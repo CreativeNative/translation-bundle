@@ -29,7 +29,7 @@ final class AttributeHelperTest extends TestCase
     public function testValidatePropertyPassesForValidProperty(): void
     {
         $validClass = new class {
-            public ?string $normalProperty = null;
+            public string|null $normalProperty = null;
         };
         $property = new \ReflectionProperty($validClass, 'normalProperty');
 
@@ -44,7 +44,7 @@ final class AttributeHelperTest extends TestCase
         $conflictClass = new class {
             #[SharedAmongstTranslations]
             #[EmptyOnTranslate]
-            public ?string $conflicting = null;
+            public string|null $conflicting = null;
         };
         $property = new \ReflectionProperty($conflictClass, 'conflicting');
 
@@ -135,7 +135,7 @@ final class AttributeHelperTest extends TestCase
         $conflictClass = new class {
             #[SharedAmongstTranslations]
             #[EmptyOnTranslate]
-            public ?string $cachedProperty = null;
+            public string|null $cachedProperty = null;
         };
         $property = new \ReflectionProperty($conflictClass, 'cachedProperty');
 
@@ -161,7 +161,7 @@ final class AttributeHelperTest extends TestCase
         $conflictClass = new class {
             #[SharedAmongstTranslations]
             #[EmptyOnTranslate]
-            public ?string $loggingTest = null;
+            public string|null $loggingTest = null;
         };
         $property = new \ReflectionProperty($conflictClass, 'loggingTest');
 
@@ -181,7 +181,7 @@ final class AttributeHelperTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
 
         $validClass = new class {
-            public ?string $validProperty = null;
+            public string|null $validProperty = null;
         };
         $property = new \ReflectionProperty($validClass, 'validProperty');
 

@@ -13,9 +13,6 @@ use Tmi\TranslationBundle\Exception\ValidationException;
 
 class AttributeHelper
 {
-    /** @var array<string, true> */
-    private array $validatedProperties = [];
-
     private const array DOCTRINE_ATTRIBUTES = [
         'isEmbedded'   => ORM\Embedded::class,
         'isOneToOne'   => ORM\OneToOne::class,
@@ -29,6 +26,8 @@ class AttributeHelper
         'isSharedAmongstTranslations' => TranslationAttribute\SharedAmongstTranslations::class,
         'isEmptyOnTranslate'          => TranslationAttribute\EmptyOnTranslate::class,
     ];
+    /** @var array<string, true> */
+    private array $validatedProperties = [];
 
     /**
      * Defines if the property is embedded.
@@ -105,14 +104,6 @@ class AttributeHelper
     }
 
     /**
-     * Generic attribute check with consistent configuration.
-     */
-    private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
-    {
-        return [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
-    }
-
-    /**
      * Validates property attributes for conflicts.
      * Collects all errors before throwing ValidationException.
      * Results are cached per class::property.
@@ -140,6 +131,14 @@ class AttributeHelper
 
             throw new ValidationException($errors);
         }
+    }
+
+    /**
+     * Generic attribute check with consistent configuration.
+     */
+    private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
+    {
+        return [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
     }
 
     /**
