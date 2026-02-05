@@ -9,6 +9,7 @@ use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -27,6 +28,8 @@ class UnitTestCase extends TestCase
 
     protected (MockObject&AttributeHelper)|null $attributeHelper = null;
 
+    protected (MockObject&LoggerInterface)|null $logger = null;
+
     protected PropertyAccessor|null $propertyAccessor = null;
 
     /**
@@ -40,10 +43,11 @@ class UnitTestCase extends TestCase
         $this->eventDispatcherInterface = $this->createMock(EventDispatcherInterface::class);
         $this->attributeHelper          = $this->createMock(AttributeHelper::class);
         $this->entityManager            = $this->createMock(EntityManagerInterface::class);
+        $this->logger                   = $this->createMock(LoggerInterface::class);
         $this->propertyAccessor         = new PropertyAccessor();
 
         // Translator can be built afterwards, since it depends on the mocks
-        $this->translator = $this->getTranslator();
+        $this->translator = $this->getTranslator($this->logger);
     }
 
     public function getTranslationArgs(\ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
@@ -56,7 +60,7 @@ class UnitTestCase extends TestCase
         return $args;
     }
 
-    private function getTranslator(): EntityTranslator
+    private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
     {
         // Create a mock Query object
         /** @var Query&MockObject $queryMock */
@@ -96,6 +100,7 @@ class UnitTestCase extends TestCase
             $this->eventDispatcherInterface,
             $this->attributeHelper,
             $emMock,
+            $logger,
         );
     }
 }

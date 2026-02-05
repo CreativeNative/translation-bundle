@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -372,6 +373,182 @@ final class EntityTranslatorTest extends UnitTestCase
         // InProgress is NOT unset in this path, so assert it’s still there
         $inProgressAfter = $inProgressProperty->getValue($this->translator);
         self::assertArrayHasKey($sharedTuuid.':de', $inProgressAfter);
+    }
+
+    public function testLoggerIsOptional(): void
+    {
+        // Create translator without logger (should not throw)
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US'],
+            $this->eventDispatcherInterface,
+            $this->attributeHelper,
+            $this->createMock(EntityManagerInterface::class),
+            null, // No logger
+        );
+
+        self::assertInstanceOf(EntityTranslator::class, $translator);
+    }
+
+    public function testSetLoggerMethod(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+
+        // Expect info log when translate is called
+        $logger->expects($this->atLeastOnce())
+            ->method('info')
+            ->with(
+                $this->stringContains('[TMI Translation]'),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $this->translator->setLogger($logger);
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        // Add a simple handler
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator->addTranslationHandler($handler);
+
+        $this->translator->translate($entity, 'de_DE');
+    }
+
+    public function testLoggingOnTranslationStart(): void
+    {
+        $this->logger->expects($this->atLeastOnce())
+            ->method('info')
+            ->with(
+                $this->stringContains('[TMI Translation] Starting translation'),
+                $this->callback(function (array $context) {
+                    return isset($context['class'])
+                        && isset($context['source_locale'])
+                        && isset($context['target_locale']);
+                }),
+            );
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator->addTranslationHandler($handler);
+
+        $this->translator->translate($entity, 'de_DE');
+    }
+
+    public function testLoggingOnHandlerSelected(): void
+    {
+        $this->logger->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->stringContains('[TMI Translation]'),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator->addTranslationHandler($handler);
+
+        $this->translator->translate($entity, 'de_DE');
+    }
+
+    public function testNoLoggingWhenLoggerIsNull(): void
+    {
+        // Create translator without logger
+        $translatorWithoutLogger = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US'],
+            $this->eventDispatcherInterface,
+            $this->attributeHelper,
+            $this->createMock(EntityManagerInterface::class),
+            null,
+        );
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $translatorWithoutLogger->addTranslationHandler($handler);
+
+        // Should not throw - logging is silently skipped
+        $result = $translatorWithoutLogger->translate($entity, 'de_DE');
+
+        self::assertSame($entity, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testLoggingOnSharedAmongstTranslationsDetected(): void
+    {
+        $propClass = new class {
+            public string|null $title = null;
+        };
+        $prop = new \ReflectionProperty($propClass, 'title');
+
+        $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(true);
+        $this->attributeHelper->method('isEmptyOnTranslate')->willReturn(false);
+
+        $this->logger->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->logicalOr(
+                    $this->stringContains('Handler selected'),
+                    $this->stringContains('SharedAmongstTranslations'),
+                ),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('handleSharedAmongstTranslations')->willReturn('shared-result');
+        $this->translator->addTranslationHandler($handler);
+
+        $args = $this->getTranslationArgs($prop, 'test-data');
+        $this->translator->processTranslation($args);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testLoggingOnEmptyOnTranslateDetected(): void
+    {
+        $propClass = new class {
+            public string|null $body = null;
+        };
+        $prop = new \ReflectionProperty($propClass, 'body');
+
+        $this->attributeHelper->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper->method('isEmptyOnTranslate')->willReturn(true);
+        $this->attributeHelper->method('isNullable')->willReturn(true);
+
+        $this->logger->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->logicalOr(
+                    $this->stringContains('Handler selected'),
+                    $this->stringContains('EmptyOnTranslate'),
+                ),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('handleEmptyOnTranslate')->willReturn(null);
+        $this->translator->addTranslationHandler($handler);
+
+        $args = $this->getTranslationArgs($prop, 'test-data');
+        $this->translator->processTranslation($args);
     }
 
     /**

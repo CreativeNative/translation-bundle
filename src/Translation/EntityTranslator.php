@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
-use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
@@ -27,7 +27,7 @@ final class EntityTranslator implements EntityTranslatorInterface
     /** @var array<TranslationHandlerInterface> */
     private array $handlers = [];
 
-    private ?LoggerInterface $logger = null;
+    private LoggerInterface|null $logger = null;
 
     /**
      * Translation cache:
@@ -56,36 +56,20 @@ final class EntityTranslator implements EntityTranslatorInterface
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AttributeHelper $attributeHelper,
         private readonly EntityManagerInterface $entityManager,
-        ?LoggerInterface $logger = null,
+        LoggerInterface|null $logger = null,
     ) {
         $this->logger = $logger;
     }
 
-    public function setLogger(?LoggerInterface $logger): void
+    public function setLogger(LoggerInterface|null $logger): void
     {
         $this->logger = $logger;
-    }
-
-    private function logDebug(string $message, array $context = []): void
-    {
-        if ($this->logger === null) {
-            return;
-        }
-        $this->logger->debug('[TMI Translation] ' . $message, $context);
-    }
-
-    private function logInfo(string $message, array $context = []): void
-    {
-        if ($this->logger === null) {
-            return;
-        }
-        $this->logger->info('[TMI Translation] ' . $message, $context);
     }
 
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
         $this->logInfo('Starting translation of {class}', [
-            'class' => $entity::class,
+            'class'         => $entity::class,
             'source_locale' => $entity->getLocale(),
             'target_locale' => $locale,
         ]);
@@ -160,8 +144,8 @@ final class EntityTranslator implements EntityTranslatorInterface
             $property = $args->getProperty();
 
             $this->logDebug('Handler selected for processing', [
-                'handler' => $handler::class,
-                'property' => $property?->name,
+                'handler'   => $handler::class,
+                'property'  => $property?->name,
                 'data_type' => is_object($entity) ? $entity::class : gettype($entity),
             ]);
 
@@ -178,8 +162,8 @@ final class EntityTranslator implements EntityTranslatorInterface
                 if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
                     $this->logDebug('Attribute detected: SharedAmongstTranslations', [
                         'property' => $property->name,
-                        'class' => $property->class,
-                        'action' => 'sharing value across translations',
+                        'class'    => $property->class,
+                        'action'   => 'sharing value across translations',
                     ]);
 
                     return $handler->handleSharedAmongstTranslations($args);
@@ -193,8 +177,8 @@ final class EntityTranslator implements EntityTranslatorInterface
 
                     $this->logDebug('Attribute detected: EmptyOnTranslate', [
                         'property' => $property->name,
-                        'class' => $property->class,
-                        'action' => 'clearing value for translation',
+                        'class'    => $property->class,
+                        'action'   => 'clearing value for translation',
                     ]);
 
                     return $handler->handleEmptyOnTranslate($args);
@@ -206,7 +190,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                 if ($this->attributeHelper->isEmbedded($property)) {
                     $this->logDebug('Processing embedded property', [
                         'property' => $property->name,
-                        'class' => $property->class,
+                        'class'    => $property->class,
                     ]);
 
                     // 1. Process empty able properties inside the embedded object
@@ -241,7 +225,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                 unset($this->inProgress[$entity->getTuuid()->getValue().':'.$locale]);
 
                 $this->logDebug('Translation complete', [
-                    'class' => $translated::class,
+                    'class'         => $translated::class,
                     'target_locale' => $translated->getLocale(),
                 ]);
             }
@@ -281,6 +265,22 @@ final class EntityTranslator implements EntityTranslatorInterface
     public function beforeRemove(TranslatableInterface $entity): void
     {
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    private function logDebug(string $message, array $context = []): void
+    {
+        if (null === $this->logger) {
+            return;
+        }
+        $this->logger->debug('[TMI Translation] '.$message, $context);
+    }
+
+    private function logInfo(string $message, array $context = []): void
+    {
+        if (null === $this->logger) {
+            return;
+        }
+        $this->logger->info('[TMI Translation] '.$message, $context);
     }
 
     /**
