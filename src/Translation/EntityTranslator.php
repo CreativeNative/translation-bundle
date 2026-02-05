@@ -158,6 +158,9 @@ final class EntityTranslator implements EntityTranslatorInterface
             }
 
             if ($property instanceof \ReflectionProperty) {
+                // Validate property attributes for conflicts
+                $this->attributeHelper->validateProperty($property, $this->logger);
+
                 // 1. Determine if the top-level property is Shared
                 if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
                     $this->logDebug('Attribute detected: SharedAmongstTranslations', [
