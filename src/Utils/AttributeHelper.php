@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Doctrine\Attribute as TranslationAttribute;
 use Tmi\TranslationBundle\Exception\AttributeConflictException;
+use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Exception\ValidationException;
 
@@ -28,6 +29,9 @@ class AttributeHelper
     ];
     /** @var array<string, true> */
     private array $validatedProperties = [];
+
+    /** @var array<string, true> */
+    private array $validatedClasses = [];
 
     /**
      * Defines if the property is embedded.
@@ -101,6 +105,70 @@ class AttributeHelper
         $type = $property->getType();
 
         return $type && $type->allowsNull();
+    }
+
+    /**
+     * Checks if a class has the #[SharedAmongstTranslations] attribute at class level.
+     */
+    public function classHasSharedAmongstTranslations(\ReflectionClass $class): bool
+    {
+        return [] !== $class->getAttributes(
+            TranslationAttribute\SharedAmongstTranslations::class,
+            \ReflectionAttribute::IS_INSTANCEOF,
+        );
+    }
+
+    /**
+     * Checks if a class has the #[EmptyOnTranslate] attribute at class level.
+     */
+    public function classHasEmptyOnTranslate(\ReflectionClass $class): bool
+    {
+        return [] !== $class->getAttributes(
+            TranslationAttribute\EmptyOnTranslate::class,
+            \ReflectionAttribute::IS_INSTANCEOF,
+        );
+    }
+
+    /**
+     * Validates an embeddable class for attribute conflicts.
+     * Checks class-level attribute conflicts and validates all properties.
+     * Results are cached per class name.
+     *
+     * @throws ValidationException When validation errors are found
+     */
+    public function validateEmbeddableClass(
+        \ReflectionClass $class,
+        LoggerInterface|null $logger = null,
+    ): void {
+        $cacheKey = $class->getName();
+
+        if (isset($this->validatedClasses[$cacheKey])) {
+            return;
+        }
+
+        $this->validatedClasses[$cacheKey] = true;
+
+        $errors = [];
+
+        if ($this->classHasSharedAmongstTranslations($class) && $this->classHasEmptyOnTranslate($class)) {
+            $errors[] = new ClassLevelAttributeConflictException($class->getName());
+        }
+
+        foreach ($class->getProperties() as $property) {
+            try {
+                $this->validateProperty($property);
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->getErrors());
+            }
+        }
+
+        if ([] !== $errors) {
+            foreach ($errors as $error) {
+                $logger?->error('[TMI Translation][Embedded] '.$error->getMessage());
+            }
+
+            throw new ValidationException($errors);
+        }
     }
 
     /**
