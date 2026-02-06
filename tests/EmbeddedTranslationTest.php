@@ -33,37 +33,17 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
 
         $translated = $this->translateAndPersist($entity);
 
-        // Normal fields are cloned
+        // Embedded is cloned (different instance)
         self::assertNotSame(
             $entity->getAddress(),
             $translated->getAddress(),
         );
 
-        self::assertEquals(
-            $entity->getAddress(),
-            $translated->getAddress(),
-        );
-
-        // Properties within Address should remain same
-        self::assertSame(
-            $entity->getAddress()->getStreet(),
-            $translated->getAddress()->getStreet(),
-        );
-
-        self::assertSame(
-            $entity->getAddress()->getPostalCode(),
-            $translated->getAddress()->getPostalCode(),
-        );
-
-        self::assertSame(
-            $entity->getAddress()->getCity(),
-            $translated->getAddress()->getCity(),
-        );
-
-        self::assertSame(
-            $entity->getAddress()->getCountry(),
-            $translated->getAddress()->getCountry(),
-        );
+        // Per-property resolution: unattributed properties reset to class defaults (null)
+        self::assertNull($translated->getAddress()->getStreet());
+        self::assertNull($translated->getAddress()->getPostalCode());
+        self::assertNull($translated->getAddress()->getCity());
+        self::assertNull($translated->getAddress()->getCountry());
     }
 
     /**
@@ -147,7 +127,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         self::assertSame('no Setter', $entity->getAddress()->getNoSetter());
         self::assertNull($translated->getAddress()->getNoSetter());
 
-        // Translated entity should NOT be be NULL
+        // Translated entity should NOT be NULL
         self::assertNotNull($translated->getAddress());
 
         // Property marked #[EmptyOnTranslate] is null in translated entity
@@ -158,17 +138,11 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
             $translated->getAddress()->getStreet(),
         );
 
-        // Other properties remain unchanged
-        self::assertSame(
-            $entity->getAddress()->getPostalCode(),
-            $translated->getAddress()->getPostalCode(),
-        );
+        // Per-property resolution: unattributed properties reset to class defaults (null)
+        self::assertNull($translated->getAddress()->getPostalCode());
+        self::assertNull($translated->getAddress()->getCity());
 
-        self::assertSame(
-            $entity->getAddress()->getCity(),
-            $translated->getAddress()->getCity(),
-        );
-
+        // Property marked #[SharedAmongstTranslations] retains original value
         self::assertSame(
             $entity->getAddress()->getCountry(),
             $translated->getAddress()->getCountry(),

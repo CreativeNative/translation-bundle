@@ -187,28 +187,14 @@ final class EntityTranslator implements EntityTranslatorInterface
                     return $handler->handleEmptyOnTranslate($args);
                 }
 
-                // Handle embeddable (even if they are NOT marked EmptyOnTranslate or Shared)
-                // ToDo: Support Embedded Entities with Both Shared and EmptyOnTranslate Properties
-                // https://github.com/CreativeNative/translation-bundle/issues/6
+                // Handle embeddable with unified per-property resolution
                 if ($this->attributeHelper->isEmbedded($property)) {
-                    $this->logDebug('Processing embedded property', [
+                    $this->logDebug('Processing embedded property with per-property resolution', [
                         'property' => $property->name,
                         'class'    => $property->class,
                     ]);
 
-                    // 1. Process empty able properties inside the embedded object
-                    $emptyResult = $handler->handleEmptyOnTranslate($args);
-
-                    // 2. Process shared properties inside the embedded object
-                    $sharedResult = $handler->handleSharedAmongstTranslations($args);
-
-                    // 3. Decide which result to return
-                    $original = $args->getDataToBeTranslated();
-                    if ($emptyResult !== $original) {
-                        return $emptyResult;
-                    }
-
-                    return $sharedResult;
+                    return $handler->translate($args);
                 }
             }
 

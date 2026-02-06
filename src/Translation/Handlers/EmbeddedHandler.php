@@ -4,27 +4,35 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use ReflectionClass;
-use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Handler for Doctrine embeddable objects.
  *
- * Behaviour:
- * 1) If embeddable OR parent property OR any inner property is marked #[SharedAmongstTranslations],
- *    the embeddable is *shared* (same instance) across translations.
- * 2) If not shared and translate() is invoked -> clone embeddable.
- * 3) If EmptyOnTranslate applies:
- *    - If shared -> keep the shared instance (do NOT empty).
- *    - If not shared -> return null (empty).
+ * Uses per-property resolution where each embedded property resolves independently
+ * through a three-level cascade (entity-property -> embeddable-property -> embeddable-class).
+ *
+ * Resolution order (highest priority first):
+ * 1. Property-level attribute (on the embeddable's property itself)
+ * 2. Class-level attribute (on the embeddable class)
+ * 3. Default: use class default value
  */
-final readonly class EmbeddedHandler implements TranslationHandlerInterface
+final class EmbeddedHandler implements TranslationHandlerInterface
 {
+    private LoggerInterface|null $logger = null;
+
     public function __construct(
-        private AttributeHelper $attributeHelper,
+        private readonly AttributeHelper $attributeHelper,
+        LoggerInterface|null $logger = null,
     ) {
+        $this->logger = $logger;
+    }
+
+    public function setLogger(LoggerInterface|null $logger): void
+    {
+        $this->logger = $logger;
     }
 
     public function supports(TranslationArgs $args): bool
@@ -45,20 +53,15 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
     {
         $embeddable = $args->getDataToBeTranslated();
 
-        // If we are configured to share the embeddable (parent property, class, or inner property)
         if ($this->isShared($args)) {
-            return $embeddable; // share same reference across translations
+            return $embeddable;
         }
 
-        // Not shared -> give callers a clone (consistent with translate())
         return clone $embeddable;
     }
 
     /**
      * Handle #[EmptyOnTranslate] for embeddable.
-     *
-     * Important: If the embeddable (or any inner property) is shared, we must NOT empty it.
-     * Only when NOT shared do we return null (empty).
      *
      * @throws \ReflectionException
      */
@@ -66,38 +69,22 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
     {
         $embeddable = $args->getDataToBeTranslated();
 
-        // If the top-level property is marked as #[EmptyOnTranslate], empty the entire embeddable
         $parentProperty = $args->getProperty();
         if ($parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
             return null;
         }
 
-        // Clone embeddable to avoid mutating original
-        $clone = clone $embeddable;
-
-        // Reflect the actual class of the embeddable
+        $clone      = clone $embeddable;
         $reflection = new \ReflectionClass($clone);
-
-        $changed = false;
+        $changed    = false;
 
         foreach ($reflection->getProperties() as $prop) {
-            // Skip properties that are shared
             if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
                 continue;
             }
 
-            // Only clear properties marked as #[EmptyOnTranslate]
             if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
-                $setter = 'set'.ucfirst($prop->getName());
-
-                if (method_exists($clone, $setter)) {
-                    $callable = \Closure::fromCallable([$clone, $setter]);
-                    $callable(null);
-                } else {
-                    // Fallback: set value via ReflectionProperty
-                    $prop->setValue($clone, null);
-                }
-
+                $this->clearProperty($clone, $prop);
                 $changed = true;
             }
         }
@@ -105,9 +92,143 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
         return $changed ? $clone : $embeddable;
     }
 
+    /**
+     * Unified per-property resolution for embedded objects.
+     *
+     * Clones the embedded object and resolves each property through the three-level cascade:
+     * 1. Property-level attribute (most specific)
+     * 2. Class-level attribute (default for all properties)
+     * 3. No attribute: reset to class default value
+     *
+     * @throws \ReflectionException
+     */
     public function translate(TranslationArgs $args): mixed
     {
-        return clone $args->getDataToBeTranslated();
+        $embeddable = $args->getDataToBeTranslated();
+        $reflection = new \ReflectionClass($embeddable);
+
+        // Validate the embeddable class (cached after first call)
+        $this->attributeHelper->validateEmbeddableClass($reflection, $this->logger);
+
+        // Detect class-level attributes
+        $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($reflection);
+        $classEmpty  = $this->attributeHelper->classHasEmptyOnTranslate($reflection);
+
+        if ($classShared) {
+            $this->logDebug('Class-level attribute detected: SharedAmongstTranslations', [
+                'class' => $reflection->getName(),
+            ]);
+        }
+
+        if ($classEmpty) {
+            $this->logDebug('Class-level attribute detected: EmptyOnTranslate', [
+                'class' => $reflection->getName(),
+            ]);
+        }
+
+        // Clone the embedded object for selective modification
+        $clone = clone $embeddable;
+
+        foreach ($reflection->getProperties() as $prop) {
+            $resolved = $this->resolvePropertyAttribute($prop, $classShared, $classEmpty);
+
+            if ('shared' === $resolved) {
+                // Keep original value (already in clone via clone)
+                continue;
+            }
+
+            if ('empty' === $resolved) {
+                // Clear the property value
+                $this->clearProperty($clone, $prop);
+
+                continue;
+            }
+
+            // resolved === 'default' -- use the class default value (not copied from original)
+            $this->resetToDefault($clone, $prop);
+        }
+
+        return $clone;
+    }
+
+    /**
+     * Resolves the effective attribute for a property using the three-level cascade.
+     *
+     * @return string 'shared', 'empty', or 'default'
+     */
+    private function resolvePropertyAttribute(
+        \ReflectionProperty $prop,
+        bool $classShared,
+        bool $classEmpty,
+    ): string {
+        $propShared = $this->attributeHelper->isSharedAmongstTranslations($prop);
+        $propEmpty  = $this->attributeHelper->isEmptyOnTranslate($prop);
+
+        // Determine effective attribute
+        $classLevel    = $classShared ? 'shared' : ($classEmpty ? 'empty' : 'none');
+        $propertyLevel = $propShared ? 'shared' : ($propEmpty ? 'empty' : 'none');
+
+        // Property overrides class (most specific wins)
+        if ('none' !== $propertyLevel) {
+            $resolved = $propertyLevel;
+
+            // Log override if class-level exists and differs
+            if ('none' !== $classLevel && $classLevel !== $propertyLevel) {
+                $this->logDebug('Property {property}: class={class_attr}, property={prop_attr} -> resolved: {resolved} (property override)', [
+                    'property'   => $prop->getName(),
+                    'class_attr' => $classLevel,
+                    'prop_attr'  => $propertyLevel,
+                    'resolved'   => $resolved,
+                ]);
+            } else {
+                $this->logDebug('Property {property}: class={class_attr}, property={prop_attr} -> resolved: {resolved}', [
+                    'property'   => $prop->getName(),
+                    'class_attr' => $classLevel,
+                    'prop_attr'  => $propertyLevel,
+                    'resolved'   => $resolved,
+                ]);
+            }
+
+            return $resolved;
+        }
+
+        // No property-level attribute: use class-level if present
+        if ('none' !== $classLevel) {
+            $this->logDebug('Property {property}: class={class_attr}, property=none -> resolved: {resolved}', [
+                'property'   => $prop->getName(),
+                'class_attr' => $classLevel,
+                'resolved'   => $classLevel,
+            ]);
+
+            return $classLevel;
+        }
+
+        // No attribute at any level
+        $this->logDebug('Property {property}: class=none, property=none -> resolved: default', [
+            'property' => $prop->getName(),
+        ]);
+
+        return 'default';
+    }
+
+    private function clearProperty(object $clone, \ReflectionProperty $prop): void
+    {
+        $setter = 'set'.ucfirst($prop->getName());
+
+        if (method_exists($clone, $setter)) {
+            $callable = \Closure::fromCallable([$clone, $setter]);
+            $callable(null);
+        } else {
+            $prop->setValue($clone, null);
+        }
+    }
+
+    private function resetToDefault(object $clone, \ReflectionProperty $prop): void
+    {
+        if ($prop->hasDefaultValue()) {
+            $prop->setValue($clone, $prop->getDefaultValue());
+        }
+        // If no default and not nullable, leave the cloned value as-is
     }
 
     /**
@@ -116,24 +237,30 @@ final readonly class EmbeddedHandler implements TranslationHandlerInterface
      * - the embeddable class itself is marked #[SharedAmongstTranslations], or
      * - any property inside the embeddable is marked #[SharedAmongstTranslations].
      *
-     * Note: AttributeHelper provides helpers for ReflectionProperty checks.
-     * For class-level attribute we check via ReflectionClass directly (no AttributeHelper method assumed).
-     *
      * @throws \ReflectionException
      */
     private function isShared(TranslationArgs $args): bool
     {
         $embeddable = $args->getDataToBeTranslated();
 
-        // Parent property (embeddable)
+        // Parent property (on the entity)
         $parentProperty = $args->getProperty();
         if ($parentProperty && $this->attributeHelper->isSharedAmongstTranslations($parentProperty)) {
             return true;
         }
 
-        // 2. Any inner property of the embeddable marked SharedAmongstTranslations
+        // Class-level attribute on the embeddable
         $reflection = new \ReflectionClass($embeddable);
+        if ($this->attributeHelper->classHasSharedAmongstTranslations($reflection)) {
+            return true;
+        }
 
+        // Any inner property marked shared
         return array_any($reflection->getProperties(), $this->attributeHelper->isSharedAmongstTranslations(...));
+    }
+
+    private function logDebug(string $message, array $context = []): void
+    {
+        $this->logger?->debug('[TMI Translation][Embedded] '.$message, $context);
     }
 }
