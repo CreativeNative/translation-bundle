@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Args;
 
 /**
- * Translation args DTO.
+ * Polymorphic DTO carrying translation context through the handler chain.
+ *
+ * Data fields use `mixed` by design: the DTO carries entities (TranslatableInterface),
+ * embedded objects, scalar property values, and collections depending on the handler
+ * processing the current translation step. Callers narrow via instanceof/type checks.
  */
 final class TranslationArgs
 {
-    /** @var mixed|null */
+    /** @var mixed */
     private mixed $translatedParent = null;
 
     private \ReflectionProperty|null $property = null;
@@ -22,7 +26,11 @@ final class TranslationArgs
     }
 
     /**
-     * Returns the source data that will be translated.
+     * Returns the source data to translate.
+     *
+     * Type varies by handler context: TranslatableInterface for entity handlers,
+     * embedded objects for embeddable handlers, or scalar values for property handlers.
+     * Callers narrow via instanceof checks or assertions.
      */
     public function getDataToBeTranslated(): mixed
     {
@@ -76,8 +84,11 @@ final class TranslationArgs
     }
 
     /**
-     * Returns the parent of the data translation.
-     * Only set when translating association.
+     * Returns the already-translated parent entity.
+     *
+     * Null for top-level entity translation. Set to the translated parent object
+     * when processing sub-properties or associations, so handlers can attach
+     * translated values back to the correct parent.
      */
     public function getTranslatedParent(): mixed
     {
@@ -95,8 +106,11 @@ final class TranslationArgs
     }
 
     /**
-     * Returns the property associated to the translation.
-     * Only set when translating association.
+     * Returns the property being translated, if any.
+     *
+     * Null for top-level entity translation. Set to the specific ReflectionProperty
+     * when translating individual properties, so handlers can inspect attributes
+     * (SharedAmongstTranslations, EmptyOnTranslate, Embedded) on the property.
      */
     public function getProperty(): \ReflectionProperty|null
     {
