@@ -25,7 +25,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
-        /** @var array<string, mixed> $config */
+        /** @var array{locales: list<string>, default_locale: string, disabled_firewalls: list<string>, logging: array{enabled: bool}} $config */
         $config = $this->processConfiguration($configuration, $configs);
 
         // Set configuration into params
@@ -57,9 +57,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         if ($container->has(EntityTranslator::class)) {
             $definition = $container->getDefinition(EntityTranslator::class);
 
-            /** @var array<string, mixed>|null $loggingConfig */
-            $loggingConfig = $config['logging'] ?? null;
-            $loggingEnabled = \is_array($loggingConfig) ? ($loggingConfig['enabled'] ?? true) : true;
+            $loggingEnabled = $config['logging']['enabled'];
 
             if (true !== $loggingEnabled) {
                 // Explicitly disable - don't inject logger even if available
