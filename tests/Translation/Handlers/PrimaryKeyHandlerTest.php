@@ -21,7 +21,7 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
     {
         parent::setUp();
 
-        $this->handler = new PrimaryKeyHandler($this->attributeHelper);
+        $this->handler = new PrimaryKeyHandler($this->attributeHelper());
     }
 
     /**
@@ -36,7 +36,7 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($dummy::class, 'id');
         $args = new TranslationArgs(123, 'en_US', 'de_DE')->setProperty($prop);
-        $this->attributeHelper->method('isId')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isId')->with($prop)->willReturn(true);
         self::assertTrue($this->handler->supports($args));
     }
 
@@ -52,7 +52,7 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($dummy::class, 'name');
         $args = new TranslationArgs('foo', 'en_US', 'de_DE')->setProperty($prop);
-        $this->attributeHelper->method('isId')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isId')->with($prop)->willReturn(false);
         self::assertFalse($this->handler->supports($args));
     }
 

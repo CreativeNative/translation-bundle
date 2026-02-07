@@ -24,9 +24,9 @@ final class TranslatableTraitTest extends IntegrationTestCase
      */
     public function testTuuidTypeIsRegistered(): void
     {
-        $this->assertTrue(Type::hasType(TuuidType::NAME), 'Tuuid Doctrine type is not registered.');
+        self::assertTrue(Type::hasType(TuuidType::NAME), 'Tuuid Doctrine type is not registered.');
         $type = Type::getType(TuuidType::NAME);
-        $this->assertInstanceOf(TuuidType::class, $type, 'Registered Tuuid type is not an instance of TuuidType.');
+        self::assertInstanceOf(TuuidType::class, $type, 'Registered Tuuid type is not an instance of TuuidType.');
     }
 
     /**
@@ -38,13 +38,13 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $property   = $reflection->getProperty('tuuid');
         $attributes = $property->getAttributes(Column::class);
 
-        $this->assertNotEmpty($attributes, 'No #[ORM\Column] attribute found on "tuuid".');
+        self::assertNotEmpty($attributes, 'No #[ORM\Column] attribute found on "tuuid".');
 
         $columnAttr = $attributes[0]->newInstance();
-        $this->assertInstanceOf(Column::class, $columnAttr);
+        self::assertInstanceOf(Column::class, $columnAttr);
 
-        $this->assertSame(TuuidType::NAME, $columnAttr->type, 'The "tuuid" column must use type="tuuid".');
-        $this->assertTrue($columnAttr->nullable, 'The "tuuid" column must be nullable.');
+        self::assertSame(TuuidType::NAME, $columnAttr->type, 'The "tuuid" column must use type="tuuid".');
+        self::assertTrue($columnAttr->nullable, 'The "tuuid" column must be nullable.');
     }
 
     /**
@@ -58,14 +58,14 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
 
         // Lazy generation on first getTuuid() call
-        $this->assertNotNull($entity->getTuuid());
+        self::assertNotNull($entity->getTuuid());
 
         $entity->setTitle('Test Entity');
-        $this->entityManager->persist($entity);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($entity);
+        $this->entityManager()->flush();
 
-        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
-        $this->assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
+        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        self::assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
     }
 
     /**
@@ -75,8 +75,8 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $invalidTuuid = 'not-a-valid-uuid';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
+        self::expectException(\InvalidArgumentException::class);
+        self::expectExceptionMessage(sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
 
         new Tuuid($invalidTuuid);
     }
@@ -89,10 +89,10 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
 
         $entity->setLocale('de_DE');
-        $this->assertSame('de_DE', $entity->getLocale());
+        self::assertSame('de_DE', $entity->getLocale());
 
         $entity->setLocale(null);
-        $this->assertNull($entity->getLocale());
+        self::assertNull($entity->getLocale());
     }
 
     /**
@@ -105,14 +105,14 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $property   = $reflection->getProperty('tuuid');
         $property->setValue($entity, null);
 
-        $this->assertNull($property->getValue($entity));
+        self::assertNull($property->getValue($entity));
 
         $generated = $entity->getTuuid();
-        $this->assertInstanceOf(Tuuid::class, $generated);
-        $this->assertTrue(Uuid::isValid($generated->__toString()));
+        self::assertInstanceOf(Tuuid::class, $generated);
+        self::assertTrue(Uuid::isValid($generated->__toString()));
 
         // Ensure lazy initialization persists value internally
-        $this->assertSame($generated, $property->getValue($entity));
+        self::assertSame($generated, $property->getValue($entity));
     }
 
     /**
@@ -124,12 +124,12 @@ final class TranslatableTraitTest extends IntegrationTestCase
 
         $translations = ['de_DE' => ['title' => 'Titel'], 'en_US' => ['title' => 'Title']];
         $entity->setTranslations($translations);
-        $this->assertSame($translations, $entity->getTranslations());
+        self::assertSame($translations, $entity->getTranslations());
 
         $entity->setTranslation('fr', ['title' => 'Titre']);
-        $this->assertSame(['title' => 'Titre'], $entity->getTranslation('fr'));
+        self::assertSame(['title' => 'Titre'], $entity->getTranslation('fr'));
 
-        $this->assertNull($entity->getTranslation('es'));
+        self::assertNull($entity->getTranslation('es'));
     }
 
     /**
@@ -142,11 +142,11 @@ final class TranslatableTraitTest extends IntegrationTestCase
 
         // Setting Tuuid for the first time works
         $entity->setTuuid($tuuid);
-        $this->assertTrue($entity->getTuuid()->equals($tuuid));
+        self::assertTrue($entity->getTuuid()->equals($tuuid));
 
         // Reassigning Tuuid must throw a LogicException
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('Tuuid is immutable and cannot be reassigned.');
+        self::expectException(\LogicException::class);
+        self::expectExceptionMessage('Tuuid is immutable and cannot be reassigned.');
         $entity->setTuuid(Tuuid::generate());
     }
 
@@ -157,12 +157,12 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $entity = new Scalar();
 
-        $this->assertInstanceOf(Tuuid::class, $entity->getTuuid());
-        $this->assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
+        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        self::assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
 
         $existing = $entity->getTuuid();
         $entity->generateTuuid();
-        $this->assertSame($existing, $entity->getTuuid());
+        self::assertSame($existing, $entity->getTuuid());
     }
 
     /**
@@ -174,7 +174,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $first  = Tuuid::generate();
         $entity->setTuuid($first);
 
-        $this->expectException(\LogicException::class);
+        self::expectException(\LogicException::class);
         $entity->setTuuid(Tuuid::generate());
     }
 }

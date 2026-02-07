@@ -177,7 +177,7 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
             $entity->setAddress($address);
         }
 
-        $this->entityManager->persist($entity);
+        $this->entityManager()->persist($entity);
 
         return $entity;
     }
@@ -189,11 +189,11 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
      */
     private function translateAndPersist(Translatable $entity): Translatable
     {
-        $translated = $this->translator->translate($entity, self::TARGET_LOCALE);
-        $this->assertInstanceOf(Translatable::class, $translated);
+        $translated = $this->translator()->translate($entity, self::TARGET_LOCALE);
+        self::assertInstanceOf(Translatable::class, $translated);
 
-        $this->entityManager->persist($translated);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($translated);
+        $this->entityManager()->flush();
 
         return $translated;
     }

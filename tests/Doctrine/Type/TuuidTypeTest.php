@@ -27,7 +27,7 @@ final class TuuidTypeTest extends TestCase
 
     public function testGetName(): void
     {
-        $this->assertSame('tuuid', $this->type->getName());
+        self::assertSame('tuuid', $this->type->getName());
     }
 
     /**
@@ -40,8 +40,8 @@ final class TuuidTypeTest extends TestCase
         $uuid     = Tuuid::generate();
         $phpValue = $this->type->convertToPHPValue($uuid->getValue(), $this->platform);
 
-        $this->assertInstanceOf(Tuuid::class, $phpValue);
-        $this->assertSame($uuid->getValue(), (string) $phpValue);
+        self::assertInstanceOf(Tuuid::class, $phpValue);
+        self::assertSame($uuid->getValue(), (string) $phpValue);
     }
 
     /**
@@ -54,7 +54,7 @@ final class TuuidTypeTest extends TestCase
         $uuid     = Tuuid::generate();
         $phpValue = $this->type->convertToPHPValue($uuid, $this->platform);
 
-        $this->assertSame($uuid, $phpValue);
+        self::assertSame($uuid, $phpValue);
     }
 
     /**
@@ -66,8 +66,8 @@ final class TuuidTypeTest extends TestCase
     {
         $phpValue = $this->type->convertToPHPValue(null, $this->platform);
 
-        $this->assertInstanceOf(Tuuid::class, $phpValue);
-        $this->assertTrue(Uuid::isValid((string) $phpValue));
+        self::assertInstanceOf(Tuuid::class, $phpValue);
+        self::assertTrue(Uuid::isValid((string) $phpValue));
     }
 
     /**
@@ -75,8 +75,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToPHPValueThrowsExceptionOnInvalid(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "string" to Tuuid (PHPValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "string" to Tuuid (PHPValue)');
 
         $this->type->convertToPHPValue('invalid-uuid', $this->platform);
     }
@@ -91,7 +91,7 @@ final class TuuidTypeTest extends TestCase
         $uuid    = Tuuid::generate();
         $dbValue = $this->type->convertToDatabaseValue($uuid, $this->platform);
 
-        $this->assertSame($uuid->getValue(), $dbValue);
+        self::assertSame($uuid->getValue(), $dbValue);
     }
 
     /**
@@ -104,7 +104,7 @@ final class TuuidTypeTest extends TestCase
         $uuid    = Tuuid::generate();
         $dbValue = $this->type->convertToDatabaseValue($uuid->getValue(), $this->platform);
 
-        $this->assertSame($uuid->getValue(), $dbValue);
+        self::assertSame($uuid->getValue(), $dbValue);
     }
 
     /**
@@ -116,8 +116,8 @@ final class TuuidTypeTest extends TestCase
     {
         $dbValue = $this->type->convertToDatabaseValue(null, $this->platform);
 
-        $this->assertIsString($dbValue);
-        $this->assertTrue(Uuid::isValid($dbValue));
+        self::assertIsString($dbValue);
+        self::assertTrue(Uuid::isValid($dbValue));
     }
 
     /**
@@ -125,8 +125,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToDatabaseValueThrowsExceptionOnInvalid(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "string" to Tuuid (DatabaseValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "string" to Tuuid (DatabaseValue)');
 
         $this->type->convertToDatabaseValue('not-a-tuuid', $this->platform);
     }
@@ -136,8 +136,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToDatabaseValueRejectsInvalidObjects(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "stdClass" to Tuuid (DatabaseValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "stdClass" to Tuuid (DatabaseValue)');
 
         $this->type->convertToDatabaseValue(new \stdClass(), $this->platform);
     }
@@ -147,8 +147,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToDatabaseValueRejectsIntegers(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "int" to Tuuid (DatabaseValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "int" to Tuuid (DatabaseValue)');
 
         $this->type->convertToDatabaseValue(12345, $this->platform);
     }
@@ -158,8 +158,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToPHPValueRejectsIntegers(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "int" to Tuuid (PHPValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "int" to Tuuid (PHPValue)');
 
         $this->type->convertToPHPValue(12345, $this->platform);
     }
@@ -169,8 +169,8 @@ final class TuuidTypeTest extends TestCase
      */
     public function testConvertToPHPValueRejectsObjects(): void
     {
-        $this->expectException(ConversionException::class);
-        $this->expectExceptionMessage('Cannot convert "stdClass" to Tuuid (PHPValue)');
+        self::expectException(ConversionException::class);
+        self::expectExceptionMessage('Cannot convert "stdClass" to Tuuid (PHPValue)');
 
         $this->type->convertToPHPValue(new \stdClass(), $this->platform);
     }

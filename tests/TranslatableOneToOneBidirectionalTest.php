@@ -23,12 +23,12 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
         $parent->setSimpleChild($child);
         $child->setSimpleParent($parent);
 
-        $this->entityManager->persist($parent);
+        $this->entityManager()->persist($parent);
 
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
 
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
         self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
@@ -36,7 +36,7 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
 
     public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
     {
-        $this->expectException(\ErrorException::class);
+        self::expectException(\ErrorException::class);
 
         $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en_US');
@@ -44,7 +44,7 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
         $parent->setSharedChild($child);
         $child->setSharedParent($parent);
 
-        $this->translator->translate($parent, self::TARGET_LOCALE);
+        $this->translator()->translate($parent, self::TARGET_LOCALE);
     }
 
     /**
@@ -61,13 +61,13 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
         $parent->setEmptyChild($child);
         $child->setEmptyParent($parent);
 
-        $this->entityManager->persist($parent);
-        $this->entityManager->persist($child);
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->persist($child);
 
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
 
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
 

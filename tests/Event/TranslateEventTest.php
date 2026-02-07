@@ -18,13 +18,13 @@ final class TranslateEventTest extends TestCase
         $event = new TranslateEvent($source, $locale, $translated);
 
         // Test getters
-        $this->assertSame($source, $event->getSourceEntity());
-        $this->assertSame($translated, $event->getTranslatedEntity());
-        $this->assertSame($locale, $event->getLocale());
+        self::assertSame($source, $event->getSourceEntity());
+        self::assertSame($translated, $event->getTranslatedEntity());
+        self::assertSame($locale, $event->getLocale());
 
         // Test constants
-        $this->assertSame('tmi_translation.pre_translate', TranslateEvent::PRE_TRANSLATE);
-        $this->assertSame('tmi_translation.post_translate', TranslateEvent::POST_TRANSLATE);
+        self::assertSame('tmi_translation.pre_translate', TranslateEvent::PRE_TRANSLATE);
+        self::assertSame('tmi_translation.post_translate', TranslateEvent::POST_TRANSLATE);
     }
 
     public function testTranslatedEntityCanBeNull(): void
@@ -34,8 +34,8 @@ final class TranslateEventTest extends TestCase
 
         $event = new TranslateEvent($source, $locale);
 
-        $this->assertSame($source, $event->getSourceEntity());
-        $this->assertNull($event->getTranslatedEntity());
-        $this->assertSame($locale, $event->getLocale());
+        self::assertSame($source, $event->getSourceEntity());
+        self::assertNull($event->getTranslatedEntity());
+        self::assertSame($locale, $event->getLocale());
     }
 }

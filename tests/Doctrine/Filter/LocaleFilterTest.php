@@ -23,11 +23,11 @@ final class LocaleFilterTest extends IntegrationTestCase
         parent::setUp();
 
         // Enable the LocaleFilter through the real EntityManager
-        $this->entityManager->getConfiguration()->addFilter(
+        $this->entityManager()->getConfiguration()->addFilter(
             'tmi_translation_locale_filter',
             LocaleFilter::class,
         );
-        $this->filter = $this->entityManager->getFilters()->enable('tmi_translation_locale_filter');
+        $this->filter = $this->entityManager()->getFilters()->enable('tmi_translation_locale_filter');
     }
 
     public function testSetLocaleSetsParameter(): void
@@ -40,7 +40,7 @@ final class LocaleFilterTest extends IntegrationTestCase
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
         $sql = $this->filter->addFilterConstraint($metadata, 't');
-        $this->assertSame('', $sql); // should return empty because entity is not translatable
+        self::assertSame('', $sql); // should return empty because entity is not translatable
     }
 
     public function testAddFilterConstraintReturnsSqlForTranslatable(): void
@@ -53,7 +53,7 @@ final class LocaleFilterTest extends IntegrationTestCase
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
         $sql = $this->filter->addFilterConstraint($metadata, 't');
-        $this->assertSame("t.locale = 'en_US'", $sql);
+        self::assertSame("t.locale = 'en_US'", $sql);
     }
 
     public function testAddFilterConstraintReturnsEmptyForNonTranslatable(): void
@@ -66,7 +66,7 @@ final class LocaleFilterTest extends IntegrationTestCase
         $metadata->method('getReflectionClass')->willReturn($reflection);
 
         $sql = $this->filter->addFilterConstraint($metadata, 't');
-        $this->assertSame('', $sql);
+        self::assertSame('', $sql);
     }
 
     public function testAddFilterConstraintReturnsEmptyIfLocaleNotSet(): void
@@ -78,6 +78,6 @@ final class LocaleFilterTest extends IntegrationTestCase
 
         // Locale not set
         $sql = $this->filter->addFilterConstraint($metadata, 't');
-        $this->assertSame('', $sql);
+        self::assertSame('', $sql);
     }
 }

@@ -25,12 +25,12 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
                 ->setLocale('en_US')
                 ->setSimple($associatedEntity);
 
-        $this->entityManager->persist($entity);
+        $this->entityManager()->persist($entity);
 
-        $translation = $this->translator->translate($entity, 'de_DE');
-        $this->assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
+        $translation = $this->translator()->translate($entity, 'de_DE');
+        self::assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
 
-        $this->entityManager->flush();
+        $this->entityManager()->flush();
         self::assertNotEquals($associatedEntity, $translation->getSimple());
         self::assertSame('de_DE', $translation->getSimple()->getLocale());
         self::assertIsTranslation($entity, $translation, 'de_DE');
@@ -54,14 +54,14 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
             ->setLocale('en_US')
             ->setShared($associatedEntity1);
 
-        $this->entityManager->persist($entity);
+        $this->entityManager()->persist($entity);
 
-        $translation = $this->translator->translate($entity, 'de_DE');
-        $this->assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
+        $translation = $this->translator()->translate($entity, 'de_DE');
+        self::assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
         $translation->setShared($associatedEntity2);
 
-        $this->entityManager->persist($translation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($translation);
+        $this->entityManager()->flush();
 
         self::assertSame('shared', $translation->getShared()->getTitle());
         self::assertIsTranslation($entity, $translation, 'de_DE');
@@ -81,13 +81,13 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
                 ->setLocale('en_US')
                 ->setEmpty($associatedEntity);
 
-        $this->entityManager->persist($entity);
+        $this->entityManager()->persist($entity);
 
-        $translation = $this->translator->translate($entity, 'de_DE');
-        $this->assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
+        $translation = $this->translator()->translate($entity, 'de_DE');
+        self::assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
 
-        $this->entityManager->persist($translation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($translation);
+        $this->entityManager()->flush();
 
         self::assertEquals(null, $translation->getEmpty());
         self::assertIsTranslation($entity, $translation, 'de_DE');

@@ -27,8 +27,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         parent::setUp();
 
         $this->handler = new DoctrineObjectHandler(
-            $this->entityManager,
-            $this->translator,
+            $this->entityManager(),
+            $this->translator(),
         );
     }
 
@@ -37,10 +37,10 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willThrowException(new \RuntimeException('meta boom'));
 
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
 
         $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
         $this->handler->supports($args);
@@ -51,8 +51,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
      */
     public function testTranslateThrowsWhenDataIsNotObject(): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('DoctrineObjectHandler::translate expects an object');
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessage('DoctrineObjectHandler::translate expects an object');
 
         $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
         $this->handler->translate($args);
@@ -63,8 +63,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
      */
     public function testTranslatePropertiesThrowsWhenDataIsNotObject(): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('translateProperties expects object in TranslationArgs');
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessage('translateProperties expects object in TranslationArgs');
 
         $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
         $this->handler->translateProperties($args);
@@ -79,7 +79,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
         // Create a PropertyAccessorInterface mock that will fail both getValue and setValue
         $accessor = $this->createMock(PropertyAccessorInterface::class);
@@ -87,7 +87,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $accessor->method('setValue')->willThrowException(new NoSuchPropertyException('no set'));
 
         // instantiate handler with our failing accessor
-        $handler = new DoctrineObjectHandler($this->entityManager, $this->translator, $accessor);
+        $handler = new DoctrineObjectHandler($this->entityManager(), $this->translator(), $accessor);
 
         // entity with a private property 'secret'
         $entity = new class {
@@ -105,8 +105,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $result = $handler->translate($args);
 
         // the clone should have been returned
-        $this->assertNotSame($entity, $result);
-        $this->assertSame('orig', $result->getSecret());
+        self::assertNotSame($entity, $result);
+        self::assertSame('orig', $result->getSecret());
     }
 
     /**
@@ -116,7 +116,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
         $entity = new class {
             public string|null $maybeNull = null;
@@ -131,18 +131,18 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->handler->translate($args);
 
-        $this->assertNotSame($entity, $result);
+        self::assertNotSame($entity, $result);
         // We don't need to count calls, just verify the behavior is correct
-        $this->assertNull($result->maybeNull);
-        $this->assertTrue($result->emptyCollection->isEmpty());
+        self::assertNull($result->maybeNull);
+        self::assertTrue($result->emptyCollection->isEmpty());
     }
 
     public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
     {
         $obj  = new \stdClass();
         $args = new TranslationArgs($obj, 'en_US', 'de_DE');
-        $this->assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
-        $this->assertNull($this->handler->handleEmptyOnTranslate($args));
+        self::assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
+        self::assertNull($this->handler->handleEmptyOnTranslate($args));
     }
 
     public function testSupportsReturnsFalseWhenMetadataFactoryMarksTransient(): void
@@ -150,7 +150,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(true);
 
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
         $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
 
@@ -162,7 +162,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
 
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
         $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
 
@@ -176,7 +176,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
         $metaFactory->method('isTransient')->willReturn(false);
-        $this->entityManager->method('getMetadataFactory')->willReturn($metaFactory);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
         // entity with public properties that PropertyAccessor can read/set
         $entity = new class {

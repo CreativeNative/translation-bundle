@@ -15,7 +15,7 @@ final class TuuidTest extends TestCase
         $uuidString = Uuid::v4()->toRfc4122();
         $tuuid      = new Tuuid($uuidString);
 
-        $this->assertSame(strtolower($uuidString), $tuuid->getValue());
+        self::assertSame(strtolower($uuidString), $tuuid->getValue());
     }
 
     public function testConstructWithValidUuidUppercase(): void
@@ -23,12 +23,12 @@ final class TuuidTest extends TestCase
         $uuidString = strtoupper(Uuid::v4()->toRfc4122());
         $tuuid      = new Tuuid($uuidString);
 
-        $this->assertSame(strtolower($uuidString), $tuuid->getValue());
+        self::assertSame(strtolower($uuidString), $tuuid->getValue());
     }
 
     public function testConstructWithInvalidUuidThrowsException(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        self::expectException(\InvalidArgumentException::class);
         new Tuuid('not-a-uuid');
     }
 
@@ -38,7 +38,7 @@ final class TuuidTest extends TestCase
         $tuuid1     = new Tuuid($uuidString);
         $tuuid2     = new Tuuid($uuidString);
 
-        $this->assertTrue($tuuid1->equals($tuuid2));
+        self::assertTrue($tuuid1->equals($tuuid2));
     }
 
     public function testEqualsReturnsFalseForDifferentValue(): void
@@ -46,7 +46,7 @@ final class TuuidTest extends TestCase
         $tuuid1 = new Tuuid(Uuid::v4()->toRfc4122());
         $tuuid2 = new Tuuid(Uuid::v4()->toRfc4122());
 
-        $this->assertFalse($tuuid1->equals($tuuid2));
+        self::assertFalse($tuuid1->equals($tuuid2));
     }
 
     public function testToStringReturnsValue(): void
@@ -54,6 +54,6 @@ final class TuuidTest extends TestCase
         $uuidString = Uuid::v4()->toRfc4122();
         $tuuid      = new Tuuid($uuidString);
 
-        $this->assertSame($tuuid->getValue(), (string) $tuuid);
+        self::assertSame($tuuid->getValue(), (string) $tuuid);
     }
 }

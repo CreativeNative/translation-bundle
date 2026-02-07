@@ -24,9 +24,9 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
     {
         parent::setUp();
         $this->handler = new UnidirectionalManyToManyHandler(
-            $this->attributeHelper,
-            $this->translator,
-            $this->entityManager,
+            $this->attributeHelper(),
+            $this->translator(),
+            $this->entityManager(),
         );
     }
 
@@ -64,24 +64,24 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
             ->setLocale('en_US')
             ->setTuuid($tuuid2);
 
-        $this->entityManager->persist($child1);
-        $this->entityManager->persist($child2);
+        $this->entityManager()->persist($child1);
+        $this->entityManager()->persist($child2);
 
         // Create parent and attach simple children (unidirectional owning side)
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $parent->addSimpleChild($child1);
         $parent->addSimpleChild($child2);
 
-        $this->entityManager->persist($parent);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
 
         // Translate the parent entity (this will create translated children as needed)
-        $parentTranslation = $this->translator->translate($parent, 'de_DE');
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $parentTranslation = $this->translator()->translate($parent, 'de_DE');
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         // Reload the original parent if you need it; but for the handler we MUST pass the translated parent:
-        $parent = $this->entityManager->find(
+        $parent = $this->entityManager()->find(
             TranslatableManyToManyUnidirectionalParent::class,
             $parent->getId(),
         );

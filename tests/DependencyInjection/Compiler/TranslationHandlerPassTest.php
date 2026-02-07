@@ -18,13 +18,13 @@ final class TranslationHandlerPassTest extends TestCase
         $pass      = new TranslationHandlerPass();
 
         // The container does NOT have the translator service
-        $this->assertFalse($container->has('tmi_translation.translation.entity_translator'));
+        self::assertFalse($container->has('tmi_translation.translation.entity_translator'));
 
         // process() should execute and immediately return without error
         $pass->process($container);
 
         // Assert translator service still does not exist
-        $this->assertFalse($container->has('tmi_translation.translation.entity_translator'));
+        self::assertFalse($container->has('tmi_translation.translation.entity_translator'));
     }
 
     public function testProcessAddsTaggedHandlersToTranslator(): void
@@ -50,14 +50,14 @@ final class TranslationHandlerPassTest extends TestCase
         $methodCalls = $translatorDefinition->getMethodCalls();
 
         // Assert that addTranslationHandler was called for each tagged service
-        $this->assertCount(2, $methodCalls);
+        self::assertCount(2, $methodCalls);
 
-        $this->assertSame('addTranslationHandler', $methodCalls[0][0]);
-        $this->assertInstanceOf(Reference::class, $methodCalls[0][1][0]);
-        $this->assertSame('handler.one', (string) $methodCalls[0][1][0]);
+        self::assertSame('addTranslationHandler', $methodCalls[0][0]);
+        self::assertInstanceOf(Reference::class, $methodCalls[0][1][0]);
+        self::assertSame('handler.one', (string) $methodCalls[0][1][0]);
 
-        $this->assertSame('addTranslationHandler', $methodCalls[1][0]);
-        $this->assertInstanceOf(Reference::class, $methodCalls[1][1][0]);
-        $this->assertSame('handler.two', (string) $methodCalls[1][1][0]);
+        self::assertSame('addTranslationHandler', $methodCalls[1][0]);
+        self::assertInstanceOf(Reference::class, $methodCalls[1][1][0]);
+        self::assertSame('handler.two', (string) $methodCalls[1][1][0]);
     }
 }

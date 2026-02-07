@@ -38,14 +38,14 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
         // Create the real DoctrineObjectHandler (final -> cannot be mocked)
         $doctrineHandler = new DoctrineObjectHandler(
-            $this->entityManager,
-            $this->translator,
-            $this->propertyAccessor,
+            $this->entityManager(),
+            $this->translator(),
+            $this->propertyAccessor(),
         );
 
         // Create EmbeddedHandler with mocked AttributeHelper (for existing tests)
         $this->embeddedHandler = new EmbeddedHandler(
-            $this->attributeHelper,
+            $this->attributeHelper(),
         );
     }
 
@@ -55,7 +55,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
     public function testSupportsDelegatesToAttributeHelper(): void
     {
-        $this->attributeHelper->expects($this->once())
+        $this->attributeHelper()->expects($this->once())
             ->method('isEmbedded')
             ->willReturn(true);
 
@@ -177,7 +177,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
         $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         try {
             $handler->translate($args);

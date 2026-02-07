@@ -81,7 +81,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($entity::class, 'title');
 
-        $this->attributeHelper->method('isManyToOne')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isManyToOne')->with($prop)->willReturn(true);
 
         $args = new TranslationArgs($entity, 'en_US', 'de_DE')
             ->setProperty($prop)
@@ -103,8 +103,8 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->expectException(\ErrorException::class);
-        $this->expectExceptionMessageMatches('/::sharedChildren is a Bidirectional ManyToOne/');
+        self::expectException(\ErrorException::class);
+        self::expectExceptionMessageMatches('/::sharedChildren is a Bidirectional ManyToOne/');
 
         $handler->handleSharedAmongstTranslations($args);
     }
@@ -130,7 +130,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             'simpleChildren' => ['fieldName' => 'simpleChildren'],
         ];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
@@ -166,7 +166,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
@@ -269,7 +269,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $metadata->associationMappings = [
             'parentSimple' => ['fieldName' => 'parentSimple'],
         ];
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
@@ -278,7 +278,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $args = new TranslationArgs($child, 'en_US', 'it_IT');
         $args->setProperty($prop);
 
-        $this->translator->addTranslationHandler($handler);
+        $this->translator()->addTranslationHandler($handler);
 
         // --- Step 6: Translate ---
         $result = $handler->translate($args);
@@ -306,10 +306,10 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     private function createHandler(): BidirectionalManyToOneHandler
     {
         return new BidirectionalManyToOneHandler(
-            $this->attributeHelper,
-            $this->entityManager,
-            $this->propertyAccessor,
-            $this->translator,
+            $this->attributeHelper(),
+            $this->entityManager(),
+            $this->propertyAccessor(),
+            $this->translator(),
         );
     }
 }

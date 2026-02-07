@@ -17,7 +17,7 @@ final class TmiTranslationBundleTest extends TestCase
     {
         $bundle = new TmiTranslationBundle();
         // Test that it's a Symfony Bundle
-        $this->assertInstanceOf(Bundle::class, $bundle);
+        self::assertInstanceOf(Bundle::class, $bundle);
     }
 
     public function testBuildMethodExistsAndIsCallable(): void
@@ -26,14 +26,14 @@ final class TmiTranslationBundleTest extends TestCase
         $container = $this->createMock(ContainerBuilder::class);
 
         // Test that the method exists
-        $this->assertTrue(method_exists($bundle, 'build'));
+        self::assertTrue(method_exists($bundle, 'build'));
 
         // Test that the method can be called without throwing exceptions
         try {
             $bundle->build($container);
-            $this->assertTrue(true, 'build() method executed successfully');
+            self::assertTrue(true, 'build() method executed successfully');
         } catch (\Exception $e) {
-            $this->fail('build() method threw an exception: '.$e->getMessage());
+            self::fail('build() method threw an exception: '.$e->getMessage());
         }
     }
 
@@ -43,7 +43,7 @@ final class TmiTranslationBundleTest extends TestCase
 
         // Test the inheritance chain
         $parentClass = get_parent_class($bundle);
-        $this->assertSame(Bundle::class, $parentClass);
+        self::assertSame(Bundle::class, $parentClass);
     }
 
     public function testBundleProvidesBasicFunctionality(): void
@@ -51,12 +51,12 @@ final class TmiTranslationBundleTest extends TestCase
         $bundle = new TmiTranslationBundle();
 
         // Test basic methods inherited from parent
-        $this->assertIsString($bundle->getName());
-        $this->assertIsString($bundle->getNamespace());
-        $this->assertIsString($bundle->getPath());
+        self::assertIsString($bundle->getName());
+        self::assertIsString($bundle->getNamespace());
+        self::assertIsString($bundle->getPath());
 
         // Verify the path exists (this is the directory where the bundle is located)
-        $this->assertDirectoryExists($bundle->getPath());
+        self::assertDirectoryExists($bundle->getPath());
 
         // Remove the problematic assertion that checks for class name in path
         // The path typically points to the src/ directory, not a specific bundle name
@@ -73,12 +73,12 @@ final class TmiTranslationBundleTest extends TestCase
         $reflection = new \ReflectionMethod($bundle, 'build');
         $parameters = $reflection->getParameters();
 
-        $this->assertCount(1, $parameters);
-        $this->assertSame('container', $parameters[0]->getName());
+        self::assertCount(1, $parameters);
+        self::assertSame('container', $parameters[0]->getName());
 
         $parameterType = $parameters[0]->getType();
-        $this->assertInstanceOf(\ReflectionType::class, $parameterType);
-        $this->assertEquals(ContainerBuilder::class, $parameterType->getName());
+        self::assertInstanceOf(\ReflectionType::class, $parameterType);
+        self::assertEquals(ContainerBuilder::class, $parameterType->getName());
     }
 
     public function testBundleNameAndNamespace(): void
@@ -89,11 +89,11 @@ final class TmiTranslationBundleTest extends TestCase
         $name      = $bundle->getName();
         $namespace = $bundle->getNamespace();
 
-        $this->assertNotEmpty($name);
-        $this->assertNotEmpty($namespace);
+        self::assertNotEmpty($name);
+        self::assertNotEmpty($namespace);
 
         // Typically, the name would be related to the bundle class
-        $this->assertStringContainsString('Translation', $name);
-        $this->assertStringContainsString('Tmi', $namespace);
+        self::assertStringContainsString('Translation', $name);
+        self::assertStringContainsString('Tmi', $namespace);
     }
 }

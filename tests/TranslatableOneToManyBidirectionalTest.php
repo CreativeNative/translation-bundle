@@ -30,18 +30,18 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
         // Persist children first and assign parent
         foreach ($children as $child) {
             $child->setParentSimple($parent);
-            $this->entityManager->persist($child);
+            $this->entityManager()->persist($child);
         }
 
         $parent->setSimpleChildren($children);
-        $this->entityManager->persist($parent);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
 
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        $this->assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $parentTranslation);
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $parentTranslation);
 
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChildren()->first()->getLocale());
         self::assertEquals(
@@ -58,19 +58,19 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
     {
         $parent = new TranslatableOneToManyBidirectionalParent()
             ->setLocale('de_DE');
-        $this->entityManager->persist($parent);
+        $this->entityManager()->persist($parent);
 
         $child = new TranslatableManyToOneBidirectionalChild()
             ->setLocale('de_DE')
             ->setParentSimple($parent);
-        $this->entityManager->persist($child);
+        $this->entityManager()->persist($child);
 
-        $childTranslation = $this->translator->translate($child, self::TARGET_LOCALE);
-        $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $childTranslation);
+        $childTranslation = $this->translator()->translate($child, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $childTranslation);
 
-        $this->entityManager->persist($childTranslation);
+        $this->entityManager()->persist($childTranslation);
 
-        $this->entityManager->flush();
+        $this->entityManager()->flush();
 
         self::assertSame(self::TARGET_LOCALE, $childTranslation->getParentSimple()->getLocale());
         self::assertEquals(

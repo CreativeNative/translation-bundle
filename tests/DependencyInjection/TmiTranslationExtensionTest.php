@@ -37,9 +37,9 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
 
         $extension->load($config, $containerBuilder);
 
-        $this->assertTrue($containerBuilder->has('tmi_translation.translation.entity_translator'));
-        $this->assertTrue($containerBuilder->has('tmi_translation.utils.attribute_helper'));
-        $this->assertTrue($containerBuilder->has(LocaleFilterConfigurator::class));
+        self::assertTrue($containerBuilder->has('tmi_translation.translation.entity_translator'));
+        self::assertTrue($containerBuilder->has('tmi_translation.utils.attribute_helper'));
+        self::assertTrue($containerBuilder->has(LocaleFilterConfigurator::class));
     }
 
     public function testPrependDoesNothing(): void
@@ -48,7 +48,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension        = new TmiTranslationExtension();
         $extension->prepend($containerBuilder);
 
-        $this->assertInstanceOf(ContainerBuilder::class, $containerBuilder);
+        self::assertInstanceOf(ContainerBuilder::class, $containerBuilder);
     }
 
     /**
@@ -60,15 +60,15 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         // Ensure the type exists and is correct
         if (Type::hasType(TuuidType::NAME)) {
             $existing = Type::getType(TuuidType::NAME);
-            $this->assertInstanceOf(TuuidType::class, $existing);
+            self::assertInstanceOf(TuuidType::class, $existing);
         }
 
         $containerBuilder = $this->createContainerBuilderFromKernel();
         $extension        = new TmiTranslationExtension();
         $extension->load([['locales' => ['en_US', 'de_DE'], 'default_locale' => 'en_US']], $containerBuilder);
 
-        $this->assertTrue(Type::hasType(TuuidType::NAME));
-        $this->assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
+        self::assertTrue(Type::hasType(TuuidType::NAME));
+        self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
     }
 
     /**
@@ -103,8 +103,8 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
 
         // Assert that the TuuidType exists
-        $this->assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered');
-        $this->assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
+        self::assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered');
+        self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder

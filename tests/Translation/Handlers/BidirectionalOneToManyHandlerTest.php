@@ -28,7 +28,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->attributeHelper->method('isOneToMany')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isOneToMany')->with($prop)->willReturn(false);
 
         self::assertFalse($handler->supports($args));
     }
@@ -46,7 +46,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->attributeHelper->method('isOneToMany')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isOneToMany')->with($prop)->willReturn(true);
 
         self::assertTrue($handler->supports($args));
     }
@@ -66,7 +66,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         // NOTE: "notACollection" should be a real property on the entity that is NOT a OneToMany
 
         // Mock attribute helper to return true for isOneToMany
-        $this->attributeHelper->method('isOneToMany')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isOneToMany')->with($prop)->willReturn(true);
 
         // Create TranslationArgs
         $args = new TranslationArgs($parent, 'en_US', 'de_DE')
@@ -92,8 +92,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->expectException(\ErrorException::class);
-        $this->expectExceptionMessageMatches('/::simpleChildren is a Bidirectional OneToMany/');
+        self::expectException(\ErrorException::class);
+        self::expectExceptionMessageMatches('/::simpleChildren is a Bidirectional OneToMany/');
 
         $handler->handleSharedAmongstTranslations($args);
     }
@@ -127,7 +127,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
@@ -142,7 +142,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         self::assertInstanceOf(ArrayCollection::class, $result);
         self::assertCount(2, $result);
         foreach ($result as $child) {
-            $this->assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $child);
+            self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $child);
             self::assertSame($parent, $child->getParentSimple());
         }
     }
@@ -166,7 +166,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             'simpleChildren' => [], // no mappedBy
         ];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with($parent::class)
             ->willReturn($metadata);
 
@@ -201,7 +201,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
-        $this->entityManager->method('getClassMetadata')->with($parent::class)->willReturn($metadata);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($metadata);
 
         $args = new TranslationArgs($collection, 'en', 'it_IT');
         $args->setProperty(new \ReflectionProperty($parent, 'simpleChildren'));
@@ -249,7 +249,7 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             'simpleChildren' => ['mappedBy' => 'parentSimple'],
         ];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
@@ -267,9 +267,9 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
     private function createHandler(): BidirectionalOneToManyHandler
     {
         return new BidirectionalOneToManyHandler(
-            $this->attributeHelper,
-            $this->translator,
-            $this->entityManager,
+            $this->attributeHelper(),
+            $this->translator(),
+            $this->entityManager(),
         );
     }
 }

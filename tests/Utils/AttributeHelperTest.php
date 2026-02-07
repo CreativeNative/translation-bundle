@@ -49,8 +49,8 @@ final class AttributeHelperTest extends TestCase
         };
         $property = new \ReflectionProperty($conflictClass, 'conflicting');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('TMI Translation validation failed with 1 error(s)');
+        self::expectException(ValidationException::class);
+        self::expectExceptionMessage('TMI Translation validation failed with 1 error(s)');
 
         try {
             $this->attributeHelper->validateProperty($property);
@@ -83,8 +83,8 @@ final class AttributeHelperTest extends TestCase
         $instance = new $className();
         $property = new \ReflectionProperty($instance, 'readonlyBad');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('TMI Translation validation failed with 1 error(s)');
+        self::expectException(ValidationException::class);
+        self::expectExceptionMessage('TMI Translation validation failed with 1 error(s)');
 
         try {
             $this->attributeHelper->validateProperty($property);
@@ -116,8 +116,8 @@ final class AttributeHelperTest extends TestCase
         $instance = new $className();
         $property = new \ReflectionProperty($instance, 'multipleConflicts');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('TMI Translation validation failed with 2 error(s)');
+        self::expectException(ValidationException::class);
+        self::expectExceptionMessage('TMI Translation validation failed with 2 error(s)');
 
         try {
             $this->attributeHelper->validateProperty($property);
@@ -171,7 +171,7 @@ final class AttributeHelperTest extends TestCase
             ->method('error')
             ->with($this->stringContains('[TMI Translation]'));
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         $this->attributeHelper->validateProperty($property, $logger);
     }
@@ -284,7 +284,7 @@ final class AttributeHelperTest extends TestCase
 
         $reflection = new \ReflectionClass($className);
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         try {
             $this->attributeHelper->validateEmbeddableClass($reflection);
@@ -314,7 +314,7 @@ final class AttributeHelperTest extends TestCase
 
         $reflection = new \ReflectionClass($className);
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         try {
             $this->attributeHelper->validateEmbeddableClass($reflection);
@@ -345,7 +345,7 @@ final class AttributeHelperTest extends TestCase
 
         $reflection = new \ReflectionClass($className);
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         try {
             $this->attributeHelper->validateEmbeddableClass($reflection);
@@ -409,7 +409,7 @@ final class AttributeHelperTest extends TestCase
             ->method('error')
             ->with($this->stringContains('[TMI Translation][Embedded]'));
 
-        $this->expectException(ValidationException::class);
+        self::expectException(ValidationException::class);
 
         $this->attributeHelper->validateEmbeddableClass($reflection, $logger);
     }

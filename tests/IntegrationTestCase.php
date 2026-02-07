@@ -31,6 +31,27 @@ class IntegrationTestCase extends KernelTestCase
 
     protected static Container|null $container = null;
 
+    protected function translator(): EntityTranslator
+    {
+        self::assertNotNull($this->translator, 'setUp() must run before accessing translator');
+
+        return $this->translator;
+    }
+
+    protected function entityManager(): EntityManagerInterface
+    {
+        self::assertNotNull($this->entityManager, 'setUp() must run before accessing entityManager');
+
+        return $this->entityManager;
+    }
+
+    protected function attributeHelper(): AttributeHelper
+    {
+        self::assertNotNull($this->attributeHelper, 'setUp() must run before accessing attributeHelper');
+
+        return $this->attributeHelper;
+    }
+
     /**
      * {@inheritDoc}
      *
@@ -123,7 +144,7 @@ class IntegrationTestCase extends KernelTestCase
     {
         restore_exception_handler();
 
-        if ($this->entityManager->isOpen()) {
+        if (null !== $this->entityManager && $this->entityManager->isOpen()) {
             $this->entityManager->close();
         }
         $this->translator = null;

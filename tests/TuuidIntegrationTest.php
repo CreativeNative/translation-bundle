@@ -25,7 +25,7 @@ final class TuuidIntegrationTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->em = $this->entityManager;
+        $this->em = $this->entityManager();
 
         // Ensure TuuidType is registered (again, safe)
         if (!Type::hasType(TuuidType::NAME)) {
@@ -56,8 +56,8 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $this->em->flush();
 
         $tuuid = $entity->getTuuid();
-        $this->assertInstanceOf(Tuuid::class, $tuuid);
-        $this->assertTrue(Uuid::isValid($tuuid->__toString()));
+        self::assertInstanceOf(Tuuid::class, $tuuid);
+        self::assertTrue(Uuid::isValid($tuuid->__toString()));
     }
 
     /**
@@ -76,8 +76,8 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $this->em->clear();
 
         $fetched = $this->em->getRepository(Scalar::class)->find($entity->getId());
-        $this->assertInstanceOf(Tuuid::class, $fetched->getTuuid());
-        $this->assertTrue($fetched->getTuuid()->equals($generatedTuuid));
+        self::assertInstanceOf(Tuuid::class, $fetched->getTuuid());
+        self::assertTrue($fetched->getTuuid()->equals($generatedTuuid));
     }
 
     public function testTuuidCannotBeReassigned(): void
@@ -86,8 +86,8 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $tuuid  = Tuuid::generate();
         $entity->setTuuid($tuuid);
 
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('Tuuid is immutable and cannot be reassigned.');
+        self::expectException(\LogicException::class);
+        self::expectExceptionMessage('Tuuid is immutable and cannot be reassigned.');
 
         $entity->setTuuid(Tuuid::generate());
     }
@@ -104,10 +104,10 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $tuuid   = Tuuid::generate();
         $dbValue = $type->convertToDatabaseValue($tuuid, $this->em->getConnection()->getDatabasePlatform());
 
-        $this->assertSame($tuuid->getValue(), $dbValue);
+        self::assertSame($tuuid->getValue(), $dbValue);
 
         $phpValue = $type->convertToPHPValue($dbValue, $this->em->getConnection()->getDatabasePlatform());
-        $this->assertTrue($phpValue->equals($tuuid));
+        self::assertTrue($phpValue->equals($tuuid));
     }
 
     /**
@@ -120,12 +120,12 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $type = Type::getType(TuuidType::NAME);
 
         $phpValue = $type->convertToPHPValue(null, $this->em->getConnection()->getDatabasePlatform());
-        $this->assertInstanceOf(Tuuid::class, $phpValue);
-        $this->assertTrue(Uuid::isValid($phpValue->__toString()));
+        self::assertInstanceOf(Tuuid::class, $phpValue);
+        self::assertTrue(Uuid::isValid($phpValue->__toString()));
 
         $dbValue = $type->convertToDatabaseValue(null, $this->em->getConnection()->getDatabasePlatform());
-        $this->assertIsString($dbValue);
-        $this->assertTrue(Uuid::isValid($dbValue));
+        self::assertIsString($dbValue);
+        self::assertTrue(Uuid::isValid($dbValue));
     }
 
     /**
@@ -136,7 +136,7 @@ final class TuuidIntegrationTest extends IntegrationTestCase
     {
         $type = Type::getType(TuuidType::NAME);
 
-        $this->expectException(ConversionException::class);
+        self::expectException(ConversionException::class);
         $type->convertToPHPValue('invalid', $this->em->getConnection()->getDatabasePlatform());
     }
 }

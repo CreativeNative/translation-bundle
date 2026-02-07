@@ -36,7 +36,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $entity  = new TranslatableOneToOneBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'simpleChild');
 
-        $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -59,7 +59,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $prop = new \ReflectionProperty($entity::class, 'title'); // title is a plain string
 
         // 3. Mock AttributeHelper to return true for isOneToOne
-        $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
         // 4. Create TranslationArgs
         $args = new TranslationArgs($entity, 'en_US', 'de_DE')
@@ -79,13 +79,13 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $entity  = new TranslatableOneToOneBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'sharedChild');
 
-        $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->expectException(\ErrorException::class);
-        $this->expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
+        self::expectException(\ErrorException::class);
+        self::expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
 
         $handler->handleSharedAmongstTranslations($args);
     }
@@ -110,7 +110,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $entity  = new TranslatableOneToOneBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'simpleChild');
 
-        $this->attributeHelper->method('isOneToOne')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(false);
 
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
@@ -136,7 +136,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
             'simpleParent' => ['fieldName' => 'simpleParent', 'inversedBy' => 'simpleChild'],
         ];
 
-        $this->entityManager->method('getClassMetadata')
+        $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
@@ -157,9 +157,9 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     private function createHandler(): BidirectionalOneToOneHandler
     {
         return new BidirectionalOneToOneHandler(
-            $this->entityManager,
-            $this->propertyAccessor,
-            $this->attributeHelper,
+            $this->entityManager(),
+            $this->propertyAccessor(),
+            $this->attributeHelper(),
         );
     }
 }

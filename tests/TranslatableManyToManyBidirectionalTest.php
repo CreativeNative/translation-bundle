@@ -21,9 +21,9 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     {
         parent::setUp();
         $this->handler = new BidirectionalManyToManyHandler(
-            $this->attributeHelper,
-            $this->entityManager,
-            $this->translator,
+            $this->attributeHelper(),
+            $this->entityManager(),
+            $this->translator(),
         );
     }
 
@@ -38,9 +38,9 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
 
-        $this->entityManager->persist($child1);
-        $this->entityManager->persist($child2);
-        $this->entityManager->persist($child3);
+        $this->entityManager()->persist($child1);
+        $this->entityManager()->persist($child2);
+        $this->entityManager()->persist($child3);
 
         // Create 1 parent entity
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
@@ -48,18 +48,18 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
             ->addSimpleChild($child1)
             ->addSimpleChild($child2)
             ->addSimpleChild($child3);
-        $this->entityManager->persist($parent);
+        $this->entityManager()->persist($parent);
 
         // Translate the parent
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        $this->assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         // Make sure the children of the translated parent are
         // translated and their parent is $translatedParent
         foreach ($parentTranslation->getSimpleChildren() as $child) {
-            $this->assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $child);
+            self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $child);
             self::assertSame($parent, $child->getSimpleParents()->first());
         }
 
@@ -77,9 +77,9 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         $child2 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $child3 = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
 
-        $this->entityManager->persist($child1);
-        $this->entityManager->persist($child2);
-        $this->entityManager->persist($child3);
+        $this->entityManager()->persist($child1);
+        $this->entityManager()->persist($child2);
+        $this->entityManager()->persist($child3);
 
         // Create 1 parent entity
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
@@ -87,15 +87,15 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
             ->addEmptyChild($child1)
             ->addEmptyChild($child2)
             ->addEmptyChild($child3);
-        $this->entityManager->persist($parent);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
 
         // Translate the parent
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        $this->assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
 
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         // give the handler explicit property info so it can clear the correct collection
         $prop = new \ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'emptyChildren');
@@ -120,17 +120,17 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     public function testItCanShareManyToMany(): void
     {
         $child = new TranslatableManyToManyBidirectionalChild();
-        $this->entityManager->persist($child);
+        $this->entityManager()->persist($child);
 
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent->addSharedChild($child);
-        $this->entityManager->persist($parent);
-        $this->entityManager->flush();
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
 
-        $parentTranslation = $this->translator->translate($parent, self::TARGET_LOCALE);
-        $this->assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
-        $this->entityManager->persist($parentTranslation);
-        $this->entityManager->flush();
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
 
         self::assertCount(1, $parent->getSharedChildren());
         self::assertCount(1, $parentTranslation->getSharedChildren());

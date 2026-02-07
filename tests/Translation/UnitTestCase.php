@@ -35,6 +35,48 @@ class UnitTestCase extends TestCase
 
     protected PropertyAccessor|null $propertyAccessor = null;
 
+    protected function translator(): EntityTranslator
+    {
+        self::assertNotNull($this->translator, 'setUp() must run before accessing translator');
+
+        return $this->translator;
+    }
+
+    protected function entityManager(): MockObject&EntityManagerInterface
+    {
+        self::assertNotNull($this->entityManager, 'setUp() must run before accessing entityManager');
+
+        return $this->entityManager;
+    }
+
+    protected function eventDispatcher(): Stub&EventDispatcherInterface
+    {
+        self::assertNotNull($this->eventDispatcherInterface, 'setUp() must run before accessing eventDispatcher');
+
+        return $this->eventDispatcherInterface;
+    }
+
+    protected function attributeHelper(): MockObject&AttributeHelper
+    {
+        self::assertNotNull($this->attributeHelper, 'setUp() must run before accessing attributeHelper');
+
+        return $this->attributeHelper;
+    }
+
+    protected function logger(): MockObject&LoggerInterface
+    {
+        self::assertNotNull($this->logger, 'setUp() must run before accessing logger');
+
+        return $this->logger;
+    }
+
+    protected function propertyAccessor(): PropertyAccessor
+    {
+        self::assertNotNull($this->propertyAccessor, 'setUp() must run before accessing propertyAccessor');
+
+        return $this->propertyAccessor;
+    }
+
     /**
      * {@inheritDoc}
      */
