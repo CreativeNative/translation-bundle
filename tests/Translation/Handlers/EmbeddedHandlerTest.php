@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Fixtures\Entity\Embedded\AddressWithEmptyAndSharedProperty;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
@@ -24,6 +25,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 // without PSR-4 mapping, so we need to require it explicitly for unit tests.
 require_once __DIR__.'/../../Fixtures/Entity/Embedded/AddressWithEmptyAndSharedProperty.php';
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(EmbeddedHandler::class)]
 final class EmbeddedHandlerTest extends UnitTestCase
 {

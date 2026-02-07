@@ -309,10 +309,10 @@ final class EntityTranslator implements EntityTranslatorInterface
                 ->setParameter('tuuids', $tuuids)
                 ->setParameter('locale', $locale);
 
-            /** @var array<TranslatableInterface> $translations */
+            /** @var array<TranslatableInterface>|null $translations */
             $translations = $qb->getQuery()->getResult();
 
-            foreach ($translations as $translation) {
+            foreach ($translations ?? [] as $translation) {
                 // @codeCoverageIgnoreStart
                 $this->translationCache[$translation->getTuuid()->getValue()][$translation->getLocale()] = $translation;
                 // @codeCoverageIgnoreEnd

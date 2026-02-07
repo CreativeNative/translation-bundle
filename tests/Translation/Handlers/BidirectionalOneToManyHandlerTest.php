@@ -6,12 +6,14 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler;
 
+#[AllowMockObjectsWithoutExpectations]
 final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 {
     /** ------------------------- Supports -------------------------.

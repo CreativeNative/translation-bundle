@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToOne;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -17,6 +18,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler;
 
+#[AllowMockObjectsWithoutExpectations]
 final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 {
     /** ------------------------- Supports Tests -------------------------.

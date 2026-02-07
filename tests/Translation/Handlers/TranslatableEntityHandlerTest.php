@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\EntityRepository;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use ReflectionException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -16,6 +17,7 @@ use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[AllowMockObjectsWithoutExpectations]
 final class TranslatableEntityHandlerTest extends UnitTestCase
 {
     private TranslatableEntityHandler $handler;

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(PrimaryKeyHandler::class)]
 final class PrimaryKeyHandlerTest extends UnitTestCase
 {

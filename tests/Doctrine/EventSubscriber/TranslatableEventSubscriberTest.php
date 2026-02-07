@@ -10,6 +10,7 @@ use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\UnitOfWork;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberTest extends TestCase
 {

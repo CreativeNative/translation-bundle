@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 
+#[AllowMockObjectsWithoutExpectations]
 final class TmiTranslationBundleTest extends TestCase
 {
     public function testBundleCanBeInstantiated(): void

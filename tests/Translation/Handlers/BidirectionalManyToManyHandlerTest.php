@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\MappingException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
@@ -16,6 +17,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
 
+#[AllowMockObjectsWithoutExpectations]
 final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 {
     private BidirectionalManyToManyHandler $handler;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
@@ -13,6 +14,7 @@ use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
+#[AllowMockObjectsWithoutExpectations]
 final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 {
     /** ------------------------- Supports ------------------------- */

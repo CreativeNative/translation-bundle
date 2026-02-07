@@ -7,7 +7,9 @@ namespace Tmi\TranslationBundle\Test\Translation;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -16,6 +18,7 @@ use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
+#[AllowMockObjectsWithoutExpectations]
 class UnitTestCase extends TestCase
 {
     protected const string TARGET_LOCALE = 'de_DE';
@@ -24,7 +27,7 @@ class UnitTestCase extends TestCase
 
     protected (MockObject&EntityManagerInterface)|null $entityManager = null;
 
-    protected (MockObject&EventDispatcherInterface)|null $eventDispatcherInterface = null;
+    protected (Stub&EventDispatcherInterface)|null $eventDispatcherInterface = null;
 
     protected (MockObject&AttributeHelper)|null $attributeHelper = null;
 
@@ -39,8 +42,8 @@ class UnitTestCase extends TestCase
     {
         parent::setUp();
 
-        // First create mocks for the core dependencies
-        $this->eventDispatcherInterface = $this->createMock(EventDispatcherInterface::class);
+        // First create stubs/mocks for the core dependencies
+        $this->eventDispatcherInterface = $this->createStub(EventDispatcherInterface::class);
         $this->attributeHelper          = $this->createMock(AttributeHelper::class);
         $this->entityManager            = $this->createMock(EntityManagerInterface::class);
         $this->logger                   = $this->createMock(LoggerInterface::class);
@@ -62,44 +65,29 @@ class UnitTestCase extends TestCase
 
     private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
     {
-        // Create a mock Query object
-        /** @var Query&MockObject $queryMock */
-        $queryMock = $this->createMock(Query::class);
-        $queryMock->method('getResult')->willReturn([]); // Always return empty array
+        // Create a stub Query object
+        $queryStub = $this->createStub(Query::class);
+        $queryStub->method('getResult')->willReturn([]); // Always return empty array
 
-        // Create a mock QueryBuilder with chainable methods
-        /** @var QueryBuilder&MockObject $qbMock */
-        $qbMock = $this->getMockBuilder(QueryBuilder::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods([
-                'select',
-                'from',
-                'where',
-                'andWhere',
-                'setParameter',
-                'getQuery',
-            ])
-            ->getMock();
+        // Create a stub QueryBuilder with chainable methods
+        $qbStub = $this->createStub(QueryBuilder::class);
+        $qbStub->method('select')->willReturnSelf();
+        $qbStub->method('from')->willReturnSelf();
+        $qbStub->method('where')->willReturnSelf();
+        $qbStub->method('andWhere')->willReturnSelf();
+        $qbStub->method('setParameter')->willReturnSelf();
+        $qbStub->method('getQuery')->willReturn($queryStub);
 
-        // Configure chainable methods
-        $qbMock->method('select')->willReturnSelf();
-        $qbMock->method('from')->willReturnSelf();
-        $qbMock->method('where')->willReturnSelf();
-        $qbMock->method('andWhere')->willReturnSelf();
-        $qbMock->method('setParameter')->willReturnSelf();
-        $qbMock->method('getQuery')->willReturn($queryMock);
-
-        // Mock EntityManager to return our QueryBuilder
-        /** @var EntityManagerInterface&MockObject $emMock */
-        $emMock = $this->createMock(EntityManagerInterface::class);
-        $emMock->method('createQueryBuilder')->willReturn($qbMock);
+        // Stub EntityManager to return our QueryBuilder
+        $emStub = $this->createStub(EntityManagerInterface::class);
+        $emStub->method('createQueryBuilder')->willReturn($qbStub);
 
         return new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
             $this->eventDispatcherInterface,
             $this->attributeHelper,
-            $emMock,
+            $emStub,
             $logger,
         );
     }

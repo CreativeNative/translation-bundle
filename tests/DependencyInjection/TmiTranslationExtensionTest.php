@@ -8,12 +8,14 @@ use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 final class TmiTranslationExtensionTest extends IntegrationTestCase
 {
     /**

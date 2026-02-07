@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\EventSubscriber;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\FilterCollection;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,6 +17,7 @@ use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 {
     public function testGetSubscribedEvents(): void

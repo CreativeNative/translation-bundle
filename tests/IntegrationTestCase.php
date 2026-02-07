@@ -14,7 +14,9 @@ use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
+use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 class IntegrationTestCase extends KernelTestCase
@@ -79,6 +81,13 @@ class IntegrationTestCase extends KernelTestCase
             $this->translator = $container->get('tmi_translation.translation.entity_translator');
         } catch (ServiceNotFoundException) {
             self::fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator');
+        }
+
+        $this->translator->setLogger(new NullLogger());
+
+        $embeddedHandler = $container->get(EmbeddedHandler::class);
+        if ($embeddedHandler instanceof EmbeddedHandler) {
+            $embeddedHandler->setLogger(new NullLogger());
         }
 
         try {

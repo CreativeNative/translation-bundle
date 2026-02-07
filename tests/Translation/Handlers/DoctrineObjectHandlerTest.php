@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -14,6 +15,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(DoctrineObjectHandler::class)]
 final class DoctrineObjectHandlerTest extends UnitTestCase
 {

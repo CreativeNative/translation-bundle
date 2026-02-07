@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Doctrine\Filter;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(LocaleFilter::class)]
 final class LocaleFilterTest extends IntegrationTestCase
 {
