@@ -18,7 +18,7 @@ trait TranslatableTrait
     #[ORM\Column(type: Types::STRING, length: 5, nullable: true)]
     private string|null $locale = null;
 
-    /** @var array<string, mixed> */
+    /** @var array<string, array<string, mixed>> */
     #[ORM\Column(type: Types::JSON)]
     private array $translations = [];
 
@@ -80,7 +80,7 @@ trait TranslatableTrait
     }
 
     /**
-     * @param array<string, mixed> $translations
+     * @param array<string, array<string, mixed>> $translations
      */
     final public function setTranslations(array $translations): self
     {
@@ -90,7 +90,7 @@ trait TranslatableTrait
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, array<string, mixed>>
      */
     final public function getTranslations(): array
     {

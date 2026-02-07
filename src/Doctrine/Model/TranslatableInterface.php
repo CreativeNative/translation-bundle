@@ -19,7 +19,7 @@ interface TranslatableInterface
     /**
      * Returns translations ids per locale.
      *
-     * @return array<string, mixed>
+     * @return array<string, array<string, mixed>>
      */
     public function getTranslations(): array;
 }
