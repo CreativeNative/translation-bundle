@@ -74,7 +74,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
         $method     = $reflection->getMethod($methodName);
         $parameters = $method->getParameters();
 
-        self::assertCount(0 + 1, $parameters);
+        self::assertCount(1, $parameters);
         $param = $parameters[0];
         self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
 

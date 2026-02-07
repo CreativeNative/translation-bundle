@@ -37,4 +37,22 @@ final class ScalarHandlerTest extends UnitTestCase
 
         self::assertSame('test-value', $result);
     }
+
+    public function testHandleSharedAmongstTranslationsReturnsSameValue(): void
+    {
+        $handler = new ScalarHandler();
+        $args    = new TranslationArgs('shared-value', 'en_US', 'de_DE');
+        $result  = $handler->handleSharedAmongstTranslations($args);
+
+        self::assertSame('shared-value', $result);
+    }
+
+    public function testHandleEmptyOnTranslateReturnsNull(): void
+    {
+        $handler = new ScalarHandler();
+        $args    = new TranslationArgs('some-value', 'en_US', 'de_DE');
+        $result  = $handler->handleEmptyOnTranslate($args);
+
+        self::assertThat($result, self::isNull());
+    }
 }
