@@ -34,7 +34,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         }
 
         $property = $args->getProperty();
-        if (!$property || !$this->attributeHelper->isOneToOne($property)) {
+        if (null === $property || !$this->attributeHelper->isOneToOne($property)) {
             return false;
         }
 
@@ -54,13 +54,14 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        if ($this->attributeHelper->isOneToOne($args->getProperty())) {
+        $property = $args->getProperty();
+        if (null !== $property && $this->attributeHelper->isOneToOne($property)) {
             $data    = $args->getDataToBeTranslated();
             $message = '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
                 'amongst translations. Either remove the @SharedAmongstTranslation '.
                 'annotation or choose another association type.';
 
-            throw new \ErrorException(strtr($message, ['%class%' => $data::class, '%prop%' => $args->getProperty()->name]));
+            throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => $property->name]));
         }
 
         return $args->getDataToBeTranslated();
@@ -73,20 +74,30 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
 
     public function translate(TranslationArgs $args): mixed
     {
-        $clone           = clone $args->getDataToBeTranslated();
-        $fieldName       = $args->getProperty()->name;
-        $associations    = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
+        $data = $args->getDataToBeTranslated();
+        assert($data instanceof TranslatableInterface);
+
+        $property = $args->getProperty();
+        assert(null !== $property);
+
+        $clone        = clone $data;
+        $fieldName    = $property->name;
+        $associations = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
+        /** @var string|null $parentFieldName */
         $parentFieldName = null;
 
         foreach ($associations as $association) {
-            if ($fieldName === $association['inversedBy']) {
+            /** @var string|null $inversedBy */
+            $inversedBy = $association['inversedBy'] ?? null;
+            if ($fieldName === $inversedBy) {
+                /** @var string $parentFieldName */
                 $parentFieldName = $association['fieldName'];
             }
         }
 
         $clone->setLocale($args->getTargetLocale());
 
-        if (null !== $parentFieldName) {
+        if (\is_string($parentFieldName)) {
             $this->propertyAccessor->setValue($clone, $parentFieldName, $args->getTranslatedParent());
         }
 

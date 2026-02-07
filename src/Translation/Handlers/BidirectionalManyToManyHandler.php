@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use Closure;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,9 +30,8 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     ) {
         // convert callable -> Closure or use default behaviour
         $this->propertyAccessor = null !== $propertyAccessor
-            ? $propertyAccessor(...)
-            : (static fn (\ReflectionProperty $p, object $o) => // default behaviour: read the property value (may throw, caught by caller)
-                $p->getValue($o));
+            ? \Closure::fromCallable($propertyAccessor)
+            : (static fn (\ReflectionProperty $p, object $o): mixed => $p->getValue($o));
     }
 
     public function supports(TranslationArgs $args): bool
@@ -45,7 +43,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         }
 
         $property = $args->getProperty();
-        if (!$property || !$this->attributeHelper->isManyToMany($property)) {
+        if (null === $property || !$this->attributeHelper->isManyToMany($property)) {
             return false;
         }
 
@@ -65,6 +63,8 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
      *
      * If no property is provided in the args, return the collection unchanged (caller may handle fallbacks).
      *
+     * @return Collection<int, mixed>
+     *
      * @throws \ReflectionException|MappingException
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
@@ -83,17 +83,19 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
         if (count($sharedAttrs) > 0) {
             $owner      = $args->getTranslatedParent();
-            $ownerClass = null !== $owner ? $owner::class : $prop->getDeclaringClass()->getName();
+            $ownerClass = \is_object($owner) ? $owner::class : $prop->getDeclaringClass()->getName();
 
             throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
         }
 
-        // If we reach here, no shared attribute exists – proceed with normal translation
+        // If we reach here, no shared attribute exists - proceed with normal translation
         return $this->translate($args);
     }
 
     /**
      * Clear the target collection on the translated parent (EmptyOnTranslate behaviour).
+     *
+     * @return Collection<int, mixed>
      */
     public function handleEmptyOnTranslate(TranslationArgs $args): Collection
     {
@@ -105,13 +107,13 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
         $newOwner = $args->getTranslatedParent();
 
-        $prop = $args->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+        $prop = $args->getProperty() ?? (\is_object($newOwner) ? $this->discoverProperty($newOwner, $collection) : null);
 
-        if (null !== $newOwner && $prop) {
+        if (\is_object($newOwner) && null !== $prop) {
             try {
                 $prop->setValue($newOwner, new ArrayCollection());
             } catch (\Throwable) {
-                // best-effort: swallow exceptions — handler must not break translation pipeline
+                // best-effort: swallow exceptions - handler must not break translation pipeline
             }
         }
 
@@ -119,6 +121,8 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
+     * @return Collection<int, mixed>
+     *
      * @throws \ReflectionException
      * @throws MappingException
      */
@@ -130,9 +134,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         }
 
         $newOwner = $args->getTranslatedParent();
-        $prop     = $args->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+        $prop     = $args->getProperty() ?? (\is_object($newOwner) ? $this->discoverProperty($newOwner, $collection) : null);
 
-        if (null === $newOwner || null === $prop) {
+        if (!\is_object($newOwner) || null === $prop) {
             return new ArrayCollection($collection->toArray());
         }
 
@@ -142,13 +146,20 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         }
 
         $newCollection = new ArrayCollection();
+        $targetLocale  = $args->getTargetLocale();
 
         foreach ($collection as $item) {
+            if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {
+                $newCollection->add($item);
+                continue;
+            }
+
             $rp = new \ReflectionProperty($item::class, $mappedBy);
             $rp->setValue($item, new ArrayCollection());
 
-            $itemTrans = $this->translator->translate($item, $args->getTargetLocale());
-            $rp->setValue($itemTrans, new ArrayCollection([$newOwner]));
+            $itemTrans = $this->translator->translate($item, $targetLocale);
+            $rpTrans   = new \ReflectionProperty($itemTrans::class, $mappedBy);
+            $rpTrans->setValue($itemTrans, new ArrayCollection([$newOwner]));
 
             $newCollection->add($itemTrans);
         }
@@ -156,6 +167,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         return $newCollection;
     }
 
+    /**
+     * @param Collection<int, mixed> $collection
+     */
     private function discoverProperty(object $owner, Collection $collection): \ReflectionProperty|null
     {
         $refClass = new \ReflectionClass($owner);
@@ -164,7 +178,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
             try {
                 $value = ($this->propertyAccessor)($prop, $owner);
             } catch (\Throwable) {
-                // inaccessible or accessor failed — skip this property
+                // inaccessible or accessor failed - skip this property
                 continue;
             }
 
@@ -183,15 +197,18 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     {
         $attributes = $prop->getAttributes(ManyToMany::class);
         if ([] !== $attributes) {
-            $args = $attributes[0]->getArguments();
-            if (isset($args['mappedBy'])) {
-                return $args['mappedBy'];
+            $attrArgs = $attributes[0]->getArguments();
+            if (isset($attrArgs['mappedBy']) && \is_string($attrArgs['mappedBy'])) {
+                return $attrArgs['mappedBy'];
             }
         }
 
         $meta  = $this->entityManager->getClassMetadata($owner::class);
         $assoc = $meta->getAssociationMapping($prop->getName());
 
-        return $assoc['mappedBy'] ?? null;
+        /** @var string|null $mappedByValue */
+        $mappedByValue = $assoc['mappedBy'] ?? null;
+
+        return $mappedByValue;
     }
 }

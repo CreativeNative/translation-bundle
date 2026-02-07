@@ -52,6 +52,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
         $embeddable = $args->getDataToBeTranslated();
+        assert(\is_object($embeddable));
 
         if ($this->isShared($args)) {
             return $embeddable;
@@ -68,9 +69,10 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     public function handleEmptyOnTranslate(TranslationArgs $args): mixed
     {
         $embeddable = $args->getDataToBeTranslated();
+        assert(\is_object($embeddable));
 
         $parentProperty = $args->getProperty();
-        if ($parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
+        if (null !== $parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
             return null;
         }
 
@@ -105,6 +107,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     public function translate(TranslationArgs $args): mixed
     {
         $embeddable = $args->getDataToBeTranslated();
+        assert(\is_object($embeddable));
         $reflection = new \ReflectionClass($embeddable);
 
         // Validate the embeddable class (cached after first call)
@@ -215,9 +218,9 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     {
         $setter = 'set'.ucfirst($prop->getName());
 
-        if (method_exists($clone, $setter)) {
-            $callable = \Closure::fromCallable([$clone, $setter]);
-            $callable(null);
+        $reflection = new \ReflectionClass($clone);
+        if ($reflection->hasMethod($setter)) {
+            $reflection->getMethod($setter)->invoke($clone, null);
         } else {
             $prop->setValue($clone, null);
         }
@@ -242,10 +245,11 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     private function isShared(TranslationArgs $args): bool
     {
         $embeddable = $args->getDataToBeTranslated();
+        assert(\is_object($embeddable));
 
         // Parent property (on the entity)
         $parentProperty = $args->getProperty();
-        if ($parentProperty && $this->attributeHelper->isSharedAmongstTranslations($parentProperty)) {
+        if (null !== $parentProperty && $this->attributeHelper->isSharedAmongstTranslations($parentProperty)) {
             return true;
         }
 
@@ -259,6 +263,9 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         return array_any($reflection->getProperties(), $this->attributeHelper->isSharedAmongstTranslations(...));
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function logDebug(string $message, array $context = []): void
     {
         $this->logger?->debug('[TMI Translation][Embedded] '.$message, $context);

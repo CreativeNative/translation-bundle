@@ -40,6 +40,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
     public function translate(TranslationArgs $args): TranslatableInterface
     {
         $data = $args->getDataToBeTranslated();
+        \assert($data instanceof TranslatableInterface);
 
         // Search in database if the content exists, otherwise translate it.
         $existingTranslation = $this->entityManager->getRepository($data::class)->findOneBy([
@@ -47,14 +48,11 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
             'tuuid'  => (string) $data->getTuuid(),
         ]);
 
-        if (null !== $existingTranslation) {
-            assert($existingTranslation instanceof TranslatableInterface);
-
+        if ($existingTranslation instanceof TranslatableInterface) {
             return $existingTranslation;
         }
 
         $clone = clone $data;
-        assert($clone instanceof TranslatableInterface);
 
         $this->doctrineObjectHandler->translateProperties(
             new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale()),

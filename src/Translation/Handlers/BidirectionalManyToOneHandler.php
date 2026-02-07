@@ -14,12 +14,12 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * Translate a single entity which is on the many-side. If the related property is a translatable entity, translate that related entity
- * (by calling the translator). If there is no property or the entity is not translatable, return the entity (not a clone) —
- * or clone+set locale depending on your desired semantics (we’ll choose safe/consistent behavior below).
+ * (by calling the translator). If there is no property or the entity is not translatable, return the entity (not a clone) --
+ * or clone+set locale depending on your desired semantics (we'll choose safe/consistent behavior below).
  *
  * Final rule of thumb
- * If no translation work is possible → return original.
- * If translation is happening → return a clone with new locale.
+ * If no translation work is possible -> return original.
+ * If translation is happening -> return a clone with new locale.
  */
 final readonly class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
@@ -40,7 +40,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         }
 
         $property = $args->getProperty();
-        if (!$property || !$this->attributeHelper->isManyToOne($property)) {
+        if (null === $property || !$this->attributeHelper->isManyToOne($property)) {
             return false;
         }
 
@@ -59,12 +59,16 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
-        $data    = $args->getDataToBeTranslated();
-        $message = '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
+        $data     = $args->getDataToBeTranslated();
+        $property = $args->getProperty();
+        $message  = '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
             'amongst translations. Either remove the @SharedAmongstTranslation '.
             'annotation or choose another association type.';
 
-        throw new \ErrorException(strtr($message, ['%class%' => $data::class, '%prop%' => $args->getProperty()->name]));
+        throw new \ErrorException(strtr($message, [
+            '%class%' => \is_object($data) ? $data::class : 'unknown',
+            '%prop%'  => null !== $property ? $property->name : 'unknown',
+        ]));
     }
 
     public function handleEmptyOnTranslate(TranslationArgs $args): null
@@ -81,7 +85,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         }
 
         $property = $args->getProperty();
-        if (!$property) {
+        if (null === $property) {
             return $entity;
         }
 
@@ -92,14 +96,16 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
             return $entity;
         }
 
+        $targetLocale = $args->getTargetLocale();
+
         // Clone so we don't mutate original; set the new locale.
         $clone = clone $entity;
-        $clone->setLocale($args->getTargetLocale());
+        $clone->setLocale($targetLocale);
 
         $related = $this->propertyAccessor->getValue($entity, $propertyName);
 
-        if ($related instanceof TranslatableInterface) {
-            $translatedRelated = $this->translator->translate($related, $args->getTargetLocale());
+        if ($related instanceof TranslatableInterface && \is_string($targetLocale)) {
+            $translatedRelated = $this->translator->translate($related, $targetLocale);
             $this->propertyAccessor->setValue($clone, $propertyName, $translatedRelated);
         } else {
             $this->propertyAccessor->setValue($clone, $propertyName, $related);

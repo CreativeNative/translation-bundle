@@ -35,16 +35,19 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
     {
         $data = $args->getDataToBeTranslated();
 
-        if (\is_object($data)) {
-            // If proxy, use parent class name for metadata lookup
-            $data = $data instanceof Proxy ? get_parent_class($data) : $data::class;
+        if (!\is_object($data)) {
+            return false;
         }
 
+        // If proxy, use parent class name for metadata lookup
+        $parentClass = $data instanceof Proxy ? get_parent_class($data) : false;
+        $className = \is_string($parentClass) ? $parentClass : $data::class;
+
         try {
-            return !$this->entityManager->getMetadataFactory()->isTransient($data);
+            return !$this->entityManager->getMetadataFactory()->isTransient($className);
         } catch (\Throwable $e) {
             // Rewrap low-level exceptions for clearer runtime reporting
-            throw new \RuntimeException(sprintf('DoctrineObjectHandler::supports: failed to determine metadata for "%s": %s', \is_object($data) ? $data::class : (string) $data, $e->getMessage()), 0, $e);
+            throw new \RuntimeException(sprintf('DoctrineObjectHandler::supports: failed to determine metadata for "%s": %s', $className, $e->getMessage()), 0, $e);
         }
     }
 
