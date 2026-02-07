@@ -104,10 +104,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         // Execute translate() which internally calls translateProperties()
         $result = $handler->translate($args);
 
-        // the clone should have been returned
+        // the clone should have been returned with original value preserved
         self::assertNotSame($entity, $result);
-        self::assertIsObject($result);
-        self::assertTrue(method_exists($result, 'getSecret'));
+        self::assertInstanceOf($entity::class, $result);
         self::assertSame('orig', $result->getSecret());
     }
 
@@ -135,12 +134,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $result = $this->handler->translate($args);
 
         self::assertNotSame($entity, $result);
-        self::assertIsObject($result);
-        // Verify cloned object preserves null and empty collection
-        self::assertObjectHasProperty('maybeNull', $result);
+        self::assertInstanceOf($entity::class, $result);
+        // Verify cloned object preserves null and empty collection values
         self::assertNull($result->maybeNull);
-        self::assertObjectHasProperty('emptyCollection', $result);
-        self::assertInstanceOf(Collection::class, $result->emptyCollection);
         self::assertTrue($result->emptyCollection->isEmpty());
     }
 
@@ -205,15 +201,11 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         // translate() must return a clone, not the same instance
         self::assertNotSame($entity, $result);
-        self::assertIsObject($result);
-        self::assertObjectHasProperty('title', $result);
+        self::assertInstanceOf($entity::class, $result);
+        // Verify cloned properties retain their original values
         self::assertSame('original', $result->title);
-        self::assertObjectHasProperty('child', $result);
         self::assertSame('child-value', $result->child);
-        self::assertObjectHasProperty('maybeNull', $result);
         self::assertNull($result->maybeNull);
-        self::assertObjectHasProperty('emptyCollection', $result);
-        self::assertInstanceOf(Collection::class, $result->emptyCollection);
         self::assertTrue($result->emptyCollection->isEmpty());
     }
 }

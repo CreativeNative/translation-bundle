@@ -75,9 +75,11 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     }
 
     /**
+     * supports(): attribute helper says isManyToMany, but property is a plain array with no ManyToMany attribute.
+     *
      * @throws \ReflectionException
      */
-    public function testSupportsReturnsFalseWhenNoManyToManyAttributePresent(): void
+    public function testSupportsReturnsFalseWhenPlainArrayPropertyLacksManyToManyAttribute(): void
     {
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
@@ -143,9 +145,11 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     }
 
     /**
+     * supports(): attribute helper says isManyToMany, but entity's title property has no ManyToMany attribute.
+     *
      * @throws \ReflectionException
      */
-    public function testSupportsReturnsFalseWhenNoManyToManyAttributesPresent(): void
+    public function testSupportsReturnsFalseWhenEntityPropertyLacksManyToManyAttribute(): void
     {
         $entity = new TranslatableManyToManyBidirectionalParent();
         $entity->setLocale('en_US');
