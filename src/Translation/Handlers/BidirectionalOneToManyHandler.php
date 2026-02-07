@@ -10,7 +10,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToMany;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -123,7 +122,6 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
                 ->setTranslatedParent($translatedParent)
                 ->setProperty(new \ReflectionProperty($child::class, $mappedBy));
 
-            assert($this->translator instanceof EntityTranslator);
             $translatedChild = $this->translator->processTranslation($subArgs);
             $newCollection->add($translatedChild);
 
