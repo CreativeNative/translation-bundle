@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\OneToOne;
+use Doctrine\ORM\Mapping\OwningSideMapping;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -83,15 +84,11 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $clone        = clone $data;
         $fieldName    = $property->name;
         $associations = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
-        /** @var string|null $parentFieldName */
         $parentFieldName = null;
 
         foreach ($associations as $association) {
-            /** @var string|null $inversedBy */
-            $inversedBy = $association['inversedBy'] ?? null;
-            if ($fieldName === $inversedBy) {
-                /** @var string $parentFieldName */
-                $parentFieldName = $association['fieldName'];
+            if ($association instanceof OwningSideMapping && $fieldName === $association->inversedBy) {
+                $parentFieldName = $association->fieldName;
             }
         }
 

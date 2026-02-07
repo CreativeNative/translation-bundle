@@ -8,6 +8,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
+use Doctrine\ORM\Mapping\ManyToManyInverseSideMapping;
+use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -152,9 +154,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         };
         $prop = new \ReflectionProperty($parent::class, 'items');
 
+        $mapping = new ManyToManyInverseSideMapping(
+            fieldName: 'items',
+            sourceEntity: $parent::class,
+            targetEntity: $parent::class,
+        );
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'items' => ['fieldName' => 'items', 'isOwningSide' => false],
+            'items' => $mapping,
         ]);
         $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
@@ -181,9 +188,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         };
         $prop = new \ReflectionProperty($parent::class, 'items');
 
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'missingField',
+            sourceEntity: $parent::class,
+            targetEntity: $parent::class,
+        );
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'items' => ['fieldName' => 'missingField', 'isOwningSide' => true],
+            'items' => $mapping,
         ]);
         $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
@@ -218,9 +230,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $data = new ArrayCollection([$child1, $child2]);
 
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'items',
+            sourceEntity: $parent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'items' => ['fieldName' => 'items', 'isOwningSide' => true],
+            'items' => $mapping,
         ]);
         $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
@@ -286,9 +303,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
 
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'simpleChildren' => ['fieldName' => 'simpleChildren', 'isOwningSide' => true],
+            'simpleChildren' => $mapping,
         ]);
         $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 
@@ -358,10 +380,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
 
-        // Mock ClassMetadata für owning side
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
         $meta = $this->createMock(ClassMetadata::class);
         $meta->method('getAssociationMappings')->willReturn([
-            'simpleChildren' => ['fieldName' => 'simpleChildren', 'isOwningSide' => true],
+            'simpleChildren' => $mapping,
         ]);
         $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
 

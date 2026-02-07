@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\OneToMany;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -103,8 +104,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
         // Guard: property must exist in association mappings and have mappedBy
         $assocEntry = $associations[$property->name] ?? null;
-        /** @var string|null $mappedBy */
-        $mappedBy = null !== $assocEntry ? ($assocEntry['mappedBy'] ?? null) : null;
+        $mappedBy = $assocEntry instanceof InverseSideMapping ? $assocEntry->mappedBy : null;
         if (!\is_string($mappedBy)) {
             return $children; // not a valid relation -> return original
         }

@@ -108,14 +108,11 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             throw new \RuntimeException(sprintf('Property "%s" is not a valid association in class "%s".', $property->name, $newOwner::class));
         }
 
-        /** @var bool $isOwningSide */
-        $isOwningSide = $association['isOwningSide'] ?? false;
-        if (true !== $isOwningSide) {
+        if (!$association->isOwningSide()) {
             throw new \RuntimeException(sprintf('Property "%s" on "%s" is not the owning side of the relation.', $property->name, $newOwner::class));
         }
 
-        /** @var string $fieldName */
-        $fieldName = $association['fieldName'];
+        $fieldName = $association->fieldName;
         $accessor  = new PropertyAccessor();
 
         if (!property_exists($newOwner, $fieldName)) {

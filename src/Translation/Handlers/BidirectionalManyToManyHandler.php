@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\MappingException;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
@@ -206,9 +207,6 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         $meta  = $this->entityManager->getClassMetadata($owner::class);
         $assoc = $meta->getAssociationMapping($prop->getName());
 
-        /** @var string|null $mappedByValue */
-        $mappedByValue = $assoc['mappedBy'] ?? null;
-
-        return $mappedByValue;
+        return $assoc instanceof InverseSideMapping ? $assoc->mappedBy : null;
     }
 }
