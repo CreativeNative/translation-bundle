@@ -41,7 +41,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         self::assertNotEmpty($attributes, 'No #[ORM\Column] attribute found on "tuuid".');
 
         $columnAttr = $attributes[0]->newInstance();
-        self::assertInstanceOf(Column::class, $columnAttr);
+        self::assertSame(Column::class, $attributes[0]->getName());
 
         self::assertSame(TuuidType::NAME, $columnAttr->type, 'The "tuuid" column must use type="tuuid".');
         self::assertTrue($columnAttr->nullable, 'The "tuuid" column must be nullable.');
@@ -58,13 +58,14 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $entity = new Scalar();
 
         // Lazy generation on first getTuuid() call
-        self::assertNotNull($entity->getTuuid());
+        $tuuid = $entity->getTuuid();
+        self::assertNotEmpty($tuuid->__toString());
 
         $entity->setTitle('Test Entity');
         $this->entityManager()->persist($entity);
         $this->entityManager()->flush();
 
-        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        self::assertNotEmpty($entity->getTuuid()->getValue());
         self::assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
     }
 
@@ -108,7 +109,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         self::assertNull($property->getValue($entity));
 
         $generated = $entity->getTuuid();
-        self::assertInstanceOf(Tuuid::class, $generated);
+        self::assertNotEmpty($generated->getValue());
         self::assertTrue(Uuid::isValid($generated->__toString()));
 
         // Ensure lazy initialization persists value internally
@@ -157,7 +158,6 @@ final class TranslatableTraitTest extends IntegrationTestCase
     {
         $entity = new Scalar();
 
-        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
         self::assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
 
         $existing = $entity->getTuuid();

@@ -43,10 +43,18 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->persist($parentTranslation);
         $this->entityManager()->flush();
 
-        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChildren()->first()->getLocale());
+        $firstTranslatedChild = $parentTranslation->getSimpleChildren()->first();
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $firstTranslatedChild);
+        self::assertEquals(self::TARGET_LOCALE, $firstTranslatedChild->getLocale());
+
+        $firstOriginalChild = $parent->getSimpleChildren()->first();
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $firstOriginalChild);
+
+        $firstTranslatedChildAgain = $parentTranslation->getSimpleChildren()->first();
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $firstTranslatedChildAgain);
         self::assertEquals(
-            $parent->getSimpleChildren()->first()->getTuuid(),
-            $parentTranslation->getSimpleChildren()->first()->getTuuid(),
+            $firstOriginalChild->getTuuid(),
+            $firstTranslatedChildAgain->getTuuid(),
         );
     }
 
@@ -72,10 +80,12 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
 
         $this->entityManager()->flush();
 
-        self::assertSame(self::TARGET_LOCALE, $childTranslation->getParentSimple()->getLocale());
+        $translatedParent = $childTranslation->getParentSimple();
+        self::assertNotNull($translatedParent, 'Translated child should have a parent');
+        self::assertSame(self::TARGET_LOCALE, $translatedParent->getLocale());
         self::assertEquals(
-            $childTranslation->getParentSimple()->getTuuid(),
-            $childTranslation->getParentSimple()->getTuuid(),
+            $translatedParent->getTuuid(),
+            $translatedParent->getTuuid(),
         );
     }
 }

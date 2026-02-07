@@ -34,14 +34,15 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
         $entity = new Scalar();
         $entity->setTitle('Integration Test');
 
-        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        $tuuidBefore = $entity->getTuuid();
+        self::assertNotEmpty($tuuidBefore->__toString());
 
         $this->entityManager()->persist($entity);
         $this->entityManager()->flush();
 
         // Verify Tuuid was generated and stored
-        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
-        self::assertTrue(Uuid::isValid($entity->getTuuid()->__toString()));
+        $tuuidAfter = $entity->getTuuid();
+        self::assertTrue(Uuid::isValid($tuuidAfter->__toString()));
     }
 
     public function testPostLoadSetsDefaultLocale(): void
@@ -55,6 +56,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
         $this->entityManager()->clear();
 
         $loaded = $this->entityManager()->find(Scalar::class, $entity->getId());
+        self::assertNotNull($loaded, 'Entity should be found after persist+flush');
 
         self::assertSame('en_US', $loaded->getLocale());
     }
@@ -100,6 +102,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
         $this->entityManager()->clear();
 
         $loaded = $this->entityManager()->find(Scalar::class, $entity->getId());
+        self::assertNotNull($loaded, 'Entity should be found after persist+flush');
 
         // Use translator to get translation for target locale
         $translation = $this->translator()->translate($loaded, 'de_DE');
@@ -118,6 +121,6 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
         $this->entityManager()->persist($entity);
         $this->entityManager()->flush();
 
-        self::assertTrue(true); // Just assert no exception is thrown
+        $this->addToAssertionCount(1); // Just assert no exception is thrown
     }
 }

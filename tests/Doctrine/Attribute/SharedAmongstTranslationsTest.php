@@ -18,6 +18,6 @@ final class SharedAmongstTranslationsTest extends TestCase
 
         self::assertCount(1, $attributes);
         $attribute = $attributes[0]->newInstance();
-        self::assertInstanceOf(SharedAmongstTranslations::class, $attribute);
+        self::assertSame(SharedAmongstTranslations::class, $attribute::class);
     }
 }

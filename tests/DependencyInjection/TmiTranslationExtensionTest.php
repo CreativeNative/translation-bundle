@@ -48,7 +48,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension        = new TmiTranslationExtension();
         $extension->prepend($containerBuilder);
 
-        self::assertInstanceOf(ContainerBuilder::class, $containerBuilder);
+        self::assertSame(ContainerBuilder::class, $containerBuilder::class);
     }
 
     /**
@@ -112,15 +112,11 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $containerBuilder = new ContainerBuilder();
 
         // Pull parameters from the booted kernel container if available
-        if (null === self::$container) {
-            self::bootKernel();
-            self::$container = method_exists(self::class, 'getContainer')
-                ? self::getContainer()
-                : self::$kernel->getContainer();
-        }
+        self::bootKernel();
+        $container = self::getContainer();
 
-        if (null !== self::$container) {
-            foreach (self::$container->getParameterBag()->all() as $key => $value) {
+        foreach ($container->getParameterBag()->all() as $key => $value) {
+            if (is_scalar($value) || is_array($value) || null === $value || $value instanceof \UnitEnum) {
                 $containerBuilder->setParameter($key, $value);
             }
         }

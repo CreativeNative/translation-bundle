@@ -27,7 +27,9 @@ final class LocaleFilterTest extends IntegrationTestCase
             'tmi_translation_locale_filter',
             LocaleFilter::class,
         );
-        $this->filter = $this->entityManager()->getFilters()->enable('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->enable('tmi_translation_locale_filter');
+        self::assertInstanceOf(LocaleFilter::class, $filter);
+        $this->filter = $filter;
     }
 
     public function testSetLocaleSetsParameter(): void

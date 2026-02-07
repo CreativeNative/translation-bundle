@@ -31,8 +31,10 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
         self::assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
 
         $this->entityManager()->flush();
-        self::assertNotEquals($associatedEntity, $translation->getSimple());
-        self::assertSame('de_DE', $translation->getSimple()->getLocale());
+        $translatedSimple = $translation->getSimple();
+        self::assertNotNull($translatedSimple, 'Translated entity should have a simple association');
+        self::assertNotEquals($associatedEntity, $translatedSimple);
+        self::assertSame('de_DE', $translatedSimple->getLocale());
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 
@@ -63,7 +65,9 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
         $this->entityManager()->persist($translation);
         $this->entityManager()->flush();
 
-        self::assertSame('shared', $translation->getShared()->getTitle());
+        $translatedShared = $translation->getShared();
+        self::assertNotNull($translatedShared, 'Translated entity should have a shared association');
+        self::assertSame('shared', $translatedShared->getTitle());
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 

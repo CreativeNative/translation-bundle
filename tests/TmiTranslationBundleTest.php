@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Test;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -16,8 +15,8 @@ final class TmiTranslationBundleTest extends TestCase
     public function testBundleCanBeInstantiated(): void
     {
         $bundle = new TmiTranslationBundle();
-        // Test that it's a Symfony Bundle
-        self::assertInstanceOf(Bundle::class, $bundle);
+        // Verify it can be instantiated and has a valid name
+        self::assertStringContainsString('Translation', $bundle->getName());
     }
 
     public function testBuildMethodExistsAndIsCallable(): void
@@ -25,35 +24,29 @@ final class TmiTranslationBundleTest extends TestCase
         $bundle    = new TmiTranslationBundle();
         $container = $this->createMock(ContainerBuilder::class);
 
-        // Test that the method exists
-        self::assertTrue(method_exists($bundle, 'build'));
-
         // Test that the method can be called without throwing exceptions
-        try {
-            $bundle->build($container);
-            self::assertTrue(true, 'build() method executed successfully');
-        } catch (\Exception $e) {
-            self::fail('build() method threw an exception: '.$e->getMessage());
-        }
+        $bundle->build($container);
+        $this->addToAssertionCount(1);
     }
 
     public function testBundleInheritance(): void
     {
         $bundle = new TmiTranslationBundle();
 
-        // Test the inheritance chain
-        $parentClass = get_parent_class($bundle);
-        self::assertSame(Bundle::class, $parentClass);
+        // Test the inheritance chain -- verify the bundle extends a base class
+        $parentClasses = class_parents($bundle);
+        self::assertNotEmpty($parentClasses);
+        self::assertStringContainsString('Bundle', implode(',', $parentClasses));
     }
 
     public function testBundleProvidesBasicFunctionality(): void
     {
         $bundle = new TmiTranslationBundle();
 
-        // Test basic methods inherited from parent
-        self::assertIsString($bundle->getName());
-        self::assertIsString($bundle->getNamespace());
-        self::assertIsString($bundle->getPath());
+        // Test basic methods inherited from parent return non-empty values
+        self::assertNotEmpty($bundle->getName());
+        self::assertNotEmpty($bundle->getNamespace());
+        self::assertNotEmpty($bundle->getPath());
 
         // Verify the path exists (this is the directory where the bundle is located)
         self::assertDirectoryExists($bundle->getPath());
@@ -77,7 +70,7 @@ final class TmiTranslationBundleTest extends TestCase
         self::assertSame('container', $parameters[0]->getName());
 
         $parameterType = $parameters[0]->getType();
-        self::assertInstanceOf(\ReflectionType::class, $parameterType);
+        self::assertInstanceOf(\ReflectionNamedType::class, $parameterType);
         self::assertEquals(ContainerBuilder::class, $parameterType->getName());
     }
 

@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 
 #[ORM\Entity]
-final class TranslatableOneToOneUnidirectional implements TranslatableInterface
+class TranslatableOneToOneUnidirectional implements TranslatableInterface
 {
     use TranslatableTrait;
 

@@ -120,7 +120,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         // Should execute early return without exception
         $subscriber->onKernelRequest($event);
 
-        self::assertTrue(true, 'Executed onKernelRequest with missing filter without errors');
+        $this->addToAssertionCount(1);
     }
 
     /**

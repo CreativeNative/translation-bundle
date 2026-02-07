@@ -19,6 +19,6 @@ final class EmptyOnTranslateTest extends TestCase
 
         self::assertCount(1, $attributes);
         $attribute = $attributes[0]->newInstance();
-        self::assertInstanceOf(EmptyOnTranslate::class, $attribute);
+        self::assertSame(EmptyOnTranslate::class, $attribute::class);
     }
 }

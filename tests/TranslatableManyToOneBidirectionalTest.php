@@ -37,6 +37,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->flush();
 
         $translatedChild = $translation->getSimpleChildren()->first();
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $translatedChild);
         if ($translatedChild->getLocale() !== $child->getLocale()) {
             self::assertNotSame($child, $translatedChild); // Only if translation occurred
         } else {
@@ -61,7 +62,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->persist($child);
         $this->entityManager()->flush();
 
-        self::assertInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $child->getTuuid());
+        self::assertNotEmpty($child->getTuuid()->getValue());
         self::assertTrue(Uuid::isValid($child->getTuuid()->getValue()));
 
         // --- Step 2: Create and persist the parent ---
@@ -73,7 +74,7 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->persist($parent);
         $this->entityManager()->flush();
 
-        self::assertInstanceOf(\Tmi\TranslationBundle\ValueObject\Tuuid::class, $parent->getTuuid());
+        self::assertNotEmpty($parent->getTuuid()->getValue());
         self::assertTrue(Uuid::isValid($parent->getTuuid()->getValue()));
 
         $translatedChild = $this->translator()->translate($child, self::TARGET_LOCALE);

@@ -31,7 +31,10 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->flush();
 
         self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
-        self::assertEquals(self::TARGET_LOCALE, $parentTranslation->getSimpleChild()->getLocale());
+        self::assertInstanceOf(TranslatableOneToOneBidirectionalParent::class, $parentTranslation);
+        $simpleChild = $parentTranslation->getSimpleChild();
+        self::assertNotNull($simpleChild);
+        self::assertEquals(self::TARGET_LOCALE, $simpleChild->getLocale());
     }
 
     public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
@@ -70,7 +73,8 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->flush();
 
         self::assertIsTranslation($parent, $parentTranslation, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableOneToOneBidirectionalParent::class, $parentTranslation);
 
-        self::assertEquals(null, $parentTranslation->getEmptyChild());
+        self::assertNull($parentTranslation->getEmptyChild());
     }
 }

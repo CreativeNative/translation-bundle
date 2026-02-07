@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
+class TranslatableManyToManyBidirectionalChild implements TranslatableInterface
 {
     use TranslatableTrait;
 
@@ -21,9 +21,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    /**
-     * @var ArrayCollection
-     */
+    /** @var Collection<int, TranslatableManyToManyBidirectionalParent> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'simpleChildren',
@@ -32,9 +30,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\JoinTable(name: 'parent_child')]
     private Collection $simpleParents;
 
-    /**
-     * @var ArrayCollection
-     */
+    /** @var Collection<int, TranslatableManyToManyBidirectionalParent> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'sharedChildren',
@@ -43,9 +39,7 @@ final class TranslatableManyToManyBidirectionalChild implements TranslatableInte
     #[ORM\JoinTable(name: 'parent_shared_child')]
     private Collection $sharedParents;
 
-    /**
-     * @var ArrayCollection
-     */
+    /** @var Collection<int, TranslatableManyToManyBidirectionalParent> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalParent::class,
         inversedBy: 'emptyChildren',

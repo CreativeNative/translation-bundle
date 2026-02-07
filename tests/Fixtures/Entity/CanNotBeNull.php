@@ -11,7 +11,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class CanNotBeNull implements TranslatableInterface
+class CanNotBeNull implements TranslatableInterface
 {
     use TranslatableTrait;
 
@@ -31,12 +31,12 @@ final class CanNotBeNull implements TranslatableInterface
 
     public function setEmptyNotNullable(string|null $emptyNotNullable = null): CanNotBeNull
     {
-        $this->emptyNotNullable = $emptyNotNullable;
+        $this->emptyNotNullable = $emptyNotNullable ?? '';
 
         return $this;
     }
 
-    public function getEmptyNotNullable(): string|null
+    public function getEmptyNotNullable(): string
     {
         return $this->emptyNotNullable;
     }

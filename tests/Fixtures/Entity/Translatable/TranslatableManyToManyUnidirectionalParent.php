@@ -14,7 +14,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'translatable_many_to_many_unidirectional')]
-final class TranslatableManyToManyUnidirectionalParent implements TranslatableInterface
+class TranslatableManyToManyUnidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 

@@ -337,7 +337,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $method->invoke($this->translator(), $entities, 'de_DE');
 
         // If execution reaches this point without error, continues were hit
-        self::assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     /**
@@ -375,8 +375,9 @@ final class EntityTranslatorTest extends UnitTestCase
 
         self::assertSame($cachedTranslation, $result);
 
-        // InProgress is NOT unset in this path, so assert it’s still there
+        // InProgress is NOT unset in this path, so assert it's still there
         $inProgressAfter = $inProgressProperty->getValue($this->translator());
+        self::assertIsArray($inProgressAfter);
         self::assertArrayHasKey($sharedTuuid.':de', $inProgressAfter);
     }
 
@@ -392,7 +393,8 @@ final class EntityTranslatorTest extends UnitTestCase
             null, // No logger
         );
 
-        self::assertInstanceOf(EntityTranslator::class, $translator);
+        // Verify the translator was created successfully
+        $this->addToAssertionCount(1);
     }
 
     public function testSetLoggerMethod(): void
@@ -656,6 +658,7 @@ final class EntityTranslatorTest extends UnitTestCase
         // Default translate() behavior
         $handler->method('translate')->willReturn($return);
         foreach ($methodToReturnMap as $method => $value) {
+            self::assertNotEmpty($method);
             $handler->expects($this->once())->method($method)->with(
                 self::callback(static fn (TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
                     && $args->getSourceLocale()                                                    === $expectedArgs->getSourceLocale()
@@ -665,8 +668,8 @@ final class EntityTranslatorTest extends UnitTestCase
             )->willReturn($value);
         }
 
-        if ($assert) {
-            $assert($handler);
+        if (null !== $assert) {
+            ($assert)($handler);
         }
 
         return $handler;

@@ -28,7 +28,6 @@ final class ScalarTranslationTest extends IntegrationTestCase
 
         self::assertIsTranslation($entity, $translation, 'de_DE');
 
-        self::assertTrue(property_exists($translation, 'title'));
         self::assertSame('English title', $translation->getTitle());
         self::assertSame('Shared english attribute', $translation->getShared());
         self::assertNotSame('Empty english attribute', $translation->getEmpty());
@@ -54,7 +53,7 @@ final class ScalarTranslationTest extends IntegrationTestCase
         $this->entityManager()->persist($translation);
         $this->entityManager()->flush();
 
-        self::assertTrue(property_exists($entity, 'shared'));
+        self::assertSame('Shared english attribute', $entity->getShared());
         //        self::assertEquals('Updated shared', $entity->getShared());
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
@@ -96,9 +95,9 @@ final class ScalarTranslationTest extends IntegrationTestCase
 
         $this->entityManager()->flush();
 
-        self::assertTrue(property_exists($translation, 'empty_not_nullable'));
-        self::assertNotNull($translation->getEmptyNotNullable());
-        self::assertNotEmpty($translation->getEmptyNotNullable());
+        // These assertions are unreachable: the LogicException is expected above.
+        // If we get here, the test framework will fail because expectException was set.
+        self::assertSame('Empty not nullable attribute', $translation->getEmptyNotNullable());
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 

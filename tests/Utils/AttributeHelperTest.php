@@ -37,7 +37,7 @@ final class AttributeHelperTest extends TestCase
         // Should not throw
         $this->attributeHelper->validateProperty($property);
 
-        self::assertTrue(true); // If we reach here, validation passed
+        $this->addToAssertionCount(1); // If we reach here, validation passed
     }
 
     public function testValidatePropertyThrowsForSharedAndEmptyConflict(): void
@@ -151,7 +151,7 @@ final class AttributeHelperTest extends TestCase
 
         // Second call with same property should NOT throw (cached as validated)
         $this->attributeHelper->validateProperty($property);
-        self::assertTrue(true); // If we reach here, second call was cached
+        $this->addToAssertionCount(1); // If we reach here, second call was cached
     }
 
     public function testValidatePropertyLogsErrorsBeforeThrowing(): void
@@ -198,6 +198,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testClassHasSharedAmongstTranslationsReturnsTrueForAnnotatedClass(): void
     {
+        /** @var class-string $className */
         $className = 'TestSharedClass_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]
@@ -217,6 +218,7 @@ final class AttributeHelperTest extends TestCase
             public string $value = '';
         };
 
+        /** @var \ReflectionClass<object> $reflection */
         $reflection = new \ReflectionClass($plainClass);
 
         self::assertFalse($this->attributeHelper->classHasSharedAmongstTranslations($reflection));
@@ -224,6 +226,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testClassHasEmptyOnTranslateReturnsTrueForAnnotatedClass(): void
     {
+        /** @var class-string $className */
         $className = 'TestEmptyClass_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate]
@@ -243,6 +246,7 @@ final class AttributeHelperTest extends TestCase
             public string|null $value = null;
         };
 
+        /** @var \ReflectionClass<object> $reflection */
         $reflection = new \ReflectionClass($plainClass);
 
         self::assertFalse($this->attributeHelper->classHasEmptyOnTranslate($reflection));
@@ -254,6 +258,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testValidateEmbeddableClassPassesForValidClass(): void
     {
+        /** @var class-string $className */
         $className = 'TestValidEmbeddable_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]
@@ -268,11 +273,12 @@ final class AttributeHelperTest extends TestCase
         // Should not throw
         $this->attributeHelper->validateEmbeddableClass($reflection);
 
-        self::assertTrue(true); // If we reach here, validation passed
+        $this->addToAssertionCount(1); // If we reach here, validation passed
     }
 
     public function testValidateEmbeddableClassThrowsForBothClassLevelAttributes(): void
     {
+        /** @var class-string $className */
         $className = 'TestDualClassAttrs_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]
@@ -300,6 +306,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testValidateEmbeddableClassCatchesReadonlyEmptyPropertyInside(): void
     {
+        /** @var class-string $className */
         $className = 'TestReadonlyEmbeddable_'.uniqid();
         eval(<<<PHP
             class {$className} {
@@ -329,6 +336,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testValidateEmbeddableClassCollectsMultipleErrors(): void
     {
+        /** @var class-string $className */
         $className = 'TestMultiErrorEmbeddable_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]
@@ -363,6 +371,7 @@ final class AttributeHelperTest extends TestCase
 
     public function testValidateEmbeddableClassCachesResults(): void
     {
+        /** @var class-string $className */
         $className = 'TestCachedEmbeddable_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]
@@ -385,7 +394,7 @@ final class AttributeHelperTest extends TestCase
 
         // Second call with same class should NOT throw (cached)
         $this->attributeHelper->validateEmbeddableClass($reflection);
-        self::assertTrue(true); // If we reach here, second call was cached
+        $this->addToAssertionCount(1); // If we reach here, second call was cached
     }
 
     public function testValidateEmbeddableClassLogsWithEmbeddedPrefix(): void
@@ -393,6 +402,7 @@ final class AttributeHelperTest extends TestCase
         /** @var LoggerInterface&MockObject $logger */
         $logger = $this->createMock(LoggerInterface::class);
 
+        /** @var class-string $className */
         $className = 'TestLogEmbeddable_'.uniqid();
         eval(<<<PHP
             #[\Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations]

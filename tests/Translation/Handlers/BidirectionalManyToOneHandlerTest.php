@@ -7,6 +7,8 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToOne;
+use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
+use Doctrine\ORM\Mapping\OneToManyAssociationMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
@@ -33,7 +35,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->attributeHelper
+        $this->attributeHelper()
             ->expects($this->once())
             ->method('isManyToOne')
             ->with($prop)
@@ -54,7 +56,17 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             use TranslatableTrait;
 
             #[ManyToOne(targetEntity: Scalar::class, inversedBy: 'children')]
-            private Scalar|null $withInverse = null;
+            public Scalar|null $withInverse = null;
+
+            public function getWithInverse(): Scalar|null
+            {
+                return $this->withInverse;
+            }
+
+            public function setWithInverse(Scalar|null $value): void
+            {
+                $this->withInverse = $value;
+            }
         };
 
         $prop = new \ReflectionProperty($entity, 'withInverse');
@@ -62,7 +74,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $args = new TranslationArgs($entity);
         $args->setProperty($prop);
 
-        $this->attributeHelper
+        $this->attributeHelper()
             ->expects($this->once())
             ->method('isManyToOne')
             ->with($prop)
@@ -115,7 +127,8 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $entity  = new TranslatableOneToManyBidirectionalParent();
         $args    = new TranslationArgs($entity);
 
-        self::assertNull($handler->handleEmptyOnTranslate($args));
+        $result = $handler->handleEmptyOnTranslate($args);
+        self::assertThat($result, self::isNull());
     }
 
     /** @throws \ReflectionException */
@@ -127,7 +140,11 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [
-            'simpleChildren' => ['fieldName' => 'simpleChildren'],
+            'simpleChildren' => new OneToManyAssociationMapping(
+                fieldName: 'simpleChildren',
+                sourceEntity: TranslatableOneToManyBidirectionalParent::class,
+                targetEntity: TranslatableManyToOneBidirectionalChild::class,
+            ),
         ];
 
         $this->entityManager()->method('getClassMetadata')
@@ -219,15 +236,13 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $result = $handler->translate($args);
 
         // --- Step 5: Assertions ---
+        self::assertInstanceOf(NonTranslatableManyToOneBidirectionalChild::class, $result);
+
         // Adjust object identity for non-translatable entities
         self::assertSame($child->getParent(), $result->getParent(), 'Non-translatable parent should remain unchanged');
 
-        // Only assert different object if child is translatable
-        if ($child instanceof TranslatableInterface) {
-            self::assertNotSame($child, $result);
-        } else {
-            self::assertSame($child, $result);
-        }
+        // NonTranslatableManyToOneBidirectionalChild does not implement TranslatableInterface
+        self::assertSame($child, $result);
     }
 
     public function testTranslateWithNullProperty(): void
@@ -267,7 +282,11 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         // --- Step 3: Association mapping setup ---
         $metadata                      = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
         $metadata->associationMappings = [
-            'parentSimple' => ['fieldName' => 'parentSimple'],
+            'parentSimple' => new ManyToOneAssociationMapping(
+                fieldName: 'parentSimple',
+                sourceEntity: TranslatableManyToOneBidirectionalChild::class,
+                targetEntity: TranslatableOneToManyBidirectionalParent::class,
+            ),
         ];
         $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableManyToOneBidirectionalChild::class)
@@ -284,21 +303,24 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $result = $handler->translate($args);
 
         // --- Step 7: Assertions ---
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result, 'Child must be cloned');
         self::assertSame('it_IT', $result->getLocale(), 'Child locale should change');
+
+        $resultParent = $result->getParentSimple();
         self::assertInstanceOf(
             TranslatableOneToManyBidirectionalParent::class,
-            $result->getParentSimple(),
+            $resultParent,
             'Parent should also be translated',
         );
         self::assertSame(
             'en_US',
-            $result->getParentSimple()->getLocale(),
+            $resultParent->getLocale(),
             'Parent remains in original locale because no translation exists',
         );
         self::assertSame(
             $parent->getTuuid(),
-            $result->getParentSimple()->getTuuid(),
+            $resultParent->getTuuid(),
             'Parent translation must keep same tuuid',
         );
     }

@@ -14,7 +14,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
+class TranslatableOneToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
@@ -23,17 +23,21 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
+    /** @var Collection<int, TranslatableManyToOneBidirectionalChild> */
     #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentSimple', cascade: ['persist'])]
     private Collection $simpleChildren;
 
+    /** @var Collection<int, TranslatableManyToOneBidirectionalChild> */
     #[SharedAmongstTranslations]
     #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentShared', cascade: ['persist'])]
     private Collection $sharedChildren;
 
+    /** @var Collection<int, TranslatableManyToOneBidirectionalChild> */
     #[EmptyOnTranslate]
     #[ORM\OneToMany(targetEntity: TranslatableManyToOneBidirectionalChild::class, mappedBy: 'parentEmpty', cascade: ['persist'])]
     private Collection $emptyChildren;
 
+    /** @var Collection<int, NonTranslatableManyToOneBidirectionalChild> */
     #[ORM\OneToMany(targetEntity: NonTranslatableManyToOneBidirectionalChild::class, mappedBy: 'parent', cascade: ['persist'])]
     private Collection $nonTranslatableChildren;
 
@@ -68,6 +72,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->simpleChildren;
     }
 
+    /** @param Collection<int, TranslatableManyToOneBidirectionalChild> $simpleChildren */
     public function setSimpleChildren(Collection $simpleChildren): self
     {
         $this->simpleChildren = $simpleChildren;
@@ -83,6 +88,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->sharedChildren;
     }
 
+    /** @param Collection<int, TranslatableManyToOneBidirectionalChild> $sharedChildren */
     public function setSharedChildren(Collection $sharedChildren): self
     {
         $this->sharedChildren = $sharedChildren;
@@ -98,6 +104,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->emptyChildren;
     }
 
+    /** @param Collection<int, TranslatableManyToOneBidirectionalChild> $emptyChildren */
     public function setEmptyChildren(Collection $emptyChildren): self
     {
         $this->emptyChildren = $emptyChildren;
@@ -113,6 +120,7 @@ final class TranslatableOneToManyBidirectionalParent implements TranslatableInte
         return $this->nonTranslatableChildren;
     }
 
+    /** @param Collection<int, NonTranslatableManyToOneBidirectionalChild> $nonTranslatableChildren */
     public function setNonTranslatableChildren(Collection $nonTranslatableChildren): self
     {
         $this->nonTranslatableChildren = $nonTranslatableChildren;

@@ -18,7 +18,7 @@ final class AddressWithEmptyAndSharedProperty
 
     #[ORM\Column(type: Types::STRING, nullable: true)]
     #[EmptyOnTranslate]
-    private string|null $noSetter = 'no Setter';
+    private string|null $noSetter;
 
     // Normal property: will be cloned during translation
     #[ORM\Column(type: Types::STRING, nullable: true)]
@@ -31,6 +31,14 @@ final class AddressWithEmptyAndSharedProperty
     #[SharedAmongstTranslations]
     #[ORM\Column(type: Types::STRING, nullable: true)]
     private string|null $country = null;
+
+    /**
+     * @param string|null $noSetter Default value. May be set to null via reflection (e.g. EmptyOnTranslate handler).
+     */
+    public function __construct(string|null $noSetter = 'no Setter')
+    {
+        $this->noSetter = $noSetter;
+    }
 
     public function getStreet(): string|null
     {

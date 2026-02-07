@@ -58,8 +58,10 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
 
         // Make sure the children of the translated parent are
         // translated and their parent is $translatedParent
-        foreach ($parentTranslation->getSimpleChildren() as $child) {
-            self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $child);
+        $simpleChildren = $parentTranslation->getSimpleChildren();
+        self::assertGreaterThan(0, $simpleChildren->count());
+        foreach ($simpleChildren as $child) {
+            self::assertSame(TranslatableManyToManyBidirectionalChild::class, $child::class);
             self::assertSame($parent, $child->getSimpleParents()->first());
         }
 
@@ -135,6 +137,10 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         self::assertCount(1, $parent->getSharedChildren());
         self::assertCount(1, $parentTranslation->getSharedChildren());
 
-        self::assertEquals($parent->getId(), $parent->getSharedChildren()->first()->getSharedParents()->first()->getId());
+        $firstSharedChild = $parent->getSharedChildren()->first();
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $firstSharedChild);
+        $firstSharedParent = $firstSharedChild->getSharedParents()->first();
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $firstSharedParent);
+        self::assertEquals($parent->getId(), $firstSharedParent->getId());
     }
 }

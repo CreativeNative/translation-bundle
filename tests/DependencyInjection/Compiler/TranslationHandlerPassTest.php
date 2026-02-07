@@ -52,12 +52,17 @@ final class TranslationHandlerPassTest extends TestCase
         // Assert that addTranslationHandler was called for each tagged service
         self::assertCount(2, $methodCalls);
 
-        self::assertSame('addTranslationHandler', $methodCalls[0][0]);
-        self::assertInstanceOf(Reference::class, $methodCalls[0][1][0]);
-        self::assertSame('handler.one', (string) $methodCalls[0][1][0]);
+        /** @var array{0: string, 1: array<int, mixed>} $call0 */
+        $call0 = $methodCalls[0];
+        /** @var array{0: string, 1: array<int, mixed>} $call1 */
+        $call1 = $methodCalls[1];
 
-        self::assertSame('addTranslationHandler', $methodCalls[1][0]);
-        self::assertInstanceOf(Reference::class, $methodCalls[1][1][0]);
-        self::assertSame('handler.two', (string) $methodCalls[1][1][0]);
+        self::assertSame('addTranslationHandler', $call0[0]);
+        self::assertInstanceOf(Reference::class, $call0[1][0]);
+        self::assertSame('handler.one', (string) $call0[1][0]);
+
+        self::assertSame('addTranslationHandler', $call1[0]);
+        self::assertInstanceOf(Reference::class, $call1[1][0]);
+        self::assertSame('handler.two', (string) $call1[1][0]);
     }
 }

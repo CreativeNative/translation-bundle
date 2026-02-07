@@ -18,13 +18,15 @@ final class TmiTranslationExtensionTest extends TestCase
 
         $tests = $extension->getTests();
         self::assertCount(1, $tests);
-        self::assertInstanceOf(TwigTest::class, $tests[0]);
+        self::assertSame('translatable', $tests[0]->getName());
 
         $translatable    = new TranslatableOneToOneBidirectionalParent();
         $nonTranslatable = new \stdClass();
 
         // TwigTest callback
         $callback = $tests[0]->getCallable();
+        self::assertNotNull($callback);
+        self::assertIsCallable($callback);
 
         self::assertTrue($callback($translatable));
         self::assertFalse($callback($nonTranslatable));

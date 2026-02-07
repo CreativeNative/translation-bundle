@@ -177,11 +177,11 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
         $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
 
-        self::expectException(ValidationException::class);
-
         try {
             $handler->translate($args);
-        } catch (ValidationException $e) {
+            self::fail('Expected ValidationException was not thrown');
+        } catch (\Throwable $e) {
+            self::assertInstanceOf(ValidationException::class, $e);
             // Verify the inner error contains ClassLevelAttributeConflictException
             $errors = $e->getErrors();
             self::assertNotEmpty($errors);
@@ -193,8 +193,6 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 }
             }
             self::assertTrue($hasConflict, 'Should contain ClassLevelAttributeConflictException');
-
-            throw $e;
         }
     }
 

@@ -85,7 +85,7 @@ class UnitTestCase extends TestCase
         parent::setUp();
 
         // First create stubs/mocks for the core dependencies
-        $this->eventDispatcherInterface = $this->createStub(EventDispatcherInterface::class);
+        $this->eventDispatcherInterface = static::createStub(EventDispatcherInterface::class);
         $this->attributeHelper          = $this->createMock(AttributeHelper::class);
         $this->entityManager            = $this->createMock(EntityManagerInterface::class);
         $this->logger                   = $this->createMock(LoggerInterface::class);
@@ -108,11 +108,11 @@ class UnitTestCase extends TestCase
     private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
     {
         // Create a stub Query object
-        $queryStub = $this->createStub(Query::class);
+        $queryStub = static::createStub(Query::class);
         $queryStub->method('getResult')->willReturn([]); // Always return empty array
 
         // Create a stub QueryBuilder with chainable methods
-        $qbStub = $this->createStub(QueryBuilder::class);
+        $qbStub = static::createStub(QueryBuilder::class);
         $qbStub->method('select')->willReturnSelf();
         $qbStub->method('from')->willReturnSelf();
         $qbStub->method('where')->willReturnSelf();
@@ -121,14 +121,14 @@ class UnitTestCase extends TestCase
         $qbStub->method('getQuery')->willReturn($queryStub);
 
         // Stub EntityManager to return our QueryBuilder
-        $emStub = $this->createStub(EntityManagerInterface::class);
+        $emStub = static::createStub(EntityManagerInterface::class);
         $emStub->method('createQueryBuilder')->willReturn($qbStub);
 
         return new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
-            $this->eventDispatcherInterface,
-            $this->attributeHelper,
+            $this->eventDispatcher(),
+            $this->attributeHelper(),
             $emStub,
             $logger,
         );

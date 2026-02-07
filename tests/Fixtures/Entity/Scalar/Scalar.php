@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class Scalar implements TranslatableInterface
+class Scalar implements TranslatableInterface
 {
     use TranslatableTrait;
 

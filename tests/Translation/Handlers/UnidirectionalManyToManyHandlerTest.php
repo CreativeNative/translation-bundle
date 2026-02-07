@@ -48,6 +48,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     {
         // Anonymous class with a simple property
         $anon = new class {
+            /** @var array<int, mixed> */
             public array $plain = [];
         };
 
@@ -119,6 +120,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testTranslateThrowsWhenAssociationNotFound(): void
     {
         $parent = new class {
+            /** @var array<int, mixed>|null */
             public array|null $items = null;
         };
         $prop = new \ReflectionProperty($parent::class, 'items');
@@ -145,6 +147,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testTranslateThrowsWhenNotOwningSide(): void
     {
         $parent = new class {
+            /** @var array<int, mixed>|null */
             public array|null $items = null;
         };
         $prop = new \ReflectionProperty($parent::class, 'items');
@@ -173,6 +176,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testTranslateThrowsWhenFieldNotFoundOnOwner(): void
     {
         $parent = new class {
+            /** @var array<int, mixed>|null */
             public array|null $items = null;
         };
         $prop = new \ReflectionProperty($parent::class, 'items');
@@ -201,6 +205,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     public function testTranslateCreatesCollectionWhenFieldIsNotCollectionAndAddsTranslatedItems(): void
     {
         $parent = new class {
+            /** @var iterable<int, mixed>|null */
             public iterable|null $items = null;
         };
 
@@ -368,7 +373,6 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $result = $handler->handleSharedAmongstTranslations($args);
 
-        self::assertInstanceOf(Collection::class, $result);
         self::assertCount(1, $result);
         self::assertSame($result, $parent->getSimpleChildren());
     }

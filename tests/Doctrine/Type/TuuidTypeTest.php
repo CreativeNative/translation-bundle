@@ -40,7 +40,7 @@ final class TuuidTypeTest extends TestCase
         $uuid     = Tuuid::generate();
         $phpValue = $this->type->convertToPHPValue($uuid->getValue(), $this->platform);
 
-        self::assertInstanceOf(Tuuid::class, $phpValue);
+        self::assertSame($uuid->getValue(), $phpValue->getValue());
         self::assertSame($uuid->getValue(), (string) $phpValue);
     }
 
@@ -66,7 +66,7 @@ final class TuuidTypeTest extends TestCase
     {
         $phpValue = $this->type->convertToPHPValue(null, $this->platform);
 
-        self::assertInstanceOf(Tuuid::class, $phpValue);
+        self::assertNotEmpty($phpValue->getValue());
         self::assertTrue(Uuid::isValid((string) $phpValue));
     }
 
@@ -116,7 +116,7 @@ final class TuuidTypeTest extends TestCase
     {
         $dbValue = $this->type->convertToDatabaseValue(null, $this->platform);
 
-        self::assertIsString($dbValue);
+        self::assertNotEmpty($dbValue);
         self::assertTrue(Uuid::isValid($dbValue));
     }
 

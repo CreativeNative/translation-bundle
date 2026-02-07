@@ -14,7 +14,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
+class TranslatableManyToManyBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 
@@ -23,9 +23,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[ORM\GeneratedValue]
     private int|null $id = null;
 
-    /**
-     * @var ArrayCollection
-     */
+    /** @var Collection<int, TranslatableManyToManyBidirectionalChild> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'simpleParents',
@@ -33,6 +31,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     )]
     private Collection $simpleChildren;
 
+    /** @var Collection<int, TranslatableManyToManyBidirectionalChild> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'sharedParents',
@@ -41,6 +40,7 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
     #[SharedAmongstTranslations]
     private Collection $sharedChildren;
 
+    /** @var Collection<int, TranslatableManyToManyBidirectionalChild> */
     #[ORM\ManyToMany(
         targetEntity: TranslatableManyToManyBidirectionalChild::class,
         mappedBy: 'emptyParents',
@@ -90,6 +90,9 @@ final class TranslatableManyToManyBidirectionalParent implements TranslatableInt
         return $this->sharedChildren;
     }
 
+    /**
+     * @param Collection<int, TranslatableManyToManyBidirectionalChild> $sharedChildren
+     */
     public function setSharedChildren(Collection $sharedChildren): self
     {
         $this->sharedChildren = $sharedChildren;

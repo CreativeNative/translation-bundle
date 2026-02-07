@@ -40,10 +40,13 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         );
 
         // Per-property resolution: unattributed properties reset to class defaults (null)
-        self::assertNull($translated->getAddress()->getStreet());
-        self::assertNull($translated->getAddress()->getPostalCode());
-        self::assertNull($translated->getAddress()->getCity());
-        self::assertNull($translated->getAddress()->getCountry());
+        $translatedAddress = $translated->getAddress();
+        self::assertNotNull($translatedAddress);
+        self::assertInstanceOf(Address::class, $translatedAddress);
+        self::assertNull($translatedAddress->getStreet());
+        self::assertNull($translatedAddress->getPostalCode());
+        self::assertNull($translatedAddress->getCity());
+        self::assertNull($translatedAddress->getCountry());
     }
 
     /**
@@ -69,9 +72,13 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         );
 
         // Shared property also identical
+        $entitySharedAddress     = $entity->getSharedAddress();
+        $translatedSharedAddress = $translated->getSharedAddress();
+        self::assertNotNull($entitySharedAddress);
+        self::assertNotNull($translatedSharedAddress);
         self::assertSame(
-            $entity->getSharedAddress()->getStreet(),
-            $translated->getSharedAddress()->getStreet(),
+            $entitySharedAddress->getStreet(),
+            $translatedSharedAddress->getStreet(),
         );
     }
 
@@ -120,12 +127,15 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         $translated = $this->translateAndPersist($entity);
 
         // Original entity should NOT be NULL
-        self::assertNotNull($entity->getAddress());
+        $entityAddress = $entity->getAddress();
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $entityAddress);
+        self::assertSame('Empty Street', $entityAddress->getStreet());
 
-        self::assertSame('Empty Street', $entity->getAddress()->getStreet());
-
-        self::assertSame('no Setter', $entity->getAddress()->getNoSetter());
-        self::assertNull($translated->getAddress()->getNoSetter());
+        self::assertSame('no Setter', $entityAddress->getNoSetter());
+        $translatedAddress2 = $translated->getAddress();
+        self::assertNotNull($translatedAddress2);
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $translatedAddress2);
+        self::assertNull($translatedAddress2->getNoSetter());
 
         // Translated entity should NOT be NULL
         self::assertNotNull($translated->getAddress());
@@ -133,19 +143,24 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         // Property marked #[EmptyOnTranslate] is null in translated entity
         self::assertNull($translated->getAddress()->getStreet());
 
+        $entityAddr = $entity->getAddress();
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $entityAddr);
+        $translatedAddr = $translated->getAddress();
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $translatedAddr);
+
         self::assertNotSame(
-            $entity->getAddress()->getStreet(),
-            $translated->getAddress()->getStreet(),
+            $entityAddr->getStreet(),
+            $translatedAddr->getStreet(),
         );
 
         // Per-property resolution: unattributed properties reset to class defaults (null)
-        self::assertNull($translated->getAddress()->getPostalCode());
-        self::assertNull($translated->getAddress()->getCity());
+        self::assertNull($translatedAddr->getPostalCode());
+        self::assertNull($translatedAddr->getCity());
 
         // Property marked #[SharedAmongstTranslations] retains original value
         self::assertSame(
-            $entity->getAddress()->getCountry(),
-            $translated->getAddress()->getCountry(),
+            $entityAddr->getCountry(),
+            $translatedAddr->getCountry(),
         );
 
         // Cloned embeddable is a new object
@@ -169,10 +184,13 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         $entity->setLocale('en_US');
 
         $address ??= new Address();
+
+        // Narrow the address type for methods that only accept Address
+        $narrowedAddress = $address instanceof Address ? $address : null;
         if ($shared) {
-            $entity->setSharedAddress($address);
+            $entity->setSharedAddress($narrowedAddress);
         } elseif ($emptyOnTranslate) {
-            $entity->setEmptyAddress($address);
+            $entity->setEmptyAddress($narrowedAddress);
         } else {
             $entity->setAddress($address);
         }

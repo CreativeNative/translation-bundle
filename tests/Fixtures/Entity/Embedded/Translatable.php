@@ -13,7 +13,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class Translatable implements TranslatableInterface
+class Translatable implements TranslatableInterface
 {
     use TranslatableTrait;
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
@@ -97,7 +98,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $result = $handler->handleEmptyOnTranslate($args);
 
-        self::assertNull($result);
+        self::assertThat($result, self::isNull());
     }
 
     /**
@@ -131,9 +132,15 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $child  = new TranslatableOneToOneBidirectionalChild();
         $parent->setSimpleChild($child);
 
-        $metadata                      = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
+        $metadata  = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
+        $mapping   = new OneToOneOwningSideMapping(
+            fieldName: 'simpleParent',
+            sourceEntity: TranslatableOneToOneBidirectionalChild::class,
+            targetEntity: TranslatableOneToOneBidirectionalParent::class,
+        );
+        $mapping->inversedBy               = 'simpleChild';
         $metadata->associationMappings = [
-            'simpleParent' => ['fieldName' => 'simpleParent', 'inversedBy' => 'simpleChild'],
+            'simpleParent' => $mapping,
         ];
 
         $this->entityManager()->method('getClassMetadata')

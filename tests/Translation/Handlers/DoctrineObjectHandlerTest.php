@@ -106,6 +106,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         // the clone should have been returned
         self::assertNotSame($entity, $result);
+        self::assertIsObject($result);
+        self::assertTrue(method_exists($result, 'getSecret'));
         self::assertSame('orig', $result->getSecret());
     }
 
@@ -120,6 +122,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $entity = new class {
             public string|null $maybeNull = null;
+            /** @var Collection<int, mixed> */
             public Collection $emptyCollection;
 
             public function __construct()
@@ -132,8 +135,12 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $result = $this->handler->translate($args);
 
         self::assertNotSame($entity, $result);
-        // We don't need to count calls, just verify the behavior is correct
+        self::assertIsObject($result);
+        // Verify cloned object preserves null and empty collection
+        self::assertObjectHasProperty('maybeNull', $result);
         self::assertNull($result->maybeNull);
+        self::assertObjectHasProperty('emptyCollection', $result);
+        self::assertInstanceOf(Collection::class, $result->emptyCollection);
         self::assertTrue($result->emptyCollection->isEmpty());
     }
 
@@ -142,7 +149,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $obj  = new \stdClass();
         $args = new TranslationArgs($obj, 'en_US', 'de_DE');
         self::assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
-        self::assertNull($this->handler->handleEmptyOnTranslate($args));
+        $emptyResult = $this->handler->handleEmptyOnTranslate($args);
+        self::assertThat($emptyResult, self::isNull());
     }
 
     public function testSupportsReturnsFalseWhenMetadataFactoryMarksTransient(): void
@@ -183,6 +191,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             public string $title          = 'original';
             public string $child          = 'child-value';
             public string|null $maybeNull = null;
+            /** @var Collection<int, mixed> */
             public Collection $emptyCollection;
 
             public function __construct()
@@ -196,9 +205,15 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         // translate() must return a clone, not the same instance
         self::assertNotSame($entity, $result);
+        self::assertIsObject($result);
+        self::assertObjectHasProperty('title', $result);
         self::assertSame('original', $result->title);
+        self::assertObjectHasProperty('child', $result);
         self::assertSame('child-value', $result->child);
+        self::assertObjectHasProperty('maybeNull', $result);
         self::assertNull($result->maybeNull);
+        self::assertObjectHasProperty('emptyCollection', $result);
+        self::assertInstanceOf(Collection::class, $result->emptyCollection);
         self::assertTrue($result->emptyCollection->isEmpty());
     }
 }

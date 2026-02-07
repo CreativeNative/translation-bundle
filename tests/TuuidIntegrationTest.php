@@ -56,7 +56,7 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $this->em->flush();
 
         $tuuid = $entity->getTuuid();
-        self::assertInstanceOf(Tuuid::class, $tuuid);
+        self::assertNotEmpty($tuuid->getValue());
         self::assertTrue(Uuid::isValid($tuuid->__toString()));
     }
 
@@ -76,8 +76,10 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         $this->em->clear();
 
         $fetched = $this->em->getRepository(Scalar::class)->find($entity->getId());
-        self::assertInstanceOf(Tuuid::class, $fetched->getTuuid());
-        self::assertTrue($fetched->getTuuid()->equals($generatedTuuid));
+        self::assertNotNull($fetched, 'Entity should be found after persist+flush');
+        $fetchedTuuid = $fetched->getTuuid();
+        self::assertSame($generatedTuuid->getValue(), $fetchedTuuid->getValue());
+        self::assertTrue($fetchedTuuid->equals($generatedTuuid));
     }
 
     public function testTuuidCannotBeReassigned(): void
@@ -107,6 +109,7 @@ final class TuuidIntegrationTest extends IntegrationTestCase
         self::assertSame($tuuid->getValue(), $dbValue);
 
         $phpValue = $type->convertToPHPValue($dbValue, $this->em->getConnection()->getDatabasePlatform());
+        self::assertInstanceOf(Tuuid::class, $phpValue);
         self::assertTrue($phpValue->equals($tuuid));
     }
 

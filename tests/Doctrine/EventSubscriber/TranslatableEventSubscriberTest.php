@@ -45,15 +45,15 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = new Scalar();
 
         // tuuid should be initialised
-        self::assertInstanceOf(Tuuid::class, $entity->getTuuid());
+        self::assertNotEmpty($entity->getTuuid()->__toString());
 
         $args = new PrePersistEventArgs($entity, $this->entityManager);
 
         $this->subscriber->prePersist($args);
 
-        // After prePersist, tuuid should be generated
-        self::assertNotNull($entity->getTuuid()->getValue());
-        self::assertTrue(Uuid::isValid($entity->getTuuid()->getValue()));
+        // After prePersist, tuuid value should be valid
+        $tuuidValue = $entity->getTuuid()->getValue();
+        self::assertTrue(Uuid::isValid($tuuidValue));
     }
 
     public function testPrePersistIgnoresNonTranslatableEntities(): void
@@ -68,7 +68,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->subscriber->prePersist($args);
 
         // Just assert that no exception was thrown and the method completed
-        self::assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsNull(): void

@@ -20,7 +20,9 @@ final class AttributeConflictExceptionTest extends TestCase
             'EmptyOnTranslate',
         );
 
-        self::assertInstanceOf(\LogicException::class, $exception);
+        $parents = class_parents($exception);
+        self::assertNotEmpty($parents);
+        self::assertContains(\LogicException::class, $parents);
     }
 
     public function testMessageContainsClassName(): void

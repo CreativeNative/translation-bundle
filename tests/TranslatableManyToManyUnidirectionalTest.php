@@ -89,7 +89,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 
         // Get the ORIGINAL parent's collection as data-to-be-translated
         $children = $parent->getSimpleChildren();
-        self::assertInstanceOf(Collection::class, $children);
+        self::assertGreaterThan(0, $children->count());
 
         // IMPORTANT: the handler works on the translated parent – pass $parentTranslation here
         $property = new \ReflectionProperty($parentTranslation::class, 'simpleChildren');
@@ -106,6 +106,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         self::assertCount(2, $result, 'Translated collection should contain 2 items');
 
         foreach ($result as $item) {
+            self::assertInstanceOf(TranslatableManyToManyUnidirectionalChild::class, $item);
             self::assertSame('de_DE', $item->getLocale(), 'Each translated child should have target locale "de"');
         }
     }
@@ -120,7 +121,6 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
 
         $result = $this->handler->handleEmptyOnTranslate($args);
 
-        self::assertInstanceOf(Collection::class, $result);
         self::assertCount(0, $result);
     }
 }

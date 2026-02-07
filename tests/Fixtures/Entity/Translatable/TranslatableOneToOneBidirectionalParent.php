@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 #[ORM\Entity]
-final class TranslatableOneToOneBidirectionalParent implements TranslatableInterface
+class TranslatableOneToOneBidirectionalParent implements TranslatableInterface
 {
     use TranslatableTrait;
 

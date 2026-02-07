@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
+use Psr\Container\ContainerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
-use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
-use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -68,41 +69,17 @@ class IntegrationTestCase extends KernelTestCase
 
         self::bootKernel();
 
-        if (method_exists(self::class, 'getContainer')) {
-            $container = self::getContainer();
-        } elseif (property_exists(self::class, 'container') && null !== self::$container) {
-            $container = self::$container;
-        } else {
-            $container = self::$kernel->getContainer();
-        }
+        $container = self::getContainer();
 
-        if (null === $container) {
-            self::fail('Container is null. Kernel boot failed.');
-        }
+        $this->registerTuuidTypeMapping($container);
 
-        if ($container->has('doctrine.dbal.default_connection')) {
-            $connection = $container->get('doctrine.dbal.default_connection');
-            $platform   = $connection->getDatabasePlatform();
-            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
-        }
+        $entityManager = $container->get('doctrine.orm.entity_manager');
+        self::assertInstanceOf(EntityManagerInterface::class, $entityManager, 'EntityManager service must implement EntityManagerInterface');
+        $this->entityManager = $entityManager;
 
-        try {
-            $this->entityManager = $container->get('doctrine.orm.entity_manager');
-        } catch (ServiceNotFoundException) {
-            self::fail('EntityManager service not found. Tried: doctrine.orm.entity_manager');
-        }
-
-        if ($container->has('doctrine.dbal.default_connection')) {
-            $connection = $container->get('doctrine.dbal.default_connection');
-            $platform   = $connection->getDatabasePlatform();
-            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
-        }
-
-        try {
-            $this->translator = $container->get('tmi_translation.translation.entity_translator');
-        } catch (ServiceNotFoundException) {
-            self::fail('EntityTranslator service not found. Tried: tmi_translation.translation.entity_translator');
-        }
+        $translator = $container->get('tmi_translation.translation.entity_translator');
+        self::assertInstanceOf(EntityTranslator::class, $translator, 'EntityTranslator service must be an EntityTranslator instance');
+        $this->translator = $translator;
 
         $this->translator->setLogger(new NullLogger());
 
@@ -111,32 +88,45 @@ class IntegrationTestCase extends KernelTestCase
             $embeddedHandler->setLogger(new NullLogger());
         }
 
-        try {
-            $this->attributeHelper = $container->get('tmi_translation.utils.attribute_helper');
-        } catch (ServiceNotFoundException) {
-            self::fail('Attribute helper service not found. Tried: tmi_translation.utils.attribute_helper');
-        }
+        $attributeHelper = $container->get('tmi_translation.utils.attribute_helper');
+        self::assertInstanceOf(AttributeHelper::class, $attributeHelper, 'Attribute helper service must be an AttributeHelper instance');
+        $this->attributeHelper = $attributeHelper;
+
+        $translator    = $this->translator();
+        $entityManager = $this->entityManager();
 
         $subscriber = new TranslatableEventSubscriber(
             'en_US',
-            $this->translator,
+            $translator,
         );
 
-        $eventManager = $this->entityManager->getEventManager();
+        $eventManager = $entityManager->getEventManager();
         $eventManager->addEventSubscriber($subscriber);
 
-        $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
+        $metadata   = $entityManager->getMetadataFactory()->getAllMetadata();
+        $schemaTool = new SchemaTool($entityManager);
 
-        if (null !== $metadata) {
-            $schemaTool = new SchemaTool($this->entityManager);
-
-            try {
-                $schemaTool->dropSchema($metadata);
-            } catch (\Exception) {
-            }
-
-            $schemaTool->createSchema($metadata);
+        try {
+            $schemaTool->dropSchema($metadata);
+        } catch (\Exception) {
         }
+
+        $schemaTool->createSchema($metadata);
+    }
+
+    private function registerTuuidTypeMapping(ContainerInterface $container): void
+    {
+        if (!$container->has('doctrine.dbal.default_connection')) {
+            return;
+        }
+
+        $connection = $container->get('doctrine.dbal.default_connection');
+        if (!$connection instanceof Connection) {
+            return;
+        }
+
+        $platform = $connection->getDatabasePlatform();
+        $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
     }
 
     #[\Override]

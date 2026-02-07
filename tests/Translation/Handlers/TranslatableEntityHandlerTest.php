@@ -94,7 +94,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
 
         $result = $this->handler->handleEmptyOnTranslate($args);
-        self::assertNull($result);
+        self::assertThat($result, self::isNull());
     }
 
     /**

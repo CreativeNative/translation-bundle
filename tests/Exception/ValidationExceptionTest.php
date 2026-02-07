@@ -15,7 +15,9 @@ final class ValidationExceptionTest extends TestCase
     {
         $exception = new ValidationException([]);
 
-        self::assertInstanceOf(\LogicException::class, $exception);
+        $parents = class_parents($exception);
+        self::assertNotEmpty($parents);
+        self::assertContains(\LogicException::class, $parents);
     }
 
     public function testMessageFormatWithSingleError(): void

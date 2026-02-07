@@ -58,19 +58,23 @@ final class PrimaryKeyHandlerTest extends UnitTestCase
 
     public function testTranslateAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en_US', 'de_DE');
-        self::assertNull($this->handler->translate($args), 'Primary keys must never be translated');
+        $args   = new TranslationArgs(123, 'en_US', 'de_DE');
+        $result = $this->handler->translate($args);
+        // PrimaryKeyHandler::translate() always returns null by design
+        self::assertThat($result, self::isNull(), 'Primary keys must never be translated');
     }
 
     public function testHandleSharedAmongstTranslationsAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en_US', 'de_DE');
-        self::assertNull($this->handler->handleSharedAmongstTranslations($args));
+        $args   = new TranslationArgs(123, 'en_US', 'de_DE');
+        $result = $this->handler->handleSharedAmongstTranslations($args);
+        self::assertThat($result, self::isNull());
     }
 
     public function testHandleEmptyOnTranslateAlwaysReturnsNull(): void
     {
-        $args = new TranslationArgs(123, 'en_US', 'de_DE');
-        self::assertNull($this->handler->handleEmptyOnTranslate($args));
+        $args   = new TranslationArgs(123, 'en_US', 'de_DE');
+        $result = $this->handler->handleEmptyOnTranslate($args);
+        self::assertThat($result, self::isNull());
     }
 }
