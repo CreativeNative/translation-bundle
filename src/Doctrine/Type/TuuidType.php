@@ -14,7 +14,7 @@ final class TuuidType extends GuidType
 {
     public const string NAME = 'tuuid';
 
-    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): Tuuid|null
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): Tuuid
     {
         if (null === $value) {
             return Tuuid::generate();
@@ -31,7 +31,7 @@ final class TuuidType extends GuidType
         throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid (PHPValue)', get_debug_type($value)));
     }
 
-    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): string|null
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): string
     {
         if (null === $value) {
             return Tuuid::generate()->getValue();
@@ -53,6 +53,9 @@ final class TuuidType extends GuidType
         return self::NAME;
     }
 
+    /**
+     * @return list<string>
+     */
     public function getMappedDatabaseTypes(AbstractPlatform $platform): array
     {
         // So that SchemaTool does not cause any problems during mapping

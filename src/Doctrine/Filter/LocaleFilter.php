@@ -33,7 +33,7 @@ final class LocaleFilter extends SQLFilter
 
         $locale = $this->getParameter('locale');
 
-        if (\in_array(TranslatableInterface::class, $targetEntity->getReflectionClass()?->getInterfaceNames(), true)) {
+        if (\in_array(TranslatableInterface::class, $targetEntity->getReflectionClass()->getInterfaceNames(), true)) {
             return sprintf('%s.locale = %s', $targetTableAlias, $locale);
         }
 

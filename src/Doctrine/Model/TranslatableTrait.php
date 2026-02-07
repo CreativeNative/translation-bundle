@@ -18,6 +18,7 @@ trait TranslatableTrait
     #[ORM\Column(type: Types::STRING, length: 5, nullable: true)]
     private string|null $locale = null;
 
+    /** @var array<string, mixed> */
     #[ORM\Column(type: Types::JSON)]
     private array $translations = [];
 
@@ -106,6 +107,9 @@ trait TranslatableTrait
         return $this;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     final public function getTranslation(string $locale): array|null
     {
         return $this->translations[$locale] ?? null;

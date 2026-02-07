@@ -104,11 +104,13 @@ class AttributeHelper
     {
         $type = $property->getType();
 
-        return $type && $type->allowsNull();
+        return null !== $type && $type->allowsNull();
     }
 
     /**
      * Checks if a class has the #[SharedAmongstTranslations] attribute at class level.
+     *
+     * @param \ReflectionClass<object> $class
      */
     public function classHasSharedAmongstTranslations(\ReflectionClass $class): bool
     {
@@ -120,6 +122,8 @@ class AttributeHelper
 
     /**
      * Checks if a class has the #[EmptyOnTranslate] attribute at class level.
+     *
+     * @param \ReflectionClass<object> $class
      */
     public function classHasEmptyOnTranslate(\ReflectionClass $class): bool
     {
@@ -133,6 +137,8 @@ class AttributeHelper
      * Validates an embeddable class for attribute conflicts.
      * Checks class-level attribute conflicts and validates all properties.
      * Results are cached per class name.
+     *
+     * @param \ReflectionClass<object> $class
      *
      * @throws ValidationException When validation errors are found
      */

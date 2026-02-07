@@ -29,7 +29,7 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
     /**
      * {@inheritdoc}
      *
-     * @return array<string, mixed>
+     * @return array<string, list<array{0: string, 1?: int}>>
      */
     public static function getSubscribedEvents(): array
     {

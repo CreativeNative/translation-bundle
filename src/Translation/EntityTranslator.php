@@ -74,7 +74,10 @@ final class EntityTranslator implements EntityTranslatorInterface
             'target_locale' => $locale,
         ]);
 
-        return $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
+        $result = $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
+        \assert($result instanceof TranslatableInterface);
+
+        return $result;
     }
 
     /**
@@ -208,10 +211,16 @@ final class EntityTranslator implements EntityTranslatorInterface
                 );
 
                 // Store translation in cache for reuse
-                $this->translationCache[$translated->getTuuid()->getValue()][$translated->getLocale()] = $translated;
+                $tuuidObj = $translated->getTuuid();
+                if (null !== $tuuidObj) {
+                    $this->translationCache[$tuuidObj->getValue()][$translated->getLocale()] = $translated;
+                }
 
                 // Remove from in-progress set
-                unset($this->inProgress[$entity->getTuuid()->getValue().':'.$locale]);
+                $entityTuuid = $entity->getTuuid();
+                if (null !== $entityTuuid) {
+                    unset($this->inProgress[$entityTuuid->getValue().':'.$locale]);
+                }
 
                 $this->logDebug('Translation complete', [
                     'class'         => $translated::class,
@@ -256,6 +265,9 @@ final class EntityTranslator implements EntityTranslatorInterface
         $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function logDebug(string $message, array $context = []): void
     {
         if (null === $this->logger) {
@@ -264,6 +276,9 @@ final class EntityTranslator implements EntityTranslatorInterface
         $this->logger->debug('[TMI Translation] '.$message, $context);
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
     private function logInfo(string $message, array $context = []): void
     {
         if (null === $this->logger) {
@@ -275,12 +290,11 @@ final class EntityTranslator implements EntityTranslatorInterface
     /**
      * Batch-load translations for given entities and target locale.
      *
-     * @template T of TranslatableInterface
-     *
-     * @param array<T> $entities
+     * @param array<mixed> $entities
      */
     private function warmupTranslations(array $entities, string $locale): void
     {
+        /** @var array<class-string, list<string>> $byClass */
         $byClass = [];
 
         foreach ($entities as $entity) {
@@ -288,14 +302,17 @@ final class EntityTranslator implements EntityTranslatorInterface
                 continue;
             }
             $tuuid = $entity->getTuuid();
-            if (isset($this->translationCache[(string) $tuuid][$locale])) {
+            if (null === $tuuid) {
+                continue;
+            }
+            if (isset($this->translationCache[$tuuid->getValue()][$locale])) {
                 continue;
             }
             $byClass[$entity::class][] = $tuuid->getValue();
         }
 
         foreach ($byClass as $class => $tuuids) {
-            if (!is_array($tuuids) || 0 === count($tuuids)) {
+            if ([] === $tuuids) {
                 // @codeCoverageIgnoreStart
                 continue;
                 // @codeCoverageIgnoreEnd
@@ -314,7 +331,10 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             foreach ($translations ?? [] as $translation) {
                 // @codeCoverageIgnoreStart
-                $this->translationCache[$translation->getTuuid()->getValue()][$translation->getLocale()] = $translation;
+                $translationTuuid = $translation->getTuuid();
+                if (null !== $translationTuuid) {
+                    $this->translationCache[$translationTuuid->getValue()][$translation->getLocale()] = $translation;
+                }
                 // @codeCoverageIgnoreEnd
             }
         }

@@ -28,7 +28,7 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
     }
 
     /**
-     * @return array<string, mixed>
+     * @return list<string>
      */
     public function getSubscribedEvents(): array
     {
@@ -69,8 +69,8 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
 
     public function onFlush(OnFlushEventArgs $args): void
     {
+        /** @var EntityManagerInterface $entityManager */
         $entityManager = $args->getObjectManager();
-        assert($entityManager instanceof EntityManagerInterface);
         $uow = $entityManager->getUnitOfWork();
 
         foreach ($uow->getScheduledEntityInsertions() as $entity) {

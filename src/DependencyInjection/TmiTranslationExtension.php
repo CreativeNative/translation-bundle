@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\DependencyInjection;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use Symfony\Component\Config\FileLocator;
@@ -17,14 +18,15 @@ use Tmi\TranslationBundle\Translation\EntityTranslator;
 final class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
     /**
-     * @param array<array<string, mixed>> $configs
+     * @param array<mixed> $configs
      *
      * @throws \Exception|\Doctrine\DBAL\Exception|TypesException
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
-        $config        = $this->processConfiguration($configuration, $configs);
+        /** @var array<string, mixed> $config */
+        $config = $this->processConfiguration($configuration, $configs);
 
         // Set configuration into params
         $rootName = 'tmi_translation';
@@ -42,8 +44,10 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         // Safely map 'tuuid' to 'tuuid' for all platforms
         if ($container->has('doctrine.dbal.default_connection')) {
             $connection = $container->get('doctrine.dbal.default_connection');
-            $platform   = $connection->getDatabasePlatform();
-            $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
+            if ($connection instanceof Connection) {
+                $platform = $connection->getDatabasePlatform();
+                $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
+            }
         }
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
@@ -53,7 +57,11 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         if ($container->has(EntityTranslator::class)) {
             $definition = $container->getDefinition(EntityTranslator::class);
 
-            if (!($config['logging']['enabled'] ?? true)) {
+            /** @var array<string, mixed>|null $loggingConfig */
+            $loggingConfig = $config['logging'] ?? null;
+            $loggingEnabled = \is_array($loggingConfig) ? ($loggingConfig['enabled'] ?? true) : true;
+
+            if (true !== $loggingEnabled) {
                 // Explicitly disable - don't inject logger even if available
                 $definition->setArgument('$logger', null);
             }
@@ -74,9 +82,11 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
     {
         foreach ($params as $key => $value) {
             $name = $parent.'.'.$key;
+            /** @var array<mixed>|bool|float|int|string|\UnitEnum|null $value */
             $container->setParameter($name, $value);
 
-            if (is_array($value)) {
+            if (\is_array($value)) {
+                /** @var array<string, mixed> $value */
                 $this->setConfigAsParameters($container, $value, $name);
             }
         }

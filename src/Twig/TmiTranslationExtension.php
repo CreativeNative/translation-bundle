@@ -19,13 +19,13 @@ final class TmiTranslationExtension extends AbstractExtension implements Globals
     }
 
     /**
-     * @return array<string, mixed>
+     * @return list<TwigTest>
      */
     #[\Override]
     public function getTests(): array
     {
         return [
-            new TwigTest('translatable', fn ($object) => $object instanceof TranslatableInterface),
+            new TwigTest('translatable', fn (mixed $object): bool => $object instanceof TranslatableInterface),
         ];
     }
 
