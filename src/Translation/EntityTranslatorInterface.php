@@ -11,7 +11,16 @@ interface EntityTranslatorInterface
 {
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface;
 
-    /** Expose processTranslation so handlers may ask translator to translate sub-objects */
+    /**
+     * Process translation for an entity, embedded object, or property value.
+     *
+     * Exposed so handlers may recursively translate sub-objects through the
+     * orchestrator's handler chain.
+     *
+     * @param TranslationArgs $args contains the data to translate, source/target locales, and optional parent context
+     *
+     * @return mixed translated entity (TranslatableInterface), embedded object, or scalar property value
+     */
     public function processTranslation(TranslationArgs $args): mixed;
 
     /** Called after an entity is loaded. */
