@@ -35,7 +35,7 @@ jobs:
       # Cache Composer dependencies
       - name: Cache Composer packages
         id: composer-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: vendor
           key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
@@ -52,7 +52,18 @@ jobs:
 
       # PHPUnit
       - name: Run PHPUnit tests with coverage
-        run: XDEBUG_MODE=coverage vendor/bin/phpunit
+        shell: bash
+        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text | tee var/coverage-summary.txt
+
+      # Coverage threshold
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(grep -oP 'Lines:\s+\K[\d.]+' var/coverage-summary.txt | head -1)
+          echo "Line coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 95" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below 95% threshold"
+            exit 1
+          fi
 
       # PHPCS
       - name: Check coding standards
@@ -60,7 +71,7 @@ jobs:
 
       # PHPStan
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse -c phpstan.neon --level 1
+        run: vendor/bin/phpstan analyse --memory-limit=512M
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov
