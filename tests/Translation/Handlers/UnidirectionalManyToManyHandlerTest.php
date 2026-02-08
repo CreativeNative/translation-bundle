@@ -403,6 +403,87 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         self::assertSame($result, $parent->getSimpleChildren());
     }
 
+    /**
+     * Covers lines 137, 139, 140: the elseif (is_iterable($sourceData)) branch.
+     *
+     * Passes a plain PHP array (not a Collection) as dataToBeTranslated so the
+     * handler enters the iterable branch instead of the Collection branch.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateWithIterableSourceData(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child  = new TranslatableManyToManyUnidirectionalChild();
+        $child->setLocale('en');
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $handler = $this->createHandler();
+
+        // Pass a plain PHP array (iterable, but not a Collection) to hit the elseif branch
+        $args = new TranslationArgs([$child], 'en', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        self::assertCount(1, $result);
+    }
+
+    /**
+     * Covers line 151: the continue when an item is not TranslatableInterface.
+     *
+     * Mixes a non-TranslatableInterface stdClass into the items. The handler
+     * should skip it and only translate TranslatableInterface items.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateSkipsNonTranslatableItemInCollection(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $handler = $this->createHandler();
+
+        // ArrayCollection with one stdClass (not TranslatableInterface) -> continue at line 151
+        $args = new TranslationArgs(new ArrayCollection([new \stdClass()]), 'en', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        // The stdClass was skipped, so the result collection is empty
+        self::assertCount(0, $result);
+    }
+
     private function createHandler(): UnidirectionalManyToManyHandler
     {
         return new UnidirectionalManyToManyHandler($this->attributeHelper(), $this->translator(), $this->entityManager());

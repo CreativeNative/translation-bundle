@@ -613,6 +613,36 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $this->handler->handleSharedAmongstTranslations($args);
     }
 
+    /**
+     * Covers lines 154-155: non-TranslatableInterface items are passed through
+     * to the new collection unchanged (not translated).
+     *
+     * @throws \ReflectionException|MappingException
+     */
+    public function testTranslatePassesThroughNonTranslatableItem(): void
+    {
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        // stdClass is not TranslatableInterface -> will hit lines 154-155
+        $nonTranslatable = new \stdClass();
+        $nonTranslatable->name = 'not-translatable';
+
+        $collection = new ArrayCollection([$nonTranslatable]);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $args   = new TranslationArgs($collection, 'en_US', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+        $result = $this->handler->translate($args);
+
+        // The non-translatable item should be passed through (added to collection, not translated)
+        self::assertCount(1, $result);
+        self::assertSame($nonTranslatable, $result->first());
+    }
+
     // ---------------------------------------------------
     // handleEmptyOnTranslate() Tests
     // ---------------------------------------------------
