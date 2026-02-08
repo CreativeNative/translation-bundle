@@ -322,6 +322,30 @@ final class EmbeddedHandlerTest extends UnitTestCase
      * the array_any at line 263 finds $country and returns true.
      * handleSharedAmongstTranslations then returns the original (not a clone).
      */
+    /**
+     * Covers line 259: classHasSharedAmongstTranslations returns true for SharedClassEmbeddable.
+     *
+     * SharedClassEmbeddable has #[SharedAmongstTranslations] at the class level.
+     * No parent property is set, so line 252 is skipped.
+     * classHasSharedAmongstTranslations (line 258) returns true -> line 259 returns true.
+     */
+    public function testHandleSharedAmongstTranslationsReturnsTrueWhenClassLevelShared(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper);
+
+        $embeddable = new SharedClassEmbeddable();
+        $embeddable->setSharedByDefault('Test Value');
+
+        // No parent property set -> line 252 check is false
+        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+
+        $result = $handler->handleSharedAmongstTranslations($args);
+
+        // isShared returns true (class-level #[SharedAmongstTranslations]) -> returns original
+        self::assertSame($embeddable, $result);
+    }
+
     public function testHandleSharedAmongstTranslationsReturnsTrueWhenInnerPropertyIsShared(): void
     {
         $realHelper = new AttributeHelper();
