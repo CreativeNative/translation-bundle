@@ -36,22 +36,23 @@
         "symfony/uid": "^7.3 || ^8.0"
     },
     "require-dev": {
-        "roave/security-advisories": "dev-latest",
-        "symfony/phpunit-bridge": "^7.3 || ^8.0",
-        "phpunit/phpunit": "^12.4.4",
-        "php-parallel-lint/php-parallel-lint": "^v1.4.0",
-        "friendsofphp/php-cs-fixer": "@stable",
-        "phpstan/phpstan": "^2.1.32",
-        "phpstan/extension-installer": "^1.4.3",
-        "phpstan/phpstan-deprecation-rules": "^2.0.3",
-        "phpstan/phpstan-strict-rules": "^2.0.7",
-        "phpstan/phpstan-symfony": "^2.0.8",
-        "phpstan/phpstan-phpunit": "^2.0.8",
-        "rector/rector": "^2.2.9",
         "ext-pdo": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",
-        "ext-xdebug": "*"
+        "ext-xdebug": "*",
+        "friendsofphp/php-cs-fixer": "@stable",
+        "php-parallel-lint/php-parallel-lint": "^v1.4.0",
+        "phpstan/extension-installer": "^1.4.3",
+        "phpstan/phpstan": "^2.1.32",
+        "phpstan/phpstan-deprecation-rules": "^2.0.3",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0.8",
+        "phpstan/phpstan-strict-rules": "^2.0.7",
+        "phpstan/phpstan-symfony": "^2.0.8",
+        "phpunit/phpunit": "^12.4.4",
+        "rector/rector": "^2.2.9",
+        "roave/security-advisories": "dev-latest",
+        "symfony/phpunit-bridge": "^7.3 || ^8.0"
     },
     "minimum-stability": "stable",
     "autoload": {
@@ -67,7 +68,7 @@
     },
     "scripts": {
         "test":  [
-            "XDEBUG_MODE=coverage vendor/bin/phpunit"
+            "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text"
         ],
         "cs-check": [
             "vendor/bin/php-cs-fixer fix --dry-run --diff"
@@ -75,9 +76,7 @@
         "cs-fix": [
             "vendor/bin/php-cs-fixer fix"
         ],
-        "stan-max": "vendor/bin/phpstan analyse -c phpstan.neon --level max --memory-limit=512M --ansi -vvv",
-        "stan-next": "vendor/bin/phpstan analyse -c phpstan.neon --level 2 --memory-limit=512M --ansi -vvv",
-        "stan-min": "vendor/bin/phpstan analyse -c phpstan.neon --level 1 --memory-limit=512M --ansi -vvv",
+        "stan": "vendor/bin/phpstan analyse --memory-limit=512M --ansi",
         "rector": [
             "Composer\\Config::disableProcessTimeout",
             "vendor/bin/rector process --dry-run"
@@ -85,7 +84,7 @@
         "check": [
             "@test",
             "@cs-check",
-            "@stan-min"
+            "@stan"
         ]
     },
     "config": {

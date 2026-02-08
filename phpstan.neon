@@ -1,4 +1,5 @@
 parameters:
+    level: max
     scanFiles:
         - vendor/symfony/dependency-injection/Loader/Configurator/ContainerConfigurator.php
     tmpDir: var/cache/phpstan

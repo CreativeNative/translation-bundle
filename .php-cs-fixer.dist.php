@@ -25,6 +25,7 @@ return new PhpCsFixer\Config()
         'no_unused_imports' => true,
         'strict_param' => true,
         'declare_strict_types' => true,
+        'phpdoc_to_comment' => ['ignored_tags' => ['var']],
         'phpdoc_align' => false,
         'phpdoc_order' => true,
         'single_quote' => true,
