@@ -13,7 +13,6 @@ namespace Tmi\TranslationBundle\Translation\Args;
  */
 final class TranslationArgs
 {
-    /** @var mixed */
     private mixed $translatedParent = null;
 
     private \ReflectionProperty|null $property = null;

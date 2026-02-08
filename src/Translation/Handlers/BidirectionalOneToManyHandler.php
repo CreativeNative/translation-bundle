@@ -68,10 +68,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
             'amongst translations. Either remove the SharedAmongstTranslation '.
             'attribute or choose another association type.';
 
-        throw new \ErrorException(strtr($message, [
-            '%class%' => \is_object($data) ? $data::class : 'unknown',
-            '%prop%'  => null !== $property ? $property->name : 'unknown',
-        ]));
+        throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
     }
 
     /**
@@ -83,9 +80,9 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     }
 
     /**
-     * @return Collection<int, mixed>
-     *
      * @throws \ReflectionException
+     *
+     * @return Collection<int, mixed>
      */
     public function translate(TranslationArgs $args): Collection
     {
@@ -104,7 +101,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
         // Guard: property must exist in association mappings and have mappedBy
         $assocEntry = $associations[$property->name] ?? null;
-        $mappedBy = $assocEntry instanceof InverseSideMapping ? $assocEntry->mappedBy : null;
+        $mappedBy   = $assocEntry instanceof InverseSideMapping ? $assocEntry->mappedBy : null;
         if (!\is_string($mappedBy)) {
             return $children; // not a valid relation -> return original
         }

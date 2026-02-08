@@ -123,13 +123,13 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $parent->setSimpleChildren(new ArrayCollection([$child1, $child2]));
 
-        $metadata  = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
-        $mapping   = new OneToManyAssociationMapping(
+        $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
+        $mapping  = new OneToManyAssociationMapping(
             fieldName: 'simpleChildren',
             sourceEntity: TranslatableOneToManyBidirectionalParent::class,
             targetEntity: TranslatableManyToOneBidirectionalChild::class,
         );
-        $mapping->mappedBy                 = 'parentSimple';
+        $mapping->mappedBy             = 'parentSimple';
         $metadata->associationMappings = [
             'simpleChildren' => $mapping,
         ];
@@ -168,8 +168,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $parent->setSimpleChildren($collection);
 
         // Metadata with missing mappedBy
-        $metadata  = $this->createMock(ClassMetadata::class);
-        $mapping   = new OneToManyAssociationMapping(
+        $metadata = $this->createMock(ClassMetadata::class);
+        $mapping  = new OneToManyAssociationMapping(
             fieldName: 'simpleChildren',
             sourceEntity: $parent::class,
             targetEntity: TranslatableManyToOneBidirectionalChild::class,
@@ -209,8 +209,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $parent->setSimpleChildren($collection);
 
         // Metadata with mappedBy
-        $metadata  = $this->createMock(ClassMetadata::class);
-        $mapping   = new OneToManyAssociationMapping(
+        $metadata = $this->createMock(ClassMetadata::class);
+        $mapping  = new OneToManyAssociationMapping(
             fieldName: 'simpleChildren',
             sourceEntity: $parent::class,
             targetEntity: TranslatableManyToOneBidirectionalChild::class,
@@ -263,13 +263,13 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $nonTranslatableChild = new \stdClass(); // kein TranslatableInterface
         $children             = new ArrayCollection([$nonTranslatableChild]);
 
-        $metadata  = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
-        $mapping   = new OneToManyAssociationMapping(
+        $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
+        $mapping  = new OneToManyAssociationMapping(
             fieldName: 'simpleChildren',
             sourceEntity: TranslatableOneToManyBidirectionalParent::class,
             targetEntity: TranslatableManyToOneBidirectionalChild::class,
         );
-        $mapping->mappedBy                 = 'parentSimple';
+        $mapping->mappedBy             = 'parentSimple';
         $metadata->associationMappings = [
             'simpleChildren' => $mapping,
         ];

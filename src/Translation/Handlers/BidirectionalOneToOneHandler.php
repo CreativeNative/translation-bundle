@@ -81,9 +81,9 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $property = $args->getProperty();
         assert(null !== $property);
 
-        $clone        = clone $data;
-        $fieldName    = $property->name;
-        $associations = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
+        $clone           = clone $data;
+        $fieldName       = $property->name;
+        $associations    = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
         $parentFieldName = null;
 
         foreach ($associations as $association) {

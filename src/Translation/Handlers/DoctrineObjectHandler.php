@@ -41,7 +41,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
 
         // If proxy, use parent class name for metadata lookup
         $parentClass = $data instanceof Proxy ? get_parent_class($data) : false;
-        $className = \is_string($parentClass) ? $parentClass : $data::class;
+        $className   = \is_string($parentClass) ? $parentClass : $data::class;
 
         try {
             return !$this->entityManager->getMetadataFactory()->isTransient($className);

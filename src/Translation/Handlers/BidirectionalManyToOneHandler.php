@@ -65,10 +65,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
             'amongst translations. Either remove the @SharedAmongstTranslation '.
             'annotation or choose another association type.';
 
-        throw new \ErrorException(strtr($message, [
-            '%class%' => \is_object($data) ? $data::class : 'unknown',
-            '%prop%'  => null !== $property ? $property->name : 'unknown',
-        ]));
+        throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
     }
 
     public function handleEmptyOnTranslate(TranslationArgs $args): null

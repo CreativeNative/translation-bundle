@@ -64,9 +64,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
      *
      * If no property is provided in the args, return the collection unchanged (caller may handle fallbacks).
      *
-     * @return Collection<int, mixed>
-     *
      * @throws \ReflectionException|MappingException
+     *
+     * @return Collection<int, mixed>
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
     {
@@ -122,10 +122,10 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
-     * @return Collection<int, mixed>
-     *
      * @throws \ReflectionException
      * @throws MappingException
+     *
+     * @return Collection<int, mixed>
      */
     public function translate(TranslationArgs $args): Collection
     {

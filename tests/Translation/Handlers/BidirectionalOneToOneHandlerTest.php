@@ -132,13 +132,13 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $child  = new TranslatableOneToOneBidirectionalChild();
         $parent->setSimpleChild($child);
 
-        $metadata  = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
-        $mapping   = new OneToOneOwningSideMapping(
+        $metadata = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
+        $mapping  = new OneToOneOwningSideMapping(
             fieldName: 'simpleParent',
             sourceEntity: TranslatableOneToOneBidirectionalChild::class,
             targetEntity: TranslatableOneToOneBidirectionalParent::class,
         );
-        $mapping->inversedBy               = 'simpleChild';
+        $mapping->inversedBy           = 'simpleChild';
         $metadata->associationMappings = [
             'simpleParent' => $mapping,
         ];

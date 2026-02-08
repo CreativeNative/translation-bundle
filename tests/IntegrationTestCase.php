@@ -32,27 +32,6 @@ class IntegrationTestCase extends KernelTestCase
 
     protected static Container|null $container = null;
 
-    protected function translator(): EntityTranslator
-    {
-        self::assertNotNull($this->translator, 'setUp() must run before accessing translator');
-
-        return $this->translator;
-    }
-
-    protected function entityManager(): EntityManagerInterface
-    {
-        self::assertNotNull($this->entityManager, 'setUp() must run before accessing entityManager');
-
-        return $this->entityManager;
-    }
-
-    protected function attributeHelper(): AttributeHelper
-    {
-        self::assertNotNull($this->attributeHelper, 'setUp() must run before accessing attributeHelper');
-
-        return $this->attributeHelper;
-    }
-
     /**
      * {@inheritDoc}
      *
@@ -114,21 +93,6 @@ class IntegrationTestCase extends KernelTestCase
         $schemaTool->createSchema($metadata);
     }
 
-    private function registerTuuidTypeMapping(ContainerInterface $container): void
-    {
-        if (!$container->has('doctrine.dbal.default_connection')) {
-            return;
-        }
-
-        $connection = $container->get('doctrine.dbal.default_connection');
-        if (!$connection instanceof Connection) {
-            return;
-        }
-
-        $platform = $connection->getDatabasePlatform();
-        $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
-    }
-
     #[\Override]
     final public function tearDown(): void
     {
@@ -161,5 +125,41 @@ class IntegrationTestCase extends KernelTestCase
                 'Expected a cloned translation when target locale differs',
             );
         }
+    }
+
+    protected function translator(): EntityTranslator
+    {
+        self::assertNotNull($this->translator, 'setUp() must run before accessing translator');
+
+        return $this->translator;
+    }
+
+    protected function entityManager(): EntityManagerInterface
+    {
+        self::assertNotNull($this->entityManager, 'setUp() must run before accessing entityManager');
+
+        return $this->entityManager;
+    }
+
+    protected function attributeHelper(): AttributeHelper
+    {
+        self::assertNotNull($this->attributeHelper, 'setUp() must run before accessing attributeHelper');
+
+        return $this->attributeHelper;
+    }
+
+    private function registerTuuidTypeMapping(ContainerInterface $container): void
+    {
+        if (!$container->has('doctrine.dbal.default_connection')) {
+            return;
+        }
+
+        $connection = $container->get('doctrine.dbal.default_connection');
+        if (!$connection instanceof Connection) {
+            return;
+        }
+
+        $platform = $connection->getDatabasePlatform();
+        $platform->registerDoctrineTypeMapping('tuuid', 'tuuid');
     }
 }

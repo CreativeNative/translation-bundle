@@ -35,6 +35,34 @@ class UnitTestCase extends TestCase
 
     protected PropertyAccessor|null $propertyAccessor = null;
 
+    /**
+     * {@inheritDoc}
+     */
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        // First create stubs/mocks for the core dependencies
+        $this->eventDispatcherInterface = static::createStub(EventDispatcherInterface::class);
+        $this->attributeHelper          = $this->createMock(AttributeHelper::class);
+        $this->entityManager            = $this->createMock(EntityManagerInterface::class);
+        $this->logger                   = $this->createMock(LoggerInterface::class);
+        $this->propertyAccessor         = new PropertyAccessor();
+
+        // Translator can be built afterwards, since it depends on the mocks
+        $this->translator = $this->getTranslator($this->logger);
+    }
+
+    public function getTranslationArgs(\ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
+    {
+        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
+        if (null !== $prop) {
+            $args->setProperty($prop);
+        }
+
+        return $args;
+    }
+
     protected function translator(): EntityTranslator
     {
         self::assertNotNull($this->translator, 'setUp() must run before accessing translator');
@@ -75,34 +103,6 @@ class UnitTestCase extends TestCase
         self::assertNotNull($this->propertyAccessor, 'setUp() must run before accessing propertyAccessor');
 
         return $this->propertyAccessor;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function setUp(): void
-    {
-        parent::setUp();
-
-        // First create stubs/mocks for the core dependencies
-        $this->eventDispatcherInterface = static::createStub(EventDispatcherInterface::class);
-        $this->attributeHelper          = $this->createMock(AttributeHelper::class);
-        $this->entityManager            = $this->createMock(EntityManagerInterface::class);
-        $this->logger                   = $this->createMock(LoggerInterface::class);
-        $this->propertyAccessor         = new PropertyAccessor();
-
-        // Translator can be built afterwards, since it depends on the mocks
-        $this->translator = $this->getTranslator($this->logger);
-    }
-
-    public function getTranslationArgs(\ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
-    {
-        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
-        if (null !== $prop) {
-            $args->setProperty($prop);
-        }
-
-        return $args;
     }
 
     private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
