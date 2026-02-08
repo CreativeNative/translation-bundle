@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\DependencyInjection;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Exception\TypesException;
@@ -14,6 +15,7 @@ use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 
 #[AllowMockObjectsWithoutExpectations]
 final class TmiTranslationExtensionTest extends IntegrationTestCase
@@ -105,6 +107,46 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         // Assert that the TuuidType exists
         self::assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered');
         self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testTuuidTypeMappingWithRealConnectionMock(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+
+        $platformMock = $this->createMock(AbstractPlatform::class);
+        $platformMock->expects(self::once())
+            ->method('registerDoctrineTypeMapping')
+            ->with('tuuid', 'tuuid');
+
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('getDatabasePlatform')
+            ->willReturn($platformMock);
+
+        $containerBuilder->set('doctrine.dbal.default_connection', $connectionMock);
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+
+        // The expects(once()) on platformMock will verify registerDoctrineTypeMapping was called
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testLoadSetsLoggerToNullWhenLoggingDisabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US', 'logging' => ['enabled' => false]]], $containerBuilder);
+
+        $definition = $containerBuilder->getDefinition(EntityTranslator::class);
+        self::assertNull($definition->getArgument('$logger'));
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder
