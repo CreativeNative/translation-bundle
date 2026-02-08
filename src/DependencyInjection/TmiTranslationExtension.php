@@ -80,7 +80,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
     {
         foreach ($params as $key => $value) {
             $name = $parent.'.'.$key;
-            /** @var array<mixed>|bool|float|int|string|\UnitEnum|null $value */
+            assert(is_array($value) || is_scalar($value) || $value instanceof \UnitEnum || null === $value);
             $container->setParameter($name, $value);
 
             if (\is_array($value)) {

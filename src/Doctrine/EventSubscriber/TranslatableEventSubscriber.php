@@ -6,7 +6,6 @@ namespace Tmi\TranslationBundle\Doctrine\EventSubscriber;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\Common\EventSubscriber;
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PrePersistEventArgs;
@@ -69,9 +68,8 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
 
     public function onFlush(OnFlushEventArgs $args): void
     {
-        /** @var EntityManagerInterface $entityManager */
         $entityManager = $args->getObjectManager();
-        $uow = $entityManager->getUnitOfWork();
+        $uow           = $entityManager->getUnitOfWork();
 
         foreach ($uow->getScheduledEntityInsertions() as $entity) {
             if ($entity instanceof TranslatableInterface) {

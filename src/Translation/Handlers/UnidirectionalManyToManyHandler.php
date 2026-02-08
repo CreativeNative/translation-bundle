@@ -60,7 +60,6 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     {
         $prop = $args->getProperty();
         if (null === $prop) {
-            /** @var Collection<int, mixed> */
             return new ArrayCollection();
         }
 
