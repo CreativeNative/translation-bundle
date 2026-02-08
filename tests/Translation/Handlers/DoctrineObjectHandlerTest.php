@@ -32,6 +32,13 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         );
     }
 
+    public function testSupportsReturnsFalseWhenDataIsNotObject(): void
+    {
+        $args = new TranslationArgs('a string', 'en_US', 'de_DE');
+
+        self::assertFalse($this->handler->supports($args));
+    }
+
     public function testSupportsThrowsRuntimeExceptionWhenMetadataFactoryFails(): void
     {
         $metaFactory = $this->createMock(ClassMetadataFactory::class);
