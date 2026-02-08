@@ -225,6 +225,125 @@ final class EmbeddedHandlerTest extends UnitTestCase
     // Logging tests
     // ---------------------------------------------------------------
 
+    // ---------------------------------------------------------------
+    // handleEmptyOnTranslate per-property loop tests
+    // ---------------------------------------------------------------
+
+    /**
+     * Covers lines 79-94: the per-property loop in handleEmptyOnTranslate().
+     *
+     * When the parent property does NOT have #[EmptyOnTranslate], the early return
+     * at line 76 is skipped and the handler iterates each inner property:
+     * - shared properties are retained (continue at line 85)
+     * - empty properties are cleared (lines 88-90)
+     * - the result is the clone if any property was changed (line 94)
+     */
+    public function testHandleEmptyOnTranslatePerPropertyResolution(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper);
+
+        $address = new AddressWithEmptyAndSharedProperty();
+        $address->setStreet('Test Street');
+        $address->setPostalCode('12345');
+        $address->setCity('Test City');
+        $address->setCountry('Test Country');
+
+        // Use a property that does NOT have #[EmptyOnTranslate] so the early return is skipped.
+        // We use a dummy property from an anonymous class (no attributes at all).
+        $dummy    = new class { public string|null $prop = null; };
+        $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
+
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $args->setProperty($dummyRef);
+
+        $result = $handler->handleEmptyOnTranslate($args);
+
+        // Result should be a clone (not the original) because $street and $noSetter have #[EmptyOnTranslate]
+        self::assertNotSame($address, $result);
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
+
+        // $country (#[SharedAmongstTranslations]) -> retained (continue at line 85)
+        self::assertSame('Test Country', $result->getCountry());
+
+        // $street (#[EmptyOnTranslate]) -> cleared via setter (line 89)
+        self::assertNull($result->getStreet());
+
+        // $noSetter (#[EmptyOnTranslate]) -> cleared via reflection fallback (line 89)
+        self::assertNull($result->getNoSetter());
+
+        // $postalCode and $city (no attribute) -> unchanged in clone (not cleared, not shared)
+        self::assertSame('12345', $result->getPostalCode());
+        self::assertSame('Test City', $result->getCity());
+    }
+
+    /**
+     * Covers line 94 return path: when no inner property has #[EmptyOnTranslate],
+     * $changed remains false and the original embeddable is returned (not the clone).
+     */
+    public function testHandleEmptyOnTranslateReturnsOriginalWhenNoPropertyChanged(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper);
+
+        // Use Address fixture which has NO attributes on any property
+        $address = new Address();
+        $address->setStreet('Street');
+        $address->setPostalCode('12345');
+        $address->setCity('City');
+        $address->setCountry('Country');
+
+        // Property without #[EmptyOnTranslate] -> skip early return
+        $dummy    = new class { public string|null $prop = null; };
+        $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
+
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $args->setProperty($dummyRef);
+
+        $result = $handler->handleEmptyOnTranslate($args);
+
+        // No properties were changed -> returns original (not clone)
+        self::assertSame($address, $result);
+    }
+
+    // ---------------------------------------------------------------
+    // isShared inner property tests (via handleSharedAmongstTranslations)
+    // ---------------------------------------------------------------
+
+    /**
+     * Covers line 263: array_any() check for inner properties with #[SharedAmongstTranslations].
+     *
+     * AddressWithEmptyAndSharedProperty has:
+     * - No class-level #[SharedAmongstTranslations]
+     * - Property-level #[SharedAmongstTranslations] on $country
+     *
+     * When called without a parent property (so line 252 check is false)
+     * and the class has no class-level shared attribute (line 258 check is false),
+     * the array_any at line 263 finds $country and returns true.
+     * handleSharedAmongstTranslations then returns the original (not a clone).
+     */
+    public function testHandleSharedAmongstTranslationsReturnsTrueWhenInnerPropertyIsShared(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper);
+
+        $address = new AddressWithEmptyAndSharedProperty();
+        $address->setStreet('Test Street');
+        $address->setCountry('Test Country');
+
+        // No parent property set -> line 252 check is false
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+
+        $result = $handler->handleSharedAmongstTranslations($args);
+
+        // isShared returns true (inner $country has #[SharedAmongstTranslations]) -> returns original
+        self::assertSame($address, $result);
+    }
+
+    // ---------------------------------------------------------------
+    // Logging tests
+    // ---------------------------------------------------------------
+
     public function testTranslateLogsResolutionChainAtDebugLevel(): void
     {
         $realHelper = new AttributeHelper();
