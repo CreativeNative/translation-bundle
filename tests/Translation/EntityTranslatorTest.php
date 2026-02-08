@@ -636,6 +636,17 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertSame('result', $result);
     }
 
+    public function testWarmupTranslationsSkipsEntityWithNullTuuid(): void
+    {
+        $entity = self::createStub(\Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface::class);
+        $entity->method('getTuuid')->willReturn(null);
+
+        $method = new \ReflectionMethod($this->translator(), 'warmupTranslations');
+        $method->invoke($this->translator(), [$entity], 'de_DE');
+
+        $this->addToAssertionCount(1);
+    }
+
     /**
      * @param array<string, mixed> $methodToReturnMap Method names as keys, return values as values
      */
