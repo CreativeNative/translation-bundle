@@ -35,9 +35,10 @@ final class TestKernel extends BaseKernel
         $locales = ['en_US', 'de_DE', 'it_IT'];
 
         $container->extension('framework', [
-            'secret'  => 'test_secret',
-            'test'    => true,
-            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file'],
+            'secret'          => 'test_secret',
+            'test'            => true,
+            'session'         => ['storage_factory_id' => 'session.storage.factory.mock_file'],
+            'enabled_locales' => $locales,
         ]);
 
         $container->extension('doctrine', [
@@ -67,7 +68,6 @@ final class TestKernel extends BaseKernel
         ]);
 
         $container->extension('tmi_translation', [
-            'locales'            => $locales,
             'default_locale'     => 'en_US',
             'disabled_firewalls' => ['admin'],
         ]);

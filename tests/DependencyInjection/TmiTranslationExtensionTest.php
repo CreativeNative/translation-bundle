@@ -31,7 +31,6 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension = new TmiTranslationExtension();
         $config    = [
             [
-                'locales'            => ['en_US', 'de_DE', 'it_IT'],
                 'default_locale'     => 'en_US',
                 'disabled_firewalls' => ['main'],
             ],
@@ -67,7 +66,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
 
         $containerBuilder = $this->createContainerBuilderFromKernel();
         $extension        = new TmiTranslationExtension();
-        $extension->load([['locales' => ['en_US', 'de_DE'], 'default_locale' => 'en_US']], $containerBuilder);
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
 
         self::assertTrue(Type::hasType(TuuidType::NAME));
         self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
@@ -80,6 +79,8 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
     public function testTuuidTypeMapping(): void
     {
         $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
 
         // Create a fake DBAL platform stub
         $platformStub = $this->createMock(AbstractPlatform::class);
@@ -102,7 +103,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $containerBuilder->set('doctrine.dbal.default_connection', $connectionStub);
 
         $extension = new TmiTranslationExtension();
-        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
 
         // Assert that the TuuidType exists
         self::assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be registered');
@@ -116,6 +117,8 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
     public function testTuuidTypeMappingWithRealConnectionMock(): void
     {
         $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
 
         $platformMock = $this->createMock(AbstractPlatform::class);
         $platformMock->expects(self::once())
@@ -129,7 +132,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $containerBuilder->set('doctrine.dbal.default_connection', $connectionMock);
 
         $extension = new TmiTranslationExtension();
-        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
 
         // The expects(once()) on platformMock will verify registerDoctrineTypeMapping was called
     }
@@ -161,7 +164,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
 
             $containerBuilder = $this->createContainerBuilderFromKernel();
             $extension        = new TmiTranslationExtension();
-            $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+            $extension->load([['default_locale' => 'en_US']], $containerBuilder);
 
             self::assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be re-registered by load()');
             self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
@@ -181,10 +184,93 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $containerBuilder = $this->createContainerBuilderFromKernel();
 
         $extension = new TmiTranslationExtension();
-        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US', 'logging' => ['enabled' => false]]], $containerBuilder);
+        $extension->load([['default_locale' => 'en_US', 'enable_logging' => false]], $containerBuilder);
 
         $definition = $containerBuilder->getDefinition(EntityTranslator::class);
         self::assertNull($definition->getArgument('$logger'));
+    }
+
+    public function testLoadThrowsWhenEnabledLocalesNotConfigured(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('framework.enabled_locales to be configured');
+
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+    }
+
+    public function testLoadThrowsWhenEnabledLocalesIsEmpty(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', []);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('framework.enabled_locales to be configured');
+
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+    }
+
+    public function testLoadThrowsWhenDefaultLocaleNotInEnabledLocales(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US', 'de_DE']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The default_locale "fr_FR" must be included in framework.enabled_locales [en_US, de_DE]');
+
+        $extension->load([['default_locale' => 'fr_FR']], $containerBuilder);
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testLoggingDefaultsToDisabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        $definition = $containerBuilder->getDefinition(EntityTranslator::class);
+        self::assertNull($definition->getArgument('$logger'));
+    }
+
+    public function testLoadThrowsOnRemovedLocalesConfigKey(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('"tmi_translation.locales" option was removed in v2.0');
+
+        $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+    }
+
+    public function testLoadThrowsOnRemovedLoggingConfigKey(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('"tmi_translation.logging" option was removed in v2.0');
+
+        $extension->load([['logging' => ['enabled' => true], 'default_locale' => 'en_US']], $containerBuilder);
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder

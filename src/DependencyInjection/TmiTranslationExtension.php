@@ -27,16 +27,10 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         // Detect removed v1.x config keys and provide migration guidance
         foreach ($configs as $subConfig) {
             if (\is_array($subConfig) && isset($subConfig['locales'])) {
-                throw new \LogicException(
-                    'The "tmi_translation.locales" option was removed in v2.0. '
-                    .'Configure "framework.enabled_locales" instead.',
-                );
+                throw new \LogicException('The "tmi_translation.locales" option was removed in v2.0. Configure "framework.enabled_locales" instead.');
             }
             if (\is_array($subConfig) && isset($subConfig['logging'])) {
-                throw new \LogicException(
-                    'The "tmi_translation.logging" option was removed in v2.0. '
-                    .'Use "tmi_translation.enable_logging: true" instead.',
-                );
+                throw new \LogicException('The "tmi_translation.logging" option was removed in v2.0. Use "tmi_translation.enable_logging: true" instead.');
             }
         }
 
@@ -51,20 +45,13 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
             : [];
 
         if ([] === $enabledLocales) {
-            throw new \LogicException(
-                'The tmi/translation-bundle requires framework.enabled_locales to be configured. '
-                .'Add "enabled_locales" to your framework configuration.',
-            );
+            throw new \LogicException('The tmi/translation-bundle requires framework.enabled_locales to be configured. Add "enabled_locales" to your framework configuration.');
         }
 
         // Validate that default_locale is included in enabled_locales
         $defaultLocale = $config['default_locale'];
         if (!\in_array($defaultLocale, $enabledLocales, true)) {
-            throw new \LogicException(\sprintf(
-                'The default_locale "%s" must be included in framework.enabled_locales [%s].',
-                $defaultLocale,
-                implode(', ', $enabledLocales),
-            ));
+            throw new \LogicException(\sprintf('The default_locale "%s" must be included in framework.enabled_locales [%s].', $defaultLocale, implode(', ', $enabledLocales)));
         }
 
         // Set configuration into params
