@@ -24,9 +24,48 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
+        // Detect removed v1.x config keys and provide migration guidance
+        foreach ($configs as $subConfig) {
+            if (\is_array($subConfig) && isset($subConfig['locales'])) {
+                throw new \LogicException(
+                    'The "tmi_translation.locales" option was removed in v2.0. '
+                    .'Configure "framework.enabled_locales" instead.',
+                );
+            }
+            if (\is_array($subConfig) && isset($subConfig['logging'])) {
+                throw new \LogicException(
+                    'The "tmi_translation.logging" option was removed in v2.0. '
+                    .'Use "tmi_translation.enable_logging: true" instead.',
+                );
+            }
+        }
+
         $configuration = new Configuration();
-        /** @var array{locales: list<string>, default_locale: string, disabled_firewalls: list<string>, logging: array{enabled: bool}} $config */
+        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool} $config */
         $config = $this->processConfiguration($configuration, $configs);
+
+        // Read locales from Symfony's framework.enabled_locales
+        /** @var list<string> $enabledLocales */
+        $enabledLocales = $container->hasParameter('kernel.enabled_locales')
+            ? $container->getParameter('kernel.enabled_locales')
+            : [];
+
+        if ([] === $enabledLocales) {
+            throw new \LogicException(
+                'The tmi/translation-bundle requires framework.enabled_locales to be configured. '
+                .'Add "enabled_locales" to your framework configuration.',
+            );
+        }
+
+        // Validate that default_locale is included in enabled_locales
+        $defaultLocale = $config['default_locale'];
+        if (!\in_array($defaultLocale, $enabledLocales, true)) {
+            throw new \LogicException(\sprintf(
+                'The default_locale "%s" must be included in framework.enabled_locales [%s].',
+                $defaultLocale,
+                implode(', ', $enabledLocales),
+            ));
+        }
 
         // Set configuration into params
         $rootName = 'tmi_translation';
@@ -54,13 +93,11 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         if ($container->has(EntityTranslator::class)) {
             $definition = $container->getDefinition(EntityTranslator::class);
 
-            $loggingEnabled = $config['logging']['enabled'];
-
-            if (true !== $loggingEnabled) {
+            if (!$config['enable_logging']) {
                 // Explicitly disable - don't inject logger even if available
                 $definition->setArgument('$logger', null);
             }
-            // If enabled (default), let autowiring handle it via services.yaml
+            // If enabled, let autowiring handle it via services.yaml
         }
     }
 

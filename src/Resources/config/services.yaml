@@ -19,7 +19,7 @@ services:
     Tmi\TranslationBundle\Translation\EntityTranslator:
         arguments:
             $defaultLocale: '%tmi_translation.default_locale%'
-            $locales: '%tmi_translation.locales%'
+            $locales: '%kernel.enabled_locales%'
             $eventDispatcher: '@event_dispatcher'
             $attributeHelper: '@tmi_translation.utils.attribute_helper'
             $logger: '@?logger'
@@ -97,7 +97,7 @@ services:
     # ----------------------------
     Tmi\TranslationBundle\Twig\TmiTranslationExtension:
         arguments:
-            - '%tmi_translation.locales%'
+            - '%kernel.enabled_locales%'
         tags: [ { name: twig.extension } ]
 
     # ----------------------------
