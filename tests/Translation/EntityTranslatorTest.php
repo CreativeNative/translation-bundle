@@ -168,15 +168,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->attributeHelper()->method('isEmptyOnTranslate')
             ->willReturnCallback(fn ($property) => false);
 
-        // Handler that will be called once per translate() invocation (per property)
+        // Handler called once (first lifecycle event); subsequent events use cache
         $handler = $this->createMock(TranslationHandlerInterface::class);
-
-        // supports() should accept any TranslationArgs (we cannot easily match the exact instance inside translate())
         $handler->method('supports')->willReturn(true);
-        $handler->method('translate')->willReturn($entity);
-
-        // translate() should be invoked exactly 3 times (afterLoad + beforePersist + beforeUpdate) for the single property
-        $handler->expects($this->exactly(3))->method('translate')->willReturn($entity);
+        $handler->expects($this->once())->method('translate')->willReturn($entity);
 
         $this->translator()->addTranslationHandler($handler);
         $this->translator()->afterLoad($entity);
@@ -194,22 +189,20 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
-        $handler->method('translate')->willReturn($entity);
 
-        // now 4 lifecycle methods (afterLoad + beforePersist + beforeUpdate + beforeRemove)
-        $handler->expects($this->exactly(4))->method('translate')->willReturn($entity);
+        // Handler called once (first lifecycle event); subsequent events use cache
+        $handler->expects($this->once())->method('translate')->willReturn($entity);
 
         $this->translator()->addTranslationHandler($handler);
 
+        // 4 lifecycle methods: afterLoad + beforePersist + beforeUpdate + beforeRemove
+        // Only the first actually invokes the handler; the rest return from cache
         $this->translator()->afterLoad($entity);
         $this->translator()->beforePersist($entity);
         $this->translator()->beforeUpdate($entity);
         $this->translator()->beforeRemove($entity);
     }
 
-    /**
-     * @throws \ReflectionException
-     */
     public function testProcessTranslationUsesExistingCacheEntry(): void
     {
         $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
@@ -222,9 +215,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $cached = clone $entity;
         $cached->setLocale('de_DE');
 
-        // Inject into private translationCache via reflection
-        $rp = new \ReflectionProperty($this->translator(), 'translationCache');
-        $rp->setValue($this->translator(), [(string) $tuuid => ['de_DE' => $cached]]);
+        // Inject into cache via cache service
+        $this->cache()->set((string) $tuuid, 'de_DE', $cached);
 
         // If cache exists, processTranslation should return cached item
         $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
@@ -233,9 +225,6 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertSame($cached, $result);
     }
 
-    /**
-     * @throws \ReflectionException
-     */
     public function testWarmupTranslationsPopulatesCacheWithoutQuery(): void
     {
         $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
@@ -248,9 +237,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $translated = clone $entity;
         $translated->setLocale('de_DE');
 
-        // manually inject into private cache
-        $rp = new \ReflectionProperty($this->translator(), 'translationCache');
-        $rp->setValue($this->translator(), [(string) $tuuid => ['de_DE' => $translated]]);
+        // Inject into cache via cache service
+        $this->cache()->set((string) $tuuid, 'de_DE', $translated);
 
         $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator()->processTranslation($args);
@@ -258,9 +246,6 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertSame($translated, $result);
     }
 
-    /**
-     * @throws \ReflectionException
-     */
     public function testInProgressPreventsRecursiveTranslation(): void
     {
         $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
@@ -269,11 +254,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $entity->setTuuid($tuuid);
         $entity->setLocale('en_US');
 
-        // simulate inProgress being set for this tuuid + target locale
-        $rp = new \ReflectionProperty($this->translator(), 'inProgress');
-        $rp->setValue($this->translator(), [$tuuid->getValue().':de' => true]);
+        // Mark as in-progress for this tuuid + target locale via cache service
+        $this->cache()->markInProgress($tuuid->getValue(), 'de_DE');
 
-        // if inProgress is set, processTranslation should return the original entity (no clone)
+        // if inProgress is set, processTranslation should return the original entity (cycle detection)
         $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator()->processTranslation($args);
 
@@ -303,6 +287,52 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertInstanceOf(Scalar::class, $result);
     }
 
+    public function testProcessTranslationCleansUpInProgressOnWarmupException(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        // Stub query chain to throw during warmup
+        $queryStub = self::createStub(Query::class);
+        $queryStub->method('getResult')->willThrowException(new \RuntimeException('DB error'));
+
+        $qbStub = self::createStub(QueryBuilder::class);
+        $qbStub->method('select')->willReturnSelf();
+        $qbStub->method('from')->willReturnSelf();
+        $qbStub->method('where')->willReturnSelf();
+        $qbStub->method('andWhere')->willReturnSelf();
+        $qbStub->method('setParameter')->willReturnSelf();
+        $qbStub->method('getQuery')->willReturn($queryStub);
+
+        $emStub = self::createStub(EntityManagerInterface::class);
+        $emStub->method('createQueryBuilder')->willReturn($qbStub);
+
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
+            $this->eventDispatcher(),
+            $this->attributeHelper(),
+            $emStub,
+            $this->cache(),
+        );
+
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+
+        // Verify the exception is re-thrown
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessage('DB error');
+
+        try {
+            $translator->processTranslation($args);
+        } finally {
+            // In-progress mark was cleaned up despite the exception
+            self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
+        }
+    }
+
     /**
      * @throws \ReflectionException
      */
@@ -323,14 +353,12 @@ final class EntityTranslatorTest extends UnitTestCase
         $scalarCached->setLocale('en_US');
         $scalarCached->setTuuid($tuuid);
 
-        // Inject cache directly
-        $translationCache = [(string) $tuuid => ['de_DE' => $scalarCached]];
-        $rp               = new \ReflectionProperty($this->translator(), 'translationCache');
-        $rp->setValue($this->translator(), $translationCache);
+        // Inject cache via cache service
+        $this->cache()->set((string) $tuuid, 'de_DE', $scalarCached);
 
         $entities = [$nonTranslatable, $autoGeneratedTuuid, $scalarCached];
 
-        // Call warmupTranslations
+        // Call warmupTranslations (private method, still requires reflection)
         $method = new \ReflectionMethod($this->translator(), 'warmupTranslations');
         $method->invoke($this->translator(), $entities, 'de_DE');
 
@@ -339,10 +367,8 @@ final class EntityTranslatorTest extends UnitTestCase
     }
 
     /**
-     * Cache hit: returns cached entity. InProgress will NOT be unset
-     * because translator likely only unsets after DB warmup, not cache.
-     *
-     * @throws \ReflectionException
+     * Cache hit: returns cached entity. InProgress is NOT cleared in the cache-hit path
+     * because the early return happens before markInProgress/unmarkInProgress are called.
      */
     public function testProcessTranslationUsesCacheAndKeepsInProgressOnCacheHit(): void
     {
@@ -356,27 +382,19 @@ final class EntityTranslatorTest extends UnitTestCase
         $cachedTranslation->setTuuid($sharedTuuid);
         $cachedTranslation->setLocale('de_DE');
 
-        $reflection = new \ReflectionClass($this->translator());
+        // Pre-fill cache via cache service
+        $this->cache()->set($sharedTuuid->getValue(), 'de_DE', $cachedTranslation);
 
-        // Pre-fill cache
-        $translationCacheProperty = $reflection->getProperty('translationCache');
-        $translationCacheProperty->setValue($this->translator(), [
-            $sharedTuuid->getValue() => ['de_DE' => $cachedTranslation],
-        ]);
-
-        // Mark as inProgress
-        $inProgressProperty = $reflection->getProperty('inProgress');
-        $inProgressProperty->setValue($this->translator(), [$sharedTuuid.':de' => true]);
+        // Mark as inProgress via cache service
+        $this->cache()->markInProgress($sharedTuuid->getValue(), 'de_DE');
 
         $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
         $result = $this->translator()->processTranslation($args);
 
         self::assertSame($cachedTranslation, $result);
 
-        // InProgress is NOT unset in this path, so assert it's still there
-        $inProgressAfter = $inProgressProperty->getValue($this->translator());
-        self::assertIsArray($inProgressAfter);
-        self::assertArrayHasKey($sharedTuuid.':de', $inProgressAfter);
+        // Cache hit returns early -- inProgress is NOT cleared in the cache-hit path
+        self::assertTrue($this->cache()->isInProgress($sharedTuuid->getValue(), 'de_DE'));
     }
 
     public function testLoggerIsOptional(): void
@@ -388,6 +406,7 @@ final class EntityTranslatorTest extends UnitTestCase
             $this->eventDispatcher(),
             $this->attributeHelper(),
             $this->createMock(EntityManagerInterface::class),
+            $this->cache(),
             null, // No logger
         );
 
@@ -474,6 +493,7 @@ final class EntityTranslatorTest extends UnitTestCase
             $this->eventDispatcher(),
             $this->attributeHelper(),
             $this->createMock(EntityManagerInterface::class),
+            $this->cache(),
             null,
         );
 
@@ -663,13 +683,14 @@ final class EntityTranslatorTest extends UnitTestCase
         $emStub = self::createStub(EntityManagerInterface::class);
         $emStub->method('createQueryBuilder')->willReturn($qbStub);
 
-        // Build a translator with the custom EntityManager
+        // Build a translator with the custom EntityManager (shares cache with test)
         $translator = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
             $this->eventDispatcher(),
             $this->attributeHelper(),
             $emStub,
+            $this->cache(),
             $this->logger(),
         );
 
@@ -680,9 +701,8 @@ final class EntityTranslatorTest extends UnitTestCase
         // The cache hit path returns that entity immediately.
         self::assertSame($translated, $result);
 
-        // Verify inProgress was cleaned up
-        $inProgressProp = new \ReflectionProperty($translator, 'inProgress');
-        self::assertEmpty($inProgressProp->getValue($translator));
+        // Verify inProgress was cleaned up via cache service
+        self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
     }
 
     /**

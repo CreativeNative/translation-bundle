@@ -11,13 +11,13 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
+use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
  * ToDo: Improve #[EmptyOnTranslate] handling for non-nullable and scalar fields
- * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2
+ * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2.
  */
 final class EntityTranslator implements EntityTranslatorInterface
 {
@@ -103,6 +103,8 @@ final class EntityTranslator implements EntityTranslatorInterface
                 $this->warmupTranslations([$entity], $locale);
 
                 if ($this->cache->has($tuuidValue, $locale)) {
+                    $this->cache->unmarkInProgress($tuuidValue, $locale);
+
                     return $this->cache->get($tuuidValue, $locale);
                 }
             } catch (\Throwable $e) {

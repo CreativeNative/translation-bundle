@@ -15,6 +15,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -24,6 +25,8 @@ class UnitTestCase extends TestCase
     protected const string TARGET_LOCALE = 'de_DE';
 
     protected EntityTranslator|null $translator = null;
+
+    protected InMemoryTranslationCache|null $cache = null;
 
     protected (MockObject&EntityManagerInterface)|null $entityManager = null;
 
@@ -48,6 +51,7 @@ class UnitTestCase extends TestCase
         $this->entityManager            = $this->createMock(EntityManagerInterface::class);
         $this->logger                   = $this->createMock(LoggerInterface::class);
         $this->propertyAccessor         = new PropertyAccessor();
+        $this->cache                    = new InMemoryTranslationCache();
 
         // Translator can be built afterwards, since it depends on the mocks
         $this->translator = $this->getTranslator($this->logger);
@@ -105,6 +109,13 @@ class UnitTestCase extends TestCase
         return $this->propertyAccessor;
     }
 
+    protected function cache(): InMemoryTranslationCache
+    {
+        self::assertNotNull($this->cache, 'setUp() must run before accessing cache');
+
+        return $this->cache;
+    }
+
     private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
     {
         // Create a stub Query object
@@ -130,6 +141,7 @@ class UnitTestCase extends TestCase
             $this->eventDispatcher(),
             $this->attributeHelper(),
             $emStub,
+            $this->cache(),
             $logger,
         );
     }
