@@ -103,7 +103,7 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
-            $tuuid = $entity->getTuuid();
+            $tuuid    = $entity->getTuuid();
             $cacheKey = $tuuid->getValue().':'.$locale;
 
             // Return cached translation immediately if available
@@ -202,7 +202,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                 );
 
                 // Store translation in cache for reuse
-                $tuuid = $translated->getTuuid();
+                $tuuid                                                                = $translated->getTuuid();
                 $this->translationCache[$tuuid->getValue()][$translated->getLocale()] = $translated;
 
                 // Remove from in-progress set
@@ -307,7 +307,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translations = $qb->getQuery()->getResult();
 
             foreach ($translations ?? [] as $translation) {
-                $translationTuuid = $translation->getTuuid();
+                $translationTuuid                                                                 = $translation->getTuuid();
                 $this->translationCache[$translationTuuid->getValue()][$translation->getLocale()] = $translation;
             }
         }
