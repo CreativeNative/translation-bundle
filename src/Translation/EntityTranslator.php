@@ -12,12 +12,10 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * ToDo: Introduce a Translation Cache Service
- * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/3.
- *
  * ToDo: Improve #[EmptyOnTranslate] handling for non-nullable and scalar fields
  * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2
  */
@@ -29,23 +27,6 @@ final class EntityTranslator implements EntityTranslatorInterface
     private LoggerInterface|null $logger = null;
 
     /**
-     * Translation cache:
-     * - First key: tuuid
-     * - Second key: locale
-     * - Value: Translated entity
-     *
-     * @var array<string, array<string, TranslatableInterface>>
-     */
-    private array $translationCache = [];
-
-    /**
-     * Tracks entities currently being translated (to avoid infinite recursion).
-     *
-     * @var array<string, true>
-     */
-    private array $inProgress = [];
-
-    /**
      * @param array<string> $locales
      */
     public function __construct(
@@ -55,6 +36,7 @@ final class EntityTranslator implements EntityTranslatorInterface
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AttributeHelper $attributeHelper,
         private readonly EntityManagerInterface $entityManager,
+        private readonly TranslationCacheInterface $cache,
         LoggerInterface|null $logger = null,
     ) {
         $this->logger = $logger;
@@ -103,28 +85,29 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
-            $tuuid    = $entity->getTuuid();
-            $cacheKey = $tuuid->getValue().':'.$locale;
+            $tuuidValue = $entity->getTuuid()->getValue();
 
             // Return cached translation immediately if available
-            if (isset($this->translationCache[$tuuid->getValue()][$locale])) {
-                return $this->translationCache[$tuuid->getValue()][$locale];
+            if ($this->cache->has($tuuidValue, $locale)) {
+                return $this->cache->get($tuuidValue, $locale);
             }
 
             // Detect cycles to avoid infinite recursion
-            if (isset($this->inProgress[$cacheKey])) {
+            if ($this->cache->isInProgress($tuuidValue, $locale)) {
                 return $entity;
             }
 
-            // Mark as in-progress and attempt to warm up existing translations from the database
-            $this->inProgress[$cacheKey] = true;
-            // Warmup existing translations from DB
-            $this->warmupTranslations([$entity], $locale);
+            // Mark as in-progress with auto-cleanup guarantee
+            $this->cache->markInProgress($tuuidValue, $locale);
+            try {
+                $this->warmupTranslations([$entity], $locale);
 
-            if (isset($this->translationCache[$tuuid->getValue()][$locale])) {
-                unset($this->inProgress[$cacheKey]);
-
-                return $this->translationCache[$tuuid->getValue()][$locale];
+                if ($this->cache->has($tuuidValue, $locale)) {
+                    return $this->cache->get($tuuidValue, $locale);
+                }
+            } catch (\Throwable $e) {
+                $this->cache->unmarkInProgress($tuuidValue, $locale);
+                throw $e;
             }
         }
 
@@ -195,18 +178,13 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translated = $handler->translate($args);
 
             if ($entity instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
-                // POST_TRANSLATE event
                 $this->eventDispatcher->dispatch(
                     new TranslateEvent($entity, $locale, $translated),
                     TranslateEvent::POST_TRANSLATE,
                 );
 
-                // Store translation in cache for reuse
-                $tuuid                                                                = $translated->getTuuid();
-                $this->translationCache[$tuuid->getValue()][$translated->getLocale()] = $translated;
-
-                // Remove from in-progress set
-                unset($this->inProgress[$entity->getTuuid()->getValue().':'.$locale]);
+                $this->cache->set($translated->getTuuid()->getValue(), $translated->getLocale() ?? $locale, $translated);
+                $this->cache->unmarkInProgress($entity->getTuuid()->getValue(), $locale);
 
                 $this->logDebug('Translation complete', [
                     'class'         => $translated::class,
@@ -287,11 +265,11 @@ final class EntityTranslator implements EntityTranslatorInterface
             if (!$entity instanceof TranslatableInterface) {
                 continue;
             }
-            $tuuid = $entity->getTuuid();
-            if (isset($this->translationCache[$tuuid->getValue()][$locale])) {
+            $tuuid = $entity->getTuuid()->getValue();
+            if ($this->cache->has($tuuid, $locale)) {
                 continue;
             }
-            $byClass[$entity::class][] = $tuuid->getValue();
+            $byClass[$entity::class][] = $tuuid;
         }
 
         foreach ($byClass as $class => $tuuids) {
@@ -307,8 +285,11 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translations = $qb->getQuery()->getResult();
 
             foreach ($translations ?? [] as $translation) {
-                $translationTuuid                                                                 = $translation->getTuuid();
-                $this->translationCache[$translationTuuid->getValue()][$translation->getLocale()] = $translation;
+                $this->cache->set(
+                    $translation->getTuuid()->getValue(),
+                    $translation->getLocale() ?? $locale,
+                    $translation,
+                );
             }
         }
     }
