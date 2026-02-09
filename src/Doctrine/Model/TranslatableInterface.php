@@ -10,7 +10,7 @@ interface TranslatableInterface
 {
     public function generateTuuid(): void;
 
-    public function getTuuid(): Tuuid|null;
+    public function getTuuid(): Tuuid;
 
     public function getLocale(): string|null;
 
