@@ -1,9 +1,14 @@
 # TMI Translation Bundle - Doctrine Entity Translations for Symfony
 
+[![CI](https://github.com/CreativeNative/translation-bundle/actions/workflows/php.yml/badge.svg)](https://github.com/CreativeNative/translation-bundle/actions/workflows/php.yml)
+[![codecov](https://codecov.io/github/CreativeNative/translation-bundle/graph/badge.svg?token=D2PXJL5T2Y)](https://codecov.io/github/CreativeNative/translation-bundle)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
+[![Type Coverage](https://img.shields.io/badge/type%20coverage-100%25-brightgreen.svg)](https://phpstan.org/)
+[![Latest Version](https://img.shields.io/packagist/v/tmi/translation-bundle.svg)](https://packagist.org/packages/tmi/translation-bundle)
+[![License](https://img.shields.io/packagist/l/tmi/translation-bundle.svg)](https://packagist.org/packages/tmi/translation-bundle)
 [![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-8892BF.svg)](https://php.net/)
 [![Symfony 7.3+](https://img.shields.io/badge/Symfony-7.3%2B-000000.svg)](https://symfony.com/)
 [![Doctrine ORM 3.5+](https://img.shields.io/badge/Doctrine-ORM%203.5%2B-FF6D00.svg)](https://www.doctrine-project.org/)
-[![codecov](https://codecov.io/github/CreativeNative/translation-bundle/graph/badge.svg?token=D2PXJL5T2Y)](https://codecov.io/github/CreativeNative/translation-bundle)
 
 A modern, high-performance translation bundle for Symfony that stores entity translations **in the same table** as the source entity - no expensive joins, no complex relations.
 

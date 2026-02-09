@@ -50,7 +50,6 @@
         "phpstan/phpstan-strict-rules": "^2.0.7",
         "phpstan/phpstan-symfony": "^2.0.8",
         "phpunit/phpunit": "^12.4.4",
-        "rector/rector": "^2.2.9",
         "roave/security-advisories": "dev-latest",
         "symfony/phpunit-bridge": "^7.3 || ^8.0"
     },
@@ -82,9 +81,9 @@
             "vendor/bin/rector process --dry-run"
         ],
         "check": [
-            "@test",
-            "@cs-check",
-            "@stan"
+            "@cs-fix",
+            "@stan",
+            "@test"
         ]
     },
     "config": {

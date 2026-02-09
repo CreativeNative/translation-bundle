@@ -626,14 +626,14 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
 
         // stdClass is not TranslatableInterface -> will hit lines 154-155
-        $nonTranslatable = new \stdClass();
+        $nonTranslatable       = new \stdClass();
         $nonTranslatable->name = 'not-translatable';
 
         $collection = new ArrayCollection([$nonTranslatable]);
 
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
-        $args   = new TranslationArgs($collection, 'en_US', 'de_DE')
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
         $result = $this->handler->translate($args);

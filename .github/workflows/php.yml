@@ -37,12 +37,12 @@ jobs:
         id: composer-cache
         uses: actions/cache@v4
         with:
-          path: vendor
-          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-php-
+            ${{ runner.os }}-composer-
 
-      # Create var/cache folder for PHP-CS-Fixer (optional if using cache)
+      # Create var/cache folder for PHP-CS-Fixer
       - name: Create cache folder
         run: mkdir -p var/cache
 
@@ -50,28 +50,33 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      # PHPUnit
+      # Fast checks first (fail early)
+      # PHPCS
+      - name: Check coding standards
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no --ansi
+
+      # PHPStan
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=512M --ansi
+
+      # PHPUnit (slowest — runs last)
       - name: Run PHPUnit tests with coverage
         shell: bash
-        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text | tee var/coverage-summary.txt
+        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --colors=always | tee var/coverage-summary.txt
 
       # Coverage threshold
       - name: Check coverage threshold
         run: |
           COVERAGE=$(grep -oP 'Lines:\s+\K[\d.]+' var/coverage-summary.txt | head -1)
+          if [ -z "$COVERAGE" ]; then
+            echo "::error::Could not parse coverage from PHPUnit output"
+            exit 1
+          fi
           echo "Line coverage: ${COVERAGE}%"
           if (( $(echo "$COVERAGE < 100" | bc -l) )); then
             echo "::error::Coverage ${COVERAGE}% is below 100% threshold"
             exit 1
           fi
-
-      # PHPCS
-      - name: Check coding standards
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no
-
-      # PHPStan
-      - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit=512M
 
       # Upload coverage to Codecov
       - name: Upload coverage to Codecov

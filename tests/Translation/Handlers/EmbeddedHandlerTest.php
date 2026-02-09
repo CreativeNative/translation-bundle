@@ -251,7 +251,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
         // Use a property that does NOT have #[EmptyOnTranslate] so the early return is skipped.
         // We use a dummy property from an anonymous class (no attributes at all).
-        $dummy    = new class { public string|null $prop = null; };
+        $dummy = new class {
+            public string|null $prop = null;
+        };
         $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
 
         $args = new TranslationArgs($address, 'en_US', 'de_DE');
@@ -294,7 +296,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCountry('Country');
 
         // Property without #[EmptyOnTranslate] -> skip early return
-        $dummy    = new class { public string|null $prop = null; };
+        $dummy = new class {
+            public string|null $prop = null;
+        };
         $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
 
         $args = new TranslationArgs($address, 'en_US', 'de_DE');
