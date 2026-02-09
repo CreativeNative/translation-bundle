@@ -138,6 +138,44 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
      * @throws Exception
      * @throws TypesException
      */
+    public function testLoadRegistersTypeWhenNotYetRegistered(): void
+    {
+        $registry   = Type::getTypeRegistry();
+        $reflection = new \ReflectionProperty($registry, 'instances');
+
+        /** @var array<string, Type> $original */
+        $original = $reflection->getValue($registry);
+
+        // Temporarily remove the tuuid type
+        $modified = $original;
+        unset($modified[TuuidType::NAME]);
+        $reflection->setValue($registry, $modified);
+
+        // Also remove from reverse index
+        $reverseReflection = new \ReflectionProperty($registry, 'instancesReverseIndex');
+        /** @var array<int, string> $originalReverse */
+        $originalReverse = $reverseReflection->getValue($registry);
+
+        try {
+            self::assertFalse(Type::hasType(TuuidType::NAME), 'TuuidType should be unregistered');
+
+            $containerBuilder = $this->createContainerBuilderFromKernel();
+            $extension        = new TmiTranslationExtension();
+            $extension->load([['locales' => ['en_US'], 'default_locale' => 'en_US']], $containerBuilder);
+
+            self::assertTrue(Type::hasType(TuuidType::NAME), 'TuuidType should be re-registered by load()');
+            self::assertInstanceOf(TuuidType::class, Type::getType(TuuidType::NAME));
+        } finally {
+            // Restore original state to avoid polluting other tests
+            $reflection->setValue($registry, $original);
+            $reverseReflection->setValue($registry, $originalReverse);
+        }
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
     public function testLoadSetsLoggerToNullWhenLoggingDisabled(): void
     {
         $containerBuilder = $this->createContainerBuilderFromKernel();

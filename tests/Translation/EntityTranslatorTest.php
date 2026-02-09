@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
+use Doctrine\ORM\QueryBuilder;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\LoggerInterface;
@@ -645,6 +647,57 @@ final class EntityTranslatorTest extends UnitTestCase
         $method->invoke($this->translator(), [$entity], 'de_DE');
 
         $this->addToAssertionCount(1);
+    }
+
+    public function testWarmupTranslationsStoresResultsAndCacheHitReturnsEarly(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        // Original entity (source locale)
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        // Translated entity that the DB query will return
+        $translated = new Scalar();
+        $translated->setTuuid($tuuid);
+        $translated->setLocale('de_DE');
+
+        // Stub the query chain to return the translated entity
+        $queryStub = self::createStub(Query::class);
+        $queryStub->method('getResult')->willReturn([$translated]);
+
+        $qbStub = self::createStub(QueryBuilder::class);
+        $qbStub->method('select')->willReturnSelf();
+        $qbStub->method('from')->willReturnSelf();
+        $qbStub->method('where')->willReturnSelf();
+        $qbStub->method('andWhere')->willReturnSelf();
+        $qbStub->method('setParameter')->willReturnSelf();
+        $qbStub->method('getQuery')->willReturn($queryStub);
+
+        $emStub = self::createStub(EntityManagerInterface::class);
+        $emStub->method('createQueryBuilder')->willReturn($qbStub);
+
+        // Build a translator with the custom EntityManager
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
+            $this->eventDispatcher(),
+            $this->attributeHelper(),
+            $emStub,
+            $this->logger(),
+        );
+
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $result = $translator->processTranslation($args);
+
+        // The warmup query returned the translated entity, which was cached.
+        // The cache hit path returns that entity immediately.
+        self::assertSame($translated, $result);
+
+        // Verify inProgress was cleaned up
+        $inProgressProp = new \ReflectionProperty($translator, 'inProgress');
+        self::assertEmpty($inProgressProp->getValue($translator));
     }
 
     /**

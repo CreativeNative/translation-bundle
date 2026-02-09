@@ -35,10 +35,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
         // Register Doctrine Type for Tuuid
         if (!Type::hasType(TuuidType::NAME)) {
-            // In DBAL >3 you can't easily unregister, so we skip
-            // @codeCoverageIgnoreStart
             Type::addType(TuuidType::NAME, TuuidType::class);
-            // @codeCoverageIgnoreEnd
         }
 
         // Safely map 'tuuid' to 'tuuid' for all platforms

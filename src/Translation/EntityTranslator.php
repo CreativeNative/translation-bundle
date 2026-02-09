@@ -128,11 +128,9 @@ final class EntityTranslator implements EntityTranslatorInterface
                 $this->warmupTranslations([$entity], $locale);
 
                 if (isset($this->translationCache[(string) $tuuid][$locale])) {
-                    // @codeCoverageIgnoreStart
                     unset($this->inProgress[$cacheKey]);
 
                     return $this->translationCache[(string) $tuuid][$locale];
-                    // @codeCoverageIgnoreEnd
                 }
             }
         }
@@ -312,12 +310,6 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         foreach ($byClass as $class => $tuuids) {
-            if ([] === $tuuids) {
-                // @codeCoverageIgnoreStart
-                continue;
-                // @codeCoverageIgnoreEnd
-            }
-
             $qb = $this->entityManager->createQueryBuilder()
                 ->select('t')
                 ->from($class, 't')
@@ -330,12 +322,10 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translations = $qb->getQuery()->getResult();
 
             foreach ($translations ?? [] as $translation) {
-                // @codeCoverageIgnoreStart
                 $translationTuuid = $translation->getTuuid();
                 if (null !== $translationTuuid) {
                     $this->translationCache[$translationTuuid->getValue()][$translation->getLocale()] = $translation;
                 }
-                // @codeCoverageIgnoreEnd
             }
         }
     }
