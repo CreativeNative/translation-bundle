@@ -368,6 +368,217 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ---
 
+## Translation Cache Service
+
+### [TranslationCacheInterface](src/Translation/Cache/TranslationCacheInterface.php)
+
+Abstraction for translation caching and circular-reference detection. Replaces the internal `$translationCache` and `$inProgress` arrays from v1.x EntityTranslator.
+
+**Interface methods:**
+- `has(string $tuuid, string $locale): bool` -- Check if translation is cached
+- `get(string $tuuid, string $locale): TranslatableInterface|null` -- Get cached translation
+- `set(string $tuuid, string $locale, TranslatableInterface $entity): void` -- Store translation
+- `markInProgress(string $tuuid, string $locale): void` -- Mark translation as in-progress (cycle detection)
+- `unmarkInProgress(string $tuuid, string $locale): void` -- Remove in-progress mark
+- `isInProgress(string $tuuid, string $locale): bool` -- Check if translation is in-progress
+
+### Default Implementation: InMemoryTranslationCache
+
+Stores translations in PHP arrays, scoped to the current request. Registered as the default implementation.
+
+### PSR-6 Implementation: Psr6TranslationCache
+
+Ships with the bundle for cross-request caching. Uses Symfony's `cache.app` pool. Keys use dot separators with underscore-replaced UUIDs for PSR-6 compliance.
+
+### Custom Implementation
+
+To use a custom cache (e.g., Redis):
+
+```php
+use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+
+class RedisTranslationCache implements TranslationCacheInterface
+{
+    public function __construct(private RedisClient $redis) {}
+
+    public function has(string $tuuid, string $locale): bool
+    {
+        return $this->redis->exists("translation.{$tuuid}.{$locale}");
+    }
+
+    // ... implement remaining 5 methods
+}
+```
+
+Register via DI:
+```yaml
+# config/services.yaml
+Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
+    alias: App\Cache\RedisTranslationCache
+```
+
+---
+
+## Type-Safe Defaults (v2.0)
+
+### [TypeDefaultResolver](src/Translation/TypeDefaultResolver.php)
+
+Resolves default values for non-nullable properties marked with `#[EmptyOnTranslate]`. Eliminates the v1.x requirement that EmptyOnTranslate fields must be nullable.
+
+**Resolution rules:**
+| Type | Default Value |
+|------|--------------|
+| `?string` (nullable) | `null` |
+| `string` (non-nullable) | `""` (empty string) |
+| `int` | `0` |
+| `float` | `0.0` |
+| `bool` | `false` |
+| `array` | `[]` |
+| Non-nullable object | Throws `LogicException` with guidance |
+| Non-nullable enum | Throws `LogicException` with guidance |
+
+### Usage
+
+```php
+#[ORM\Entity]
+class Product implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    #[ORM\Column]
+    #[EmptyOnTranslate]
+    private string $title;     // Gets "" on translate
+
+    #[ORM\Column]
+    #[EmptyOnTranslate]
+    private int $viewCount;    // Gets 0 on translate
+
+    #[ORM\Column]
+    #[EmptyOnTranslate]
+    private float $rating;     // Gets 0.0 on translate
+
+    #[ORM\Column]
+    #[EmptyOnTranslate]
+    private bool $published;   // Gets false on translate
+}
+```
+
+### Decision Tree
+
+```
+Property has #[EmptyOnTranslate]?
+├── NO → Normal translation (copy or clone)
+└── YES
+    ├── Has #[SharedAmongstTranslations]? → Shared wins (value copied)
+    ├── Nullable type? → null
+    ├── string? → ""
+    ├── int? → 0
+    ├── float? → 0.0
+    ├── bool? → false
+    ├── array? → []
+    ├── enum? → LogicException
+    └── object? → LogicException
+```
+
+---
+
+## Fallback Control (copy_source)
+
+### Global Configuration
+
+Controls whether new translations start with cloned source content (v1.x behavior) or type-safe defaults:
+
+```yaml
+# config/packages/tmi_translation.yaml
+tmi_translation:
+    copy_source: false  # Default: new translations start empty with defaults
+    # copy_source: true  # v1.x behavior: clone source content into new translation
+```
+
+### Per-Entity Override
+
+Use the `#[Translatable]` attribute to override the global setting per entity:
+
+```php
+use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
+
+#[ORM\Entity]
+#[Translatable(copySource: true)]   // Always clone source (override global false)
+class Article implements TranslatableInterface { ... }
+
+#[ORM\Entity]
+#[Translatable(copySource: false)]  // Always start empty (override global true)
+class Product implements TranslatableInterface { ... }
+
+#[ORM\Entity]
+#[Translatable(copySource: null)]   // Use global config (default, same as omitting)
+class Page implements TranslatableInterface { ... }
+```
+
+### Behavior Matrix
+
+| Global `copy_source` | Entity `copySource` | Result |
+|----------------------|---------------------|--------|
+| `false` | `null` (default) | Empty with defaults |
+| `false` | `true` | Clone source |
+| `false` | `false` | Empty with defaults |
+| `true` | `null` (default) | Clone source |
+| `true` | `true` | Clone source |
+| `true` | `false` | Empty with defaults |
+
+**Note:** `#[SharedAmongstTranslations]` fields are always copied from source regardless of copy_source setting.
+
+---
+
+## Compile-Time Validation (v2.0)
+
+v2.0 validates translatable entity configuration at compile time (`cache:warmup` / `cache:clear`), catching errors before production.
+
+### AttributeValidationPass (Compiler Pass)
+
+Runs during container compilation. Scans all Doctrine-mapped TranslatableInterface entities via reflection.
+
+**Validates:**
+- No class-level `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` conflict
+- No property-level `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` conflict
+- No `#[EmptyOnTranslate]` on readonly properties
+- Locale property exists (via TranslatableTrait or manual definition)
+
+**Error format:** Single LogicException listing all errors found across all entities.
+
+### TranslatableEntityValidationWarmer (Cache Warmer)
+
+Runs at `cache:warmup` time (after container compilation, with EntityManager access).
+
+**Validates:**
+- No single-column `unique: true` on translatable entity fields (except id, tuuid, locale)
+- Table-level unique constraints include locale column
+
+**Correct pattern for unique fields:**
+
+```php
+// WRONG: Single-column unique (fails validation)
+#[ORM\Column(length: 255, unique: true)]
+private string $slug;
+
+// CORRECT: Composite unique (field + locale)
+#[ORM\Entity]
+#[ORM\UniqueConstraint(
+    name: 'uniq_product_slug_locale',
+    fields: ['slug', 'locale']
+)]
+class Product implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    #[ORM\Column(length: 255)]  // No unique: true
+    private string $slug;
+}
+```
+
+---
+
 ### PropertyAccessor  
 - The bundle uses Symfony’s `PropertyAccess` component (or a custom `PropertyAccessorInterface`) to generically get and set object properties.  
 - In `DoctrineObjectHandler::translateProperties()`, for each property:  
@@ -842,6 +1053,32 @@ class Photo implements TranslatableInterface
 #[SharedAmongstTranslations]
 #[ORM\OneToMany(targetEntity: Photo::class, mappedBy: 'product')]
 private Collection $photos;
+```
+
+### Compile-Time Validation Error
+
+**Symptom:** `LogicException: TMI Translation Bundle: Compile-time validation failed` during `cache:warmup` or `cache:clear`
+
+**Cause:** Attribute conflicts or missing locale property detected at compile time
+
+**Fix:** Read the error message carefully - it lists all violations. Common fixes:
+- Remove conflicting `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` on same field/class
+- Remove `#[EmptyOnTranslate]` from readonly properties
+- Add `use TranslatableTrait;` to provide the locale property
+
+### Unique Constraint Validation Error
+
+**Symptom:** `LogicException: TMI Translation Bundle: Unique constraint validation failed` during `cache:warmup`
+
+**Cause:** Translatable entity has single-column unique constraints that would conflict across locales
+
+**Fix:** Replace single-column `unique: true` with composite unique constraint including locale:
+
+```php
+// Replace: #[ORM\Column(length: 255, unique: true)]
+// With:
+#[ORM\UniqueConstraint(name: 'uniq_product_slug_locale', fields: ['slug', 'locale'])]
+// And: #[ORM\Column(length: 255)]  // Remove unique: true
 ```
 
 ---
