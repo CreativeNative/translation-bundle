@@ -27,7 +27,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
     public function warmUp(string $cacheDir, string|null $buildDir = null): array
     {
         /** @var list<string> $errors */
-        $errors = [];
+        $errors      = [];
         $allMetadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 
         foreach ($allMetadata as $metadata) {
@@ -41,11 +41,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
         }
 
         if ([] !== $errors) {
-            throw new \LogicException(sprintf(
-                "TMI Translation Bundle: Unique constraint validation failed with %d error(s):\n\n%s",
-                count($errors),
-                implode("\n\n", $errors),
-            ));
+            throw new \LogicException(sprintf("TMI Translation Bundle: Unique constraint validation failed with %d error(s):\n\n%s", count($errors), implode("\n\n", $errors)));
         }
 
         return [];
@@ -69,9 +65,9 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
             if (true === $fieldMapping->unique) {
                 $errors[] = sprintf(
                     'Entity "%s": field "%s" has a single-column unique constraint. '
-                    . 'For translatable entities, unique values must be scoped per locale. '
-                    . 'Replace `unique: true` with a composite unique constraint: '
-                    . '#[ORM\UniqueConstraint(name: "uniq_%s_%s_locale", fields: ["%s", "locale"])]',
+                    .'For translatable entities, unique values must be scoped per locale. '
+                    .'Replace `unique: true` with a composite unique constraint: '
+                    .'#[ORM\UniqueConstraint(name: "uniq_%s_%s_locale", fields: ["%s", "locale"])]',
                     $className,
                     $fieldName,
                     $this->toSnakeCase($this->getShortClassName($className)),
@@ -88,6 +84,11 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
             /** @var list<string> $fields */
             $fields = $constraint['fields'] ?? $constraint['columns'] ?? [];
 
+            // Skip empty constraint definitions
+            if ([] === $fields) {
+                continue;
+            }
+
             // Skip if locale already included
             if (in_array('locale', $fields, true)) {
                 continue;
@@ -100,8 +101,8 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
 
             $errors[] = sprintf(
                 'Entity "%s": unique constraint "%s" on fields %s does not include the locale column. '
-                . 'For translatable entities, add "locale" to the constraint fields: '
-                . '#[ORM\UniqueConstraint(name: "%s", fields: %s)]',
+                .'For translatable entities, add "locale" to the constraint fields: '
+                .'#[ORM\UniqueConstraint(name: "%s", fields: %s)]',
                 $className,
                 $constraintName,
                 json_encode($fields, JSON_THROW_ON_ERROR),
