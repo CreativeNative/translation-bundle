@@ -67,4 +67,31 @@ final class TranslationArgsTest extends TestCase
         $args->setDataToBeTranslated($arr);
         self::assertSame($arr, $args->getDataToBeTranslated());
     }
+
+    public function testCopySourceDefaultsToNull(): void
+    {
+        $args = new TranslationArgs('data');
+        self::assertNull($args->getCopySource());
+    }
+
+    public function testCopySourceGetterSetter(): void
+    {
+        $args = new TranslationArgs('data');
+
+        $args->setCopySource(true);
+        self::assertTrue($args->getCopySource());
+
+        $args->setCopySource(false);
+        self::assertFalse($args->getCopySource());
+
+        $args->setCopySource(null);
+        self::assertNull($args->getCopySource());
+    }
+
+    public function testCopySourceSetterReturnsSelf(): void
+    {
+        $args   = new TranslationArgs('data');
+        $result = $args->setCopySource(true);
+        self::assertSame($args, $result);
+    }
 }

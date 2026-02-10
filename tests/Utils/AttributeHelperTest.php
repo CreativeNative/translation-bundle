@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
 use Tmi\TranslationBundle\Exception\AttributeConflictException;
 use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
@@ -17,6 +18,7 @@ use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass(AttributeHelper::class)]
+#[CoversClass(Translatable::class)]
 final class AttributeHelperTest extends TestCase
 {
     private AttributeHelper $attributeHelper;
@@ -396,6 +398,80 @@ final class AttributeHelperTest extends TestCase
         $this->attributeHelper->validateEmbeddableClass($reflection);
         $this->addToAssertionCount(1); // If we reach here, second call was cached
     }
+
+    // =========================================================================
+    // getTranslatableAttribute tests
+    // =========================================================================
+
+    public function testGetTranslatableAttributeReturnsNullForUnattributedClass(): void
+    {
+        $plainClass = new class {
+            public string $value = '';
+        };
+
+        /** @var \ReflectionClass<object> $reflection */
+        $reflection = new \ReflectionClass($plainClass);
+
+        self::assertNull($this->attributeHelper->getTranslatableAttribute($reflection));
+    }
+
+    public function testGetTranslatableAttributeReturnsAttributeWithCopySourceTrue(): void
+    {
+        /** @var class-string $className */
+        $className = 'TestTranslatableCopyTrue_'.uniqid();
+        eval(<<<PHP
+            #[\Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: true)]
+            class {$className} {
+                public string \$value = '';
+            }
+        PHP);
+
+        $reflection = new \ReflectionClass($className);
+        $attribute  = $this->attributeHelper->getTranslatableAttribute($reflection);
+
+        self::assertInstanceOf(Translatable::class, $attribute);
+        self::assertTrue($attribute->copySource);
+    }
+
+    public function testGetTranslatableAttributeReturnsAttributeWithNullCopySource(): void
+    {
+        /** @var class-string $className */
+        $className = 'TestTranslatableDefault_'.uniqid();
+        eval(<<<PHP
+            #[\Tmi\TranslationBundle\Doctrine\Attribute\Translatable]
+            class {$className} {
+                public string \$value = '';
+            }
+        PHP);
+
+        $reflection = new \ReflectionClass($className);
+        $attribute  = $this->attributeHelper->getTranslatableAttribute($reflection);
+
+        self::assertInstanceOf(Translatable::class, $attribute);
+        self::assertNull($attribute->copySource);
+    }
+
+    public function testGetTranslatableAttributeReturnsAttributeWithCopySourceFalse(): void
+    {
+        /** @var class-string $className */
+        $className = 'TestTranslatableCopyFalse_'.uniqid();
+        eval(<<<PHP
+            #[\Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: false)]
+            class {$className} {
+                public string \$value = '';
+            }
+        PHP);
+
+        $reflection = new \ReflectionClass($className);
+        $attribute  = $this->attributeHelper->getTranslatableAttribute($reflection);
+
+        self::assertInstanceOf(Translatable::class, $attribute);
+        self::assertFalse($attribute->copySource);
+    }
+
+    // =========================================================================
+    // Embeddable validation tests (continued)
+    // =========================================================================
 
     public function testValidateEmbeddableClassLogsWithEmbeddedPrefix(): void
     {

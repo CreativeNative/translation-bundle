@@ -16,6 +16,7 @@ use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
 #[AllowMockObjectsWithoutExpectations]
 final class TmiTranslationExtensionTest extends IntegrationTestCase
@@ -271,6 +272,48 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $this->expectExceptionMessage('"tmi_translation.logging" option was removed in v2.0');
 
         $extension->load([['logging' => ['enabled' => true], 'default_locale' => 'en_US']], $containerBuilder);
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testCopySourceDefaultsToFalse(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.copy_source'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testCopySourceCanBeSetToTrue(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'copy_source' => true]], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.copy_source'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testTypeDefaultResolverIsRegistered(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertTrue($containerBuilder->has(TypeDefaultResolver::class));
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder
