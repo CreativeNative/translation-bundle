@@ -177,14 +177,17 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 
 #### 3. Empty-on-Translate Fields (#[EmptyOnTranslate])
 - Fields that must be reset when creating a new translation.
-- Scalar values are set to null (no predefined defaults see [GitHub Issue #2](https://github.com/CreativeNative/translation-bundle/issues/2)).
-- Embedded objects are replaced with a new, empty instance.
+- For nullable fields, values are set to null.
+- For non-nullable scalar fields, type-safe defaults are used: string='', int=0, float=0.0, bool=false (via TypeDefaultResolver).
+- Non-nullable object types throw LogicException with guidance to make them nullable or use #[SharedAmongstTranslations].
+- Embedded objects are replaced with a new, empty instance (or null for nullable embeddables).
 - Shared fields override this rule: if a field has both #[SharedAmongstTranslations] and #[EmptyOnTranslate], the shared behavior takes precedence and the value is not cleared.
 
 #### 4. Priority of Rules
 1. #[SharedAmongstTranslations] → always overrides others.
 2. #[EmptyOnTranslate] → only applies if not shared.
 3. Otherwise → default translation cloning behavior.
+4. If `copy_source: false` (v2.0 default) and field has #[EmptyOnTranslate]: type-safe defaults used instead of null for non-nullable types.
 
 ---
 
@@ -192,7 +195,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 1. A source entity (locale A) is passed to EntityTranslator to produce a target translation entity (locale B).
 2. Handlers inspect each property of the source:
   - If the property is marked `#[SharedAmongstTranslations]`, the same value is reused/propagated across siblings.
-  - If the property is marked `#[EmptyOnTranslate]`, the target value will be set to null or a new empty instance, regardless of the source.
+  - If the property is marked `#[EmptyOnTranslate]`, the target value will be set to null (nullable types) or type-safe defaults (non-nullable scalars: string='', int=0, float=0.0, bool=false), or a new empty instance (embeddables), regardless of the source.
   - Otherwise, a clone or new value may be created for the target locale, depending on other attributes and the property type.
 3. PropertyAccessor is used to read source values and write to the target.
 4. The result is a consistent set of entities: one per locale, sharing or translating fields as configured.
@@ -236,7 +239,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `supports()` — Returns true if value is scalar or `DateTime`.
   - `translate()` — Returns original value.
   - `handleSharedAmongstTranslations()` — Returns original value.
-  - `handleEmptyOnTranslate()` — Returns `null`.
+  - `handleEmptyOnTranslate()` — Returns null for nullable fields, or type-safe defaults for non-nullable fields (string='', int=0, float=0.0, bool=false) via TypeDefaultResolver.
 - **Notes:** Leaf handler in the translation pipeline; no delegation required.
 
 ---
@@ -249,7 +252,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `supports()` — Returns true if property is an embeddable.
   - `translate()` — Returns a cloned embeddable.
   - `handleSharedAmongstTranslations()` — Returns original object unchanged.
-  - `handleEmptyOnTranslate()` — Returns `null`.
+  - `handleEmptyOnTranslate()` — Returns null for nullable embeddables, or a new empty instance with type-safe property defaults for non-nullable embedded objects.
 - **Notes:** Works on value objects embedded in entities, preserves immutability.
 
 ---
@@ -600,26 +603,32 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 ---
 
-## Step‑by‑Step Integration  
+## Step‑by‑Step Integration
 
 1. **Install bundle via Composer** and enable in `bundles.php`.
-2. For any entity you wish to translate:
+2. **Configure enabled locales** in your framework configuration:
+   ```yaml
+   # config/packages/framework.yaml
+   framework:
+       enabled_locales: [en, fr, de, es]
+   ```
+3. For any entity you wish to translate:
    - Add a locale field (e.g., `$locale`, or use your own strategy).
    - Add a Tuuid field (e.g., `$tuuid`) so you can link all variants.
-   - Implement or tag the entity as "translatable" (depending on bundle setup).  
-3. On properties that should be shared across locale versions, add the `#[SharedAmongstTranslations]` attribute.  
-4. In your code when creating a translation:  
+   - Implement or tag the entity as "translatable" (depending on bundle setup).
+4. On properties that should be shared across locale versions, add the `#[SharedAmongstTranslations]` attribute.
+5. In your code when creating a translation:
    ```php
    $translated = $entityTranslator->translate($sourceEntity, $targetLocale);
    $entityManager->persist($translated);
    $entityManager->flush();
-   ```  
-   This will clone and handle all fields using handlers.  
-5. For relations and embeddables, verify if they should be shared or translatable — use attributes accordingly.  
-6. If you require custom behaviour (e.g., clearing a field on translation, propagating changes across siblings when shared fields are updated), you may:  
-   - Configure custom handler by implementing `TranslationHandlerInterface`.  
-   - Write a Doctrine Event Subscriber to post‑update shared fields across sibling entities (if your bundle does *not* yet automatically propagate).  
-7. Make sure your repository/finder logic considers Tuuid and locale filters so you fetch the correct variant for current locale or fallback.
+   ```
+   This will clone and handle all fields using handlers.
+6. For relations and embeddables, verify if they should be shared or translatable — use attributes accordingly.
+7. If you require custom behaviour (e.g., clearing a field on translation, propagating changes across siblings when shared fields are updated), you may:
+   - Configure custom handler by implementing `TranslationHandlerInterface`.
+   - Write a Doctrine Event Subscriber to post‑update shared fields across sibling entities (if your bundle does *not* yet automatically propagate).
+8. Make sure your repository/finder logic considers Tuuid and locale filters so you fetch the correct variant for current locale or fallback.
 
 ---
 
@@ -629,33 +638,47 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 **Symptom:** `LogicException: Locale "xx" is not allowed`
 
-**Cause:** Target locale not configured in bundle configuration
+**Cause:** Target locale not configured in Symfony's enabled locales (v2.0 reads from framework.enabled_locales)
 
-**Fix:** Add the locale to `tmi_translation.locales` in your bundle configuration file:
+**Fix:** Add the locale to `framework.enabled_locales` in your framework configuration file:
 
 ```yaml
-# config/packages/tmi_translation.yaml
-tmi_translation:
-    locales: [en, fr, de, es]  # Add your target locale here
+# config/packages/framework.yaml
+framework:
+    enabled_locales: [en, fr, de, es]  # Add your target locale here
 ```
 
 ### EmptyOnTranslate on Non-Nullable Field
 
-**Symptom:** `LogicException: cannot use EmptyOnTranslate because it is not nullable`
+**Symptom:** `LogicException: Property ... is a non-nullable object and cannot have a type-safe default`
 
-**Cause:** `#[EmptyOnTranslate]` attribute applied to a non-nullable property. The attribute sets the value to null during translation, which conflicts with the type constraint.
+**Cause:** `#[EmptyOnTranslate]` attribute applied to a non-nullable object property. In v2.0, non-nullable scalar fields (string/int/float/bool) automatically get type-safe defaults, but non-nullable objects cannot be safely defaulted.
 
-**Fix:** Either make the property nullable (`?string`) or remove the `#[EmptyOnTranslate]` attribute:
+**Fix:** For non-nullable scalar fields, v2.0 handles them automatically with type-safe defaults (string='', int=0, etc.). For non-nullable objects, choose one of these options:
 
 ```php
-// Option 1: Make nullable
+// Option 1: Make nullable (allows null as empty value)
 #[EmptyOnTranslate]
-#[ORM\Column(type: Types::TEXT, nullable: true)]
-private ?string $description = null;
+#[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+private ?\DateTimeImmutable $publishedAt = null;
 
-// Option 2: Remove attribute
-#[ORM\Column(type: Types::TEXT)]
-private string $description;
+// Option 2: Remove #[EmptyOnTranslate] (copy value from source)
+#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+private \DateTimeImmutable $publishedAt;
+
+// Option 3: Use #[SharedAmongstTranslations] (same value across locales)
+#[SharedAmongstTranslations]
+#[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+private \DateTimeImmutable $publishedAt;
+
+// Non-nullable scalars work automatically in v2.0:
+#[EmptyOnTranslate]
+#[ORM\Column]
+private string $title;  // Gets "" on translate
+
+#[EmptyOnTranslate]
+#[ORM\Column]
+private int $viewCount;  // Gets 0 on translate
 ```
 
 ### Missing TranslatableInterface
@@ -857,7 +880,8 @@ Proper annotation (`#[SharedAmongstTranslations]`), common Tuuids, and correct u
 
 ---
 
-## Revision History  
-- v1.0: Initial methodology documented.  
+## Revision History
+- v1.0: Initial methodology documented.
+- v2.0: Added cache service, type-safe defaults, fallback control, compile-time validation documentation.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 
