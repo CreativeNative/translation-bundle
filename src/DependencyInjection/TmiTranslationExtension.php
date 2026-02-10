@@ -50,13 +50,21 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
         // Resolve default_locale — processConfiguration() does not resolve %param% references
         /** @var string $defaultLocale */
-        $defaultLocale            = $container->getParameterBag()->resolveValue($config['default_locale']);
-        $config['default_locale'] = $defaultLocale;
+        $defaultLocale = $container->getParameterBag()->resolveValue($config['default_locale']);
 
-        // Validate that default_locale is included in enabled_locales
-        if (!\in_array($defaultLocale, $enabledLocales, true)) {
-            throw new \LogicException(\sprintf('The default_locale "%s" must be included in framework.enabled_locales [%s].', $defaultLocale, implode(', ', $enabledLocales)));
+        // Detect whether the resolved value contains environment variable placeholders
+        $usedEnvs = [];
+        $container->resolveEnvPlaceholders($defaultLocale, null, $usedEnvs);
+
+        if ([] === $usedEnvs) {
+            // Static value — validate and store resolved locale
+            $config['default_locale'] = $defaultLocale;
+
+            if (!\in_array($defaultLocale, $enabledLocales, true)) {
+                throw new \LogicException(\sprintf('The default_locale "%s" must be included in framework.enabled_locales [%s].', $defaultLocale, implode(', ', $enabledLocales)));
+            }
         }
+        // When env vars are used, skip validation — the actual value is resolved at runtime
 
         // Set configuration into params
         $rootName = 'tmi_translation';

@@ -335,6 +335,25 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         self::assertSame('en_US', $containerBuilder->getParameter('tmi_translation.default_locale'));
     }
 
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testDefaultLocaleEnvVarSkipsValidation(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US', 'de_DE', 'it_IT']);
+        $containerBuilder->setParameter('kernel.default_locale', '%env(DEFAULT_LOCALE)%');
+
+        $extension = new TmiTranslationExtension();
+
+        // Should not throw — env vars cannot be validated at compile time
+        $extension->load([[]], $containerBuilder);
+
+        // The raw parameter reference is kept so Symfony resolves it at runtime
+        self::assertSame('%kernel.default_locale%', $containerBuilder->getParameter('tmi_translation.default_locale'));
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();
