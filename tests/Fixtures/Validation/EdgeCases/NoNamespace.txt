@@ -1,0 +1,4 @@
+<?php
+// This file has no namespace declaration to test extractClassName returns null
+class SomeClass {
+}

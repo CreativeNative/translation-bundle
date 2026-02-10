@@ -37,11 +37,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         }
 
         if ([] !== $errors) {
-            throw new \LogicException(sprintf(
-                "TMI Translation Bundle: Compile-time validation failed with %d error(s):\n\n%s",
-                count($errors),
-                implode("\n", array_map(static fn (string $e) => "- {$e}", $errors)),
-            ));
+            throw new \LogicException(sprintf("TMI Translation Bundle: Compile-time validation failed with %d error(s):\n\n%s", count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
         }
     }
 
