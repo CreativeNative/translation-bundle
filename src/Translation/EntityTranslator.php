@@ -15,10 +15,6 @@ use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
-/**
- * ToDo: Improve #[EmptyOnTranslate] handling for non-nullable and scalar fields
- * See GitHub Issue: https://github.com/CreativeNative/translation-bundle/issues/2.
- */
 final class EntityTranslator implements EntityTranslatorInterface
 {
     /** @var array<TranslationHandlerInterface> */
@@ -33,10 +29,10 @@ final class EntityTranslator implements EntityTranslatorInterface
         #[Autowire(param: 'tmi_translation.default_locale')]
         private readonly string $defaultLocale,
         private readonly array $locales,
-        private readonly bool $copySource, // @phpstan-ignore property.onlyWritten (read in Plan 20-03)
+        private readonly bool $copySource,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AttributeHelper $attributeHelper,
-        private readonly TypeDefaultResolver $typeDefaultResolver, // @phpstan-ignore property.onlyWritten (read in Plan 20-03)
+        private readonly TypeDefaultResolver $typeDefaultResolver,
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslationCacheInterface $cache,
         LoggerInterface|null $logger = null,
@@ -99,6 +95,11 @@ final class EntityTranslator implements EntityTranslatorInterface
                 return $entity;
             }
 
+            // Resolve copySource per entity (entity-level override or global config)
+            if (null === $args->getCopySource()) {
+                $args->setCopySource($this->resolveCopySource($entity));
+            }
+
             // Mark as in-progress with auto-cleanup guarantee
             $this->cache->markInProgress($tuuidValue, $locale);
             try {
@@ -142,7 +143,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                 // Validate property attributes for conflicts
                 $this->attributeHelper->validateProperty($property, $this->logger);
 
-                // 1. Determine if the top-level property is Shared
+                // 1. Determine if the top-level property is Shared (always copies from source)
                 if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
                     $this->logDebug('Attribute detected: SharedAmongstTranslations', [
                         'property' => $property->name,
@@ -153,10 +154,64 @@ final class EntityTranslator implements EntityTranslatorInterface
                     return $handler->handleSharedAmongstTranslations($args);
                 }
 
-                // 2. Handle EmptyOnTranslate for this top-level property
+                // 2. Handle copy_source: false -- type-safe defaults for all non-shared fields
+                if (false === $args->getCopySource()) {
+                    // Embedded properties: delegate to handler for per-property resolution
+                    if ($this->attributeHelper->isEmbedded($property)) {
+                        if ($this->attributeHelper->isEmptyOnTranslate($property)) {
+                            $this->logDebug('EmptyOnTranslate has no effect when copy_source is false', [
+                                'property' => $property->name,
+                                'class'    => $property->class,
+                            ]);
+                        }
+
+                        return $handler->translate($args);
+                    }
+
+                    // Log redundancy hint if EmptyOnTranslate is present
+                    if ($this->attributeHelper->isEmptyOnTranslate($property)) {
+                        $this->logDebug('EmptyOnTranslate has no effect when copy_source is false', [
+                            'property' => $property->name,
+                            'class'    => $property->class,
+                        ]);
+                    }
+
+                    // Non-nullable object safety fallback: copy from source
+                    $type = $property->getType();
+                    if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && !$type->allowsNull()) {
+                        $this->logDebug(\sprintf(
+                            'Property %s::$%s is non-nullable object -- copying from source despite copy_source: false',
+                            $property->class,
+                            $property->name,
+                        ), []);
+
+                        return $handler->translate($args);
+                    }
+
+                    // Resolve type-safe default
+                    $default = $this->typeDefaultResolver->resolve($property);
+
+                    $this->logDebug('Type-safe default for copy_source: false', [
+                        'property' => $property->name,
+                        'class'    => $property->class,
+                    ]);
+
+                    return $default;
+                }
+
+                // 3. Handle EmptyOnTranslate (copy_source: true path)
                 if ($this->attributeHelper->isEmptyOnTranslate($property)) {
                     if (!$this->attributeHelper->isNullable($property)) {
-                        throw new \LogicException(sprintf('The property %s::%s cannot use EmptyOnTranslate because it is not nullable.', $property->class, $property->name));
+                        // Type-safe default instead of throwing
+                        $default = $this->typeDefaultResolver->resolve($property);
+
+                        $this->logDebug('Type-safe default for non-nullable EmptyOnTranslate property', [
+                            'property' => $property->name,
+                            'class'    => $property->class,
+                            'default'  => $default,
+                        ]);
+
+                        return $default;
                     }
 
                     $this->logDebug('Attribute detected: EmptyOnTranslate', [
@@ -253,6 +308,19 @@ final class EntityTranslator implements EntityTranslatorInterface
             return;
         }
         $this->logger->info('[TMI Translation] '.$message, $context);
+    }
+
+    /**
+     * Resolves copySource for an entity: per-entity attribute overrides global config.
+     */
+    private function resolveCopySource(object $entity): bool
+    {
+        $attribute = $this->attributeHelper->getTranslatableAttribute(new \ReflectionClass($entity));
+        if (null !== $attribute && null !== $attribute->copySource) {
+            return $attribute->copySource;
+        }
+
+        return $this->copySource;
     }
 
     /**

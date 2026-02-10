@@ -122,7 +122,9 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
                 $args->getSourceLocale(),
                 $args->getTargetLocale(),
             );
-            $subArgs->setTranslatedParent($translation)->setProperty($property);
+            $subArgs->setTranslatedParent($translation)
+                ->setProperty($property)
+                ->setCopySource($args->getCopySource());
 
             // Delegate translation of the property value to the global translator
             $propertyTranslation = $this->translator->processTranslation($subArgs);

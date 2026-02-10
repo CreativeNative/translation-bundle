@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -25,6 +26,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
 
     public function __construct(
         private readonly AttributeHelper $attributeHelper,
+        private readonly TypeDefaultResolver $typeDefaultResolver,
         LoggerInterface|null $logger = null,
     ) {
         $this->logger = $logger;
@@ -133,10 +135,24 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         $clone = clone $embeddable;
 
         foreach ($reflection->getProperties() as $prop) {
+            // Resolve effective attribute via three-level cascade
             $resolved = $this->resolvePropertyAttribute($prop, $classShared, $classEmpty);
 
+            // SharedAmongstTranslations always keeps cloned value regardless of copySource
             if ('shared' === $resolved) {
-                // Keep original value (already in clone via clone)
+                continue;
+            }
+
+            // copy_source: false -- all non-shared properties get type-safe defaults
+            if (false === $args->getCopySource()) {
+                if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
+                    $this->logDebug('EmptyOnTranslate has no effect on embedded property when copy_source is false', [
+                        'property' => $prop->getName(),
+                    ]);
+                }
+
+                $this->applyTypeDefault($clone, $prop);
+
                 continue;
             }
 
@@ -216,6 +232,13 @@ final class EmbeddedHandler implements TranslationHandlerInterface
 
     private function clearProperty(object $clone, \ReflectionProperty $prop): void
     {
+        if (true !== $prop->getType()?->allowsNull()) {
+            // Non-nullable property: use type-safe default instead of null
+            $this->applyTypeDefault($clone, $prop);
+
+            return;
+        }
+
         $setter = 'set'.ucfirst($prop->getName());
 
         $reflection = new \ReflectionClass($clone);
@@ -223,6 +246,19 @@ final class EmbeddedHandler implements TranslationHandlerInterface
             $reflection->getMethod($setter)->invoke($clone, null);
         } else {
             $prop->setValue($clone, null);
+        }
+    }
+
+    private function applyTypeDefault(object $clone, \ReflectionProperty $prop): void
+    {
+        try {
+            $default = $this->typeDefaultResolver->resolve($prop);
+            $prop->setValue($clone, $default);
+        } catch (\LogicException) {
+            // Non-nullable object/enum in embeddable: keep cloned value as safety fallback
+            $this->logDebug('Cannot resolve type-safe default for embedded property, keeping source value', [
+                'property' => $prop->getName(),
+            ]);
         }
     }
 

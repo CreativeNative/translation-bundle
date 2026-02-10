@@ -54,9 +54,9 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
         $clone = clone $data;
 
-        $this->doctrineObjectHandler->translateProperties(
-            new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale()),
-        );
+        $subArgs = new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale());
+        $subArgs->setCopySource($args->getCopySource());
+        $this->doctrineObjectHandler->translateProperties($subArgs);
 
         $clone->setLocale($args->getTargetLocale());
 
