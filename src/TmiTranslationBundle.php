@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\AttributeValidationPass;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
 
 final class TmiTranslationBundle extends Bundle
@@ -13,5 +14,6 @@ final class TmiTranslationBundle extends Bundle
     public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new TranslationHandlerPass());
+        $container->addCompilerPass(new AttributeValidationPass());
     }
 }
