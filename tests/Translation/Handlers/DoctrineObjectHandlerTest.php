@@ -13,6 +13,7 @@ use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -178,6 +179,72 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
 
         self::assertTrue($this->handler->supports($args));
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslatePropertiesPropagatesCopySourceTrue(): void
+    {
+        // Use a mock translator to capture sub-args
+        $mockTranslator  = $this->createMock(EntityTranslatorInterface::class);
+        $handlerWithMock = new DoctrineObjectHandler(
+            $this->entityManager(),
+            $mockTranslator,
+        );
+
+        $capturedArgs = [];
+        $mockTranslator->method('processTranslation')
+            ->willReturnCallback(function (TranslationArgs $subArgs) use (&$capturedArgs): mixed {
+                $capturedArgs[] = $subArgs;
+
+                return $subArgs->getDataToBeTranslated();
+            });
+
+        $entity = new class {
+            public string $title = 'original';
+        };
+
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $args->setCopySource(true);
+
+        $handlerWithMock->translateProperties($args);
+
+        self::assertNotEmpty($capturedArgs);
+        self::assertTrue($capturedArgs[0]->getCopySource());
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslatePropertiesPropagatesCopySourceFalse(): void
+    {
+        // Use a mock translator to capture sub-args
+        $mockTranslator  = $this->createMock(EntityTranslatorInterface::class);
+        $handlerWithMock = new DoctrineObjectHandler(
+            $this->entityManager(),
+            $mockTranslator,
+        );
+
+        $capturedArgs = [];
+        $mockTranslator->method('processTranslation')
+            ->willReturnCallback(function (TranslationArgs $subArgs) use (&$capturedArgs): mixed {
+                $capturedArgs[] = $subArgs;
+
+                return $subArgs->getDataToBeTranslated();
+            });
+
+        $entity = new class {
+            public string $title = 'original';
+        };
+
+        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $handlerWithMock->translateProperties($args);
+
+        self::assertNotEmpty($capturedArgs);
+        self::assertFalse($capturedArgs[0]->getCopySource());
     }
 
     /**

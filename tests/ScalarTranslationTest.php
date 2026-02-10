@@ -77,27 +77,38 @@ final class ScalarTranslationTest extends IntegrationTestCase
     }
 
     /**
+     * Non-nullable string with #[EmptyOnTranslate] now gets type-safe default (empty string)
+     * instead of throwing LogicException.
+     *
      * @throws OptimisticLockException
      * @throws ORMException
      */
-    public function testItCanNotEmptyNotNullableScalarValueOnTranslate(): void
+    public function testNonNullableEmptyOnTranslateGetsTypeSafeDefault(): void
     {
-        self::expectException(\LogicException::class);
-
         $entity = new CanNotBeNull()
             ->setLocale('en_US')
-            ->setEmptyNotNullable('Empty not nullable attribute');
+            ->setEmptyNotNullable('Empty not nullable attribute')
+            ->setCount(42)
+            ->setPrice(19.99)
+            ->setActive(true);
 
         $this->entityManager()->persist($entity);
 
         $translation = $this->translator()->translate($entity, 'de_DE');
         self::assertInstanceOf(CanNotBeNull::class, $translation);
 
+        $this->entityManager()->persist($translation);
         $this->entityManager()->flush();
 
-        // These assertions are unreachable: the LogicException is expected above.
-        // If we get here, the test framework will fail because expectException was set.
-        self::assertSame('Empty not nullable attribute', $translation->getEmptyNotNullable());
+        // Non-nullable string with EmptyOnTranslate gets empty string (type default)
+        self::assertSame('', $translation->getEmptyNotNullable());
+        // Non-nullable int gets 0
+        self::assertSame(0, $translation->getCount());
+        // Non-nullable float gets 0.0
+        self::assertSame(0.0, $translation->getPrice());
+        // Non-nullable bool gets false
+        self::assertFalse($translation->isActive());
+
         self::assertIsTranslation($entity, $translation, 'de_DE');
     }
 

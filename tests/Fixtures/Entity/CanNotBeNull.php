@@ -24,12 +24,24 @@ class CanNotBeNull implements TranslatableInterface
     #[ORM\Column(type: Types::STRING, nullable: false)]
     private string $emptyNotNullable;
 
+    #[EmptyOnTranslate]
+    #[ORM\Column(type: Types::INTEGER, nullable: false)]
+    private int $count = 5;
+
+    #[EmptyOnTranslate]
+    #[ORM\Column(type: Types::FLOAT, nullable: false)]
+    private float $price = 9.99;
+
+    #[EmptyOnTranslate]
+    #[ORM\Column(type: Types::BOOLEAN, nullable: false)]
+    private bool $active = true;
+
     public function getId(): int|null
     {
         return $this->id;
     }
 
-    public function setEmptyNotNullable(string|null $emptyNotNullable = null): CanNotBeNull
+    public function setEmptyNotNullable(string|null $emptyNotNullable = null): self
     {
         $this->emptyNotNullable = $emptyNotNullable ?? '';
 
@@ -39,5 +51,41 @@ class CanNotBeNull implements TranslatableInterface
     public function getEmptyNotNullable(): string
     {
         return $this->emptyNotNullable;
+    }
+
+    public function getCount(): int
+    {
+        return $this->count;
+    }
+
+    public function setCount(int $count): self
+    {
+        $this->count = $count;
+
+        return $this;
+    }
+
+    public function getPrice(): float
+    {
+        return $this->price;
+    }
+
+    public function setPrice(float $price): self
+    {
+        $this->price = $price;
+
+        return $this;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): self
+    {
+        $this->active = $active;
+
+        return $this;
     }
 }

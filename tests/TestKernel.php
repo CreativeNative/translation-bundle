@@ -70,6 +70,7 @@ final class TestKernel extends BaseKernel
         $container->extension('tmi_translation', [
             'default_locale'     => 'en_US',
             'disabled_firewalls' => ['admin'],
+            'copy_source'        => true,
         ]);
 
         $container->services()

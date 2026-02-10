@@ -107,10 +107,10 @@ final class EntityTranslatorTest extends UnitTestCase
     /**
      * @throws \ReflectionException
      */
-    public function testEmptyOnTranslateOnNonNullableThrowsLogicException(): void
+    public function testEmptyOnTranslateOnNonNullableStringReturnsEmptyString(): void
     {
         $propClass = new class {
-            public string $slug = '';
+            public string $slug = 'some-slug';
         };
         $prop = new \ReflectionProperty($propClass, 'slug');
         $args = $this->getTranslationArgs($prop);
@@ -119,9 +119,52 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
         $handler = $this->handlerSupporting($args, 'unused');
         $this->translator()->addTranslationHandler($handler);
-        self::expectException(\LogicException::class);
-        self::expectExceptionMessage('cannot use EmptyOnTranslate because it is not nullable');
-        $this->translator()->processTranslation($args);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame('', $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testEmptyOnTranslateOnNonNullableIntReturnsZero(): void
+    {
+        $propClass = new class {
+            public int $count = 5;
+        };
+        $prop = new \ReflectionProperty($propClass, 'count');
+        $args = $this->getTranslationArgs($prop);
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
+        $handler = $this->handlerSupporting($args, 'unused');
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame(0, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testEmptyOnTranslateOnNonNullableBoolReturnsFalse(): void
+    {
+        $propClass = new class {
+            public bool $active = true;
+        };
+        $prop = new \ReflectionProperty($propClass, 'active');
+        $args = $this->getTranslationArgs($prop);
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
+        $handler = $this->handlerSupporting($args, 'unused');
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertFalse($result);
     }
 
     /**
@@ -712,6 +755,359 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // Verify inProgress was cleaned up via cache service
         self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseReturnsTypeSafeDefault(): void
+    {
+        $propClass = new class {
+            public string $title = 'original';
+        };
+        $prop = new \ReflectionProperty($propClass, 'title');
+        $args = new TranslationArgs('original', 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->never())->method('translate');
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame('', $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseWithSharedAmongstTranslationsStillShares(): void
+    {
+        $propClass = new class {
+            public string $shared = 'shared-value';
+        };
+        $prop = new \ReflectionProperty($propClass, 'shared');
+        $args = new TranslationArgs('shared-value', 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(true);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('handleSharedAmongstTranslations')->willReturn('shared-value');
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame('shared-value', $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseWithEmptyOnTranslateLogsRedundancy(): void
+    {
+        $propClass = new class {
+            public string $title = 'original';
+        };
+        $prop = new \ReflectionProperty($propClass, 'title');
+        $args = new TranslationArgs('original', 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(false);
+
+        $this->logger()->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->logicalOr(
+                    $this->stringContains('Handler selected'),
+                    $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
+                    $this->stringContains('Type-safe default'),
+                ),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame('', $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseNonNullableObjectCopiesFromSource(): void
+    {
+        $propClass = new class {
+            public \DateTimeInterface $created;
+
+            public function __construct()
+            {
+                $this->created = new \DateTimeImmutable();
+            }
+        };
+        $prop = new \ReflectionProperty($propClass, 'created');
+        $args = new TranslationArgs($propClass->created, 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($propClass->created);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame($propClass->created, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseEmbeddedDelegatesToHandler(): void
+    {
+        $propClass = new class {
+            public object $address;
+
+            public function __construct()
+            {
+                $this->address = new \stdClass();
+            }
+        };
+        $prop = new \ReflectionProperty($propClass, 'address');
+        $args = new TranslationArgs($propClass->address, 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(true);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+
+        $embeddedResult = new \stdClass();
+        $handler        = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($embeddedResult);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame($embeddedResult, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseEmbeddedWithEmptyOnTranslateLogsRedundancy(): void
+    {
+        $propClass = new class {
+            public object $address;
+
+            public function __construct()
+            {
+                $this->address = new \stdClass();
+            }
+        };
+        $prop = new \ReflectionProperty($propClass, 'address');
+        $args = new TranslationArgs($propClass->address, 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(true);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
+
+        $this->logger()->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->logicalOr(
+                    $this->stringContains('Handler selected'),
+                    $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
+                ),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $embeddedResult = new \stdClass();
+        $handler        = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($embeddedResult);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame($embeddedResult, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceTruePreservesExistingBehavior(): void
+    {
+        $propClass = new class {
+            public string|null $body = null;
+        };
+        $prop = new \ReflectionProperty($propClass, 'body');
+        $args = new TranslationArgs('some text', 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(true);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
+        $this->attributeHelper()->method('isNullable')->willReturn(true);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('handleEmptyOnTranslate')->willReturn(null);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertNull($result);
+    }
+
+    public function testResolveCopySourceUsesEntityAttribute(): void
+    {
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        // Configure attributeHelper to return a Translatable attribute with copySource=true
+        $attribute = new \Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: true);
+        $this->attributeHelper()->method('getTranslatableAttribute')->willReturn($attribute);
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator()->addTranslationHandler($handler);
+
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $result = $this->translator()->processTranslation($args);
+
+        // The entity-level attribute should override the global copySource (false)
+        // and set args.copySource to true
+        self::assertTrue($args->getCopySource());
+    }
+
+    public function testResolveCopySourceUsesGlobalWhenNoAttribute(): void
+    {
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        // No entity-level attribute
+        $this->attributeHelper()->method('getTranslatableAttribute')->willReturn(null);
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator()->addTranslationHandler($handler);
+
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $result = $this->translator()->processTranslation($args);
+
+        // Global copySource is false (from test setup)
+        self::assertFalse($args->getCopySource());
+    }
+
+    public function testResolveCopySourceUsesGlobalWhenAttributeHasNullCopySource(): void
+    {
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        // Entity-level attribute with null copySource (defer to global)
+        $attribute = new \Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: null);
+        $this->attributeHelper()->method('getTranslatableAttribute')->willReturn($attribute);
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($entity);
+        $this->translator()->addTranslationHandler($handler);
+
+        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $result = $this->translator()->processTranslation($args);
+
+        // Global copySource is false
+        self::assertFalse($args->getCopySource());
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseNonNullableObjectWithEmptyOnTranslateLogsRedundancy(): void
+    {
+        $propClass = new class {
+            public \DateTimeInterface $created;
+
+            public function __construct()
+            {
+                $this->created = new \DateTimeImmutable();
+            }
+        };
+        $prop = new \ReflectionProperty($propClass, 'created');
+        $args = new TranslationArgs($propClass->created, 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(false);
+
+        $this->logger()->expects($this->atLeastOnce())
+            ->method('debug')
+            ->with(
+                $this->logicalOr(
+                    $this->stringContains('Handler selected'),
+                    $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
+                    $this->stringContains('non-nullable object'),
+                ),
+                $this->callback(static fn (mixed $value): bool => is_array($value)),
+            );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($propClass->created);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertSame($propClass->created, $result);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testCopySourceFalseNullablePropertyReturnsNull(): void
+    {
+        $propClass = new class {
+            public string|null $title = 'original';
+        };
+        $prop = new \ReflectionProperty($propClass, 'title');
+        $args = new TranslationArgs('original', 'en_US', 'de_DE');
+        $args->setProperty($prop)->setCopySource(false);
+
+        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
+        $this->attributeHelper()->method('isEmbedded')->willReturn(false);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $this->translator()->addTranslationHandler($handler);
+
+        $result = $this->translator()->processTranslation($args);
+
+        self::assertNull($result);
     }
 
     /**

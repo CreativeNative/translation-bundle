@@ -19,6 +19,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
+use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 // AddressWithEmptyAndSharedProperty uses non-standard namespace (Fixtures\Entity\Embedded)
@@ -46,6 +47,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
         // Create EmbeddedHandler with mocked AttributeHelper (for existing tests)
         $this->embeddedHandler = new EmbeddedHandler(
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
         );
     }
 
@@ -94,7 +96,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateWithMixedSharedAndEmptyProperties(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $address = new AddressWithEmptyAndSharedProperty();
         $address->setStreet('Test Street');
@@ -126,7 +128,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateWithClassLevelShared(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $embeddable = new SharedClassEmbeddable();
         $embeddable->setSharedByDefault('shared value');
@@ -148,7 +150,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateWithClassLevelEmpty(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $embeddable = new EmptyClassEmbeddable();
         $embeddable->setEmptyByDefault('empty value');
@@ -170,7 +172,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateThrowsForClassLevelConflict(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $embeddable = new ConflictClassEmbeddable();
         $embeddable->setConflicted('value');
@@ -199,7 +201,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateWithPlainEmbeddable(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $address = new Address();
         $address->setStreet('Street');
@@ -241,7 +243,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslatePerPropertyResolution(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $address = new AddressWithEmptyAndSharedProperty();
         $address->setStreet('Test Street');
@@ -286,7 +288,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testHandleEmptyOnTranslateReturnsOriginalWhenNoPropertyChanged(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         // Use Address fixture which has NO attributes on any property
         $address = new Address();
@@ -336,7 +338,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testHandleSharedAmongstTranslationsReturnsTrueWhenClassLevelShared(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $embeddable = new SharedClassEmbeddable();
         $embeddable->setSharedByDefault('Test Value');
@@ -353,7 +355,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testHandleSharedAmongstTranslationsReturnsTrueWhenInnerPropertyIsShared(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         $address = new AddressWithEmptyAndSharedProperty();
         $address->setStreet('Test Street');
@@ -375,7 +377,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateLogsResolutionChainAtDebugLevel(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
@@ -400,7 +402,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateLogsPropertyOverrideAtDebugLevel(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
 
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
@@ -432,5 +434,229 @@ final class EmbeddedHandlerTest extends UnitTestCase
         }
 
         self::assertTrue($hasOverrideLog, 'Should log property override when property-level overrides class-level');
+    }
+
+    // ---------------------------------------------------------------
+    // copy_source: false tests
+    // ---------------------------------------------------------------
+
+    public function testTranslateWithCopySourceFalseAppliesTypeDefaults(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        $address = new Address();
+        $address->setStreet('Street');
+        $address->setPostalCode('12345');
+        $address->setCity('City');
+        $address->setCountry('Country');
+
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $result = $handler->translate($args);
+
+        self::assertNotSame($address, $result);
+        self::assertInstanceOf(Address::class, $result);
+
+        // All nullable properties get null as type-safe default
+        self::assertNull($result->getStreet());
+        self::assertNull($result->getPostalCode());
+        self::assertNull($result->getCity());
+        self::assertNull($result->getCountry());
+    }
+
+    public function testTranslateWithCopySourceFalseKeepsSharedProperties(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        $address = new AddressWithEmptyAndSharedProperty();
+        $address->setStreet('Test Street');
+        $address->setPostalCode('12345');
+        $address->setCity('Test City');
+        $address->setCountry('Test Country');
+
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $result = $handler->translate($args);
+
+        self::assertNotSame($address, $result);
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
+
+        // $country (SharedAmongstTranslations) retains original value
+        self::assertSame('Test Country', $result->getCountry());
+
+        // Non-shared nullable properties get type-safe default (null)
+        self::assertNull($result->getStreet());
+        self::assertNull($result->getPostalCode());
+        self::assertNull($result->getCity());
+    }
+
+    public function testCopySourceFalseLogsRedundantEmptyOnTranslate(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        /** @var LoggerInterface&MockObject $mockLogger */
+        $mockLogger = $this->createMock(LoggerInterface::class);
+        $handler->setLogger($mockLogger);
+
+        $address = new AddressWithEmptyAndSharedProperty();
+        $address->setStreet('Test Street');
+        $address->setPostalCode('12345');
+        $address->setCity('Test City');
+        $address->setCountry('Test Country');
+
+        $logMessages = [];
+        $mockLogger->expects(self::atLeast(1))
+            ->method('debug')
+            ->willReturnCallback(static function (string $message) use (&$logMessages): void {
+                $logMessages[] = $message;
+            });
+
+        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $handler->translate($args);
+
+        // Check that at least one log message contains "EmptyOnTranslate has no effect"
+        $hasRedundancyLog = false;
+        foreach ($logMessages as $msg) {
+            if (str_contains($msg, 'EmptyOnTranslate has no effect on embedded property when copy_source is false')) {
+                $hasRedundancyLog = true;
+
+                break;
+            }
+        }
+
+        self::assertTrue($hasRedundancyLog, 'Should log that EmptyOnTranslate has no effect when copy_source is false');
+    }
+
+    public function testClearPropertyUsesTypeDefaultForNonNullable(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        // Use an embeddable with a non-nullable string property that has EmptyOnTranslate
+        $embeddable = new class {
+            public string $nonNullable = 'original';
+
+            public function getNonNullable(): string
+            {
+                return $this->nonNullable;
+            }
+        };
+
+        // Create args with copySource=true (so clearProperty is called via 'empty' resolution)
+        // We need to use the mocked handler for this since we need to control attributes
+        $mockHelper = $this->attributeHelper();
+        $mockHelper->method('classHasSharedAmongstTranslations')->willReturn(false);
+        $mockHelper->method('classHasEmptyOnTranslate')->willReturn(true);
+        $mockHelper->method('isSharedAmongstTranslations')->willReturn(false);
+        $mockHelper->method('isEmptyOnTranslate')->willReturn(false);
+
+        $mockHandler = new EmbeddedHandler($mockHelper, new TypeDefaultResolver());
+
+        // Simulate: class-level EmptyOnTranslate -> resolvePropertyAttribute returns 'empty'
+        // Since classEmpty=true and no property-level attribute, resolved = 'empty'
+        // clearProperty on non-nullable string should use type-safe default
+        $mockHelper2 = $this->createMock(AttributeHelper::class);
+        $mockHelper2->method('classHasSharedAmongstTranslations')->willReturn(false);
+        $mockHelper2->method('classHasEmptyOnTranslate')->willReturn(true);
+        $mockHelper2->method('isSharedAmongstTranslations')->willReturn(false);
+        $mockHelper2->method('isEmptyOnTranslate')->willReturn(false);
+        $mockHelper2->method('validateEmbeddableClass');
+
+        $handlerForTest = new EmbeddedHandler($mockHelper2, new TypeDefaultResolver());
+        $args           = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+        $args->setCopySource(true);
+
+        $result = $handlerForTest->translate($args);
+
+        // Non-nullable string property should get '' (type default) instead of null
+        self::assertIsObject($result);
+        $reflProp = new \ReflectionProperty($result, 'nonNullable');
+        self::assertSame('', $reflProp->getValue($result));
+    }
+
+    public function testApplyTypeDefaultKeepsSourceForUnsupportedType(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        /** @var LoggerInterface&MockObject $mockLogger */
+        $mockLogger = $this->createMock(LoggerInterface::class);
+        $handler->setLogger($mockLogger);
+
+        // Embeddable with a non-nullable object property (enum or DateTime)
+        $embeddable = new class {
+            public \DateTimeImmutable $created;
+
+            public function __construct()
+            {
+                $this->created = new \DateTimeImmutable('2024-01-01');
+            }
+
+            public function getCreated(): \DateTimeImmutable
+            {
+                return $this->created;
+            }
+        };
+
+        $logMessages = [];
+        $mockLogger->expects(self::atLeast(1))
+            ->method('debug')
+            ->willReturnCallback(static function (string $message) use (&$logMessages): void {
+                $logMessages[] = $message;
+            });
+
+        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $result = $handler->translate($args);
+
+        // Non-nullable object should keep cloned value as safety fallback
+        self::assertIsObject($result);
+        $reflProp = new \ReflectionProperty($result, 'created');
+        self::assertInstanceOf(\DateTimeImmutable::class, $reflProp->getValue($result));
+
+        // Should log the safety fallback
+        $hasFallbackLog = false;
+        foreach ($logMessages as $msg) {
+            if (str_contains($msg, 'Cannot resolve type-safe default for embedded property')) {
+                $hasFallbackLog = true;
+
+                break;
+            }
+        }
+
+        self::assertTrue($hasFallbackLog, 'Should log that embedded property keeps source value');
+    }
+
+    public function testTranslateWithCopySourceFalseAndClassLevelSharedKeepsSharedProperties(): void
+    {
+        $realHelper = new AttributeHelper();
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
+
+        $embeddable = new SharedClassEmbeddable();
+        $embeddable->setSharedByDefault('shared value');
+        $embeddable->setOverriddenToEmpty('override value');
+
+        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+        $args->setCopySource(false);
+
+        $result = $handler->translate($args);
+
+        self::assertNotSame($embeddable, $result);
+        self::assertInstanceOf(SharedClassEmbeddable::class, $result);
+
+        // $sharedByDefault inherits class-level Shared -> retains original value
+        self::assertSame('shared value', $result->getSharedByDefault());
+
+        // $overriddenToEmpty has property-level Empty which overrides class Shared
+        // but with copySource=false, all non-shared properties get type-safe defaults
+        self::assertNull($result->getOverriddenToEmpty());
     }
 }
