@@ -114,31 +114,31 @@ private Collection $photos;
   2. Remove `inversedBy`/`mappedBy` to make unidirectional
 - **llms.md:** See "SharedAmongstTranslations on Bidirectional Relation" troubleshooting entry
 
-### Check 2.2: EmptyOnTranslate on Non-Nullable Fields
+### Check 2.2: EmptyOnTranslate on Non-Nullable Scalar Fields
 
-**What to look for:** `#[EmptyOnTranslate]` on properties without nullable type
+**What to look for:** `#[EmptyOnTranslate]` on non-nullable fields
 
-**How to check:**
+**v2.0 behavior:** Non-nullable scalar fields (string, int, float, bool) now get type-safe defaults instead of throwing LogicException:
+- `string` -> `""`
+- `int` -> `0`
+- `float` -> `0.0`
+- `bool` -> `false`
+
+**Still invalid in v2.0:**
 ```php
-// INVALID - LogicException
+// INVALID - LogicException (non-nullable object)
 #[EmptyOnTranslate]
-#[ORM\Column(type: Types::TEXT)]
-private string $description;  // Not nullable!
-
-// VALID - nullable type
-#[EmptyOnTranslate]
-#[ORM\Column(type: Types::TEXT, nullable: true)]
-private ?string $description = null;
+#[ORM\Column(type: Types::DATETIME_MUTABLE)]
+private \DateTime $publishedAt;  // Object type, not scalar!
 ```
 
-**If found:**
+**If found (non-nullable object with EmptyOnTranslate):**
 - **Severity:** ERROR
-- **Error:** `LogicException: cannot use EmptyOnTranslate because it is not nullable`
-- **Symptom:** Translation fails when processing this field
+- **Error:** `LogicException: Property X is a non-nullable object and cannot have a type-safe default`
 - **Fix options:**
-  1. Make property nullable: `private ?string $description = null;`
+  1. Make property nullable: `private ?\DateTime $publishedAt = null;`
   2. Remove `#[EmptyOnTranslate]` attribute
-- **llms.md:** See "EmptyOnTranslate on Non-Nullable Field" troubleshooting entry
+  3. Use `#[SharedAmongstTranslations]` instead
 
 ### Check 2.3: Both SharedAmongstTranslations and EmptyOnTranslate
 
@@ -223,20 +223,20 @@ These checks verify environment and configuration.
 
 ### Check 4.1: Target Locale in Configuration
 
-**What to look for:** Locale exists in `tmi_translation.locales` config
+**What to look for:** Locale exists in `framework.enabled_locales` config
 
 **How to check:**
 ```yaml
-# config/packages/tmi_translation.yaml
-tmi_translation:
-    locales: [en, fr, de, es]
+# config/packages/framework.yaml
+framework:
+    enabled_locales: [en, fr, de, es]
 ```
 
 **If locale missing:**
 - **Severity:** ERROR
-- **Error:** `LogicException: Locale "xx" is not allowed`
+- **Error:** `LogicException: The tmi/translation-bundle requires framework.enabled_locales to be configured`
 - **Symptom:** Translation fails immediately
-- **Fix:** Add target locale to configuration
+- **Fix:** Add target locale to `framework.enabled_locales` in config/packages/framework.yaml
 - **llms.md:** See "Locale Not Allowed" troubleshooting entry
 
 ### Check 4.2: Doctrine Filter Enabled
@@ -296,6 +296,61 @@ $entityManager->flush();
 
 ---
 
+## Layer 5: Compile-Time Validation (v2.0)
+
+These checks verify v2.0 compile-time validation results.
+
+### Check 5.1: Attribute Conflicts (AttributeValidationPass)
+
+**What to look for:** Class-level or property-level attribute conflicts detected at cache:warmup
+
+**How to check:**
+```bash
+bin/console cache:warmup
+# Look for: "TMI Translation Bundle: Compile-time validation failed"
+```
+
+**Common violations:**
+- `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` on same class
+- `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` on same property
+- `#[EmptyOnTranslate]` on readonly property
+- Missing locale property (no TranslatableTrait)
+
+**If found:**
+- **Severity:** ERROR
+- **Fix:** Remove conflicting attributes, add TranslatableTrait for locale
+- **llms.md:** See "Compile-Time Validation" section
+
+### Check 5.2: Unique Constraint Validation (TranslatableEntityValidationWarmer)
+
+**What to look for:** Single-column unique constraints on translatable entity fields
+
+**How to check:**
+```bash
+bin/console cache:warmup
+# Look for: "TMI Translation Bundle: Unique constraint validation failed"
+```
+
+**If found:**
+- **Severity:** ERROR
+- **Fix:** Replace `unique: true` with composite `#[ORM\UniqueConstraint]` including locale
+- **llms.md:** See "Compile-Time Validation" section
+
+### Check 5.3: v1.x Config Migration
+
+**What to look for:** Removed v1.x config keys that throw LogicException
+
+**How to check:** Look for these in config/packages/tmi_translation.yaml:
+- `tmi_translation.locales` -> removed, use `framework.enabled_locales`
+- `tmi_translation.logging.enabled` -> use `tmi_translation.enable_logging: true`
+
+**If found:**
+- **Severity:** BLOCKING
+- **Error:** LogicException with migration guidance
+- **Fix:** Follow the error message guidance or see UPGRADING.md
+
+---
+
 ## Diagnostic Summary Template
 
 After running all checks, compile results:
@@ -325,6 +380,11 @@ LAYER 4: Runtime Configuration
   [X] Target locale configured
   [ ] Doctrine filter enabled
   [X] Persistence reminders noted
+
+LAYER 5: Compile-Time Validation (v2.0)
+  [X] No attribute conflicts
+  [X] No single-column unique constraints
+  [X] No removed v1.x config keys
 
 ISSUES FOUND: 2
   - ERROR: SharedAmongstTranslations on bidirectional 'category'

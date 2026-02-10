@@ -27,6 +27,7 @@ Execute all checks from **references/diagnostics.md** in order:
 2. **Attribute Configuration Layer** - ERROR/WARNING issues
 3. **Handler Chain Mapping Layer** - Handler compatibility
 4. **Runtime Configuration Layer** - Environment setup
+5. **Compile-Time Validation Layer** - v2.0 attribute conflicts and unique constraints
 
 ### Step 3: Present Results
 
@@ -62,8 +63,10 @@ WARNINGS (may cause unexpected behavior)
 
 PASSED CHECKS
 -------------
-[X] Locale 'fr' in tmi_translation.locales
+[X] Locale 'fr' in framework.enabled_locales
 [X] Doctrine filter configured
+[X] No compile-time attribute conflicts
+[X] No single-column unique constraints
 ```
 
 ### Step 4: Offer Fixes
@@ -97,6 +100,15 @@ Run checks: SharedAmongstTranslations on bidirectional relations
 ### "Field value unexpected after translation"
 Run checks: Handler chain mapping, attribute conflicts (Shared vs Empty)
 
+### "Compile-time validation error"
+Run checks: AttributeValidationPass errors, class/property attribute conflicts, locale field
+
+### "Unique constraint validation error"
+Run checks: Single-column unique: true fields, composite unique constraints
+
+### "LogicException about removed config"
+Run checks: v1.x config keys (tmi_translation.locales, tmi_translation.logging), migration guidance
+
 ## Quick Commands
 
 For users who know what to check:
@@ -105,6 +117,7 @@ For users who know what to check:
 - **"Check attributes"** - Run Attribute Configuration Layer only
 - **"Check handlers"** - Run Handler Chain Mapping Layer only
 - **"Check runtime"** - Run Runtime Configuration Layer only
+- **"Check validation"** - Run Compile-Time Validation Layer only
 - **"Full diagnostic"** - Run all layers (default)
 
 ## References
@@ -112,3 +125,4 @@ For users who know what to check:
 - **references/diagnostics.md** - Detailed check procedures for each layer
 - **llms.md -> Troubleshooting** - Fix procedures for each issue type
 - **llms.md -> Handler Chain Decision Tree** - Handler priority and routing
+- **UPGRADING.md** - Migration guide for v1.x to v2.0 breaking changes
