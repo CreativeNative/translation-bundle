@@ -45,8 +45,7 @@ This is a **complete refactoring** based on PHP 8.4, Symfony 7.3, and Doctrine O
 ## ⚠️ Limitations
 
 * **ManyToMany associations** are currently not supported. This includes usage with the `SharedAmongstTranslations` attribute.
-* There is currently **no handler for unique fields** (e.g. `uuid`, `slug`).  When translating entities with unique columns, the translation process may fail with a unique constraint violation.
-  See the [Quick Fix for unique fields](#quick-fix-for-unique-fields) section below.
+* Entities with single-column `unique: true` constraints will trigger a validation error at `cache:warmup` -- use composite constraints (field + locale) instead. See [UPGRADING.md](UPGRADING.md#5-composite-unique-constraint-validation) for the pattern.
 * Requires **PHP 8.4+**, **Symfony 7.3+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
 ## 📦 Installation
@@ -65,13 +64,19 @@ Tmi\TranslationBundle\TmiTranslationBundle::class => ['all' => true],
 ```
 
 ## ⚙️ Configuration
-Configure your available locales and, optionally, the default one and disabled firewalls. That's it!
+Configure your available locales in framework.yaml and, optionally, additional bundle settings:
+
 ```yaml
+# config/packages/framework.yaml
+framework:
+    enabled_locales: ['en_US', 'de_DE', 'it_IT']
+
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    locales: ['en_US', 'de_DE', 'it_IT'] # Required: available locales
-    # default_locale: 'en_US'            # Optional: uses kernel.default_locale if not set
-    # disabled_firewalls: ['main']       # Optional: disable filter for specific firewalls
+    # default_locale: 'en_US'            # Optional: uses framework.default_locale if not set
+    # disabled_firewalls: ['main']        # Optional: disable filter for specific firewalls
+    # enable_logging: false               # Optional: enable PSR-3 debug logging
+    # copy_source: false                  # Optional: clone source content (true = v1.x behavior)
 ```
 
 ### Doctrine DBAL Custom Type - TuuidType
@@ -196,7 +201,6 @@ For doing so, you can disable the filter by configuring the disabled_firewalls o
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
-  locales: [en, de, it]
   disabled_firewalls: ['main']  # Disable filter for 'main' firewall
 ```
 
@@ -270,6 +274,10 @@ The skills are defined in `.agents/skills/` and follow a standard markdown forma
 For comprehensive documentation optimized for AI assistants, see:
 - [llms.txt](llms.txt) - Quick reference with all important links
 - [llms.md](llms.md) - Detailed guide with handler chain decision tree and troubleshooting
+
+## 📖 Upgrading
+
+See [UPGRADING.md](UPGRADING.md) for migration guides between major versions.
 
 ## 🤝 Contributing
 

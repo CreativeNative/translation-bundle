@@ -6,6 +6,7 @@
 
 - [README](https://github.com/CreativeNative/translation-bundle/blob/master/README.md): Installation, configuration, and quick start guide
 - [Developer & AI Guide](https://github.com/CreativeNative/translation-bundle/blob/master/llms.md): Comprehensive glossary, handler chain decision tree, troubleshooting guide, and minimal working example
+- [Upgrade Guide](https://github.com/CreativeNative/translation-bundle/blob/master/UPGRADING.md): Migration guide from v1.x to v2.0 with before/after code examples
 
 ## AI Skills
 
@@ -43,6 +44,12 @@
 
 - [TranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/TranslateEvent.php): Pre/post translation event for customization hooks
 - [LocaleFilter](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Filter/LocaleFilter.php): Automatic query filtering by current locale
+
+## v2.0 Services
+
+- [TranslationCacheInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Cache/TranslationCacheInterface.php): Translation cache abstraction for custom implementations (Redis, PSR-6, etc.)
+- [Translatable](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/Translatable.php): Entity-level attribute for per-entity copy_source control
+- [TypeDefaultResolver](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/TypeDefaultResolver.php): Type-safe default value resolution for EmptyOnTranslate
 
 ## Optional
 
