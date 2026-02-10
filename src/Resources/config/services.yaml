@@ -31,6 +31,15 @@ services:
     Tmi\TranslationBundle\Translation\TypeDefaultResolver: ~
 
     # ----------------------------
+    # Compile-Time Validation
+    # ----------------------------
+    Tmi\TranslationBundle\CacheWarmer\TranslatableEntityValidationWarmer:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+        tags:
+            - { name: kernel.cache_warmer }
+
+    # ----------------------------
     # Entity Translator
     # ----------------------------
     Tmi\TranslationBundle\Translation\EntityTranslator:
