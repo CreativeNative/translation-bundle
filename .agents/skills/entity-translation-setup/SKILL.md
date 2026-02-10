@@ -28,11 +28,29 @@ Ask: **"Want me to use defaults (quick mode), or walk through each decision (gui
 Tell the user:
 
 **"The TranslatableTrait provides three fields automatically:**
-- **tuuid**: Translation UUID linking all locale variants (already marked SharedAmongstTranslations)
+- **tuuid**: Translation UUID (non-nullable in v2.0) linking all locale variants (already marked SharedAmongstTranslations)
 - **locale**: Current locale code (e.g., 'en', 'fr')
 - **translations**: JSON storage for all locale data
 
 You don't add these fields yourself - the trait handles them."
+
+## Step 2.5: Configuration Check (v2.0)
+
+Verify the project has framework.enabled_locales configured:
+
+```yaml
+# config/packages/framework.yaml
+framework:
+    enabled_locales: [en, fr, de]
+```
+
+If missing, guide user to add it. This is REQUIRED in v2.0 (the bundle reads locales from Symfony's framework config, not its own config).
+
+Also check for v1.x config patterns that need migration:
+- `tmi_translation.locales` -> removed, use `framework.enabled_locales`
+- `tmi_translation.logging.enabled` -> use `tmi_translation.enable_logging`
+
+If v1.x patterns found, suggest: "See UPGRADING.md for the full migration guide."
 
 ## Quick Mode Workflow
 
@@ -40,6 +58,11 @@ You don't add these fields yourself - the trait handles them."
 - Translate all scalar fields EXCEPT price/cost/amount/value (those are SharedAmongstTranslations)
 - Share all relationship fields (same entity across locales)
 - Apply EmptyOnTranslate only if field name contains "slug" or "seo"
+
+**v2.0 behavior note:**
+- If `copy_source: false` (v2.0 default), translated fields start empty with type-safe defaults
+- If `copy_source: true`, translated fields clone source content (v1.x behavior)
+- Use `#[Translatable(copySource: true)]` on individual entities to override global config
 
 **Process:**
 1. Show diff-style output with changes
@@ -93,7 +116,7 @@ Ask: "Which fields should be SharedAmongstTranslations? (comma-separated, or 'no
 
 **Examples-first approach:**
 
-"Some fields need a NEW value in each language (they can't be copied from source). Mark these with EmptyOnTranslate:
+"Some fields need a FRESH value in each language. Mark these with EmptyOnTranslate. In v2.0, non-nullable fields get type-safe defaults (string='', int=0, float=0.0, bool=false) instead of requiring nullable types.
 
 **Examples:**
 - **Slug**: 'blue-widget' (EN) → 'widget-bleu' (FR) — must be regenerated
@@ -129,10 +152,12 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 + use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 + use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
++ use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
 + use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 + use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 
 #[ORM\Entity]
++ #[Translatable(copySource: false)]  // v2.0: start translations empty
 - class Product
 + class Product implements TranslatableInterface
 {
@@ -190,3 +215,19 @@ For complete handler chain details, priority order, and edge cases, see **llms.m
 - handle, identifier (if string-based and locale-specific)
 
 **Always confirm suggestions with user before applying.**
+
+## v2.0 Composite Unique Constraints
+
+If the entity has fields with `unique: true`, warn the user:
+
+**"Translatable entities cannot use single-column unique constraints. The same slug 'blue-widget' might exist in both 'en' and 'fr' translations. Use a composite constraint (field + locale) instead."**
+
+Show the fix:
+```php
+// Remove: #[ORM\Column(length: 255, unique: true)]
+// Add to class:
+#[ORM\UniqueConstraint(name: 'uniq_{entity}_{field}_locale', fields: ['{field}', 'locale'])]
+// And: #[ORM\Column(length: 255)]  // without unique: true
+```
+
+v2.0 validates this at cache:warmup and will throw an error if single-column unique constraints are found.

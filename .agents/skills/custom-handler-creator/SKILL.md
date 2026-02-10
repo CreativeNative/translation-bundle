@@ -28,7 +28,7 @@ Gather requirements:
 1. **supports()**: What condition identifies this field type?
 2. **translate()**: How should the value be cloned/transformed?
 3. **handleSharedAmongstTranslations()**: Return same instance or throw exception?
-4. **handleEmptyOnTranslate()**: Return null, empty instance, or special value?
+4. **handleEmptyOnTranslate()**: Return null, empty instance, or special value? Use TypeDefaultResolver to return type-safe defaults for non-nullable types (v2.0 pattern)
 
 ## Step 3: Interactive Priority Selection
 
@@ -60,6 +60,11 @@ Show Symfony service configuration:
 ```yaml
 # config/services.yaml
 App\Translation\Handler\{HandlerName}:
+    arguments:
+        $attributeHelper: '@tmi_translation.utils.attribute_helper'
+        # Optional v2.0 dependencies:
+        # $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
+        # $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
     tags:
         - { name: 'tmi_translation.handler', priority: {priority} }
 ```
@@ -78,6 +83,13 @@ If yes, use template from [test-template.md](references/test-template.md):
 ## Handler Chain Reference
 
 For complete handler chain architecture, priority order, and decision tree, see **llms.md "Handler Chain Decision Tree"** section.
+
+### v2.0 Handler Changes
+
+- **EmbeddedHandler** now receives `TypeDefaultResolver` for type-safe empty defaults
+- **EntityTranslator** now receives `TranslationCacheInterface` for cache delegation
+- Custom handlers can inject `TypeDefaultResolver` to resolve type-safe defaults for `handleEmptyOnTranslate()`
+- Custom handlers can inject `TranslationCacheInterface` to check/store translations
 
 ## Quick Reference: TranslationHandlerInterface
 
