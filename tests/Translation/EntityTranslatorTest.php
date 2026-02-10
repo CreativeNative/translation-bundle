@@ -18,6 +18,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -313,8 +314,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $translator = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
+            false,
             $this->eventDispatcher(),
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
             $emStub,
             $this->cache(),
         );
@@ -403,8 +406,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $translator = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US'],
+            false,
             $this->eventDispatcher(),
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
             null, // No logger
@@ -490,8 +495,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $translatorWithoutLogger = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US'],
+            false,
             $this->eventDispatcher(),
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
             null,
@@ -687,8 +694,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $translator = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
+            false,
             $this->eventDispatcher(),
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
             $emStub,
             $this->cache(),
             $this->logger(),

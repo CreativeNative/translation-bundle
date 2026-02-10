@@ -17,6 +17,8 @@ final class TranslationArgs
 
     private \ReflectionProperty|null $property = null;
 
+    private bool|null $copySource = null;
+
     public function __construct(
         private mixed $dataToBeTranslated,
         private string|null $sourceLocale = null,
@@ -122,6 +124,27 @@ final class TranslationArgs
     public function setProperty(\ReflectionProperty|null $property): self
     {
         $this->property = $property;
+
+        return $this;
+    }
+
+    /**
+     * Returns the copy-source override for this translation context.
+     *
+     * Null means "use global config", true/false override the global setting.
+     * Set by EntityTranslator based on the entity's #[Translatable] attribute.
+     */
+    public function getCopySource(): bool|null
+    {
+        return $this->copySource;
+    }
+
+    /**
+     * Sets the copy-source override for this translation context.
+     */
+    public function setCopySource(bool|null $copySource): self
+    {
+        $this->copySource = $copySource;
 
         return $this;
     }

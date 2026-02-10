@@ -33,8 +33,10 @@ final class EntityTranslator implements EntityTranslatorInterface
         #[Autowire(param: 'tmi_translation.default_locale')]
         private readonly string $defaultLocale,
         private readonly array $locales,
+        private readonly bool $copySource, // @phpstan-ignore property.onlyWritten (read in Plan 20-03)
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly AttributeHelper $attributeHelper,
+        private readonly TypeDefaultResolver $typeDefaultResolver, // @phpstan-ignore property.onlyWritten (read in Plan 20-03)
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslationCacheInterface $cache,
         LoggerInterface|null $logger = null,

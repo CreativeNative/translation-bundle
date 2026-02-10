@@ -17,6 +17,7 @@ use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -138,8 +139,10 @@ class UnitTestCase extends TestCase
         return new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
+            false,
             $this->eventDispatcher(),
             $this->attributeHelper(),
+            new TypeDefaultResolver(),
             $emStub,
             $this->cache(),
             $logger,

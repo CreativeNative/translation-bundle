@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Utils;
 use Doctrine\ORM\Mapping as ORM;
 use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Doctrine\Attribute as TranslationAttribute;
+use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
 use Tmi\TranslationBundle\Exception\AttributeConflictException;
 use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
@@ -205,6 +206,21 @@ class AttributeHelper
 
             throw new ValidationException($errors);
         }
+    }
+
+    /**
+     * Reads the #[Translatable] attribute from an entity class, if present.
+     *
+     * @param \ReflectionClass<object> $class
+     */
+    public function getTranslatableAttribute(\ReflectionClass $class): Translatable|null
+    {
+        $attrs = $class->getAttributes(Translatable::class, \ReflectionAttribute::IS_INSTANCEOF);
+        if ([] === $attrs) {
+            return null;
+        }
+
+        return $attrs[0]->newInstance();
     }
 
     /**

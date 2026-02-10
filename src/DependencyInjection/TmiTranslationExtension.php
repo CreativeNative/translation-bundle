@@ -35,7 +35,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         }
 
         $configuration = new Configuration();
-        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool} $config */
+        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool, copy_source: bool} $config */
         $config = $this->processConfiguration($configuration, $configs);
 
         // Read locales from Symfony's framework.enabled_locales

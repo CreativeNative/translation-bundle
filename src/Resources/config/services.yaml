@@ -26,14 +26,21 @@ services:
             $cachePool: '@cache.app'
 
     # ----------------------------
+    # Type Default Resolver
+    # ----------------------------
+    Tmi\TranslationBundle\Translation\TypeDefaultResolver: ~
+
+    # ----------------------------
     # Entity Translator
     # ----------------------------
     Tmi\TranslationBundle\Translation\EntityTranslator:
         arguments:
             $defaultLocale: '%tmi_translation.default_locale%'
             $locales: '%kernel.enabled_locales%'
+            $copySource: '%tmi_translation.copy_source%'
             $eventDispatcher: '@event_dispatcher'
             $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
             $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
             $logger: '@?logger'
 

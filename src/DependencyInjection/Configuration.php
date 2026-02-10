@@ -29,6 +29,10 @@ final class Configuration implements ConfigurationInterface
                     ->defaultFalse()
                     ->info('Enable debug logging when PSR-3 logger is available (opt-in)')
                 ->end()
+                ->booleanNode('copy_source')
+                    ->defaultFalse()
+                    ->info('When false, new translations start empty with type-safe defaults. When true, translations clone source content (v1.x behavior).')
+                ->end()
             ->end();
 
         return $treeBuilder;
