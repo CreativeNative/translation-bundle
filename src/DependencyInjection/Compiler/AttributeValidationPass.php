@@ -94,11 +94,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         );
 
         foreach ($iterator as $file) {
-            if (!$file instanceof \SplFileInfo) {
-                continue;
-            }
-
-            if (!$file->isFile() || 'php' !== $file->getExtension()) {
+            if (!$file instanceof \SplFileInfo || !$file->isFile() || 'php' !== $file->getExtension()) {
                 continue;
             }
 
@@ -130,10 +126,7 @@ final class AttributeValidationPass implements CompilerPassInterface
      */
     private function extractClassName(string $filePath): string|null
     {
-        $contents = file_get_contents($filePath);
-        if (false === $contents) {
-            return null;
-        }
+        $contents = (string) file_get_contents($filePath);
 
         // Extract namespace
         if (1 !== preg_match('/namespace\s+([^;]+);/', $contents, $namespaceMatches)) {
