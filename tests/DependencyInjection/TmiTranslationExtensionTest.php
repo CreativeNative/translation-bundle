@@ -316,6 +316,25 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         self::assertTrue($containerBuilder->has(TypeDefaultResolver::class));
     }
 
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testDefaultLocaleParameterReferenceIsResolved(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US', 'de_DE', 'it_IT']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        // Omit default_locale — Configuration defaults it to %kernel.default_locale%
+        $extension->load([[]], $containerBuilder);
+
+        // The resolved value should be stored, not the raw %kernel.default_locale% reference
+        self::assertSame('en_US', $containerBuilder->getParameter('tmi_translation.default_locale'));
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();

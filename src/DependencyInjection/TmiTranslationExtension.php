@@ -48,8 +48,12 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
             throw new \LogicException('The tmi/translation-bundle requires framework.enabled_locales to be configured. Add "enabled_locales" to your framework configuration.');
         }
 
+        // Resolve default_locale — processConfiguration() does not resolve %param% references
+        /** @var string $defaultLocale */
+        $defaultLocale            = $container->getParameterBag()->resolveValue($config['default_locale']);
+        $config['default_locale'] = $defaultLocale;
+
         // Validate that default_locale is included in enabled_locales
-        $defaultLocale = $config['default_locale'];
         if (!\in_array($defaultLocale, $enabledLocales, true)) {
             throw new \LogicException(\sprintf('The default_locale "%s" must be included in framework.enabled_locales [%s].', $defaultLocale, implode(', ', $enabledLocales)));
         }
