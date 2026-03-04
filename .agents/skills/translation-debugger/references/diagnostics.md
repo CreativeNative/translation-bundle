@@ -267,6 +267,15 @@ doctrine:
 
 **How to check:**
 ```php
+// v2.1 recommended: auto-persist convenience methods
+$translated = $entityTranslator->translateAndPersist($source, 'fr');
+$entityManager->flush();
+
+// v2.1 find-or-create: returns existing or creates + persists new
+$translated = $entityTranslator->getOrTranslate($source, 'fr');
+$entityManager->flush();
+
+// Manual (v2.0 pattern):
 $translated = $entityTranslator->translate($source, 'fr');
 $entityManager->persist($translated);  // Required!
 $entityManager->flush();
@@ -276,7 +285,7 @@ $entityManager->flush();
 - **Severity:** INFO
 - **Error:** No error during translation
 - **Symptom:** Translation not in database
-- **Reminder:** Translator creates NEW entity, must be persisted
+- **Reminder:** `translate()` creates a NEW entity that must be persisted. Use `translateAndPersist()` or `getOrTranslate()` (v2.1) to auto-persist.
 - **llms.md:** See "Translations Not Persisted" troubleshooting entry
 
 ### Check 4.4: Collection Translation Duplicates
