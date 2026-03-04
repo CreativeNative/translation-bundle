@@ -195,6 +195,39 @@ final class AttributeHelperTest extends TestCase
     }
 
     // =========================================================================
+    // isGeneratedValue tests
+    // =========================================================================
+
+    public function testIsGeneratedValueReturnsTrueForAnnotatedProperty(): void
+    {
+        /** @var class-string $className */
+        $className = 'TestGeneratedValue_'.uniqid();
+        eval(<<<PHP
+            class {$className} {
+                #[\Doctrine\ORM\Mapping\Id]
+                #[\Doctrine\ORM\Mapping\GeneratedValue]
+                #[\Doctrine\ORM\Mapping\Column(type: 'integer')]
+                public ?int \$id = null;
+            }
+        PHP);
+
+        $property = new \ReflectionProperty($className, 'id');
+
+        self::assertTrue($this->attributeHelper->isGeneratedValue($property));
+    }
+
+    public function testIsGeneratedValueReturnsFalseForPlainProperty(): void
+    {
+        $plainClass = new class {
+            public string|null $name = null;
+        };
+
+        $property = new \ReflectionProperty($plainClass, 'name');
+
+        self::assertFalse($this->attributeHelper->isGeneratedValue($property));
+    }
+
+    // =========================================================================
     // Class-level attribute detection tests
     // =========================================================================
 

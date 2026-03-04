@@ -7,12 +7,14 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 use Doctrine\ORM\EntityManagerInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
         private DoctrineObjectHandler $doctrineObjectHandler,
+        private AttributeHelper $attributeHelper,
     ) {
     }
 
@@ -58,8 +60,20 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         $subArgs->setCopySource($args->getCopySource());
         $this->doctrineObjectHandler->translateProperties($subArgs);
 
+        $this->resetGeneratedIds($clone);
         $clone->setLocale($args->getTargetLocale());
 
         return $clone;
+    }
+
+    private function resetGeneratedIds(TranslatableInterface $clone): void
+    {
+        $reflection = new \ReflectionClass($clone);
+
+        foreach ($reflection->getProperties() as $property) {
+            if ($this->attributeHelper->isId($property) && $this->attributeHelper->isGeneratedValue($property)) {
+                $property->setValue($clone, null);
+            }
+        }
     }
 }

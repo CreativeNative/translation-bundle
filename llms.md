@@ -332,13 +332,13 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### [TranslatableEntityHandler](src/Translation/Handlers/TranslatableEntityHandler.php)
 - **Purpose:** Handles **entities implementing `TranslatableInterface`**.
 - **Priority:** 20
-- **Dependencies:** `EntityManagerInterface`, `DoctrineObjectHandler`.
+- **Dependencies:** `EntityManagerInterface`, `DoctrineObjectHandler`, `AttributeHelper`.
 - **Methods:**
     - `supports()` — Returns true if entity implements `TranslatableInterface`.
-    - `translate()` — Checks database for existing translation by `tuuid` and target locale; clones and translates via `DoctrineObjectHandler` if not found.
+    - `translate()` — Checks database for existing translation by `tuuid` and target locale; clones and translates via `DoctrineObjectHandler` if not found. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
     - `handleSharedAmongstTranslations()` — Delegates to `translate()`.
     - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Integrates entity-level and property-level translation, ensures unique translations per locale.
+- **Notes:** Integrates entity-level and property-level translation, ensures unique translations per locale. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations.
 
 ---
 
@@ -985,9 +985,18 @@ private ?Category $category = null;
 
 **Diagnosis:** Check if `persist()` and `flush()` were called on the translated entity. The translator creates a NEW entity, not an update to existing.
 
-**Resolution:** Always persist and flush the translated entity returned by the translator:
+**Resolution:** Use `translateAndPersist()` or `getOrTranslate()` (v2.1) to auto-persist, or manually persist:
 
 ```php
+// v2.1 recommended: auto-persist
+$frenchProduct = $entityTranslator->translateAndPersist($product, 'fr');
+$entityManager->flush();
+
+// v2.1 find-or-create: returns existing or creates + persists new
+$frenchProduct = $entityTranslator->getOrTranslate($product, 'fr');
+$entityManager->flush();
+
+// Manual (v2.0 pattern):
 $frenchProduct = $entityTranslator->translate($product, 'fr');
 $entityManager->persist($frenchProduct);  // Required!
 $entityManager->flush();
@@ -1094,7 +1103,60 @@ private Collection $photos;
 
 ---
 
-## “How can I achieve X?” Quick Answers  
+## Locale Variant DX (v2.1)
+
+### Convenience Methods on EntityTranslatorInterface
+
+Two new methods reduce boilerplate for common translation workflows:
+
+- **`translateAndPersist(entity, locale)`** — Calls `translate()` then `persist()`. Useful when you always want to save immediately.
+- **`getOrTranslate(entity, locale)`** — Calls `translate()`, checks if the result is already managed by the EntityManager. If not (new translation), persists it. Avoids double-persisting existing translations found in the database.
+
+```php
+// Always creates + persists (even if DB already has it)
+$translation = $entityTranslator->translateAndPersist($product, 'fr');
+
+// Smarter: only persists if it's a new clone
+$translation = $entityTranslator->getOrTranslate($product, 'fr');
+```
+
+### Auto-Reset Generated IDs
+
+`TranslatableEntityHandler` now automatically resets properties marked with both `#[ORM\Id]` and `#[ORM\GeneratedValue]` to `null` on cloned translations. This eliminates the need for consumers to manually reset IDs via reflection after calling `translate()`.
+
+### [TranslatableRepositoryTrait](src/Doctrine/Repository/TranslatableRepositoryTrait.php)
+
+A trait for Doctrine entity repositories that provides batch locale variant lookups:
+
+- **`findAllLocaleVariants(Tuuid $tuuid): array<string, TranslatableInterface>`** — Returns all locale variants for a single Tuuid, keyed by locale.
+- **`findAllLocaleVariantsBatch(list<Tuuid> $tuuids): array<string, array<string, TranslatableInterface>>`** — Batch lookup for multiple Tuuids, grouped by tuuid string then locale.
+
+Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales, then re-enable it in a `finally` block.
+
+```php
+use Doctrine\ORM\EntityRepository;
+use Tmi\TranslationBundle\Doctrine\Repository\TranslatableRepositoryTrait;
+
+class ProductRepository extends EntityRepository
+{
+    use TranslatableRepositoryTrait;
+}
+```
+
+Usage:
+```php
+$variants = $productRepository->findAllLocaleVariants($product->getTuuid());
+// ['en_US' => Product, 'de_DE' => Product, ...]
+
+$batch = $productRepository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
+// ['<tuuid1>' => ['en_US' => Product, ...], '<tuuid2>' => ['de_DE' => Product, ...]]
+```
+
+Use `@phpstan-require-extends \Doctrine\ORM\EntityRepository` in the trait for PHPStan level max compatibility.
+
+---
+
+## “How can I achieve X?” Quick Answers
 
 - **"How do I share the address across locales?"**
   Mark the embedded property with `#[SharedAmongstTranslations]`, ensure all locale entities share the same Tuuid, and use the translator to clone/translate the rest.
@@ -1142,5 +1204,6 @@ Step-by-step guide for building custom translation handlers for field types not 
 - v1.0: Initial methodology documented.
 - v2.0: Added cache service, type-safe defaults, fallback control, compile-time validation documentation.
 - v2.0.1: Added AI Skills section (entity-translation-setup, translation-debugger, custom-handler-creator).
+- v2.1.0: Added locale variant DX improvements: `translateAndPersist()`, `getOrTranslate()`, `TranslatableRepositoryTrait`, auto-reset generated IDs.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 

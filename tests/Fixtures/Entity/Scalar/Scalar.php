@@ -11,7 +11,7 @@ use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: ScalarRepository::class)]
 class Scalar implements TranslatableInterface
 {
     use TranslatableTrait;

@@ -12,6 +12,16 @@ interface EntityTranslatorInterface
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface;
 
     /**
+     * Translates the entity and persists the result via the EntityManager.
+     */
+    public function translateAndPersist(TranslatableInterface $entity, string $locale): TranslatableInterface;
+
+    /**
+     * Returns an existing translation or creates, persists and returns a new one.
+     */
+    public function getOrTranslate(TranslatableInterface $entity, string $locale): TranslatableInterface;
+
+    /**
      * Process translation for an entity, embedded object, or property value.
      *
      * Exposed so handlers may recursively translate sub-objects through the

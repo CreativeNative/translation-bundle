@@ -16,12 +16,13 @@ use Tmi\TranslationBundle\Exception\ValidationException;
 class AttributeHelper
 {
     private const array DOCTRINE_ATTRIBUTES = [
-        'isEmbedded'   => ORM\Embedded::class,
-        'isOneToOne'   => ORM\OneToOne::class,
-        'isId'         => ORM\Id::class,
-        'isManyToOne'  => ORM\ManyToOne::class,
-        'isOneToMany'  => ORM\OneToMany::class,
-        'isManyToMany' => ORM\ManyToMany::class,
+        'isEmbedded'       => ORM\Embedded::class,
+        'isOneToOne'       => ORM\OneToOne::class,
+        'isId'             => ORM\Id::class,
+        'isGeneratedValue' => ORM\GeneratedValue::class,
+        'isManyToOne'      => ORM\ManyToOne::class,
+        'isOneToMany'      => ORM\OneToMany::class,
+        'isManyToMany'     => ORM\ManyToMany::class,
     ];
 
     private const array TRANSLATION_ATTRIBUTES = [
@@ -70,6 +71,14 @@ class AttributeHelper
      * Defines if the property is an ID.
      */
     public function isId(\ReflectionProperty $property): bool
+    {
+        return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
+    }
+
+    /**
+     * Defines if the property has a generated value strategy.
+     */
+    public function isGeneratedValue(\ReflectionProperty $property): bool
     {
         return $this->hasAttribute($property, self::DOCTRINE_ATTRIBUTES[__FUNCTION__]);
     }

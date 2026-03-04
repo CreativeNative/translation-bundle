@@ -59,6 +59,25 @@ final class EntityTranslator implements EntityTranslatorInterface
         return $result;
     }
 
+    public function translateAndPersist(TranslatableInterface $entity, string $locale): TranslatableInterface
+    {
+        $result = $this->translate($entity, $locale);
+        $this->entityManager->persist($result);
+
+        return $result;
+    }
+
+    public function getOrTranslate(TranslatableInterface $entity, string $locale): TranslatableInterface
+    {
+        $result = $this->translate($entity, $locale);
+
+        if (!$this->entityManager->contains($result)) {
+            $this->entityManager->persist($result);
+        }
+
+        return $result;
+    }
+
     /**
      * Process translation for a given entity or property.
      *

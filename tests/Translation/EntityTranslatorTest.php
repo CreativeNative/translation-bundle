@@ -9,6 +9,7 @@ use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
@@ -1108,6 +1109,102 @@ final class EntityTranslatorTest extends UnitTestCase
         $result = $this->translator()->processTranslation($args);
 
         self::assertNull($result);
+    }
+
+    public function testTranslateAndPersistCallsPersist(): void
+    {
+        [$translator, $em] = $this->createTranslatorWithMockEntityManager();
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $translation = new Scalar();
+        $translation->setTuuid($entity->getTuuid());
+        $translation->setLocale('de_DE');
+
+        // Pre-populate cache so translate() returns immediately
+        $this->cache()->set($entity->getTuuid()->getValue(), 'de_DE', $translation);
+
+        $em->expects($this->once())->method('persist')->with($translation);
+
+        $result = $translator->translateAndPersist($entity, 'de_DE');
+        self::assertSame($translation, $result);
+    }
+
+    public function testGetOrTranslateReturnsExistingWithoutPersisting(): void
+    {
+        [$translator, $em] = $this->createTranslatorWithMockEntityManager();
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $translation = new Scalar();
+        $translation->setTuuid($entity->getTuuid());
+        $translation->setLocale('de_DE');
+
+        $this->cache()->set($entity->getTuuid()->getValue(), 'de_DE', $translation);
+
+        // Already managed → should not persist
+        $em->method('contains')->with($translation)->willReturn(true);
+        $em->expects($this->never())->method('persist');
+
+        $result = $translator->getOrTranslate($entity, 'de_DE');
+        self::assertSame($translation, $result);
+    }
+
+    public function testGetOrTranslatePersistsNewTranslation(): void
+    {
+        [$translator, $em] = $this->createTranslatorWithMockEntityManager();
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $translation = new Scalar();
+        $translation->setTuuid($entity->getTuuid());
+        $translation->setLocale('de_DE');
+
+        $this->cache()->set($entity->getTuuid()->getValue(), 'de_DE', $translation);
+
+        // Not managed → should persist
+        $em->method('contains')->with($translation)->willReturn(false);
+        $em->expects($this->once())->method('persist')->with($translation);
+
+        $result = $translator->getOrTranslate($entity, 'de_DE');
+        self::assertSame($translation, $result);
+    }
+
+    /**
+     * @return array{EntityTranslator, MockObject&EntityManagerInterface}
+     */
+    private function createTranslatorWithMockEntityManager(): array
+    {
+        $queryStub = static::createStub(Query::class);
+        $queryStub->method('getResult')->willReturn([]);
+
+        $qbStub = static::createStub(QueryBuilder::class);
+        $qbStub->method('select')->willReturnSelf();
+        $qbStub->method('from')->willReturnSelf();
+        $qbStub->method('where')->willReturnSelf();
+        $qbStub->method('andWhere')->willReturnSelf();
+        $qbStub->method('setParameter')->willReturnSelf();
+        $qbStub->method('getQuery')->willReturn($queryStub);
+
+        /** @var MockObject&EntityManagerInterface $em */
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('createQueryBuilder')->willReturn($qbStub);
+
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
+            false,
+            $this->eventDispatcher(),
+            $this->attributeHelper(),
+            new TypeDefaultResolver(),
+            $em,
+            $this->cache(),
+        );
+
+        return [$translator, $em];
     }
 
     /**

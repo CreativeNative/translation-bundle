@@ -113,6 +113,7 @@ services:
         arguments:
             - '@doctrine.orm.entity_manager'
             - '@Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler'
+            - '@tmi_translation.utils.attribute_helper'
         tags: [ { name: tmi_translation.translation_handler, priority: 20 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler:

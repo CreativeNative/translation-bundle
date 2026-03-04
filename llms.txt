@@ -51,6 +51,12 @@
 - [Translatable](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/Translatable.php): Entity-level attribute for per-entity copy_source control
 - [TypeDefaultResolver](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/TypeDefaultResolver.php): Type-safe default value resolution for EmptyOnTranslate
 
+## v2.1 Locale Variant DX
+
+- [TranslatableRepositoryTrait](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Repository/TranslatableRepositoryTrait.php): Repository trait providing `findAllLocaleVariants()` and `findAllLocaleVariantsBatch()` for batch locale variant queries
+- EntityTranslatorInterface: New methods `translateAndPersist()` (translate + persist in one call) and `getOrTranslate()` (find existing or create + persist)
+- TranslatableEntityHandler: Auto-resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations
+
 ## Optional
 
 - [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures

@@ -129,11 +129,18 @@ class Product implements TranslatableInterface
 Use the service `tmi_translation.translator.entity_translator` to translate a source entity to a target language.
 
 ```php
-$translatedEntity = $this->get('tmi_translation.translator.entity_translator')->translate($entity, 'de_DE');
+// Translate only (caller must persist)
+$translatedEntity = $entityTranslator->translate($entity, 'de_DE');
+
+// Translate and persist in one call (v2.1)
+$translatedEntity = $entityTranslator->translateAndPersist($entity, 'de_DE');
+
+// Find existing translation or create + persist a new one (v2.1)
+$translatedEntity = $entityTranslator->getOrTranslate($entity, 'de_DE');
 ```
 
 Every attribute of the source entity will be cloned into a new entity, unless specified otherwise with the `EmptyOnTranslate`
-attribute.
+attribute. Generated IDs (properties with `#[ORM\Id]` + `#[ORM\GeneratedValue]`) are automatically reset to `null` on cloned translations.
 
 ## 🔧 Advanced Usage
 
@@ -227,6 +234,32 @@ class Product
     private string $locale;
 }
 ```
+
+### Querying Locale Variants
+
+Use `TranslatableRepositoryTrait` in your entity repositories for batch locale variant lookups (v2.1):
+
+```php
+use Doctrine\ORM\EntityRepository;
+use Tmi\TranslationBundle\Doctrine\Repository\TranslatableRepositoryTrait;
+
+class ProductRepository extends EntityRepository
+{
+    use TranslatableRepositoryTrait;
+}
+```
+
+```php
+// All locale variants for a single Tuuid, keyed by locale
+$variants = $repository->findAllLocaleVariants($product->getTuuid());
+// ['en_US' => Product, 'de_DE' => Product, ...]
+
+// Batch lookup for multiple Tuuids
+$batch = $repository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
+// ['<tuuid1>' => ['en_US' => Product, ...], '<tuuid2>' => [...]]
+```
+
+Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales.
 
 ## 📊 Performance Comparison
 
