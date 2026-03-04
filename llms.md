@@ -1117,8 +1117,30 @@ Proper annotation (`#[SharedAmongstTranslations]`), common Tuuids, and correct u
 
 ---
 
+## AI Skills
+
+The bundle ships with three AI skills (in `.agents/skills/`) that provide guided workflows for common tasks. These work with any AI coding assistant that supports skill files.
+
+### [Entity Translation Setup](.agents/skills/entity-translation-setup/SKILL.md)
+Guided workflow for making any Doctrine entity translatable. Analyzes entity fields, walks through shared vs. translated decisions, applies `TranslatableInterface`, `TranslatableTrait`, and attribute configuration. Supports quick mode (defaults) and guided mode (step-by-step decisions).
+
+**Trigger phrases:** "make this entity translatable", "add translations to [Entity]", "translate [Entity] fields"
+
+### [Translation Debugger](.agents/skills/translation-debugger/SKILL.md)
+Systematic diagnostic tool for translation configuration issues. Runs a multi-layer check sequence: entity configuration, attribute conflicts, handler chain mapping, runtime configuration, and compile-time validation. See [diagnostics reference](.agents/skills/translation-debugger/references/diagnostics.md) for the full check list.
+
+**Trigger phrases:** "translation not working", "translation error", "why isn't translation working?"
+
+### [Custom Handler Creator](.agents/skills/custom-handler-creator/SKILL.md)
+Step-by-step guide for building custom translation handlers for field types not covered by the built-in handler chain (encrypted fields, computed properties, value objects, file paths, third-party objects). Includes priority selection via the [handler priority guide](.agents/skills/custom-handler-creator/references/handler-priority.md) and [real-world examples](.agents/skills/custom-handler-creator/references/examples.md).
+
+**Trigger phrases:** "create custom handler", "handle encrypted fields", "extend handler chain"
+
+---
+
 ## Revision History
 - v1.0: Initial methodology documented.
 - v2.0: Added cache service, type-safe defaults, fallback control, compile-time validation documentation.
+- v2.0.1: Added AI Skills section (entity-translation-setup, translation-debugger, custom-handler-creator).
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 
