@@ -16,12 +16,12 @@ use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
 #[CoversClass(TranslatableEntityValidationWarmer::class)]
 final class TranslatableEntityValidationWarmerTest extends TestCase
 {
-    public function testIsOptionalReturnsFalse(): void
+    public function testIsOptionalReturnsTrue(): void
     {
         $em     = self::createStub(EntityManagerInterface::class);
         $warmer = new TranslatableEntityValidationWarmer($em);
 
-        self::assertFalse($warmer->isOptional());
+        self::assertTrue($warmer->isOptional());
     }
 
     public function testWarmUpPassesForEntitiesWithNoUniqueConstraints(): void

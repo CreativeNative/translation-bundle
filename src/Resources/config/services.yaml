@@ -37,7 +37,7 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.entity_manager'
         tags:
-            - { name: kernel.cache_warmer }
+            - { name: kernel.cache_warmer, priority: -100 }
 
     # ----------------------------
     # Entity Translator

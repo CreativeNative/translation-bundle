@@ -18,7 +18,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
 
     public function isOptional(): bool
     {
-        return false;
+        return true;
     }
 
     /**
