@@ -131,7 +131,7 @@ final class TranslationDoctorCommand extends Command
 
             if ($localeCount < $expectedLocaleCount) {
                 if (1 === $localeCount) {
-                    $standalone[] = [$tuuid, (string) array_key_first($localeCounts)];
+                    $standalone[] = [$tuuid, array_key_first($localeCounts)];
                 } else {
                     $incomplete[] = [$tuuid, $localeCount, implode(', ', array_keys($localeCounts))];
                 }
