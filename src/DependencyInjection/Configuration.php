@@ -33,6 +33,10 @@ final class Configuration implements ConfigurationInterface
                     ->defaultFalse()
                     ->info('When false, new translations start empty with type-safe defaults. When true, translations clone source content (v1.x behavior).')
                 ->end()
+                ->booleanNode('strict_orphan_check')
+                    ->defaultNull()
+                    ->info('Throw when an entity is persisted in a non-default locale without a shared Tuuid. Null (default) = auto: enabled when kernel.debug is true.')
+                ->end()
             ->end();
 
         return $treeBuilder;

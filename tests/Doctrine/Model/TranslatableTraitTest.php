@@ -166,6 +166,21 @@ final class TranslatableTraitTest extends IntegrationTestCase
     }
 
     /**
+     * hasTuuid() must reflect assignment state without auto-generating.
+     */
+    public function testHasTuuid(): void
+    {
+        $entity = new Scalar();
+
+        self::assertFalse($entity->hasTuuid(), 'A fresh entity has no Tuuid.');
+        // hasTuuid() must not auto-generate, unlike getTuuid().
+        self::assertFalse($entity->hasTuuid());
+
+        $entity->generateTuuid();
+        self::assertTrue($entity->hasTuuid());
+    }
+
+    /**
      * Ensure Tuuid immutability is enforced.
      */
     public function testTuuidCannotBeReassigned(): void

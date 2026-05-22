@@ -14,9 +14,11 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\OrphanTranslationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -69,6 +71,89 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         // Just assert that no exception was thrown and the method completed
         $this->addToAssertionCount(1);
+    }
+
+    public function testPrePersistThrowsOnOrphanWhenStrict(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $args = new PrePersistEventArgs($entity, $this->entityManager);
+
+        self::expectException(OrphanTranslationException::class);
+        self::expectExceptionMessage(Scalar::class);
+
+        $subscriber->prePersist($args);
+    }
+
+    public function testPrePersistWarnsOnOrphanWhenNotStrict(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with(
+                self::stringContains('without a shared Tuuid'),
+                ['class' => Scalar::class, 'locale' => 'de_DE'],
+            );
+
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, $logger, false);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        // Tuuid is still generated so the row remains persistable.
+        self::assertTrue($entity->hasTuuid());
+    }
+
+    public function testPrePersistToleratesOrphanWithoutLogger(): void
+    {
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        // Default subscriber: logger null, not strict — must neither throw nor fail.
+        $this->subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        self::assertTrue($entity->hasTuuid());
+    }
+
+    public function testPrePersistDoesNotFlagDefaultLocale(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+        $entity->setLocale('en_US');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        self::assertTrue($entity->hasTuuid());
+    }
+
+    public function testPrePersistDoesNotFlagNullLocale(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        self::assertSame('en_US', $entity->getLocale());
+    }
+
+    public function testPrePersistDoesNotFlagWhenTuuidAlreadyShared(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+        $entity->setTuuid(Tuuid::generate());
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        self::assertSame('de_DE', $entity->getLocale());
     }
 
     public function testPostLoadSetsDefaultLocaleAndCallsAfterLoadWhenLocaleIsNull(): void

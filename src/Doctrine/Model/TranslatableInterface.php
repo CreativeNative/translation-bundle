@@ -10,6 +10,11 @@ interface TranslatableInterface
 {
     public function generateTuuid(): void;
 
+    /**
+     * Returns whether a Tuuid has already been assigned, without auto-generating one.
+     */
+    public function hasTuuid(): bool;
+
     public function getTuuid(): Tuuid;
 
     public function getLocale(): string|null;

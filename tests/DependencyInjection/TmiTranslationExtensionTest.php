@@ -354,6 +354,56 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         self::assertSame('%kernel.default_locale%', $containerBuilder->getParameter('tmi_translation.default_locale'));
     }
 
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testStrictOrphanCheckAutoEnabledInDebug(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+        $containerBuilder->setParameter('kernel.debug', true);
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.strict_orphan_check'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testStrictOrphanCheckAutoDisabledWhenNotDebug(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.strict_orphan_check'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testStrictOrphanCheckCanBeForcedOff(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+        $containerBuilder->setParameter('kernel.debug', true);
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'strict_orphan_check' => false]], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.strict_orphan_check'));
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();

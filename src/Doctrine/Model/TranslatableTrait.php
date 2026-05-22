@@ -30,6 +30,17 @@ trait TranslatableTrait
     }
 
     /**
+     * Returns whether a Tuuid has already been assigned.
+     *
+     * Unlike {@see getTuuid()}, this never auto-generates a value — it is the
+     * only safe way to detect the "no shared Tuuid yet" state before persist.
+     */
+    final public function hasTuuid(): bool
+    {
+        return null !== $this->tuuid;
+    }
+
+    /**
      * Set the Translation UUID.
      */
     final public function setTuuid(Tuuid|null $tuuid): self

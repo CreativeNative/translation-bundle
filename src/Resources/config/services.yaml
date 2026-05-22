@@ -148,4 +148,6 @@ services:
         arguments:
             $defaultLocale: '%tmi_translation.default_locale%'
             $entityTranslator: '@Tmi\TranslationBundle\Translation\EntityTranslator'
+            $logger: '@?logger'
+            $strictOrphanCheck: '%tmi_translation.strict_orphan_check%'
         tags: [ { name: doctrine.event_subscriber, connection: default } ]

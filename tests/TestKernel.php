@@ -68,9 +68,10 @@ final class TestKernel extends BaseKernel
         ]);
 
         $container->extension('tmi_translation', [
-            'default_locale'     => 'en_US',
-            'disabled_firewalls' => ['admin'],
-            'copy_source'        => true,
+            'default_locale'      => 'en_US',
+            'disabled_firewalls'  => ['admin'],
+            'copy_source'         => true,
+            'strict_orphan_check' => false,
         ]);
 
         $container->services()

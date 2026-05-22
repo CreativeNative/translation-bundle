@@ -25,6 +25,11 @@ class NoLocaleEntity implements TranslatableInterface
         }
     }
 
+    public function hasTuuid(): bool
+    {
+        return null !== $this->tuuid;
+    }
+
     public function getTuuid(): Tuuid
     {
         if (null === $this->tuuid) {
