@@ -16,7 +16,6 @@ nul
 !.agents/skills/entity-translation-setup/
 !.agents/skills/translation-debugger/
 !.agents/skills/custom-handler-creator/
-.claude/
+.claude/skills/
 .planning/
 AGENTS.md
-CLAUDE.md
