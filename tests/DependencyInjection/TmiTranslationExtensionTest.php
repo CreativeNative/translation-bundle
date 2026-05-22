@@ -404,6 +404,34 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         self::assertFalse($containerBuilder->getParameter('tmi_translation.strict_orphan_check'));
     }
 
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testUniqueLocaleVariantsDefaultsToFalse(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.unique_locale_variants'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testUniqueLocaleVariantsCanBeEnabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'unique_locale_variants' => true]], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.unique_locale_variants'));
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();

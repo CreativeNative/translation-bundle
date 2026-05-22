@@ -37,6 +37,10 @@ final class Configuration implements ConfigurationInterface
                     ->defaultNull()
                     ->info('Throw when an entity is persisted in a non-default locale without a shared Tuuid. Null (default) = auto: enabled when kernel.debug is true.')
                 ->end()
+                ->booleanNode('unique_locale_variants')
+                    ->defaultFalse()
+                    ->info('Promote the auto-injected (tuuid, locale) index to a UNIQUE constraint. Enable only once existing data is free of duplicate locale rows (see tmi:translation:doctor).')
+                ->end()
             ->end();
 
         return $treeBuilder;

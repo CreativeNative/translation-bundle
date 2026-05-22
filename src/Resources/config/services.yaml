@@ -151,3 +151,11 @@ services:
             $logger: '@?logger'
             $strictOrphanCheck: '%tmi_translation.strict_orphan_check%'
         tags: [ { name: doctrine.event_subscriber, connection: default } ]
+
+    # ----------------------------
+    # Doctrine Metadata Listener — composite (tuuid, locale) index
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\EventListener\TranslatableIndexListener:
+        arguments:
+            $unique: '%tmi_translation.unique_locale_variants%'
+        tags: [ { name: doctrine.event_listener, event: loadClassMetadata } ]
