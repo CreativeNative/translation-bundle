@@ -28,6 +28,7 @@ Execute all checks from **references/diagnostics.md** in order:
 3. **Handler Chain Mapping Layer** - Handler compatibility
 4. **Runtime Configuration Layer** - Environment setup
 5. **Compile-Time Validation Layer** - v2.0 attribute conflicts and unique constraints
+6. **Tuuid Linkage Integrity Layer** - v2.2 broken linkage (run `tmi:translation:doctor`)
 
 ### Step 3: Present Results
 
@@ -109,6 +110,17 @@ Run checks: Single-column unique: true fields, composite unique constraints
 ### "LogicException about removed config"
 Run checks: v1.x config keys (tmi_translation.locales, tmi_translation.logging), migration guidance
 
+### "Entity only resolves in one locale" / "hreflang or shared media missing on translations"
+Run `tmi:translation:doctor` (Layer 6) — likely a standalone Tuuid created by bypassing
+`EntityTranslator::translate()`. See diagnostics Check 6.1.
+
+### "Shared field differs between locales"
+Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. See diagnostics Check 6.2.
+
+### "OrphanTranslationException on persist"
+An entity is being persisted in a non-default locale without a shared Tuuid. Create
+translations via `EntityTranslator::translate()`, or adjust `strict_orphan_check`.
+
 ## Quick Commands
 
 For users who know what to check:
@@ -118,6 +130,7 @@ For users who know what to check:
 - **"Check handlers"** - Run Handler Chain Mapping Layer only
 - **"Check runtime"** - Run Runtime Configuration Layer only
 - **"Check validation"** - Run Compile-Time Validation Layer only
+- **"Check linkage"** - Run Tuuid Linkage Integrity Layer only (`tmi:translation:doctor`)
 - **"Full diagnostic"** - Run all layers (default)
 
 ## References

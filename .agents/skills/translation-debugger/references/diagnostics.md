@@ -360,6 +360,66 @@ bin/console cache:warmup
 
 ---
 
+## Layer 6: Tuuid Linkage Integrity (v2.2)
+
+This layer inspects *data*, not configuration — broken linkage between locale rows.
+
+### Check 6.1: Run the doctor command
+
+**What to look for:** Locale rows that share no `Tuuid`, incomplete translation sets, or
+duplicate `(tuuid, locale)` pairs.
+
+**How to check:**
+
+```bash
+php bin/console tmi:translation:doctor
+```
+
+**Interpreting the output:**
+
+- **Standalone translations** — a `Tuuid` carried by a single locale row. Symptom: an entity
+  resolves only in its original locale; `hreflang` alternates and shared media are missing on
+  other locales. Cause: the row was created with `new Entity()` + `setLocale(...)` instead of
+  `EntityTranslator::translate()`, minting a fresh unlinked `Tuuid`.
+- **Incomplete translations** — a `Tuuid` with fewer locale rows than configured locales. The
+  entity simply has not been translated into every locale yet.
+- **Duplicate `(tuuid, locale)` pairs** — two rows claiming to be the same locale variant.
+
+**Severity:** ERROR (standalone, duplicate) / INFO (incomplete).
+
+**Fix:**
+- Standalone/duplicate rows must be repaired in the database (re-point the `tuuid`, or remove
+  the duplicate). There is no automatic fix — the doctor is read-only by design.
+- Prevent recurrence: always create translations via `EntityTranslator::translate()` (or
+  `translateAndPersist()` / `getOrTranslate()`), and enable `strict_orphan_check` so the
+  bundle throws `OrphanTranslationException` instead of silently minting an orphan.
+
+### Check 6.2: Stale `#[SharedAmongstTranslations]` values
+
+**What to look for:** A shared field whose value differs between locale variants — typically
+because the value was set in one locale and the entity translated to others *afterwards*.
+
+**How to check / fix:**
+
+```bash
+php bin/console tmi:translation:sync-shared --dry-run   # preview
+php bin/console tmi:translation:sync-shared             # apply
+```
+
+The command copies every `#[SharedAmongstTranslations]` **column** value from the
+default-locale row to its siblings. **Severity:** WARNING.
+
+### Check 6.3: Orphan check configuration
+
+**What to look for:** `strict_orphan_check` left implicitly off in non-debug environments.
+
+**How to check:** Inspect `config/packages/tmi_translation.yaml`. Default (`null`) throws only
+when `kernel.debug` is on. For production safety prefer explicit logging or strict mode.
+
+**Severity:** INFO.
+
+---
+
 ## Diagnostic Summary Template
 
 After running all checks, compile results:
@@ -394,6 +454,11 @@ LAYER 5: Compile-Time Validation (v2.0)
   [X] No attribute conflicts
   [X] No single-column unique constraints
   [X] No removed v1.x config keys
+
+LAYER 6: Tuuid Linkage Integrity (v2.2)
+  [X] tmi:translation:doctor reports no anomalies
+  [X] Shared values in sync across locale variants
+  [X] strict_orphan_check configured
 
 ISSUES FOUND: 2
   - ERROR: SharedAmongstTranslations on bidirectional 'category'

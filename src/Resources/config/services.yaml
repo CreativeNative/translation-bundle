@@ -159,3 +159,25 @@ services:
         arguments:
             $unique: '%tmi_translation.unique_locale_variants%'
         tags: [ { name: doctrine.event_listener, event: loadClassMetadata } ]
+
+    # ----------------------------
+    # Diagnostic / Maintenance Commands
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+
+    Tmi\TranslationBundle\Command\TranslationDoctorCommand:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $locator: '@Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator'
+            $locales: '%kernel.enabled_locales%'
+        tags: [ { name: console.command } ]
+
+    Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $locator: '@Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $defaultLocale: '%tmi_translation.default_locale%'
+        tags: [ { name: console.command } ]

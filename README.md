@@ -76,10 +76,12 @@ framework:
 
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    # default_locale: 'en_US'            # Optional: uses framework.default_locale if not set
+    # default_locale: 'en_US'             # Optional: uses framework.default_locale if not set
     # disabled_firewalls: ['main']        # Optional: disable filter for specific firewalls
     # enable_logging: false               # Optional: enable PSR-3 debug logging
     # copy_source: false                  # Optional: clone source content (true = v1.x behavior)
+    # strict_orphan_check: ~              # Optional: throw on orphaned translations. null = auto (on when kernel.debug)
+    # unique_locale_variants: false       # Optional: make the (tuuid, locale) index a UNIQUE constraint
 ```
 
 ### Doctrine DBAL Custom Type - TuuidType
@@ -163,6 +165,18 @@ private Media $video; // Shared across all translations
 
 ```
 
+> **⚠️ Ordering caveat.** Shared values propagate to translations created *after* the value
+> is set. If you set a shared field in one locale and translate the entity to other locales
+> *later*, those earlier siblings keep their stale value. To back-fill existing data, run:
+>
+> ```
+> php bin/console tmi:translation:sync-shared          # propagate shared columns
+> php bin/console tmi:translation:sync-shared --dry-run # preview without writing
+> ```
+>
+> The command propagates `#[SharedAmongstTranslations]` **column** values from the
+> default-locale row to every sibling. Shared associations are out of scope (and unsupported).
+
 ### EmptyOnTranslate
 
 This attribute will empty the field when creating a new translation. **ATTENTION**: The field has to be nullable or instance of Doctrine\Common\Collections\Collection! 
@@ -237,7 +251,22 @@ class Product
 
 ### Querying Locale Variants
 
-Use `TranslatableRepositoryTrait` in your entity repositories for batch locale variant lookups (v2.1):
+> **Always use these helpers for cross-locale lookups.** Hand-rolled `WHERE tuuid = ...`
+> queries get the `tmi_translation_locale_filter` wrong and silently return only the
+> current-locale row.
+
+The quickest way is to extend the ready-made `TranslatableEntityRepository` base class:
+
+```php
+use Tmi\TranslationBundle\Doctrine\Repository\TranslatableEntityRepository;
+
+/** @extends TranslatableEntityRepository<Product> */
+class ProductRepository extends TranslatableEntityRepository
+{
+}
+```
+
+If your repository must extend something else, use `TranslatableRepositoryTrait` directly (v2.1):
 
 ```php
 use Doctrine\ORM\EntityRepository;
@@ -260,6 +289,34 @@ $batch = $repository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
 ```
 
 Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales.
+
+The `tuuid` column is automatically indexed: the bundle injects a composite `(tuuid, locale)`
+index into every translatable entity at mapping time, so locale-variant lookups never hit an
+unindexed scan. Set `unique_locale_variants: true` to promote it to a `UNIQUE` constraint —
+do this only once existing data is free of duplicate locale rows (see `tmi:translation:doctor`).
+
+### Translation Linkage & Diagnostics
+
+Every locale variant of an entity shares one `Tuuid`. Translations created through
+`EntityTranslator::translate()` inherit it automatically. If application code instead does
+`new Entity()` + `setLocale('de_DE')` and persists it **without** a shared `Tuuid`, the result
+is a *standalone* entity linked to no other locale — a silent data bug.
+
+The bundle guards against this:
+
+- **On persist** — an entity persisted in a non-default locale without a shared `Tuuid` is
+  flagged. `strict_orphan_check` controls the reaction: `true` throws, `false` logs a warning,
+  `null` (default) is *auto* — throws when `kernel.debug` is on, warns otherwise.
+- **`tmi:translation:doctor`** — scans every translatable table and reports standalone
+  translations, incomplete translations (fewer locale rows than configured locales) and
+  duplicate `(tuuid, locale)` pairs. Exits non-zero on findings, so it works as a
+  post-migration / CI integrity gate:
+
+  ```
+  php bin/console tmi:translation:doctor
+  ```
+
+- **`tmi:translation:sync-shared`** — see below.
 
 ## 📊 Performance Comparison
 

@@ -1156,6 +1156,66 @@ Use `@phpstan-require-extends \Doctrine\ORM\EntityRepository` in the trait for P
 
 ---
 
+## Tuuid Linkage Integrity (v2.2)
+
+Every locale variant of an entity must share one `Tuuid`. Translations produced by
+`EntityTranslator::translate()` inherit it automatically. The danger is application code that
+bypasses the translator — `new Entity()` + `setLocale('de_DE')` without `setTuuid(...)` — which
+mints a fresh, *standalone* Tuuid. The "translation" is then linked to nothing, and Tuuid-keyed
+features (locale variants, `hreflang`, shared media) resolve only on the canonical locale.
+
+v2.2 makes this whole failure class visible:
+
+### `TranslatableEntityRepository`
+
+A ready-made repository base class (`extends EntityRepository`, `use TranslatableRepositoryTrait`).
+Extend it instead of hand-rolling locale-variant queries — those routinely mishandle the
+`tmi_translation_locale_filter` and return only the current-locale row.
+
+```php
+/** @extends TranslatableEntityRepository<Product> */
+class ProductRepository extends TranslatableEntityRepository {}
+```
+
+### Composite `(tuuid, locale)` index
+
+`TranslatableIndexListener` injects a composite index into every translatable entity at
+`loadClassMetadata` time (a trait cannot declare a class-level `#[ORM\Index]`). Without it,
+`WHERE tuuid IN (...)` lookups run unindexed scans. Set `unique_locale_variants: true` to
+promote it to a `UNIQUE` constraint — a DB-level guard against duplicate locale rows. Enable
+it only after `tmi:translation:doctor` reports the data is clean.
+
+### Orphan detection on persist
+
+`TranslatableEventSubscriber::prePersist()` flags an entity persisted in a **non-default
+locale** with **no shared Tuuid**. The `strict_orphan_check` option controls the reaction:
+
+| Value          | Behavior                                                      |
+|----------------|---------------------------------------------------------------|
+| `true`         | Throws `OrphanTranslationException`                           |
+| `false`        | Logs a PSR-3 `warning`                                        |
+| `null` (default) | *Auto* — throws when `kernel.debug` is on, warns otherwise   |
+
+### `tmi:translation:doctor`
+
+Scans every translatable table (locale filter disabled) and reports:
+
+1. **standalone** — a Tuuid carried by a single locale row;
+2. **incomplete** — a Tuuid with fewer locale rows than configured locales;
+3. **duplicate** — more than one row sharing a `(tuuid, locale)` pair.
+
+Exits non-zero when anomalies are found — run it as a post-migration / CI integrity gate.
+
+### `tmi:translation:sync-shared`
+
+Back-fills `#[SharedAmongstTranslations]` **column** values: copies them from the
+default-locale row to every sibling. This fixes the ordering caveat — shared values only
+propagate to translations created *after* the value was set, so data translated later keeps
+stale siblings. Options: `--dry-run` (preview), `--entity=<FQCN>` (restrict to one class).
+Shared *associations* are out of scope (and unsupported by the bundle).
+
+---
+
 ## “How can I achieve X?” Quick Answers
 
 - **"How do I share the address across locales?"**
@@ -1165,7 +1225,10 @@ Use `@phpstan-require-extends \Doctrine\ORM\EntityRepository` in the trait for P
   On the entity: mark category and tags with `#[SharedAmongstTranslations]`, leave title & description un‑marked. On translation, only title/description will be locale‑specific.
 
 - **"How do I propagate a change in a shared field (e.g., latitude) to all language variants after creation?"**
-  Ideally your bundle provides a service to iterate sibling entities (same Tuuid) and update the shared field. If not, implement a Doctrine Subscriber on `PostUpdate`, detect changes to a `#[SharedAmongstTranslations]` property, load siblings and update them.
+  Run `php bin/console tmi:translation:sync-shared` — it copies every `#[SharedAmongstTranslations]` column value from the default-locale row to its siblings. Use `--dry-run` to preview and `--entity=<FQCN>` to limit the scope.
+
+- **"How do I find translations that were accidentally unlinked?"**
+  Run `php bin/console tmi:translation:doctor`. It reports standalone/incomplete translations and duplicate `(tuuid, locale)` pairs, and exits non-zero so it can gate CI or post-migration checks.
 
 - **“How can I handle OneToMany relations differently for shared vs per‑locale?”**  
   If the relation should be shared: mark property `#[SharedAmongstTranslations]`. If per‑locale: leave un‑marked. Use or extend handler logic if custom merging is needed.
@@ -1205,5 +1268,6 @@ Step-by-step guide for building custom translation handlers for field types not 
 - v2.0: Added cache service, type-safe defaults, fallback control, compile-time validation documentation.
 - v2.0.1: Added AI Skills section (entity-translation-setup, translation-debugger, custom-handler-creator).
 - v2.1.0: Added locale variant DX improvements: `translateAndPersist()`, `getOrTranslate()`, `TranslatableRepositoryTrait`, auto-reset generated IDs.
+- v2.2.0: Added Tuuid linkage integrity: `TranslatableEntityRepository`, composite `(tuuid, locale)` index, orphan detection (`strict_orphan_check`), and the `tmi:translation:doctor` / `tmi:translation:sync-shared` commands.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 

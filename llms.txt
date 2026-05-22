@@ -57,6 +57,14 @@
 - EntityTranslatorInterface: New methods `translateAndPersist()` (translate + persist in one call) and `getOrTranslate()` (find existing or create + persist)
 - TranslatableEntityHandler: Auto-resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations
 
+## v2.2 Tuuid Linkage Integrity
+
+- [TranslatableEntityRepository](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Repository/TranslatableEntityRepository.php): Ready-made repository base class — extend it instead of hand-rolling locale-variant lookups
+- [TranslatableIndexListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/TranslatableIndexListener.php): Injects a composite `(tuuid, locale)` index into every translatable entity; `unique_locale_variants: true` promotes it to a UNIQUE constraint
+- [OrphanTranslationException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/OrphanTranslationException.php): Thrown (when `strict_orphan_check` is on) for entities persisted in a non-default locale without a shared Tuuid
+- `tmi:translation:doctor`: Console command — scans for standalone/incomplete translations and duplicate `(tuuid, locale)` pairs; exits non-zero for CI gating
+- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--entity` options)
+
 ## Optional
 
 - [Diagnostics Reference](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/translation-debugger/references/diagnostics.md): Detailed diagnostic procedures
