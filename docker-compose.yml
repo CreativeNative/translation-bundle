@@ -8,8 +8,10 @@ services:
       - ./:/var/www/tmi/translation-bundle:cached
       - var:/var/www/tmi/translation-bundle/var
       - vendor:/var/www/tmi/translation-bundle/vendor
-    ports:
-      - "58759:58759"  # Xdebug
+    # No ports published: Xdebug runs in client mode and dials out to
+    # host.docker.internal:58759 (see docker/xdebug.ini), so the IDE listens
+    # on the host side. Publishing 58759 also collides with Hyper-V's
+    # reserved TCP ranges on Windows.
     environment:
       COMPOSER_ALLOW_XDEBUG: "0"
 
