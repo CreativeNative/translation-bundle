@@ -439,6 +439,11 @@ Resolves default values for non-nullable properties marked with `#[EmptyOnTransl
 | `array` | `[]` |
 | Non-nullable object | Throws `LogicException` with guidance |
 | Non-nullable enum | Throws `LogicException` with guidance |
+| Non-nullable `iterable` / `object` / any other built-in without a zero-value | Throws `LogicException` with guidance |
+| Intersection type (never nullable) | Throws `LogicException` with guidance |
+
+`null` is only ever returned for types that actually accept it — a non-nullable type without a
+safe default fails here with an actionable message rather than as a `TypeError` on assignment.
 
 ### Usage
 

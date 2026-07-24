@@ -146,7 +146,7 @@ services:
         arguments:
             $attributeHelper: '@Tmi\TranslationBundle\Utils\AttributeHelper'
         tags:
-            - { name: 'tmi_translation.handler', priority: [PRIORITY] }
+            - { name: 'tmi_translation.translation_handler', priority: [PRIORITY] }
 ```
 
 ## Common Dependencies

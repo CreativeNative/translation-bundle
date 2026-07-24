@@ -66,7 +66,7 @@ App\Translation\Handler\{HandlerName}:
         # $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
         # $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
     tags:
-        - { name: 'tmi_translation.handler', priority: {priority} }
+        - { name: 'tmi_translation.translation_handler', priority: {priority} }
 ```
 
 ## Step 6: Offer Tests

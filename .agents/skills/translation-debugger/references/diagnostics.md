@@ -407,7 +407,11 @@ php bin/console tmi:translation:sync-shared             # apply
 ```
 
 The command copies every `#[SharedAmongstTranslations]` **column** value from the
-default-locale row to its siblings. **Severity:** WARNING.
+default-locale row to its siblings, including embedded fields whose sharing is declared on
+the embeddable class or on an inner property. `readonly` shared properties cannot be written
+after hydration: the command lists them and exits non-zero instead of writing, so a non-zero
+exit with a "readonly shared value(s)" warning means those rows need manual or DB-level
+correction. **Severity:** WARNING.
 
 ### Check 6.3: Orphan check configuration
 
