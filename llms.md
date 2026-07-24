@@ -1216,6 +1216,15 @@ propagate to translations created *after* the value was set, so data translated 
 stale siblings. Options: `--dry-run` (preview), `--entity=<FQCN>` (restrict to one class).
 Shared *associations* are out of scope (and unsupported by the bundle).
 
+Embedded fields are detected in all three places sharing can be declared — on the entity
+property (whole embeddable), on the embeddable class (every inner property that does not
+override it with `#[EmptyOnTranslate]`), or on a single inner property — mirroring
+`EmbeddedHandler`'s translate-time resolution.
+
+`readonly` shared properties cannot be written after hydration. They are reported (in
+`--dry-run` too), skipped rather than crashing the run, and make the command exit non-zero;
+the remaining shared values still sync.
+
 ---
 
 ## “How can I achieve X?” Quick Answers

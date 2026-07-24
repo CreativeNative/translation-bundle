@@ -131,6 +131,34 @@ class AttributeHelper
     }
 
     /**
+     * Checks whether an embeddable carries #[SharedAmongstTranslations] in any of the
+     * three places the bundle honours:
+     * - on the entity property holding the embeddable, or
+     * - on the embeddable class itself, or
+     * - on any property inside the embeddable.
+     *
+     * Single source of truth for EmbeddedHandler (translate time) and
+     * SyncSharedTranslationsCommand (back-fill time), which must agree on what counts as
+     * shared.
+     *
+     * @param \ReflectionClass<object> $embeddable
+     */
+    public function isEmbeddableShared(
+        \ReflectionClass $embeddable,
+        \ReflectionProperty|null $parentProperty = null,
+    ): bool {
+        if (null !== $parentProperty && $this->isSharedAmongstTranslations($parentProperty)) {
+            return true;
+        }
+
+        if ($this->classHasSharedAmongstTranslations($embeddable)) {
+            return true;
+        }
+
+        return array_any($embeddable->getProperties(), $this->isSharedAmongstTranslations(...));
+    }
+
+    /**
      * Checks if a class has the #[EmptyOnTranslate] attribute at class level.
      *
      * @param \ReflectionClass<object> $class

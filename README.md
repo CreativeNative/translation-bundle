@@ -176,6 +176,15 @@ private Media $video; // Shared across all translations
 >
 > The command propagates `#[SharedAmongstTranslations]` **column** values from the
 > default-locale row to every sibling. Shared associations are out of scope (and unsupported).
+>
+> Embedded fields are covered in all three places sharing can be declared: on the entity
+> property (the whole embeddable is copied), on the embeddable class (every inner property
+> except those overridden with `#[EmptyOnTranslate]`), or on an individual inner property.
+> This mirrors how `EmbeddedHandler` resolves sharing at translate time.
+>
+> A `readonly` shared property cannot be written after hydration. The command reports such
+> rows instead of crashing, syncs everything else, and exits non-zero — correct those values
+> manually or at the database level.
 
 ### EmptyOnTranslate
 

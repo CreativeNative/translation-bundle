@@ -23,6 +23,8 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
  * data created in one locale and translated later — or edited after the fact —
  * keeps the shared value on the source row alone. This command back-fills the
  * siblings from the canonical (default-locale) row.
+ *
+ * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
  */
 #[AsCommand(
     name: 'tmi:translation:sync-shared',
@@ -87,9 +89,12 @@ final class SyncSharedTranslationsCommand extends Command
 
         $totalUpdated = 0;
 
+        /** @var list<string> $readonlyDrift */
+        $readonlyDrift = [];
+
         try {
             foreach ($classes as $class) {
-                $totalUpdated += $this->syncClass($io, $class, !$dryRun);
+                $totalUpdated += $this->syncClass($io, $class, !$dryRun, $readonlyDrift);
             }
 
             if (!$dryRun && $totalUpdated > 0) {
@@ -101,10 +106,23 @@ final class SyncSharedTranslationsCommand extends Command
             }
         }
 
-        if (0 === $totalUpdated) {
-            $io->success('All shared values are already in sync.');
+        if ([] !== $readonlyDrift) {
+            $io->warning(sprintf(
+                '%d readonly shared value(s) differ from the source and were left untouched.',
+                count($readonlyDrift),
+            ));
+            $io->listing($readonlyDrift);
+            $io->note('A readonly property cannot be written after hydration. Correct these rows manually or at the database level.');
+        }
 
-            return Command::SUCCESS;
+        if (0 === $totalUpdated) {
+            if ([] === $readonlyDrift) {
+                $io->success('All shared values are already in sync.');
+
+                return Command::SUCCESS;
+            }
+
+            return Command::FAILURE;
         }
 
         $io->success(sprintf(
@@ -112,15 +130,16 @@ final class SyncSharedTranslationsCommand extends Command
             $totalUpdated,
         ));
 
-        return Command::SUCCESS;
+        return [] === $readonlyDrift ? Command::SUCCESS : Command::FAILURE;
     }
 
     /**
-     * @param class-string $class
+     * @param class-string  $class
+     * @param list<string> &$readonlyDrift collects readonly values that differ but cannot be written
      *
      * @return int Number of sibling translations whose shared values changed
      */
-    private function syncClass(SymfonyStyle $io, string $class, bool $apply): int
+    private function syncClass(SymfonyStyle $io, string $class, bool $apply, array &$readonlyDrift): int
     {
         $io->section($class);
 
@@ -145,7 +164,7 @@ final class SyncSharedTranslationsCommand extends Command
         $updated = 0;
 
         foreach ($byTuuid as $variants) {
-            $updated += $this->syncGroup($variants, $sharedProperties, $apply);
+            $updated += $this->syncGroup($variants, $sharedProperties, $apply, $readonlyDrift);
         }
 
         $io->writeln(0 === $updated
@@ -157,9 +176,10 @@ final class SyncSharedTranslationsCommand extends Command
 
     /**
      * @param list<TranslatableInterface> $variants
-     * @param list<\ReflectionProperty>   $sharedProperties
+     * @param list<SharedProperty>        $sharedProperties
+     * @param list<string>               &$readonlyDrift
      */
-    private function syncGroup(array $variants, array $sharedProperties, bool $apply): int
+    private function syncGroup(array $variants, array $sharedProperties, bool $apply, array &$readonlyDrift): int
     {
         $source = $this->pickSource($variants);
         $count  = 0;
@@ -169,7 +189,7 @@ final class SyncSharedTranslationsCommand extends Command
                 continue;
             }
 
-            if ($this->syncSibling($source, $sibling, $sharedProperties, $apply)) {
+            if ($this->syncSibling($source, $sibling, $sharedProperties, $apply, $readonlyDrift)) {
                 ++$count;
             }
         }
@@ -178,23 +198,45 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * @param list<\ReflectionProperty> $sharedProperties
+     * @param list<SharedProperty> $sharedProperties
+     * @param list<string>        &$readonlyDrift
      */
     private function syncSibling(
         TranslatableInterface $source,
         TranslatableInterface $sibling,
         array $sharedProperties,
         bool $apply,
+        array &$readonlyDrift,
     ): bool {
         $changed = false;
 
-        foreach ($sharedProperties as $property) {
-            // Shared properties are mapped columns, so Doctrine has hydrated
-            // them on both the source and the sibling.
-            $value   = $property->getValue($source);
-            $current = $property->getValue($sibling);
+        foreach ($sharedProperties as $shared) {
+            $property = $shared['property'];
+
+            // Shared properties are mapped columns, so Doctrine has hydrated them on both
+            // the source and the sibling. For embedded fields the values live on the
+            // embeddable instance rather than the entity itself.
+            $sourceOwner  = self::valueOwner($source, $shared);
+            $siblingOwner = self::valueOwner($sibling, $shared);
+
+            $value   = $property->getValue($sourceOwner);
+            $current = $property->getValue($siblingOwner);
 
             if (self::valuesEqual($current, $value)) {
+                continue;
+            }
+
+            // readonly + shared is a legal combination, but an already-hydrated readonly
+            // property cannot be written -- reporting the drift beats crashing mid-run.
+            if ($property->isReadOnly()) {
+                $readonlyDrift[] = sprintf(
+                    '%s::$%s (tuuid %s, locale %s)',
+                    $sibling::class,
+                    self::propertyPath($shared),
+                    (string) $sibling->getTuuid(),
+                    $sibling->getLocale() ?? 'none',
+                );
+
                 continue;
             }
 
@@ -204,11 +246,43 @@ final class SyncSharedTranslationsCommand extends Command
                 // Clone mutable objects so locale variants do not share a reference;
                 // enums are immutable singletons and must not be cloned.
                 $copy = is_object($value) && !$value instanceof \UnitEnum ? clone $value : $value;
-                $property->setValue($sibling, $copy);
+                $property->setValue($siblingOwner, $copy);
             }
         }
 
         return $changed;
+    }
+
+    /**
+     * The object actually holding the value: the entity itself, or the embeddable instance
+     * for an embedded field. Doctrine always hydrates embeddables on a loaded entity.
+     *
+     * @param SharedProperty $shared
+     */
+    private static function valueOwner(TranslatableInterface $entity, array $shared): object
+    {
+        $owner = $shared['owner'];
+
+        if (null === $owner) {
+            return $entity;
+        }
+
+        $embeddable = $owner->getValue($entity);
+        assert(is_object($embeddable));
+
+        return $embeddable;
+    }
+
+    /**
+     * @param SharedProperty $shared
+     */
+    private static function propertyPath(array $shared): string
+    {
+        $owner = $shared['owner'];
+
+        return null === $owner
+            ? $shared['property']->getName()
+            : $owner->getName().'.'.$shared['property']->getName();
     }
 
     /**
@@ -248,9 +322,12 @@ final class SyncSharedTranslationsCommand extends Command
      * associations — and only mapped columns are considered so the values are
      * guaranteed to be hydrated on every locale variant.
      *
+     * Embedded fields are expanded separately: they are not mapped fields on the entity,
+     * and sharing can be declared on the embeddable class or on its inner properties.
+     *
      * @param class-string $class
      *
-     * @return list<\ReflectionProperty>
+     * @return list<SharedProperty>
      */
     private function sharedProperties(string $class): array
     {
@@ -265,12 +342,66 @@ final class SyncSharedTranslationsCommand extends Command
                 continue;
             }
 
+            $embedded = $metadata->embeddedClasses[$name] ?? null;
+
+            if (null !== $embedded) {
+                foreach ($this->sharedEmbeddedProperties($property, $embedded->class) as $entry) {
+                    $shared[] = $entry;
+                }
+
+                continue;
+            }
+
             if (!$metadata->hasField($name)) {
                 continue;
             }
 
             if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
-                $shared[] = $property;
+                $shared[] = ['owner' => null, 'property' => $property];
+            }
+        }
+
+        return $shared;
+    }
+
+    /**
+     * Expands one embedded field into the values that must stay in sync, mirroring what
+     * EmbeddedHandler does at translate time:
+     * - #[SharedAmongstTranslations] on the entity property shares the whole embeddable
+     *   (EmbeddedHandler::handleSharedAmongstTranslations returns the source instance);
+     * - otherwise each inner property is resolved on its own, where a class-level attribute
+     *   acts as the default for every property that does not override it.
+     *
+     * @param class-string $embeddableClass
+     *
+     * @return list<SharedProperty>
+     */
+    private function sharedEmbeddedProperties(\ReflectionProperty $property, string $embeddableClass): array
+    {
+        $embeddable = new \ReflectionClass($embeddableClass);
+
+        if (!$this->attributeHelper->isEmbeddableShared($embeddable, $property)) {
+            return [];
+        }
+
+        if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
+            return [['owner' => null, 'property' => $property]];
+        }
+
+        $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($embeddable);
+        $shared      = [];
+
+        foreach ($embeddable->getProperties() as $inner) {
+            if ($this->attributeHelper->isSharedAmongstTranslations($inner)) {
+                $shared[] = ['owner' => $property, 'property' => $inner];
+
+                continue;
+            }
+
+            // A class-level attribute applies to every property the property level does not
+            // claim for itself.
+            if ($classShared && !$this->attributeHelper->isEmptyOnTranslate($inner)) {
+                $shared[] = ['owner' => $property, 'property' => $inner];
             }
         }
 

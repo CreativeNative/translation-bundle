@@ -283,20 +283,10 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         $embeddable = $args->getDataToBeTranslated();
         assert(\is_object($embeddable));
 
-        // Parent property (on the entity)
-        $parentProperty = $args->getProperty();
-        if (null !== $parentProperty && $this->attributeHelper->isSharedAmongstTranslations($parentProperty)) {
-            return true;
-        }
-
-        // Class-level attribute on the embeddable
-        $reflection = new \ReflectionClass($embeddable);
-        if ($this->attributeHelper->classHasSharedAmongstTranslations($reflection)) {
-            return true;
-        }
-
-        // Any inner property marked shared
-        return array_any($reflection->getProperties(), $this->attributeHelper->isSharedAmongstTranslations(...));
+        return $this->attributeHelper->isEmbeddableShared(
+            new \ReflectionClass($embeddable),
+            $args->getProperty(),
+        );
     }
 
     /**

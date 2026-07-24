@@ -9,7 +9,10 @@ use Doctrine\ORM\Mapping\ClassMetadataFactory;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
+use Tmi\TranslationBundle\Fixtures\Entity\ReadonlyShared\ReadonlyShared;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedDate\SharedDate;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -116,6 +119,120 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
     }
 
+    /**
+     * Form 2: #[SharedAmongstTranslations] on the embeddable CLASS. The entity property
+     * carries no attribute at all, so the old field-only scan reported "already in sync"
+     * while rows stayed divergent.
+     */
+    public function testPropagatesSharingDeclaredOnTheEmbeddableClass(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $en->getClassShared()->setSharedByDefault('canonical')->setOverriddenToEmpty('EN note');
+
+        $de = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE');
+        $de->getClassShared()->setSharedByDefault('stale')->setOverriddenToEmpty('DE note');
+
+        $deId = $this->persistPair($en, $de);
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $reloaded = $this->reloadEmbeddedShared($deId);
+        self::assertSame('canonical', $reloaded->getClassShared()->getSharedByDefault());
+
+        // A property-level #[EmptyOnTranslate] overrides the class-level sharing, exactly as
+        // EmbeddedHandler resolves it at translate time.
+        self::assertSame('DE note', $reloaded->getClassShared()->getOverriddenToEmpty());
+    }
+
+    /**
+     * Form 3: #[SharedAmongstTranslations] on an inner property of the embeddable only.
+     */
+    public function testPropagatesSharingDeclaredOnAnInnerEmbeddableProperty(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $en->getPropertyShared()->setReference('REF-1')->setLabel('English label');
+
+        $de = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE');
+        $de->getPropertyShared()->setReference('REF-STALE')->setLabel('Deutsches Label');
+
+        $deId = $this->persistPair($en, $de);
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $reloaded = $this->reloadEmbeddedShared($deId);
+        self::assertSame('REF-1', $reloaded->getPropertyShared()->getReference());
+
+        // Not marked shared -- must keep its own translated value
+        self::assertSame('Deutsches Label', $reloaded->getPropertyShared()->getLabel());
+    }
+
+    public function testEmbeddableWithoutSharingIsLeftAlone(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $en->getPropertyShared()->setReference('REF-1')->setLabel('English label');
+
+        $de = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE');
+        $de->getPropertyShared()->setReference('REF-1')->setLabel('Deutsches Label');
+
+        $deId = $this->persistPair($en, $de);
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('already in sync', $tester->getDisplay());
+        self::assertSame('Deutsches Label', $this->reloadEmbeddedShared($deId)->getPropertyShared()->getLabel());
+    }
+
+    public function testReadonlySharedDriftIsReportedInsteadOfCrashing(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->insertReadonlySharedRow($tuuid, 'en_US', 'SKU-EN', 'canonical');
+        $deId = $this->insertReadonlySharedRow($tuuid, 'de_DE', 'SKU-DE', 'stale');
+
+        $tester = $this->run_();
+
+        // Diagnostics-style exit code: the run completed but drift remains
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $display = $tester->getDisplay();
+        self::assertStringContainsString('readonly shared value(s)', $display);
+        self::assertStringContainsString('ReadonlyShared::$sku', $display);
+        self::assertStringContainsString('de_DE', $display);
+
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $reloaded = $this->entityManager()->find(ReadonlyShared::class, $deId);
+        self::assertInstanceOf(ReadonlyShared::class, $reloaded);
+
+        // The readonly value is untouched, but the writable shared property still synced
+        self::assertSame('SKU-DE', $reloaded->getSku());
+        self::assertSame('canonical', $reloaded->getNote());
+    }
+
+    public function testReadonlySharedDriftIsReportedInDryRunToo(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->insertReadonlySharedRow($tuuid, 'en_US', 'SKU-EN', 'canonical');
+        $this->insertReadonlySharedRow($tuuid, 'de_DE', 'SKU-DE', 'canonical');
+
+        $tester = $this->run_(['--dry-run' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
+    }
+
     public function testReportsWhenNoTranslatableEntitiesExist(): void
     {
         $factory = self::createStub(ClassMetadataFactory::class);
@@ -136,6 +253,62 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString('No translatable entities', $tester->getDisplay());
+    }
+
+    /**
+     * @return int The sibling entity id
+     */
+    private function persistPair(TranslatableInterface $source, TranslatableInterface $sibling): int
+    {
+        $this->entityManager()->persist($source);
+        $this->entityManager()->persist($sibling);
+        $this->entityManager()->flush();
+
+        self::assertTrue(method_exists($sibling, 'getId'));
+        $id = $sibling->getId();
+        self::assertIsInt($id);
+
+        $this->entityManager()->clear();
+
+        return $id;
+    }
+
+    /**
+     * Inserts straight through DBAL: persisting a readonly-shared entity would go through
+     * the translate-on-persist listener, which cannot write the readonly clone. That is a
+     * separate translate-time limitation; this test is about how the command behaves when
+     * such rows already exist.
+     *
+     * @return int the inserted row id
+     */
+    private function insertReadonlySharedRow(Tuuid $tuuid, string $locale, string $sku, string|null $note): int
+    {
+        $connection = $this->entityManager()->getConnection();
+
+        $connection->insert(
+            $this->entityManager()->getClassMetadata(ReadonlyShared::class)->getTableName(),
+            [
+                'tuuid'        => (string) $tuuid,
+                'locale'       => $locale,
+                'translations' => '[]',
+                'title'        => strtoupper($locale),
+                'sku'          => $sku,
+                'note'         => $note,
+            ],
+        );
+
+        return (int) $connection->lastInsertId();
+    }
+
+    private function reloadEmbeddedShared(int $id): EmbeddedSharedTranslatable
+    {
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+
+        $entity = $this->entityManager()->find(EmbeddedSharedTranslatable::class, $id);
+        self::assertInstanceOf(EmbeddedSharedTranslatable::class, $entity);
+
+        return $entity;
     }
 
     /**

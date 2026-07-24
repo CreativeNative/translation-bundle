@@ -27,6 +27,11 @@ class ReadonlyShared implements TranslatableInterface
     #[ORM\Column(type: Types::STRING, nullable: true)]
     private string|null $title = null;
 
+    /** Writable shared sibling of $sku: readonly drift must not stop this one from syncing. */
+    #[SharedAmongstTranslations]
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $note = null;
+
     public function __construct(string $sku = '')
     {
         $this->sku = $sku;
@@ -52,5 +57,17 @@ class ReadonlyShared implements TranslatableInterface
     public function getSku(): string
     {
         return $this->sku;
+    }
+
+    public function setNote(string|null $note = null): self
+    {
+        $this->note = $note;
+
+        return $this;
+    }
+
+    public function getNote(): string|null
+    {
+        return $this->note;
     }
 }
