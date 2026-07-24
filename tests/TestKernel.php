@@ -18,9 +18,12 @@ final class TestKernel extends BaseKernel
     use MicroKernelTrait;
 
     /**
-     * Typed as the concrete bundles rather than BundleInterface: Symfony 8.1
-     * deprecated HttpKernel\Bundle\BundleInterface, but its replacement in
-     * DependencyInjection\Kernel does not exist on the 7.3 we still support.
+     * Typed as the concrete bundles rather than BundleInterface. Symfony 8.1
+     * deprecated HttpKernel\Bundle\BundleInterface, but its replacement
+     * DependencyInjection\Kernel\BundleInterface is the *wider* parent type,
+     * while HttpKernel\KernelInterface::registerBundles() still declares the
+     * narrow deprecated one — so naming the replacement here breaks covariance.
+     * Listing the concrete bundles satisfies both and names neither.
      *
      * @return list<FrameworkBundle|DoctrineBundle|TmiTranslationBundle>
      */
