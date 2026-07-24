@@ -1288,5 +1288,6 @@ Step-by-step guide for building custom translation handlers for field types not 
 - v2.0.1: Added AI Skills section (entity-translation-setup, translation-debugger, custom-handler-creator).
 - v2.1.0: Added locale variant DX improvements: `translateAndPersist()`, `getOrTranslate()`, `TranslatableRepositoryTrait`, auto-reset generated IDs.
 - v2.2.0: Added Tuuid linkage integrity: `TranslatableEntityRepository`, composite `(tuuid, locale)` index, orphan detection (`strict_orphan_check`), and the `tmi:translation:doctor` / `tmi:translation:sync-shared` commands.
+- v3.0.0: Requires Symfony `^8.0` (PHP `>=8.4`). Correctness release from an adversarial bug hunt — collection properties are now actually translated (all three to-many handlers were unreachable), translating into an entity's own locale is the identity operation, handler tag priority is honoured, the locale filter is restored after sub-requests, and the in-progress flag is always cleared. `#[SharedAmongstTranslations]` on a bidirectional ManyToMany now throws as documented instead of being silently ignored.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 
