@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\OneToOne;
 use Doctrine\ORM\Mapping\OwningSideMapping;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
@@ -86,9 +87,20 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $associations    = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
         $parentFieldName = null;
 
+        // Find the field on the related class that points back at the parent. Which side
+        // the parent's field sits on decides how the back-reference is declared here: if
+        // the parent is the inverse side, this side owns the relation and names the
+        // parent's field in `inversedBy`; if the parent owns it, this side is the inverse
+        // and names it in `mappedBy`. Both are valid bidirectional mappings.
         foreach ($associations as $association) {
             if ($association instanceof OwningSideMapping && $fieldName === $association->inversedBy) {
                 $parentFieldName = $association->fieldName;
+                break;
+            }
+
+            if ($association instanceof InverseSideMapping && $fieldName === $association->mappedBy) {
+                $parentFieldName = $association->fieldName;
+                break;
             }
         }
 

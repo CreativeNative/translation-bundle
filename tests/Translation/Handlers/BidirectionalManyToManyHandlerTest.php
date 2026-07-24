@@ -8,11 +8,14 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToMany;
+use Doctrine\ORM\Mapping\ManyToManyInverseSideMapping;
 use Doctrine\ORM\Mapping\MappingException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
@@ -435,6 +438,77 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $translatedChild);
         self::assertSame('en_US', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSimpleParents()->contains($parent));
+    }
+
+    /**
+     * Owning-side direction: the translated entity declares inversedBy, not mappedBy.
+     * The back-reference field on the related class comes from inversedBy there, and the
+     * mapping is just as bidirectional -- it must not be rejected as "missing mappedBy".
+     */
+    public function testTranslateResolvesBackReferenceFromInversedByOnOwningSide(): void
+    {
+        $parent = new TranslatableManyToManyOwningParent()->setLocale('en_US');
+        $child  = new TranslatableManyToManyOwningChild()->setLocale('en_US');
+        $parent->addOwningChild($child);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $args   = new TranslationArgs($parent->getOwningChildren(), 'en_US', 'de_DE')->setTranslatedParent($parent);
+        $result = $this->handler->translate($args);
+
+        self::assertCount(1, $result);
+
+        $translatedChild = $result->first();
+        self::assertInstanceOf(TranslatableManyToManyOwningChild::class, $translatedChild);
+        self::assertTrue($translatedChild->getOwningParents()->contains($parent));
+    }
+
+    /**
+     * No ManyToMany attribute on the property (XML/YAML mapping): the back-reference field
+     * comes from the association metadata instead.
+     *
+     * @throws \ReflectionException|MappingException
+     */
+    public function testTranslateResolvesMappedByFromMetadataWhenAttributeIsAbsent(): void
+    {
+        // Property without a ManyToMany attribute, so resolution has to fall back to metadata
+        $unmapped = new class {
+            /** @var Collection<int, mixed> */
+            public Collection $items;
+
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $parent     = new TranslatableManyToManyOwningParent()->setLocale('en_US');
+        $child      = new TranslatableManyToManyOwningChild()->setLocale('en_US');
+        $collection = new ArrayCollection([$child]);
+        $prop       = new \ReflectionProperty($unmapped::class, 'items');
+
+        $mapping = new ManyToManyInverseSideMapping(
+            'items',
+            $parent::class,
+            TranslatableManyToManyOwningChild::class,
+        );
+        $mapping->mappedBy = 'owningParents';
+
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMapping')->with('items')->willReturn($mapping);
+        $this->entityManager()->method('getClassMetadata')->willReturn($meta);
+
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $this->handler->translate($args);
+
+        self::assertCount(1, $result);
+
+        $translatedChild = $result->first();
+        self::assertInstanceOf(TranslatableManyToManyOwningChild::class, $translatedChild);
+        self::assertTrue($translatedChild->getOwningParents()->contains($parent));
     }
 
     /**

@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\MappingException;
+use Doctrine\ORM\Mapping\OwningSideMapping;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -141,9 +142,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
             return new ArrayCollection($collection->toArray());
         }
 
-        $mappedBy = $this->resolveMappedBy($prop, $newOwner);
+        $mappedBy = $this->resolveBackReferenceField($prop, $newOwner);
         if (null === $mappedBy) {
-            throw new \RuntimeException(sprintf('Association "%s::%s" is not a bidirectional ManyToMany (missing mappedBy).', $newOwner::class, $prop->getName()));
+            throw new \RuntimeException(sprintf('Association "%s::%s" is not a bidirectional ManyToMany (neither mappedBy nor inversedBy).', $newOwner::class, $prop->getName()));
         }
 
         $newCollection = new ArrayCollection();
@@ -192,21 +193,35 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
+     * Resolves the name of the field on the RELATED class that points back at $owner.
+     *
+     * Which side of the association the translated entity sits on decides where that name
+     * comes from: on the inverse side it is `mappedBy`, on the owning side `inversedBy`.
+     * Both are valid bidirectional mappings -- only a genuinely unidirectional association
+     * yields neither.
+     *
      * @throws MappingException
      */
-    private function resolveMappedBy(\ReflectionProperty $prop, object $owner): string|null
+    private function resolveBackReferenceField(\ReflectionProperty $prop, object $owner): string|null
     {
         $attributes = $prop->getAttributes(ManyToMany::class);
         if ([] !== $attributes) {
             $attrArgs = $attributes[0]->getArguments();
-            if (isset($attrArgs['mappedBy']) && \is_string($attrArgs['mappedBy'])) {
-                return $attrArgs['mappedBy'];
+
+            foreach (['mappedBy', 'inversedBy'] as $key) {
+                if (isset($attrArgs[$key]) && \is_string($attrArgs[$key])) {
+                    return $attrArgs[$key];
+                }
             }
         }
 
         $meta  = $this->entityManager->getClassMetadata($owner::class);
         $assoc = $meta->getAssociationMapping($prop->getName());
 
-        return $assoc instanceof InverseSideMapping ? $assoc->mappedBy : null;
+        if ($assoc instanceof InverseSideMapping) {
+            return $assoc->mappedBy;
+        }
+
+        return $assoc instanceof OwningSideMapping ? $assoc->inversedBy : null;
     }
 }
