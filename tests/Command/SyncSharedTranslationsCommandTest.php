@@ -197,8 +197,10 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     {
         $tuuid = Tuuid::generate();
 
-        $this->insertReadonlySharedRow($tuuid, 'en_US', 'SKU-EN', 'canonical');
-        $deId = $this->insertReadonlySharedRow($tuuid, 'de_DE', 'SKU-DE', 'stale');
+        $deId = $this->persistPair(
+            new ReadonlyShared('SKU-EN')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('canonical'),
+            new ReadonlyShared('SKU-DE')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('stale'),
+        );
 
         $tester = $this->run_();
 
@@ -224,8 +226,10 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     {
         $tuuid = Tuuid::generate();
 
-        $this->insertReadonlySharedRow($tuuid, 'en_US', 'SKU-EN', 'canonical');
-        $this->insertReadonlySharedRow($tuuid, 'de_DE', 'SKU-DE', 'canonical');
+        $this->persistPair(
+            new ReadonlyShared('SKU-EN')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('same'),
+            new ReadonlyShared('SKU-DE')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('same'),
+        );
 
         $tester = $this->run_(['--dry-run' => true]);
 
@@ -271,33 +275,6 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $this->entityManager()->clear();
 
         return $id;
-    }
-
-    /**
-     * Inserts straight through DBAL: persisting a readonly-shared entity would go through
-     * the translate-on-persist listener, which cannot write the readonly clone. That is a
-     * separate translate-time limitation; this test is about how the command behaves when
-     * such rows already exist.
-     *
-     * @return int the inserted row id
-     */
-    private function insertReadonlySharedRow(Tuuid $tuuid, string $locale, string $sku, string|null $note): int
-    {
-        $connection = $this->entityManager()->getConnection();
-
-        $connection->insert(
-            $this->entityManager()->getClassMetadata(ReadonlyShared::class)->getTableName(),
-            [
-                'tuuid'        => (string) $tuuid,
-                'locale'       => $locale,
-                'translations' => '[]',
-                'title'        => strtoupper($locale),
-                'sku'          => $sku,
-                'note'         => $note,
-            ],
-        );
-
-        return (int) $connection->lastInsertId();
     }
 
     private function reloadEmbeddedShared(int $id): EmbeddedSharedTranslatable

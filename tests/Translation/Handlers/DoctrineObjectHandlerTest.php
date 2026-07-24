@@ -248,6 +248,93 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     }
 
     /**
+     * A readonly property is already initialised on the clone, so PHP rejects every write to
+     * it — including one that would store the identical value. Skipping keeps translation of
+     * readonly (typically shared) properties working instead of crashing with a raw Error.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslatePropertiesSkipsUnchangedReadonlyProperty(): void
+    {
+        $metaFactory = $this->createMock(ClassMetadataFactory::class);
+        $metaFactory->method('isTransient')->willReturn(false);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
+
+        $entity = new class {
+            public readonly string $sku;
+
+            public function __construct()
+            {
+                $this->sku = 'SKU-1';
+            }
+        };
+
+        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+
+        self::assertNotSame($entity, $result);
+        self::assertInstanceOf($entity::class, $result);
+        self::assertSame('SKU-1', $result->sku);
+    }
+
+    /**
+     * Same for a readonly object value that a handler hands back as an equal clone: nothing
+     * would change, so there is nothing to write.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslatePropertiesSkipsReadonlyPropertyResolvedToAnEqualClone(): void
+    {
+        $mockTranslator = $this->createMock(EntityTranslatorInterface::class);
+        $mockTranslator->method('processTranslation')->willReturnCallback(
+            static function (TranslationArgs $subArgs): mixed {
+                $value = $subArgs->getDataToBeTranslated();
+
+                return is_object($value) ? clone $value : $value;
+            },
+        );
+
+        $handler = new DoctrineObjectHandler($this->entityManager(), $mockTranslator);
+
+        $entity = new class {
+            public readonly \DateTimeImmutable $createdAt;
+
+            public function __construct()
+            {
+                $this->createdAt = new \DateTimeImmutable('2026-01-01 00:00:00');
+            }
+        };
+
+        $handler->translateProperties(new TranslationArgs($entity, 'en_US', 'de_DE'));
+
+        self::assertEquals(new \DateTimeImmutable('2026-01-01 00:00:00'), $entity->createdAt);
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslatePropertiesThrowsWhenReadonlyPropertyWouldChange(): void
+    {
+        $mockTranslator = $this->createMock(EntityTranslatorInterface::class);
+        $mockTranslator->method('processTranslation')->willReturn('a different value');
+
+        $handler = new DoctrineObjectHandler($this->entityManager(), $mockTranslator);
+
+        $entity = new class {
+            public readonly string $sku;
+
+            public function __construct()
+            {
+                $this->sku = 'SKU-1';
+            }
+        };
+
+        self::expectException(\LogicException::class);
+        self::expectExceptionMessage('is readonly and cannot be reassigned while translating');
+
+        $handler->translateProperties(new TranslationArgs($entity, 'en_US', 'de_DE'));
+    }
+
+    /**
      * @throws \ReflectionException
      */
     public function testTranslateClonesAndProcessesProperties(): void
