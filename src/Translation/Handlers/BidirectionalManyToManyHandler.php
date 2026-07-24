@@ -38,9 +38,9 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
     public function supports(TranslationArgs $args): bool
     {
-        $entity = $args->getDataToBeTranslated();
-
-        if (!$entity instanceof TranslatableInterface) {
+        // The value of a ManyToMany property is the Collection, never the entity itself --
+        // guarding on TranslatableInterface here made supports() always false.
+        if (!$args->getDataToBeTranslated() instanceof Collection) {
             return false;
         }
 
@@ -156,17 +156,48 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
                 continue;
             }
 
-            $rp = new \ReflectionProperty($item::class, $mappedBy);
+            // Detach the back-reference for the duration of the translation only. It stops
+            // the recursion from walking back into $newOwner's own collection (which would
+            // rewrite the SOURCE parent), and it leaves the clone with an empty collection of
+            // its own. The source item gets its collection back either way.
+            $rp            = new \ReflectionProperty($item::class, $mappedBy);
+            $sourceBackRef = $rp->getValue($item);
             $rp->setValue($item, new ArrayCollection());
 
-            $itemTrans = $this->translator->translate($item, $targetLocale);
-            $rpTrans   = new \ReflectionProperty($itemTrans::class, $mappedBy);
-            $rpTrans->setValue($itemTrans, new ArrayCollection([$newOwner]));
+            try {
+                $itemTrans = $this->translator->translate($item, $targetLocale);
+            } finally {
+                $rp->setValue($item, $sourceBackRef);
+            }
+
+            self::addBackReference($itemTrans, $mappedBy, $newOwner);
 
             $newCollection->add($itemTrans);
         }
 
         return $newCollection;
+    }
+
+    /**
+     * Points the translated item back at the translated owner.
+     *
+     * Adds rather than replaces: when translate() hands back an already existing translation
+     * instead of a fresh clone, that instance keeps whatever other owners it legitimately has.
+     */
+    private static function addBackReference(object $item, string $field, object $newOwner): void
+    {
+        $property = new \ReflectionProperty($item::class, $field);
+        $backRef  = $property->getValue($item);
+
+        if (!$backRef instanceof Collection) {
+            $property->setValue($item, new ArrayCollection([$newOwner]));
+
+            return;
+        }
+
+        if (!$backRef->contains($newOwner)) {
+            $backRef->add($newOwner);
+        }
     }
 
     /**

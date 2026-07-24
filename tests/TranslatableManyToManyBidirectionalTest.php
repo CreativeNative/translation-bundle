@@ -56,13 +56,22 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         $this->entityManager()->persist($parentTranslation);
         $this->entityManager()->flush();
 
-        // Make sure the children of the translated parent are
-        // translated and their parent is $translatedParent
+        // The translated parent gets its own collection of translated children, each of them
+        // pointing back at the TRANSLATED parent rather than the source one.
         $simpleChildren = $parentTranslation->getSimpleChildren();
-        self::assertGreaterThan(0, $simpleChildren->count());
+        self::assertNotSame($parent->getSimpleChildren(), $simpleChildren);
+        self::assertCount(3, $simpleChildren);
+
         foreach ($simpleChildren as $child) {
             self::assertSame(TranslatableManyToManyBidirectionalChild::class, $child::class);
-            self::assertSame($parent, $child->getSimpleParents()->first());
+            self::assertSame(self::TARGET_LOCALE, $child->getLocale());
+            self::assertSame($parentTranslation, $child->getSimpleParents()->first());
+        }
+
+        // ...and the source graph is untouched
+        self::assertCount(3, $parent->getSimpleChildren());
+        foreach ($parent->getSimpleChildren() as $child) {
+            self::assertSame('en_US', $child->getLocale());
         }
 
         self::assertSame(self::TARGET_LOCALE, $parentTranslation->getLocale());
@@ -116,31 +125,26 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     }
 
     /**
+     * #[SharedAmongstTranslations] is not a valid combination with a bidirectional
+     * ManyToMany: sharing one collection between locale variants would make both sides of
+     * the join table ambiguous. The handler rejects it explicitly.
+     *
      * @throws OptimisticLockException
      * @throws ORMException
      */
-    public function testItCanShareManyToMany(): void
+    public function testItRejectsSharedAmongstTranslationsOnManyToMany(): void
     {
         $child = new TranslatableManyToManyBidirectionalChild();
         $this->entityManager()->persist($child);
 
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent->addSharedChild($child);
-        $this->entityManager()->persist($parent);
-        $this->entityManager()->flush();
 
-        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
-        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
-        $this->entityManager()->persist($parentTranslation);
-        $this->entityManager()->flush();
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessage(
+            'SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations',
+        );
 
-        self::assertCount(1, $parent->getSharedChildren());
-        self::assertCount(1, $parentTranslation->getSharedChildren());
-
-        $firstSharedChild = $parent->getSharedChildren()->first();
-        self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $firstSharedChild);
-        $firstSharedParent = $firstSharedChild->getSharedParents()->first();
-        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $firstSharedParent);
-        self::assertEquals($parent->getId(), $firstSharedParent->getId());
+        $this->translator()->translate($parent, self::TARGET_LOCALE);
     }
 }

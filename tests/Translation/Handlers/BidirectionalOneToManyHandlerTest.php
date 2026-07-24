@@ -44,7 +44,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $entity = new TranslatableOneToManyBidirectionalParent();
         $prop   = new \ReflectionProperty($entity, 'simpleChildren');
 
-        $args = new TranslationArgs($entity);
+        // The data of a OneToMany property is the children collection, not the parent entity
+        $args = new TranslationArgs($entity->getSimpleChildren());
         $args->setProperty($prop);
 
         $this->attributeHelper()->method('isOneToMany')->with($prop)->willReturn(true);
@@ -69,8 +70,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         // Mock attribute helper to return true for isOneToMany
         $this->attributeHelper()->method('isOneToMany')->with($prop)->willReturn(true);
 
-        // Create TranslationArgs
-        $args = new TranslationArgs($parent, 'en_US', 'de_DE')
+        // Collection data gets past the first guard, so the missing attribute is what decides
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 

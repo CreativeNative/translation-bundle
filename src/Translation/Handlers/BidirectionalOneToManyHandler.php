@@ -36,9 +36,9 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
     public function supports(TranslationArgs $args): bool
     {
-        $entity = $args->getDataToBeTranslated();
-
-        if (!$entity instanceof TranslatableInterface) {
+        // The value of a OneToMany property is the children Collection, never the entity
+        // itself -- guarding on TranslatableInterface here made supports() always false.
+        if (!$args->getDataToBeTranslated() instanceof Collection) {
             return false;
         }
 

@@ -209,6 +209,8 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Responsible for initiating translation: taking a source object + sourceLocale + targetLocale, and returning the translated object.
 - Internally delegates to appropriate handler(s) depending on object type (entity vs embeddable vs collection).
 - Ensures metadata (locale property, Tuuid) is set correctly.
+- Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached. The Doctrine hooks (`afterLoad`, `beforePersist`, `beforeUpdate`, `beforeRemove`) ask for exactly that on every flush, so a clone cached under `(tuuid, locale)` there would be handed to every later `translate()` for that pair.
+- `#[EmptyOnTranslate]` on a **collection** property is emptied by its handler (a fresh empty collection). Only non-collection, non-nullable properties fall back to `TypeDefaultResolver`.
 
 ### Translation Handlers
 
@@ -275,7 +277,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 60
 - **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
-    - `supports()` — Returns true for `TranslatableInterface` entities with OneToMany having `mappedBy`.
+    - `supports()` — Returns true when the value is a `Collection` and the property is a OneToMany having `mappedBy`.
     - `translate()` — Iterates over child collection, translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`.
     - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
     - `handleEmptyOnTranslate()` — Returns an empty `ArrayCollection`.
@@ -301,8 +303,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 40
 - **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `EntityTranslatorInterface`.
 - **Methods:**
-    - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToMany association having `mappedBy` or `inversedBy`.
-    - `translate()` — Clones and translates the collection of related entities. Ensures inverse collections (`mappedBy`) are updated for translated owners. Avoids duplicate entries.
+    - `supports()` — Returns true when the value is a `Collection` and the property is a ManyToMany association having `mappedBy` or `inversedBy`.
+    - `translate()` — Builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries.
     - `handleSharedAmongstTranslations()` — Throws exception if `#[SharedAmongstTranslations]` is present; otherwise delegates to `translate()`.
     - `handleEmptyOnTranslate()` — Returns an empty `ArrayCollection`.
 - **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`.
@@ -314,12 +316,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 30
 - **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
-  - `supports()` — Returns true if the entity implements `TranslatableInterface` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
+  - `supports()` — Returns true if the value is a `Collection` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
   - `translate()` — Translates each item in the collection:
-    - Copies the original items to avoid modifying the source collection.
-    - Clears the target collection.
     - Translates each item for the target locale using `EntityTranslator`.
-    - Adds the translated item to the target collection, preventing duplicates.
+    - Collects them into a **new** `ArrayCollection`, preventing duplicates.
+    - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
   - `handleSharedAmongstTranslations()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported). Otherwise, delegates to `translate()`.
   - `handleEmptyOnTranslate()` — Returns a new empty `ArrayCollection`.
 - **Notes:**
@@ -1065,11 +1066,13 @@ class Photo implements TranslatableInterface
     private string $url;  // Same across locales
 }
 
-// OR: Use SharedAmongstTranslations to reuse the same collection
-#[SharedAmongstTranslations]
-#[ORM\OneToMany(targetEntity: Photo::class, mappedBy: 'product')]
-private Collection $photos;
 ```
+
+> `#[SharedAmongstTranslations]` is **not** available for association collections. Every
+> relation handler (OneToMany, ManyToOne, OneToOne, bidirectional and unidirectional
+> ManyToMany) throws when it sees the attribute, because one collection shared between
+> locale variants makes the owning side of the relation ambiguous. Share the individual
+> scalar columns of the related entity instead, as shown above.
 
 ### Compile-Time Validation Error
 

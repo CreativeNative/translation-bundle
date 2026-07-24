@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation;
 
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -106,6 +107,14 @@ final class EntityTranslator implements EntityTranslatorInterface
 
         // Handle top-level entities that implement TranslatableInterface
         if ($entity instanceof TranslatableInterface) {
+            // Translating an entity into the locale it already carries is the identity
+            // operation. Cloning it would be wrong on its own, and caching that clone under
+            // (tuuid, locale) would hand it back to every later translate() for this pair --
+            // which is exactly what the persist/update hooks ask for on every flush.
+            if ($entity->getLocale() === $locale) {
+                return $entity;
+            }
+
             $tuuidValue = $entity->getTuuid()->getValue();
 
             // Return cached translation immediately if available
@@ -274,7 +283,10 @@ final class EntityTranslator implements EntityTranslatorInterface
 
                 // 3. Handle EmptyOnTranslate (copy_source: true path)
                 if ($this->attributeHelper->isEmptyOnTranslate($property)) {
-                    if (!$this->attributeHelper->isNullable($property)) {
+                    // A collection is emptied by handing back a fresh empty one, which is
+                    // what its handler does. There is no type-safe default to resolve for it,
+                    // and asking for one would fail as "non-nullable object".
+                    if (!$entity instanceof Collection && !$this->attributeHelper->isNullable($property)) {
                         // Type-safe default instead of throwing
                         $default = $this->typeDefaultResolver->resolve($property);
 

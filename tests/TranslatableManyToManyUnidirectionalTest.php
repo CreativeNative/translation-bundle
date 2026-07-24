@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Test;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
-use Doctrine\ORM\PersistentCollection;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
@@ -37,7 +36,9 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $prop   = new \ReflectionProperty($parent::class, 'simpleChildren');
-        $args   = new TranslationArgs($parent, 'en_US', 'de_DE')
+
+        // The data of a ManyToMany property is the collection, not the owning entity
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
@@ -102,8 +103,11 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         // Call the handler and assert results
         $result = $this->handler->translate($args);
 
-        self::assertInstanceOf(PersistentCollection::class, $result, 'Result should be a PersistentCollection');
         self::assertCount(2, $result, 'Translated collection should contain 2 items');
+
+        // The source parent keeps its own children -- the handler builds a new collection
+        // rather than clearing the one it shares with the source entity.
+        self::assertCount(2, $parent->getSimpleChildren());
 
         foreach ($result as $item) {
             self::assertInstanceOf(TranslatableManyToManyUnidirectionalChild::class, $item);

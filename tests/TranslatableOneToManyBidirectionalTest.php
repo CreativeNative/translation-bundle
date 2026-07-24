@@ -59,6 +59,56 @@ final class TranslatableOneToManyBidirectionalTest extends IntegrationTestCase
     }
 
     /**
+     * The OneToMany handler only runs when the source locale actually differs from the
+     * target. Its supports() used to test the data for TranslatableInterface, but the data
+     * of a OneToMany property is the children Collection, so the handler never ran and the
+     * translated parent silently kept the source's untranslated children.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testChildrenAreTranslatedAndTheSourceCollectionIsLeftAlone(): void
+    {
+        $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
+
+        $children = new ArrayCollection([
+            new TranslatableManyToOneBidirectionalChild()->setLocale('en_US'),
+            new TranslatableManyToOneBidirectionalChild()->setLocale('en_US'),
+        ]);
+
+        foreach ($children as $child) {
+            $child->setParentSimple($parent);
+            $this->entityManager()->persist($child);
+        }
+
+        $parent->setSimpleChildren($children);
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $parentTranslation);
+
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
+
+        $translatedChildren = $parentTranslation->getSimpleChildren();
+        self::assertCount(2, $translatedChildren);
+        self::assertNotSame($parent->getSimpleChildren(), $translatedChildren);
+
+        foreach ($translatedChildren as $translatedChild) {
+            self::assertSame(self::TARGET_LOCALE, $translatedChild->getLocale());
+            self::assertSame($parentTranslation, $translatedChild->getParentSimple());
+        }
+
+        // The source parent still owns its own untranslated children
+        self::assertCount(2, $parent->getSimpleChildren());
+        foreach ($parent->getSimpleChildren() as $sourceChild) {
+            self::assertSame('en_US', $sourceChild->getLocale());
+            self::assertSame($parent, $sourceChild->getParentSimple());
+        }
+    }
+
+    /**
      * @throws OptimisticLockException
      * @throws ORMException
      */

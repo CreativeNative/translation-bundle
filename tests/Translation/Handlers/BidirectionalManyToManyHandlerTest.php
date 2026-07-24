@@ -12,6 +12,8 @@ use Doctrine\ORM\Mapping\ManyToManyInverseSideMapping;
 use Doctrine\ORM\Mapping\MappingException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningChild;
@@ -181,7 +183,8 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isManyToMany')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en_US', 'it_IT')
+        // The data of a ManyToMany property is the collection, not the owning entity
+        $args = new TranslationArgs($entity->getSimpleChildren(), 'en_US', 'it_IT')
             ->setProperty($prop)
             ->setTranslatedParent($entity);
 
@@ -509,6 +512,59 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $translatedChild = $result->first();
         self::assertInstanceOf(TranslatableManyToManyOwningChild::class, $translatedChild);
         self::assertTrue($translatedChild->getOwningParents()->contains($parent));
+    }
+
+    /**
+     * The back-reference on the related class may not be initialised yet. Setting the owner
+     * then means creating the collection rather than adding to it.
+     *
+     * @throws \ReflectionException|MappingException
+     */
+    public function testTranslateInitialisesAnUnsetBackReference(): void
+    {
+        $item = new class implements TranslatableInterface {
+            use TranslatableTrait;
+
+            /** @var Collection<int, mixed>|null */
+            public Collection|null $owners = null;
+        };
+        $item->setLocale('en_US');
+
+        // Property without a ManyToMany attribute, so the back-reference name comes from the
+        // mocked metadata below and can point at $item::$owners.
+        $unmapped = new class {
+            /** @var Collection<int, mixed> */
+            public Collection $items;
+
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $parent = new TranslatableManyToManyOwningParent()->setLocale('en_US');
+        $prop   = new \ReflectionProperty($unmapped::class, 'items');
+
+        $mapping           = new ManyToManyInverseSideMapping('items', $parent::class, $item::class);
+        $mapping->mappedBy = 'owners';
+
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMapping')->willReturn($mapping);
+        $this->entityManager()->method('getClassMetadata')->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        // The bare test translator has no handlers, so translate() hands the item back
+        // unchanged and its (restored) back-reference is still null.
+        $args = new TranslationArgs(new ArrayCollection([$item]), 'en_US', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $this->handler->translate($args);
+
+        self::assertCount(1, $result);
+        self::assertInstanceOf(Collection::class, $item->owners);
+        self::assertTrue($item->owners->contains($parent));
     }
 
     /**

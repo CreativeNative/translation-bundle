@@ -8,7 +8,6 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -29,9 +28,9 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
     public function supports(TranslationArgs $args): bool
     {
-        $entity = $args->getDataToBeTranslated();
-
-        if (!$entity instanceof TranslatableInterface) {
+        // The value of a ManyToMany property is the Collection, never the entity itself --
+        // guarding on TranslatableInterface here made supports() always false.
+        if (!$args->getDataToBeTranslated() instanceof Collection) {
             return false;
         }
 
@@ -112,23 +111,11 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         }
 
         $fieldName = $association->fieldName;
-        $accessor  = new PropertyAccessor();
 
         if (!property_exists($newOwner, $fieldName)) {
             throw new \RuntimeException(sprintf('Field "%s" not found in class "%s".', $fieldName, $newOwner::class));
         }
 
-        /** @var Collection<int, mixed>|null $collection */
-        $collection = $accessor->getValue($newOwner, $fieldName);
-
-        if (!$collection instanceof Collection) {
-            /** @var Collection<int, mixed> $collection */
-            $collection = new ArrayCollection();
-            $accessor->setValue($newOwner, $fieldName, $collection);
-        }
-
-        // ---------- CRITICAL FIX ----------
-        // copy items to translate BEFORE clearing the collection.
         $sourceData = $args->getDataToBeTranslated();
         /** @var list<mixed> $itemsToTranslate */
         $itemsToTranslate = [];
@@ -141,8 +128,13 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
             }
         }
 
-        // clear target collection (safe now because we have a copy)
-        $collection->clear();
+        // Build a fresh collection instead of clearing the one currently on $newOwner: a
+        // clone shares its collection instance with the source entity, so clearing it would
+        // wipe the source's association -- and clearing a managed PersistentCollection whose
+        // owner has no identifier yet makes the flush blow up. The caller assigns whatever
+        // is returned here to the translated parent.
+        /** @var Collection<int, mixed> $translatedItems */
+        $translatedItems = new ArrayCollection();
 
         $targetLocale = $args->getTargetLocale();
 
@@ -153,11 +145,11 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
             $translated = $this->translator->translate($item, $targetLocale);
 
-            if (!$collection->contains($translated)) {
-                $collection->add($translated);
+            if (!$translatedItems->contains($translated)) {
+                $translatedItems->add($translated);
             }
         }
 
-        return $collection;
+        return $translatedItems;
     }
 }

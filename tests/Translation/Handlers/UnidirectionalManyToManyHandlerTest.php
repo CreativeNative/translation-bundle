@@ -48,10 +48,15 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testSupportsReturnsFalseWhenPropertyHasNoManyToManyAttribute(): void
     {
-        // Anonymous class with a simple property
+        // Anonymous class with a collection property that carries no ManyToMany attribute
         $anon = new class {
-            /** @var array<int, mixed> */
-            public array $plain = [];
+            /** @var Collection<int, mixed> */
+            public Collection $plain;
+
+            public function __construct()
+            {
+                $this->plain = new ArrayCollection();
+            }
         };
 
         $prop = new \ReflectionProperty($anon::class, 'plain');
@@ -214,7 +219,7 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     /**
      * @throws \ReflectionException
      */
-    public function testTranslateCreatesCollectionWhenFieldIsNotCollectionAndAddsTranslatedItems(): void
+    public function testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField(): void
     {
         $parent = new class {
             /** @var iterable<int, mixed>|null */
@@ -252,8 +257,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $result = $handler->translate($args);
 
         self::assertCount(2, $result);
-        self::assertInstanceOf(Collection::class, $parent->items);
-        self::assertCount(2, $parent->items);
+
+        // The handler only produces the value; assigning it to the translated parent is the
+        // caller's job, so the owner's own field must be left exactly as it was.
+        self::assertNull($parent->items);
     }
 
     public function testSupportsReturnsTrueForUnidirectionalManyToManyProperty(): void
@@ -279,7 +286,8 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $propMock->method('getName')->willReturn('simpleChildren');
         $propMock->method('getDeclaringClass')->willReturn(new \ReflectionClass($parent));
 
-        $args = new TranslationArgs($parent, 'en', 'de_DE')
+        // The data of a ManyToMany property is the collection, not the owning entity
+        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
             ->setProperty($propMock)
             ->setTranslatedParent($parent);
 
@@ -400,7 +408,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $result = $handler->handleSharedAmongstTranslations($args);
 
         self::assertCount(1, $result);
-        self::assertSame($result, $parent->getSimpleChildren());
+
+        // A fresh collection, not the source one -- the source association stays intact
+        self::assertNotSame($result, $parent->getSimpleChildren());
+        self::assertCount(1, $parent->getSimpleChildren());
     }
 
     /**
