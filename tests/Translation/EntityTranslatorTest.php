@@ -380,6 +380,110 @@ final class EntityTranslatorTest extends UnitTestCase
         }
     }
 
+    public function testProcessTranslationCleansUpInProgressWhenHandlerThrows(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        $throwing = $this->createMock(TranslationHandlerInterface::class);
+        $throwing->method('supports')->willReturn(true);
+        $throwing->method('translate')->willThrowException(new \RuntimeException('handler exploded'));
+
+        $this->translator()->addTranslationHandler($throwing);
+
+        try {
+            $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE'));
+            self::fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            self::assertSame('handler exploded', $e->getMessage());
+        }
+
+        // The failure must not leave the tuuid/locale flagged -- a stale flag would make
+        // every later translate() silently return the untranslated entity.
+        self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
+    }
+
+    public function testTranslationWorksAfterAPreviousHandlerFailure(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        $translated = new Scalar();
+        $translated->setTuuid($tuuid);
+        $translated->setLocale('de_DE');
+
+        $alreadyFailed = false;
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturnCallback(
+            static function () use (&$alreadyFailed, $translated): Scalar {
+                if (!$alreadyFailed) {
+                    $alreadyFailed = true;
+
+                    throw new \RuntimeException('transient failure');
+                }
+
+                return $translated;
+            },
+        );
+
+        $this->translator()->addTranslationHandler($handler);
+
+        try {
+            $this->translator()->translate($entity, 'de_DE');
+            self::fail('Expected RuntimeException');
+        } catch (\RuntimeException) {
+            // expected -- first attempt fails
+        }
+
+        // Second attempt must not hit cycle detection and silently return the source entity
+        self::assertSame($translated, $this->translator()->translate($entity, 'de_DE'));
+    }
+
+    public function testProcessTranslationCleansUpInProgressWhenNoHandlerMatches(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        $this->translator()->addTranslationHandler($this->handlerNotSupporting());
+
+        $result = $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE'));
+
+        self::assertSame($entity, $result);
+        self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
+    }
+
+    public function testProcessTranslationCleansUpInProgressWhenHandlerReturnsNonTranslatable(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $entity = new Scalar();
+        $entity->setTuuid($tuuid);
+        $entity->setLocale('en_US');
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn('not-an-entity');
+
+        $this->translator()->addTranslationHandler($handler);
+
+        self::assertSame(
+            'not-an-entity',
+            $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE')),
+        );
+        self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
+    }
+
     /**
      * @throws \ReflectionException
      */

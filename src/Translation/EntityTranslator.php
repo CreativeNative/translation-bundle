@@ -119,23 +119,67 @@ final class EntityTranslator implements EntityTranslatorInterface
                 $args->setCopySource($this->resolveCopySource($entity));
             }
 
-            // Mark as in-progress with auto-cleanup guarantee
+            // Mark as in-progress with auto-cleanup guarantee.
+            // The flag stays set for the whole frame -- warmup, handler chain and any
+            // recursion below it -- because that is what makes the cycle check above work.
+            // The finally clears it exactly once, on completion OR failure of this frame,
+            // so a throwing handler can never leave a stale flag behind that would make
+            // every later translate() silently return the untranslated entity.
             $this->cache->markInProgress($tuuidValue, $locale);
             try {
                 $this->warmupTranslations([$entity], $locale);
 
                 if ($this->cache->has($tuuidValue, $locale)) {
-                    $this->cache->unmarkInProgress($tuuidValue, $locale);
-
                     return $this->cache->get($tuuidValue, $locale);
                 }
-            } catch (\Throwable $e) {
+
+                return $this->runHandlers($args, $entity, $locale);
+            } finally {
                 $this->cache->unmarkInProgress($tuuidValue, $locale);
-                throw $e;
             }
         }
 
-        // Iterate through all registered translation handlers
+        return $this->runHandlers($args, $entity, $locale);
+    }
+
+    public function addTranslationHandler(TranslationHandlerInterface $handler, int|null $priority = null): void
+    {
+        if (null === $priority) {
+            $this->handlers[] = $handler;
+        } else {
+            $this->handlers[$priority] = $handler;
+        }
+    }
+
+    // --- EntityTranslatorInterface Hooks ---
+
+    public function afterLoad(TranslatableInterface $entity): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforePersist(TranslatableInterface $entity): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforeUpdate(TranslatableInterface $entity): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    public function beforeRemove(TranslatableInterface $entity): void
+    {
+        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
+    }
+
+    /**
+     * Runs the handler chain for the given args, first match wins.
+     *
+     * @return mixed the handler result, or the untouched data when no handler supports it
+     */
+    private function runHandlers(TranslationArgs $args, mixed $entity, string $locale): mixed
+    {
         foreach ($this->handlers as $handler) {
             if (!$handler->supports($args)) {
                 continue;
@@ -262,7 +306,6 @@ final class EntityTranslator implements EntityTranslatorInterface
                 );
 
                 $this->cache->set($translated->getTuuid()->getValue(), $translated->getLocale() ?? $locale, $translated);
-                $this->cache->unmarkInProgress($entity->getTuuid()->getValue(), $locale);
 
                 $this->logDebug('Translation complete', [
                     'class'         => $translated::class,
@@ -274,37 +317,6 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         return $entity;
-    }
-
-    public function addTranslationHandler(TranslationHandlerInterface $handler, int|null $priority = null): void
-    {
-        if (null === $priority) {
-            $this->handlers[] = $handler;
-        } else {
-            $this->handlers[$priority] = $handler;
-        }
-    }
-
-    // --- EntityTranslatorInterface Hooks ---
-
-    public function afterLoad(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforePersist(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforeUpdate(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforeRemove(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
     /**

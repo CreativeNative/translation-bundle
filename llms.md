@@ -382,6 +382,8 @@ Abstraction for translation caching and circular-reference detection. Replaces t
 - `unmarkInProgress(string $tuuid, string $locale): void` -- Remove in-progress mark
 - `isInProgress(string $tuuid, string $locale): bool` -- Check if translation is in-progress
 
+`EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. Custom implementations backed by a persistent store should still give the mark a short TTL (the bundled `Psr6TranslationCache` uses 60s) so a mark that outlives its process expires on its own.
+
 ### Default Implementation: InMemoryTranslationCache
 
 Stores translations in PHP arrays, scoped to the current request. Registered as the default implementation.

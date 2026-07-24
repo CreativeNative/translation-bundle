@@ -6,6 +6,8 @@ namespace Tmi\TranslationBundle\Test\Translation\Cache;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemInterface;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache;
@@ -81,6 +83,21 @@ final class Psr6TranslationCacheTest extends TestCase
         $this->cache->markInProgress('tuuid-1', 'en');
 
         self::assertTrue($this->cache->isInProgress('tuuid-1', 'en'));
+    }
+
+    public function testMarkInProgressSetsExpiryOnTheCacheItem(): void
+    {
+        // Defence in depth for persistent pools: a marker that somehow survives its frame
+        // must expire on its own instead of blocking that tuuid/locale forever.
+        $item = $this->createMock(CacheItemInterface::class);
+        $item->expects($this->once())->method('set')->with(true)->willReturnSelf();
+        $item->expects($this->once())->method('expiresAfter')->with(60)->willReturnSelf();
+
+        $pool = $this->createMock(CacheItemPoolInterface::class);
+        $pool->expects($this->once())->method('getItem')->with('tmi_in_progress.tuuid_1.en')->willReturn($item);
+        $pool->expects($this->once())->method('save')->with($item)->willReturn(true);
+
+        (new Psr6TranslationCache($pool))->markInProgress('tuuid-1', 'en');
     }
 
     public function testIsInProgressReturnsFalseByDefault(): void

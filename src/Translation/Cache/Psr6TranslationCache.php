@@ -20,6 +20,16 @@ final class Psr6TranslationCache implements TranslationCacheInterface
     private const string TRANSLATION_PREFIX = 'tmi_translation.';
     private const string IN_PROGRESS_PREFIX = 'tmi_in_progress.';
 
+    /**
+     * Lifetime in seconds of an in-progress marker.
+     *
+     * An in-progress marker is only meaningful within the translation frame that set it,
+     * and EntityTranslator clears it in a finally. The TTL is defence in depth for
+     * persistent backends: should a marker ever survive (fatal error, killed worker), it
+     * expires instead of blocking that tuuid/locale until the pool is purged by hand.
+     */
+    private const int IN_PROGRESS_TTL = 60;
+
     public function __construct(
         private readonly CacheItemPoolInterface $cachePool,
     ) {
@@ -54,6 +64,7 @@ final class Psr6TranslationCache implements TranslationCacheInterface
     {
         $item = $this->cachePool->getItem($this->inProgressKey($tuuid, $locale));
         $item->set(true);
+        $item->expiresAfter(self::IN_PROGRESS_TTL);
         $this->cachePool->save($item);
     }
 
