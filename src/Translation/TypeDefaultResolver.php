@@ -13,10 +13,15 @@ namespace Tmi\TranslationBundle\Translation;
  * - Non-nullable built-in scalars: zero-value (string='', int=0, float=0.0, bool=false, array=[])
  * - Non-nullable enum: throws LogicException
  * - Non-nullable object: throws LogicException
+ * - Non-nullable built-in without a zero-value (iterable, object, callable, never...):
+ *   throws LogicException
  * - Union type: uses first non-null type's default
- * - Intersection type: null (always object types)
+ * - Intersection type: throws LogicException (never nullable, always object types)
  *
  * IMPORTANT: Always uses type defaults, never PHP declared defaults.
+ * IMPORTANT: null is only ever returned for types that actually accept null. Returning
+ * null for a non-nullable property would surface later as an opaque TypeError on
+ * assignment instead of this class' actionable LogicException.
  */
 final readonly class TypeDefaultResolver
 {
@@ -36,7 +41,9 @@ final readonly class TypeDefaultResolver
     /**
      * Resolves the type-safe default for a property.
      *
-     * @throws \LogicException when the type cannot have a safe default (non-nullable enum/object)
+     * @throws \LogicException when the type cannot have a safe default (any non-nullable
+     *                        type without a zero-value: enum, object, intersection,
+     *                        iterable, callable, ...)
      */
     public function resolve(\ReflectionProperty $property): mixed
     {
@@ -63,14 +70,15 @@ final readonly class TypeDefaultResolver
             return $this->resolveUnionType($type, $property);
         }
 
-        // ReflectionIntersectionType: always an object type, cannot have safe default
-        return null;
+        // ReflectionIntersectionType: always an object type and never nullable by language
+        // rules, so there is no safe default to hand back.
+        throw new \LogicException(\sprintf('Property %s::$%s is an intersection type and cannot have a type-safe default. Remove #[EmptyOnTranslate] or use #[SharedAmongstTranslations].', $property->class, $property->name));
     }
 
     /**
      * Resolves a single named type to its default value.
      *
-     * @throws \LogicException when the type is a non-nullable enum or object
+     * @throws \LogicException when the non-nullable type has no zero-value default
      */
     private function resolveNamedType(\ReflectionNamedType $type, \ReflectionProperty $property): mixed
     {
@@ -91,14 +99,16 @@ final readonly class TypeDefaultResolver
             throw new \LogicException(\sprintf('Property %s::$%s is a non-nullable object and cannot have a type-safe default. Make it nullable, remove #[EmptyOnTranslate], or use #[SharedAmongstTranslations].', $property->class, $property->name));
         }
 
-        // Unknown built-in type (safety fallback)
-        return null;
+        // Built-in without a zero-value (iterable, object, callable, never, ...).
+        // Only reachable for non-nullable types: resolve() returns null before this for
+        // anything that allows null, and a non-nullable union has no null member.
+        throw new \LogicException(\sprintf('Property %s::$%s is a non-nullable %s and cannot have a type-safe default. Make it nullable, remove #[EmptyOnTranslate], or use #[SharedAmongstTranslations].', $property->class, $property->name, $name));
     }
 
     /**
      * Resolves a union type by using the first non-null type's default.
      *
-     * @throws \LogicException when the first non-null type is a non-nullable enum or object
+     * @throws \LogicException when the first non-null type has no zero-value default
      */
     private function resolveUnionType(\ReflectionUnionType $type, \ReflectionProperty $property): mixed
     {

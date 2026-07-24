@@ -239,13 +239,19 @@ final class TypeDefaultResolverTest extends TestCase
         $this->resolver->resolve($property);
     }
 
-    public function testResolveIntersectionTypeReturnsNull(): void
+    public function testResolveIntersectionTypeThrowsLogicException(): void
     {
+        // Intersection types can never be nullable, so there is no safe default at all.
         $property = new \ReflectionProperty(new class {
             public \Countable&\Iterator $collection;
         }, 'collection');
 
-        self::assertNull($this->resolver->resolve($property));
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(
+            'is an intersection type and cannot have a type-safe default. Remove #[EmptyOnTranslate] or use #[SharedAmongstTranslations].',
+        );
+
+        $this->resolver->resolve($property);
     }
 
     public function testResolveEnumExceptionContainsPropertyAndClassName(): void
@@ -297,14 +303,56 @@ final class TypeDefaultResolverTest extends TestCase
         self::assertSame(0, $this->resolver->resolve($property));
     }
 
-    public function testResolveNonNullableIterableReturnsNull(): void
+    public function testResolveNonNullableIterableThrowsLogicException(): void
     {
-        // iterable is a built-in type not in SCALAR_DEFAULTS
+        // iterable is a built-in type not in SCALAR_DEFAULTS -- returning null here would
+        // only defer the failure to an opaque TypeError on assignment.
         $property = new \ReflectionProperty(new class {
             /** @phpstan-ignore missingType.iterableValue */
             public iterable $items = [];
         }, 'items');
 
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(
+            'is a non-nullable iterable and cannot have a type-safe default. Make it nullable, remove #[EmptyOnTranslate], or use #[SharedAmongstTranslations].',
+        );
+
+        $this->resolver->resolve($property);
+    }
+
+    public function testResolveNullableIterableReturnsNull(): void
+    {
+        $property = new \ReflectionProperty(new class {
+            /** @phpstan-ignore missingType.iterableValue */
+            public iterable|null $items = null;
+        }, 'items');
+
         self::assertNull($this->resolver->resolve($property));
+    }
+
+    public function testResolveNonNullableBuiltinObjectThrowsLogicException(): void
+    {
+        // `object` is a built-in type, so it never reaches the non-built-in object branch.
+        $property = new \ReflectionProperty(new class {
+            public object $payload;
+        }, 'payload');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(
+            'is a non-nullable object and cannot have a type-safe default. Make it nullable, remove #[EmptyOnTranslate], or use #[SharedAmongstTranslations].',
+        );
+
+        $this->resolver->resolve($property);
+    }
+
+    public function testResolveUnionWithoutSafeDefaultThrowsLogicException(): void
+    {
+        $property = new \ReflectionProperty(new class {
+            public \DateTimeImmutable|\stdClass $value;
+        }, 'value');
+
+        $this->expectException(\LogicException::class);
+
+        $this->resolver->resolve($property);
     }
 }
