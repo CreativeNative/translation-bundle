@@ -17,7 +17,11 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 final class EntityTranslator implements EntityTranslatorInterface
 {
-    /** @var array<TranslationHandlerInterface> */
+    /**
+     * Handlers ordered by descending priority; first match wins.
+     *
+     * @var list<array{priority: int, handler: TranslationHandlerInterface}>
+     */
     private array $handlers = [];
 
     private LoggerInterface|null $logger = null;
@@ -142,13 +146,19 @@ final class EntityTranslator implements EntityTranslatorInterface
         return $this->runHandlers($args, $entity, $locale);
     }
 
+    /**
+     * Registers a handler in the first-match-wins chain.
+     *
+     * Higher priority runs earlier. Handlers registered without a priority default to 0
+     * and therefore keep registration order among themselves.
+     */
     public function addTranslationHandler(TranslationHandlerInterface $handler, int|null $priority = null): void
     {
-        if (null === $priority) {
-            $this->handlers[] = $handler;
-        } else {
-            $this->handlers[$priority] = $handler;
-        }
+        $this->handlers[] = ['priority' => $priority ?? 0, 'handler' => $handler];
+
+        // PHP sorts are stable, so equal priorities keep their registration order and two
+        // handlers sharing a priority cannot displace each other.
+        usort($this->handlers, static fn (array $a, array $b): int => $b['priority'] <=> $a['priority']);
     }
 
     // --- EntityTranslatorInterface Hooks ---
@@ -180,7 +190,7 @@ final class EntityTranslator implements EntityTranslatorInterface
      */
     private function runHandlers(TranslationArgs $args, mixed $entity, string $locale): mixed
     {
-        foreach ($this->handlers as $handler) {
+        foreach ($this->handlers as ['handler' => $handler]) {
             if (!$handler->supports($args)) {
                 continue;
             }

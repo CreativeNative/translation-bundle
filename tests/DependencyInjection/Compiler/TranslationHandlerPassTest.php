@@ -65,4 +65,75 @@ final class TranslationHandlerPassTest extends TestCase
         self::assertInstanceOf(Reference::class, $call1[1][0]);
         self::assertSame('handler.two', (string) $call1[1][0]);
     }
+
+    public function testUntaggedPriorityIsPassedAsNull(): void
+    {
+        $container = new ContainerBuilder();
+
+        $translatorDefinition = new Definition();
+        $container->setDefinition('tmi_translation.translation.entity_translator', $translatorDefinition);
+
+        $handler = new Definition();
+        $handler->addTag('tmi_translation.translation_handler');
+        $container->setDefinition('handler.one', $handler);
+
+        new TranslationHandlerPass()->process($container);
+
+        /** @var array{0: string, 1: array<int, mixed>} $call */
+        $call = $translatorDefinition->getMethodCalls()[0];
+
+        self::assertNull($call[1][1]);
+    }
+
+    public function testTagPriorityIsForwardedToTheTranslator(): void
+    {
+        $container = new ContainerBuilder();
+
+        $translatorDefinition = new Definition();
+        $container->setDefinition('tmi_translation.translation.entity_translator', $translatorDefinition);
+
+        $builtIn = new Definition();
+        $builtIn->addTag('tmi_translation.translation_handler', ['priority' => 10]);
+        $container->setDefinition('handler.built_in', $builtIn);
+
+        $custom = new Definition();
+        $custom->addTag('tmi_translation.translation_handler', ['priority' => 75]);
+        $container->setDefinition('handler.custom', $custom);
+
+        new TranslationHandlerPass()->process($container);
+
+        $registered = [];
+
+        foreach ($translatorDefinition->getMethodCalls() as $call) {
+            /** @var array{0: string, 1: array<int, mixed>} $call */
+            $reference = $call[1][0];
+            self::assertInstanceOf(Reference::class, $reference);
+
+            $registered[] = [(string) $reference, $call[1][1]];
+        }
+
+        self::assertSame([['handler.built_in', 10], ['handler.custom', 75]], $registered);
+    }
+
+    /**
+     * Tag attributes coming from XML/YAML can arrive as strings.
+     */
+    public function testNumericStringPriorityIsNormalisedToInt(): void
+    {
+        $container = new ContainerBuilder();
+
+        $translatorDefinition = new Definition();
+        $container->setDefinition('tmi_translation.translation.entity_translator', $translatorDefinition);
+
+        $handler = new Definition();
+        $handler->addTag('tmi_translation.translation_handler', ['priority' => '42']);
+        $container->setDefinition('handler.one', $handler);
+
+        new TranslationHandlerPass()->process($container);
+
+        /** @var array{0: string, 1: array<int, mixed>} $call */
+        $call = $translatorDefinition->getMethodCalls()[0];
+
+        self::assertSame(42, $call[1][1]);
+    }
 }

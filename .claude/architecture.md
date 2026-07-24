@@ -37,6 +37,11 @@ class MyCustomHandler implements TranslationHandlerInterface
 }
 ```
 
+The chain is first-match-wins and sorted by descending priority, so the tag priority decides
+where a custom handler runs — 75 puts it between `EmbeddedHandler` (80) and
+`BidirectionalManyToOneHandler` (70). Handlers tagged without a priority default to 0 and run
+last, in registration order; handlers sharing a priority keep their registration order.
+
 ## Key Attributes
 
 ### `#[SharedAmongstTranslations]`

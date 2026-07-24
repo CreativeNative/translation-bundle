@@ -18,12 +18,19 @@ final class TranslationHandlerPass implements CompilerPassInterface
 
         $definition = $container->findDefinition('tmi_translation.translation.entity_translator');
 
-        // find all service IDs with the app.mail_transport tag
         $taggedServices = $container->findTaggedServiceIds('tmi_translation.translation_handler');
 
         foreach ($taggedServices as $id => $tags) {
-            // add the transport service to the ChainTransport service
-            $definition->addMethodCall('addTranslationHandler', [new Reference($id)]);
+            // The chain is first-match-wins, so a custom handler tagged with a priority has
+            // to be inserted at that position instead of being appended after the broad
+            // built-in handlers, where it would never be reached.
+            $attributes = $tags[0]                                         ?? null;
+            $priority   = \is_array($attributes) ? $attributes['priority'] ?? null : null;
+
+            $definition->addMethodCall('addTranslationHandler', [
+                new Reference($id),
+                is_numeric($priority) ? (int) $priority : null,
+            ]);
         }
     }
 }

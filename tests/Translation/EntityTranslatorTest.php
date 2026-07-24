@@ -380,6 +380,62 @@ final class EntityTranslatorTest extends UnitTestCase
         }
     }
 
+    public function testHigherPriorityHandlerRunsFirstRegardlessOfRegistrationOrder(): void
+    {
+        $args = $this->getTranslationArgs(null, 'fallback');
+
+        $low = $this->createMock(TranslationHandlerInterface::class);
+        $low->method('supports')->willReturn(true);
+        $low->expects($this->never())->method('translate');
+
+        $high = $this->createMock(TranslationHandlerInterface::class);
+        $high->method('supports')->willReturn(true);
+        $high->expects($this->once())->method('translate')->willReturn('high');
+
+        // Registered last, but its priority must put it in front of the broad handler
+        $this->translator()->addTranslationHandler($low, 10);
+        $this->translator()->addTranslationHandler($high, 75);
+
+        self::assertSame('high', $this->translator()->processTranslation($args));
+    }
+
+    public function testHandlersSharingAPriorityKeepRegistrationOrder(): void
+    {
+        $args = $this->getTranslationArgs(null, 'fallback');
+
+        $first = $this->createMock(TranslationHandlerInterface::class);
+        $first->method('supports')->willReturn(true);
+        $first->expects($this->once())->method('translate')->willReturn('first');
+
+        $second = $this->createMock(TranslationHandlerInterface::class);
+        $second->method('supports')->willReturn(true);
+        $second->expects($this->never())->method('translate');
+
+        // Same priority must not let one handler displace the other
+        $this->translator()->addTranslationHandler($first, 50);
+        $this->translator()->addTranslationHandler($second, 50);
+
+        self::assertSame('first', $this->translator()->processTranslation($args));
+    }
+
+    public function testUnprioritisedHandlerRunsAfterAPrioritisedOne(): void
+    {
+        $args = $this->getTranslationArgs(null, 'fallback');
+
+        $prioritised = $this->createMock(TranslationHandlerInterface::class);
+        $prioritised->method('supports')->willReturn(true);
+        $prioritised->expects($this->once())->method('translate')->willReturn('prioritised');
+
+        $plain = $this->createMock(TranslationHandlerInterface::class);
+        $plain->method('supports')->willReturn(true);
+        $plain->expects($this->never())->method('translate');
+
+        $this->translator()->addTranslationHandler($plain);
+        $this->translator()->addTranslationHandler($prioritised, 5);
+
+        self::assertSame('prioritised', $this->translator()->processTranslation($args));
+    }
+
     public function testProcessTranslationCleansUpInProgressWhenHandlerThrows(): void
     {
         $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
