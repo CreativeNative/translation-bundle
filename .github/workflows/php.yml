@@ -14,8 +14,18 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         php-version: [8.4]
+        # '8.0.*' pins the framework to the floor composer.json declares, so
+        # the advertised minimum is actually exercised. '8.*' is whatever
+        # Symfony 8 resolves to today and carries the full check suite.
+        symfony-version: ['8.0.*', '8.*']
+        include:
+          - symfony-version: '8.*'
+            primary: true
+
+    name: PHP ${{ matrix.php-version }} / Symfony ${{ matrix.symfony-version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -38,34 +48,67 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ matrix.symfony-version }}-${{ hashFiles('composer.json') }}
           restore-keys: |
+            ${{ runner.os }}-composer-${{ matrix.symfony-version }}-
             ${{ runner.os }}-composer-
 
       # Create var/cache folder for PHP-CS-Fixer
       - name: Create cache folder
         run: mkdir -p var/cache
 
-      # Install dependencies
+      # Resolve dependencies against the requested Symfony version.
+      #
+      # Flex is what makes SYMFONY_REQUIRE work, but it also applies recipes,
+      # which would scaffold a full Symfony *application* into this bundle
+      # (src/Kernel.php, config/, public/, tests/bootstrap.php) and break the
+      # PHPStan step. Recipes are applied on package-install events, so
+      # resolving with --no-install writes the pinned lock without them.
+      # Flex is then removed and the install runs from that lock, plugin-free.
+      # It is installed globally so it never enters the bundle's own manifest.
+      - name: Pin Symfony version
+        run: |
+          composer global config --no-plugins allow-plugins.symfony/flex true
+          composer global require --no-progress --no-scripts symfony/flex
+          composer update --no-install --no-progress --no-interaction
+          composer global remove --no-progress symfony/flex
+        env:
+          SYMFONY_REQUIRE: ${{ matrix.symfony-version }}
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      # Fast checks first (fail early)
+      - name: Show resolved Symfony version
+        run: composer show symfony/framework-bundle | head -3
+
+      # Fast checks first (fail early). Style and static analysis are
+      # version-independent, so they run once on the primary leg rather than
+      # once per Symfony version.
       # PHPCS
       - name: Check coding standards
+        if: matrix.primary
         run: vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no --ansi
 
       # PHPStan
       - name: Run PHPStan
+        if: matrix.primary
         run: vendor/bin/phpstan analyse --memory-limit=512M --ansi
 
-      # PHPUnit (slowest — runs last)
+      # PHPUnit (slowest — runs last). Coverage is only collected on the
+      # primary leg, since that is the only one that reports it; the floor leg
+      # just needs to prove the suite passes on Symfony 8.0.
       - name: Run PHPUnit tests with coverage
+        if: matrix.primary
         shell: bash
         run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --colors=always | tee var/coverage-summary.txt
 
+      - name: Run PHPUnit tests
+        if: ${{ !matrix.primary }}
+        run: vendor/bin/phpunit --colors=always
+
       # Coverage threshold
       - name: Check coverage threshold
+        if: matrix.primary
         run: |
           COVERAGE=$(grep -oP 'Lines:\s+\K[\d.]+' var/coverage-summary.txt | head -1)
           if [ -z "$COVERAGE" ]; then
@@ -78,8 +121,9 @@ jobs:
             exit 1
           fi
 
-      # Upload coverage to Codecov
+      # Upload coverage to Codecov (once, from the primary leg)
       - name: Upload coverage to Codecov
+        if: matrix.primary
         uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
