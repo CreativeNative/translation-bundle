@@ -10,6 +10,8 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -25,6 +27,119 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $events = LocaleFilterConfigurator::getSubscribedEvents();
         self::assertArrayHasKey(KernelEvents::REQUEST, $events);
         self::assertSame([['onKernelRequest', 2]], $events[KernelEvents::REQUEST]);
+        self::assertArrayHasKey(KernelEvents::FINISH_REQUEST, $events);
+        self::assertSame([['onKernelFinishRequest', 2]], $events[KernelEvents::FINISH_REQUEST]);
+    }
+
+    /**
+     * A fragment/ESI/forward sets the filter to its own locale; once it finishes, the rest
+     * of the parent request must not keep querying with the sub-request's locale.
+     */
+    public function testParentLocaleIsRestoredWhenSubRequestFinishes(): void
+    {
+        $kernel = $this->createMock(HttpKernelInterface::class);
+
+        $mainRequest = new Request();
+        $mainRequest->setLocale('en_US');
+
+        $subRequest = new Request();
+        $subRequest->setLocale('de_DE');
+
+        $requestStack = new RequestStack();
+        $requestStack->push($mainRequest);
+
+        $subscriber = new LocaleFilterConfigurator($this->entityManager(), [], null, $requestStack);
+
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $mainRequest, HttpKernelInterface::MAIN_REQUEST));
+        self::assertSame("'en_US'", $this->filterLocale());
+
+        // Sub-request legitimately gets its own locale while it is being handled
+        $requestStack->push($subRequest);
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST));
+        self::assertSame("'de_DE'", $this->filterLocale());
+
+        // finish_request fires before the sub-request is popped, so the parent is reachable
+        $subscriber->onKernelFinishRequest(
+            new FinishRequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST),
+        );
+        self::assertSame("'en_US'", $this->filterLocale());
+    }
+
+    public function testFinishRequestLeavesLocaleAloneForTheMainRequest(): void
+    {
+        $kernel = $this->createMock(HttpKernelInterface::class);
+
+        $mainRequest = new Request();
+        $mainRequest->setLocale('fr');
+
+        $requestStack = new RequestStack();
+        $requestStack->push($mainRequest);
+
+        $subscriber = new LocaleFilterConfigurator($this->entityManager(), [], null, $requestStack);
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $mainRequest, HttpKernelInterface::MAIN_REQUEST));
+
+        $subscriber->onKernelFinishRequest(
+            new FinishRequestEvent($kernel, $mainRequest, HttpKernelInterface::MAIN_REQUEST),
+        );
+
+        self::assertSame("'fr'", $this->filterLocale());
+    }
+
+    public function testFinishRequestIsANoopWithoutARequestStack(): void
+    {
+        $kernel = $this->createMock(HttpKernelInterface::class);
+
+        $request = new Request();
+        $request->setLocale('it_IT');
+
+        $subscriber = new LocaleFilterConfigurator($this->entityManager(), []);
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
+
+        $subscriber->onKernelFinishRequest(
+            new FinishRequestEvent($kernel, $request, HttpKernelInterface::SUB_REQUEST),
+        );
+
+        self::assertSame("'it_IT'", $this->filterLocale());
+    }
+
+    public function testRestoreDisablesTheFilterWhenTheParentIsOnADisabledFirewall(): void
+    {
+        $kernel = $this->createMock(HttpKernelInterface::class);
+
+        $mainRequest = new Request();
+        $mainRequest->setLocale('en_US');
+
+        $subRequest = new Request();
+        $subRequest->setLocale('de_DE');
+
+        $requestStack = new RequestStack();
+        $requestStack->push($mainRequest);
+        $requestStack->push($subRequest);
+
+        $firewallMap = $this->createMock(FirewallMap::class);
+        $firewallMap->method('getFirewallConfig')->willReturnCallback(
+            static fn (Request $request): FirewallConfig|null => $request === $mainRequest
+                ? new FirewallConfig('admin', 'user_checker')
+                : null,
+        );
+
+        $subscriber = new LocaleFilterConfigurator(
+            $this->entityManager(),
+            ['admin'],
+            $firewallMap,
+            $requestStack,
+        );
+
+        // Sub-request is on an allowed firewall, so the filter is enabled for it
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST));
+        self::assertTrue($this->entityManager()->getFilters()->isEnabled('tmi_translation_locale_filter'));
+
+        // Restoring the parent must reapply the parent's disabled-firewall rule, not its locale
+        $subscriber->onKernelFinishRequest(
+            new FinishRequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST),
+        );
+
+        self::assertFalse($this->entityManager()->getFilters()->isEnabled('tmi_translation_locale_filter'));
     }
 
     public function testFilterIsEnabledAndLocaleSet(): void
@@ -139,6 +254,15 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $result  = $this->invokePrivateMethod($subscriber, [$request]);
 
         self::assertFalse($result, 'Expected isDisabledFirewall to return false if config is null');
+    }
+
+    private function filterLocale(): mixed
+    {
+        $filter = $this->entityManager()->getFilters()->getFilter('tmi_translation_locale_filter');
+        self::assertInstanceOf(LocaleFilter::class, $filter);
+
+        // Doctrine stores the parameter in SQL form
+        return $filter->getParameter('locale');
     }
 
     /**

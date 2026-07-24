@@ -64,6 +64,15 @@ tmi_translation:
     disabled_firewalls: ['api']  # Disable for specific firewalls
 ```
 
+### Sub-requests
+
+`LocaleFilterConfigurator` sets the filter locale on every `kernel.request`, including
+sub-requests (fragments rendered with `render(controller(...))`, ESI, forwards), so a
+fragment queries in its own locale. On `kernel.finish_request` it re-applies the parent
+request's locale, mirroring Symfony's `LocaleAwareListener`. Without that restore the
+shared EntityManager filter would keep the fragment's locale for the rest of the parent
+request.
+
 ### Disabling Filter Temporarily
 
 ```php

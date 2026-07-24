@@ -139,6 +139,7 @@ services:
             $entityManager: '@doctrine.orm.entity_manager'
             $disabledFirewalls: '%tmi_translation.disabled_firewalls%'
             $firewallMap: '@?security.firewall.map'
+            $requestStack: '@request_stack'
         tags: [ { name: kernel.event_subscriber } ]
 
     # ----------------------------
