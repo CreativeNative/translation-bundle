@@ -5,7 +5,7 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "^7.3 || ^8.0"
+            "require": "^8.0"
         }
     },
     "keywords": [
@@ -25,16 +25,16 @@
         "php": ">=8.4",
         "doctrine/doctrine-bundle": "^2.18 || ^3.0",
         "doctrine/orm": "^3.5.7",
-        "symfony/console": "^7.3 || ^8.0",
-        "symfony/framework-bundle": "^7.3 || ^8.0",
-        "symfony/security-bundle": "^7.3 || ^8.0",
-        "symfony/yaml": "^7.3 || ^8.0",
-        "symfony/property-access": "^7.3 || ^8.0",
+        "symfony/console": "^8.0",
+        "symfony/framework-bundle": "^8.0",
+        "symfony/security-bundle": "^8.0",
+        "symfony/yaml": "^8.0",
+        "symfony/property-access": "^8.0",
         "twig/twig": "^3.22.0",
         "symfony/translation-contracts": "^3.6.1",
         "ext-json": "*",
         "ext-mbstring": "*",
-        "symfony/uid": "^7.3 || ^8.0"
+        "symfony/uid": "^8.0"
     },
     "require-dev": {
         "ext-pdo": "*",
@@ -52,7 +52,7 @@
         "phpstan/phpstan-symfony": "^2.0.8",
         "phpunit/phpunit": "^12.4.4",
         "roave/security-advisories": "dev-latest",
-        "symfony/phpunit-bridge": "^7.3 || ^8.0"
+        "symfony/phpunit-bridge": "^8.0"
     },
     "minimum-stability": "stable",
     "autoload": {

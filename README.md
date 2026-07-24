@@ -7,7 +7,7 @@
 [![Latest Version](https://img.shields.io/packagist/v/tmi/translation-bundle.svg)](https://packagist.org/packages/tmi/translation-bundle)
 [![License](https://img.shields.io/packagist/l/tmi/translation-bundle.svg)](https://packagist.org/packages/tmi/translation-bundle)
 [![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-8892BF.svg)](https://php.net/)
-[![Symfony 7.3+](https://img.shields.io/badge/Symfony-7.3%2B-000000.svg)](https://symfony.com/)
+[![Symfony 8.0+](https://img.shields.io/badge/Symfony-8.0%2B-000000.svg)](https://symfony.com/)
 [![Doctrine ORM 3.5+](https://img.shields.io/badge/Doctrine-ORM%203.5%2B-FF6D00.svg)](https://www.doctrine-project.org/)
 [![Total Downloads](https://img.shields.io/packagist/dt/tmi/translation-bundle.svg)](https://packagist.org/packages/tmi/translation-bundle)
 [![GitHub Stars](https://img.shields.io/github/stars/CreativeNative/translation-bundle.svg?style=social)](https://github.com/CreativeNative/translation-bundle)
@@ -43,13 +43,13 @@ This bundle solves: **Symfony Doctrine translation**, **entity localization**, *
 
 ## 🏗️ About This Version
 
-This is a **complete refactoring** based on PHP 8.4, Symfony 7.3, and Doctrine ORM 3.5 of the fork from [umanit/translation-bundle](https://github.com/umanit/translation-bundle), implemented with modern development practices and featuring **100% code coverage** with comprehensive test suites.
+This is a **complete refactoring** based on PHP 8.4, Symfony 8.0, and Doctrine ORM 3.5 of the fork from [umanit/translation-bundle](https://github.com/umanit/translation-bundle), implemented with modern development practices and featuring **100% code coverage** with comprehensive test suites.
 
 ## ⚠️ Limitations
 
 * **ManyToMany associations** are currently not supported. This includes usage with the `SharedAmongstTranslations` attribute.
 * Entities with single-column `unique: true` constraints will trigger a validation error at `cache:warmup` -- use composite constraints (field + locale) instead. See [UPGRADING.md](UPGRADING.md#5-composite-unique-constraint-validation) for the pattern.
-* Requires **PHP 8.4+**, **Symfony 7.3+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
+* Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
 ## 📦 Installation
 

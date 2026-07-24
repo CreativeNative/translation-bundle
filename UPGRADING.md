@@ -1,3 +1,36 @@
+# UPGRADE FROM 2.x to 3.0
+
+Version 3.0 raises the minimum Symfony requirement to **8.0**. There are no API changes — if your application already runs on Symfony 8, upgrading is a `composer update` with no code changes on your side.
+
+## Breaking Changes
+
+### Minimum Symfony version is now 8.0
+
+**Before (v2.x):**
+```json
+"symfony/framework-bundle": "^7.3 || ^8.0"
+```
+
+**After (v3.0):**
+```json
+"symfony/framework-bundle": "^8.0"
+```
+
+The same floor applies to `symfony/console`, `symfony/security-bundle`, `symfony/yaml`, `symfony/property-access` and `symfony/uid`.
+
+**Why:** The `^7.3` half of that range was never installable in practice. Every candidate Symfony 7.3 release is blocked by published security advisories, so `composer` refuses to resolve it for any project using `roave/security-advisories` — as this bundle's own test suite does. CI never exercised the 7.3 branch either: it resolves the highest allowed Symfony on every run. The constraint advertised support that could not be obtained, so 3.0 narrows it to the branch that is actually verified.
+
+Symfony 8.0 is confirmed working: the full suite (460 tests) passes against `symfony/framework-bundle` v8.0.14.
+
+**Migration Steps:**
+1. Upgrade your application to Symfony 8.0 or later first.
+2. Run `composer update tmi/translation-bundle`.
+3. No application code changes are required — the bundle's public API is unchanged.
+
+**Still on Symfony 7.x?** Pin to `tmi/translation-bundle:^2.2`. Note that installing it alongside `roave/security-advisories` will still fail for the reason above; the constraint change in 3.0 simply makes that honest.
+
+---
+
 # UPGRADE FROM 1.x to 2.0
 
 Version 2.0 is a major release with breaking changes that improve alignment with Symfony standards, add type safety, and introduce powerful new features. This guide covers every change needed to upgrade from v1.x to v2.0.
