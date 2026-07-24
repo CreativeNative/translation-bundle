@@ -8,7 +8,6 @@ use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
@@ -19,7 +18,11 @@ final class TestKernel extends BaseKernel
     use MicroKernelTrait;
 
     /**
-     * @return iterable<BundleInterface>
+     * Typed as the concrete bundles rather than BundleInterface: Symfony 8.1
+     * deprecated HttpKernel\Bundle\BundleInterface, but its replacement in
+     * DependencyInjection\Kernel does not exist on the 7.3 we still support.
+     *
+     * @return list<FrameworkBundle|DoctrineBundle|TmiTranslationBundle>
      */
     public function registerBundles(): iterable
     {
