@@ -33,7 +33,14 @@
 - [TranslatableEntityHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/TranslatableEntityHandler.php): Handles nested translatable entities
 - [DoctrineObjectHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/DoctrineObjectHandler.php): Handles non-translatable Doctrine entity references
 - [EmbeddedHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/EmbeddedHandler.php): Handles Doctrine embeddables
+- [BidirectionalManyToOneHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/BidirectionalManyToOneHandler.php): ManyToOne with `inversedBy`
+- [BidirectionalOneToManyHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/BidirectionalOneToManyHandler.php): OneToMany with `mappedBy` — translates the children collection
+- [BidirectionalOneToOneHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/BidirectionalOneToOneHandler.php): OneToOne with `mappedBy` or `inversedBy`, either direction
+- [BidirectionalManyToManyHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/BidirectionalManyToManyHandler.php): ManyToMany with `mappedBy` or `inversedBy`, either direction
+- [UnidirectionalManyToManyHandler](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/UnidirectionalManyToManyHandler.php): ManyToMany without `mappedBy`/`inversedBy`
 - [Handler Priority Guide](https://github.com/CreativeNative/translation-bundle/blob/master/.agents/skills/custom-handler-creator/references/handler-priority.md): Priority decision matrix for handler ordering
+
+Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `priority` decides where they sit in the first-match-wins chain.
 
 ## Value Objects
 
@@ -64,6 +71,18 @@
 - [OrphanTranslationException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/OrphanTranslationException.php): Thrown (when `strict_orphan_check` is on) for entities persisted in a non-default locale without a shared Tuuid
 - `tmi:translation:doctor`: Console command — scans for standalone/incomplete translations and duplicate `(tuuid, locale)` pairs; exits non-zero for CI gating
 - `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--entity` options)
+
+## v3.0 Symfony 8 & Translation Correctness
+
+- Requires Symfony `^8.0` and PHP `>=8.4`; the `^7.3` branch is dropped
+- To-many properties (`OneToMany`, `ManyToMany`) are now actually translated — all three collection handlers were unreachable before, so a translation silently shared the source entity's collection instance
+- Translating an entity into the locale it already carries is the identity operation: the same instance comes back, nothing is cloned or cached
+- `#[SharedAmongstTranslations]` on an association collection throws instead of being silently ignored
+- Handler tag `priority` is honoured by the compiler pass; equal priorities keep registration order
+- `LocaleFilterConfigurator` restores the parent request's locale on `kernel.finish_request` after sub-requests
+- The in-progress cycle-detection flag is always cleared, even when a handler throws; `Psr6TranslationCache` gives it a 60s TTL
+- `TypeDefaultResolver` throws for every non-nullable type without a zero-value (adds `iterable`, `object`, intersection types); `null` is only returned for types that accept it
+- `tmi:translation:sync-shared` detects embeddable-level sharing and reports readonly drift with a non-zero exit
 
 ## Optional
 

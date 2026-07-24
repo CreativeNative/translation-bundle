@@ -179,13 +179,15 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Fields that must be reset when creating a new translation.
 - For nullable fields, values are set to null.
 - For non-nullable scalar fields, type-safe defaults are used: string='', int=0, float=0.0, bool=false (via TypeDefaultResolver).
-- Non-nullable object types throw LogicException with guidance to make them nullable or use #[SharedAmongstTranslations].
+- Collection properties are emptied by their handler (a fresh, empty collection). `TypeDefaultResolver` is not consulted for them.
+- Every other non-nullable type without a zero-value — objects, enums, `iterable`, intersection types — throws LogicException with guidance to make it nullable or use #[SharedAmongstTranslations].
 - Embedded objects are replaced with a new, empty instance (or null for nullable embeddables).
-- Shared fields override this rule: if a field has both #[SharedAmongstTranslations] and #[EmptyOnTranslate], the shared behavior takes precedence and the value is not cleared.
+- #[SharedAmongstTranslations] and #[EmptyOnTranslate] on the **same** property is a configuration error, not a precedence question: `AttributeValidationPass` rejects it at compile time with an `AttributeConflictException`.
+- #[EmptyOnTranslate] on a `readonly` property is rejected the same way (`ReadonlyPropertyException`) — a readonly property cannot be re-assigned after hydration.
 
 #### 4. Priority of Rules
-1. #[SharedAmongstTranslations] → always overrides others.
-2. #[EmptyOnTranslate] → only applies if not shared.
+1. #[SharedAmongstTranslations] → wins over the default cloning behaviour (it cannot co-exist with #[EmptyOnTranslate] on the same property).
+2. #[EmptyOnTranslate] → clears the value.
 3. Otherwise → default translation cloning behavior.
 4. If `copy_source: false` (v2.0 default) and field has #[EmptyOnTranslate]: type-safe defaults used instead of null for non-nullable types.
 
@@ -195,7 +197,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 1. A source entity (locale A) is passed to EntityTranslator to produce a target translation entity (locale B).
 2. Handlers inspect each property of the source:
   - If the property is marked `#[SharedAmongstTranslations]`, the same value is reused/propagated across siblings.
-  - If the property is marked `#[EmptyOnTranslate]`, the target value will be set to null (nullable types) or type-safe defaults (non-nullable scalars: string='', int=0, float=0.0, bool=false), or a new empty instance (embeddables), regardless of the source.
+  - If the property is marked `#[EmptyOnTranslate]`, the target value will be set to null (nullable types) or type-safe defaults (non-nullable scalars: string='', int=0, float=0.0, bool=false), a new empty instance (embeddables) or an empty collection (to-many associations), regardless of the source.
   - Otherwise, a clone or new value may be created for the target locale, depending on other attributes and the property type.
 3. PropertyAccessor is used to read source values and write to the target.
 4. The result is a consistent set of entities: one per locale, sharing or translating fields as configured.
@@ -987,6 +989,10 @@ private ?Category $category = null;
 private ?Category $category = null;
 ```
 
+> The unidirectional escape hatch only applies to **to-one** relations. A `ManyToMany` is rejected
+> in either direction — `UnidirectionalManyToManyHandler` throws for the attribute as well. For
+> collections, share the related entity's own columns instead of the association.
+
 ### Translations Not Persisted
 
 **Symptom:** Translation appears to work but translated entity is not in the database
@@ -1099,6 +1105,41 @@ class Photo implements TranslatableInterface
 #[ORM\UniqueConstraint(name: 'uniq_product_slug_locale', fields: ['slug', 'locale'])]
 // And: #[ORM\Column(length: 255)]  // Remove unique: true
 ```
+
+### Custom Handler Never Runs
+
+**Symptom:** A handler tagged `tmi_translation.translation_handler` is registered but its `translate()` is never called — the field is processed by a built-in handler instead.
+
+**Cause 1 — `supports()` never matches.** It must test the shape of `getDataToBeTranslated()`, which is the *property value*, not the entity that declares it. For a `OneToMany` / `ManyToMany` property that value is the `Collection`; guarding on `instanceof TranslatableInterface` makes `supports()` permanently false.
+
+```php
+// WRONG for a to-many property: the data is the Collection
+if (!$args->getDataToBeTranslated() instanceof TranslatableInterface) {
+    return false;
+}
+
+// RIGHT
+if (!$args->getDataToBeTranslated() instanceof Collection) {
+    return false;
+}
+```
+
+**Cause 2 — priority.** The chain is first-match-wins. Without an explicit `priority` on the tag the handler defaults to 0 and runs after every built-in, so a broad handler such as `DoctrineObjectHandler` (10) claims the value first. Give the tag a priority that places it ahead of whatever would otherwise match:
+
+```yaml
+tags:
+    - { name: 'tmi_translation.translation_handler', priority: 75 }
+```
+
+Handlers sharing a priority keep their registration order.
+
+### Translated Entity Is the Same Instance
+
+**Symptom:** `translate()` returns the object you passed in rather than a clone.
+
+**Cause:** The requested locale is the one the entity already carries. Translating an entity into its own locale is the identity operation — nothing is cloned and nothing is cached. This is also what the Doctrine hooks request on every flush.
+
+**Fix:** Nothing to fix; pass a different target locale. To read an existing sibling, use `findAllLocaleVariants()` (see Locale Variant DX).
 
 ---
 

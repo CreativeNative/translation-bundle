@@ -194,9 +194,13 @@ Wait for user confirmation (yes/y/apply/confirm).
 ## Relationship Handler Behavior Summary
 
 **How relationship translation works:**
-- **OneToMany**: Translates collection items, maintains inverse property pointing back to parent (BidirectionalOneToManyHandler)
-- **ManyToOne**: Creates new relation pointing to translated target OR same shared entity (ManyToOneHandler)
-- **ManyToMany**: Clones association collection for the translation (ManyToManyHandler)
+- **OneToMany**: Translates the children collection, pointing each child's inverse property back at the translated parent (`BidirectionalOneToManyHandler`)
+- **ManyToOne**: Creates a new relation pointing to the translated target OR the same shared entity (`BidirectionalManyToOneHandler`)
+- **OneToOne**: Clones the related entity and fixes up the back-reference, in either direction — `mappedBy` or `inversedBy` (`BidirectionalOneToOneHandler`)
+- **ManyToMany**: Builds a **new** collection of translated items, in either direction, leaving the source entity's collection untouched (`BidirectionalManyToManyHandler`, or `UnidirectionalManyToManyHandler` when the mapping has neither `mappedBy` nor `inversedBy`)
+
+`#[SharedAmongstTranslations]` is rejected on all of these association handlers — sharing one
+collection or relation between locale variants makes the owning side ambiguous.
 
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
 

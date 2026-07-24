@@ -47,7 +47,7 @@ This is a **complete refactoring** based on PHP 8.4, Symfony 8.0, and Doctrine O
 
 ## ⚠️ Limitations
 
-* **ManyToMany associations** are currently not supported. This includes usage with the `SharedAmongstTranslations` attribute.
+* **`SharedAmongstTranslations` is not available on association collections** (`OneToMany`, `ManyToMany`). One collection shared between locale variants makes the owning side of the relation ambiguous, so the handlers reject it with a `RuntimeException`. Share the related entity's scalar columns instead. Associations themselves — including `ManyToMany` in both directions — are translated normally.
 * Entities with single-column `unique: true` constraints will trigger a validation error at `cache:warmup` -- use composite constraints (field + locale) instead. See [UPGRADING.md](UPGRADING.md#5-composite-unique-constraint-validation) for the pattern.
 * Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
@@ -103,8 +103,8 @@ Unknown column type "tuuid" requested. Any Doctrine type that you use has to be 
 
 ### Make your entity translatable
 
-Implement `Tmi\TranslationBundle\Doctrine\TranslatableInterface` and use the trait
-`Tmi\TranslationBundle\Doctrine\ModelTranslatableTrait`on an entity you want to make translatable.
+Implement `Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface` and use the trait
+`Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait` on an entity you want to make translatable.
 ```php
 <?php
 
@@ -128,7 +128,8 @@ class Product implements TranslatableInterface
 
 ### Translate your entity
 
-Use the service `tmi_translation.translator.entity_translator` to translate a source entity to a target language.
+Use the service `tmi_translation.translation.entity_translator` (or type-hint
+`Tmi\TranslationBundle\Translation\EntityTranslatorInterface`) to translate a source entity to a target language.
 
 ```php
 // Translate only (caller must persist)
@@ -156,7 +157,8 @@ Using this attribute will make the value of your field identical throughout all 
 field in any translation, all the others will be synchronized.
 If the attribute is a relation to a translatable entity, it will associate the correct translation to each language.
 
-***Note***: `ManyToMany` associations are not supported with `SharedAmongstTranslations` yet.
+***Note***: this attribute cannot be used on association **collections** (`OneToMany`, `ManyToMany`) —
+the handlers throw a `RuntimeException`. Share the related entity's own columns instead.
 
 ```php
 #[ORM\ManyToOne(targetEntity: Media::class)]
@@ -225,6 +227,12 @@ doctrine:
         class:   'Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter'
         enabled: true
 ```  
+
+The filter locale is set on every `kernel.request`, including sub-requests (fragments rendered
+with `render(controller(...))`, ESI, forwards), so a fragment queries in its own locale. On
+`kernel.finish_request` the parent request's locale is re-applied, mirroring Symfony's
+`LocaleAwareListener` — the shared EntityManager filter never keeps a fragment's locale for the
+rest of the parent request.
 
 #### (Optional) Disable the filter for a specific firewall
 

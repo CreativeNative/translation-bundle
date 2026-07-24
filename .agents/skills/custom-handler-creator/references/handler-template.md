@@ -144,7 +144,8 @@ final readonly class [HANDLER_NAME]Handler implements TranslationHandlerInterfac
 services:
     App\Translation\Handler\[HANDLER_NAME]Handler:
         arguments:
-            $attributeHelper: '@Tmi\TranslationBundle\Utils\AttributeHelper'
+            # AttributeHelper is only registered under this id, not under its FQCN
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
         tags:
             - { name: 'tmi_translation.translation_handler', priority: [PRIORITY] }
 ```
@@ -162,8 +163,27 @@ services:
 
 ```php
 $args->getDataToBeTranslated();  // mixed - The value being translated
-$args->getSourceLocale();        // string - Source locale code (e.g., 'en')
-$args->getTargetLocale();        // string - Target locale code (e.g., 'fr')
-$args->getTranslatedParent();    // ?object - Parent entity (for nested translation)
+$args->getSourceLocale();        // string|null - Source locale code (e.g., 'en_US')
+$args->getTargetLocale();        // string|null - Target locale code (e.g., 'de_DE')
+$args->getTranslatedParent();    // mixed - Parent entity (for nested translation)
 $args->getProperty();            // ?ReflectionProperty - Property being processed
+$args->getCopySource();          // bool|null - Resolved copy_source for this entity
 ```
+
+Both locales and the parent are nullable, so narrow them before use — PHPStan runs at level max
+in this project and will reject an unchecked `string` assumption.
+
+## What `getDataToBeTranslated()` holds
+
+`supports()` must match the value's actual shape, not the entity that owns the property:
+
+| Property kind | Value passed to the handler |
+|---------------|-----------------------------|
+| Scalar / `DateTime` | the raw value |
+| Embeddable | the embeddable object |
+| `ManyToOne` / `OneToOne` | the related entity |
+| `OneToMany` / `ManyToMany` | the **`Collection`**, never the owning entity |
+
+Guarding a to-many handler with `instanceof TranslatableInterface` makes `supports()` always
+false, and the handler silently never runs — this was a real bug in the bundle's own collection
+handlers until v3.0.0.

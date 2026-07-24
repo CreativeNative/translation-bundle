@@ -111,7 +111,10 @@ private Collection $photos;
 - **Symptom:** Translation fails completely when processing this field
 - **Fix options:**
   1. Remove `#[SharedAmongstTranslations]` (each locale gets own relation)
-  2. Remove `inversedBy`/`mappedBy` to make unidirectional
+  2. For a **to-one** relation, removing `inversedBy`/`mappedBy` makes it unidirectional and
+     sharing becomes legal again. This does **not** work for `ManyToMany`:
+     `UnidirectionalManyToManyHandler` rejects the attribute too, in either direction.
+  3. Share the related entity's own scalar columns instead of the association
 - **llms.md:** See "SharedAmongstTranslations on Bidirectional Relation" troubleshooting entry
 
 ### Check 2.2: EmptyOnTranslate on Non-Nullable Scalar Fields
@@ -146,7 +149,7 @@ private \DateTime $publishedAt;  // Object type, not scalar!
 
 **How to check:**
 ```php
-// VALID but EmptyOnTranslate is ignored
+// INVALID - rejected at compile time, not a precedence question
 #[SharedAmongstTranslations]
 #[EmptyOnTranslate]
 #[ORM\Column]
@@ -154,9 +157,11 @@ private ?string $field = null;
 ```
 
 **If found:**
-- **Severity:** WARNING
-- **Error:** None - SharedAmongstTranslations takes precedence
-- **Symptom:** Field is shared, not emptied (might be unexpected)
+- **Severity:** ERROR
+- **Error:** `AttributeConflictException`, collected by `AttributeValidationPass` and thrown as a
+  single `LogicException` at `cache:warmup` / `cache:clear`; `AttributeHelper::validateProperty()`
+  raises the same conflict as a `ValidationException` at translate time
+- **Symptom:** Container compilation fails — the two attributes state contradictory intents
 - **Fix:** Remove EmptyOnTranslate if sharing is intended, or remove SharedAmongstTranslations if emptying is intended
 - **llms.md:** See "Priority of Rules" in Core Concepts section
 
@@ -300,8 +305,33 @@ $entityManager->flush();
 - **Severity:** WARNING
 - **Error:** Items incorrectly copied or translated
 - **Symptom:** Doubled collection items
-- **Fix:** Ensure child entities are translatable if needed, or use SharedAmongstTranslations
+- **Fix:** Ensure child entities are translatable if needed. `SharedAmongstTranslations` is **not**
+  an option here — the association handlers reject it.
 - **llms.md:** See "Collection Translation Creates Duplicates" troubleshooting entry
+
+### Check 4.5: Collection not translated at all
+
+**What to look for:** After translating a parent, its `OneToMany` / `ManyToMany` children are still
+in the source locale — or the translated parent and the source share the *same* collection instance.
+
+**How to check:**
+```php
+$translation = $translator->translate($parent, 'de_DE');
+
+// Both must hold: a separate collection, with translated children
+var_dump($translation->getChildren() === $parent->getChildren()); // must be false
+var_dump($translation->getChildren()->first()->getLocale());      // must be 'de_DE'
+```
+
+**If found:**
+- **Severity:** ERROR
+- **Cause:** A collection handler's `supports()` is not matching. The value of a to-many property is
+  the `Collection`, not the owning entity — a custom handler guarding on `instanceof
+  TranslatableInterface` will never match and silently drops out of the chain.
+- **Note:** the bundle's own three collection handlers had exactly this bug before **v3.0.0**. On
+  an older version, upgrade rather than working around it.
+- **Fix:** Guard on `instanceof Collection` in the custom handler, and confirm its tag priority puts
+  it ahead of any broader handler.
 
 ---
 
