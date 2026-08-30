@@ -36,6 +36,9 @@
         "ext-mbstring": "*",
         "symfony/uid": "^8.0"
     },
+    "conflict": {
+        "doctrine/orm": "3.6.8"
+    },
     "require-dev": {
         "ext-pdo": "*",
         "ext-pdo_sqlite": "*",

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -79,6 +80,12 @@ final class TestKernel extends BaseKernel
             'copy_source'         => true,
             'strict_orphan_check' => false,
         ]);
+
+        // Without monolog, the framework's fallback logger writes to the SAPI
+        // log. Under CI's php.ini that surfaces as test output ("Notified
+        // event ... to listener ...") and trips failOnRisky — a NullLogger
+        // makes test output deterministic across environments.
+        $container->services()->set('logger', NullLogger::class);
 
         $container->services()
             ->defaults()
