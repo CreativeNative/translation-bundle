@@ -153,9 +153,17 @@ solve this.
 
 ### SharedAmongstTranslations
 
-Using this attribute will make the value of your field identical throughout all translations: if you update this
-field in any translation, all the others will be synchronized.
-If the attribute is a relation to a translatable entity, it will associate the correct translation to each language.
+This attribute copies the field's value from the source entity **when a new translation is
+created**, and marks the field for retroactive reconciliation via `tmi:translation:sync-shared`.
+If the attribute is on a relation to a translatable entity, the correct translation is
+associated to each language.
+
+**It is not an enforced invariant.** Updating the field on one locale variant after the
+translations exist does **not** propagate to the siblings — the value diverges silently.
+That is deliberate: consumers may legitimately vary such values per locale (for example,
+publishing one language at a time). When divergence must not happen, gate CI with
+`tmi:translation:sync-shared --check` (exits non-zero on drift) and repair with
+`tmi:translation:sync-shared`.
 
 ***Note***: this attribute cannot be used on association **collections** (`OneToMany`, `ManyToMany`) —
 the handlers throw a `RuntimeException`. Share the related entity's own columns instead.
@@ -172,8 +180,9 @@ private Media $video; // Shared across all translations
 > *later*, those earlier siblings keep their stale value. To back-fill existing data, run:
 >
 > ```
-> php bin/console tmi:translation:sync-shared          # propagate shared columns
+> php bin/console tmi:translation:sync-shared           # propagate shared columns
 > php bin/console tmi:translation:sync-shared --dry-run # preview without writing
+> php bin/console tmi:translation:sync-shared --check   # CI gate: exit non-zero on drift
 > ```
 >
 > The command propagates `#[SharedAmongstTranslations]` **column** values from the

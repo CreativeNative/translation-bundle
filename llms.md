@@ -170,8 +170,9 @@ If handlers were out of order, critical issues would occur. For example, if Doct
   - Objects or embedded values are cloned (deep copy).
 
 #### 2. Shared Fields (#[SharedAmongstTranslations])
-- Fields or embeddables that are identical across all translations of the same logical entity.
-- All translations reference the same object instance.
+- Fields or embeddables whose value is copied from the source when a translation is created.
+- All translations reference the same object instance at translate time.
+- **Copy-on-translate, not an enforced invariant**: editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale). `tmi:translation:sync-shared` reconciles; `--check` gates CI on drift.
 - If the attribute is on the embeddable, the whole object is shared.
 - If the attribute is on properties within an embeddable, only those properties are shared; others may still be cloned.
 
@@ -1270,7 +1271,9 @@ Exits non-zero when anomalies are found — run it as a post-migration / CI inte
 Back-fills `#[SharedAmongstTranslations]` **column** values: copies them from the
 default-locale row to every sibling. This fixes the ordering caveat — shared values only
 propagate to translations created *after* the value was set, so data translated later keeps
-stale siblings. Options: `--dry-run` (preview), `--entity=<FQCN>` (restrict to one class).
+stale siblings. Options: `--dry-run` (preview), `--check` (write nothing, exit non-zero when
+any shared value has drifted — a CI gate for "no shared property has diverged"),
+`--entity=<FQCN>` (restrict to one class).
 Shared *associations* are out of scope (and unsupported by the bundle).
 
 Embedded fields are detected in all three places sharing can be declared — on the entity
@@ -1293,7 +1296,7 @@ the remaining shared values still sync.
   On the entity: mark category and tags with `#[SharedAmongstTranslations]`, leave title & description un‑marked. On translation, only title/description will be locale‑specific.
 
 - **"How do I propagate a change in a shared field (e.g., latitude) to all language variants after creation?"**
-  Run `php bin/console tmi:translation:sync-shared` — it copies every `#[SharedAmongstTranslations]` column value from the default-locale row to its siblings. Use `--dry-run` to preview and `--entity=<FQCN>` to limit the scope.
+  Run `php bin/console tmi:translation:sync-shared` — it copies every `#[SharedAmongstTranslations]` column value from the default-locale row to its siblings. Use `--dry-run` to preview, `--check` to gate CI on drift, and `--entity=<FQCN>` to limit the scope.
 
 - **"How do I find translations that were accidentally unlinked?"**
   Run `php bin/console tmi:translation:doctor`. It reports standalone/incomplete translations and duplicate `(tuuid, locale)` pairs, and exits non-zero so it can gate CI or post-migration checks.

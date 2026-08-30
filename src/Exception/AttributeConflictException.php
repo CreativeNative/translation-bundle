@@ -48,10 +48,11 @@ Attribute conflict on {$this->className}::\${$this->propertyName}
 
 The property has both #[{$this->attribute1}] and #[{$this->attribute2}] attributes.
 These attributes are mutually exclusive:
-- #[SharedAmongstTranslations]: Value stays identical across all locales
+- #[SharedAmongstTranslations]: Value is copied from the source when a translation is created
+  (and reconcilable later via tmi:translation:sync-shared)
 - #[EmptyOnTranslate]: Value is cleared when creating a new translation
 
-A value cannot both stay the same AND be cleared during translation.
+A value cannot both be copied AND be cleared when the translation is created.
 
 Solution: Remove one of the attributes.
 

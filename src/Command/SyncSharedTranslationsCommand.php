@@ -24,6 +24,10 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
  * keeps the shared value on the source row alone. This command back-fills the
  * siblings from the canonical (default-locale) row.
  *
+ * With --check the command writes nothing and exits non-zero as soon as any
+ * shared value has drifted — writable or readonly — so CI can gate on
+ * "no shared property has diverged".
+ *
  * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
  */
 #[AsCommand(
@@ -50,15 +54,17 @@ final class SyncSharedTranslationsCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Report changes without writing them.')
+            ->addOption('check', null, InputOption::VALUE_NONE, 'Write nothing and exit non-zero when any shared value has drifted — for CI gates.')
             ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the sync to a single entity class.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io     = new SymfonyStyle($input, $output);
-        $dryRun = true === $input->getOption('dry-run');
+        $check  = true           === $input->getOption('check');
+        $dryRun = $check || true === $input->getOption('dry-run');
 
-        $io->title('TMI Translation — Sync Shared Values'.($dryRun ? ' (dry run)' : ''));
+        $io->title('TMI Translation — Sync Shared Values'.($check ? ' (check)' : ($dryRun ? ' (dry run)' : '')));
 
         $classes = $this->locator->locate();
 
@@ -121,6 +127,15 @@ final class SyncSharedTranslationsCommand extends Command
 
                 return Command::SUCCESS;
             }
+
+            return Command::FAILURE;
+        }
+
+        if ($check) {
+            $io->error(sprintf(
+                '%d translation(s) carry shared values that differ from their source. Run tmi:translation:sync-shared to repair.',
+                $totalUpdated,
+            ));
 
             return Command::FAILURE;
         }

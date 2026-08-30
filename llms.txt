@@ -23,7 +23,7 @@
 
 ## Attributes
 
-- [SharedAmongstTranslations](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/SharedAmongstTranslations.php): Mark fields to be synchronized across all translations
+- [SharedAmongstTranslations](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/SharedAmongstTranslations.php): Mark fields whose value is copied from the source when a translation is created (copy-on-translate; reconcile later edits via tmi:translation:sync-shared)
 - [EmptyOnTranslate](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/EmptyOnTranslate.php): Mark fields to be cleared when creating new translations
 
 ## Handler Reference
@@ -70,7 +70,7 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - [TranslatableIndexListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/TranslatableIndexListener.php): Injects a composite `(tuuid, locale)` index into every translatable entity; `unique_locale_variants: true` promotes it to a UNIQUE constraint
 - [OrphanTranslationException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/OrphanTranslationException.php): Thrown (when `strict_orphan_check` is on) for entities flushed in a non-default locale without a shared Tuuid
 - `tmi:translation:doctor`: Console command — scans for standalone/incomplete translations and duplicate `(tuuid, locale)` pairs; exits non-zero for CI gating
-- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--entity` options)
+- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--check` for CI drift gates, `--entity` options)
 
 ## v3.0 Symfony 8 & Translation Correctness
 

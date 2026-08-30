@@ -434,6 +434,7 @@ because the value was set in one locale and the entity translated to others *aft
 ```bash
 php bin/console tmi:translation:sync-shared --dry-run   # preview
 php bin/console tmi:translation:sync-shared             # apply
+php bin/console tmi:translation:sync-shared --check     # CI gate: exit non-zero on drift
 ```
 
 The command copies every `#[SharedAmongstTranslations]` **column** value from the

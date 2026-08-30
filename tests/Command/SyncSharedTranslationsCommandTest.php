@@ -43,6 +43,47 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertSame('Stale german shared', $this->reloadShared($deId));
     }
 
+    public function testCheckExitsNonZeroOnDriftAndDoesNotWrite(): void
+    {
+        $deId = $this->seedPair('English shared', 'Stale german shared');
+
+        $tester = $this->run_(['--check' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('differ from their source', $tester->getDisplay());
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+    }
+
+    public function testCheckPassesAfterSyncRepairsDrift(): void
+    {
+        $deId = $this->seedPair('English shared', 'Stale german shared');
+
+        self::assertSame(Command::FAILURE, $this->run_(['--check' => true])->getStatusCode());
+
+        self::assertSame(Command::SUCCESS, $this->run_()->getStatusCode());
+        self::assertSame('English shared', $this->reloadShared($deId));
+
+        $tester = $this->run_(['--check' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('already in sync', $tester->getDisplay());
+    }
+
+    public function testCheckExitsNonZeroOnReadonlyDrift(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new ReadonlyShared('SKU-EN')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('same'),
+            new ReadonlyShared('SKU-DE')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('same'),
+        );
+
+        $tester = $this->run_(['--check' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
+    }
+
     public function testReportsWhenAlreadyInSync(): void
     {
         $this->seedPair('Same shared', 'Same shared');

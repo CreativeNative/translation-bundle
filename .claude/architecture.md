@@ -45,7 +45,9 @@ last, in registration order; handlers sharing a priority keep their registration
 ## Key Attributes
 
 ### `#[SharedAmongstTranslations]`
-Field value stays identical across all locales. When updated, all translations sync.
+Field value is copied from the source when a translation is created (copy-on-translate).
+There is **no update-time propagation** — later edits diverge silently, by design.
+Reconcile with `tmi:translation:sync-shared`; gate CI on drift with `--check`.
 
 ```php
 #[SharedAmongstTranslations]
