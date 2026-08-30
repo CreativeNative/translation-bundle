@@ -540,6 +540,18 @@ class Page implements TranslatableInterface { ... }
 
 **Note:** `#[SharedAmongstTranslations]` fields are always copied from source regardless of copy_source setting.
 
+### Seeding hook for empty variants
+
+With `copy_source: false` a new variant is seeded empty — including fields the application
+treats as mandatory (name, slug), which collide on `(slug, locale)` unique keys and can leak
+placeholders to public URLs when published untouched. The supported seam is
+`TranslateEvent::POST_TRANSLATE`: it fires right after the variant is constructed and before
+it is persisted, so a listener can mint locale-correct placeholder values (e.g.
+`draft-<locale>-<tuuid>`) on it. Do not clone the source's slug instead. Gate publication
+with `LocaleCompletenessResolver` — a variant still carrying seeded emptiness reports as
+`Incomplete`. Both events also fire for translatable entities reached through associations,
+so listeners must check the entity class.
+
 ---
 
 ## Compile-Time Validation (v2.0)

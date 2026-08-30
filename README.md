@@ -211,11 +211,55 @@ private Owner|null $owner = null
 #[EmptyOnTranslate]
 private string|null $title = null;
 ```
-### Translate event
-You can alter the entities to translate or translated, before and after translation using the `Tmi\TranslationBundle\Event\TranslateEvent`
+### Seeding new variants — what `copy_source: false` leaves behind
 
-- `TranslateEvent::PRE_TRANSLATE` called before starting to translate the properties. The new translation is just instanciated with the right `oid` and `locale`
-- `TranslateEvent::POST_TRANSLATE` called after saving the translation
+With `copy_source: false` (the default), a freshly created variant starts **empty**: nullable
+columns are null, non-nullable scalars get type-safe defaults (`''`, `0`, `0.0`, `false`).
+That includes fields your application treats as mandatory — a name, a slug. Two consequences
+you must handle:
+
+- an empty slug **collides on a `(slug, locale)` unique key** as soon as a second entity is
+  seeded for the same locale;
+- any placeholder written into the variant **goes public** if the variant can be published
+  before an editor touches it — placeholder names have reached public URLs and image
+  filenames this way.
+
+Do not clone the source's slug as a workaround. Use the supported seeding hook instead:
+listen to `TranslateEvent::POST_TRANSLATE` and mint locale-correct placeholder values the
+moment the variant is constructed — the event fires before anything is persisted:
+
+```php
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Tmi\TranslationBundle\Event\TranslateEvent;
+
+#[AsEventListener(event: TranslateEvent::POST_TRANSLATE)]
+final class ListingVariantSeeder
+{
+    public function __invoke(TranslateEvent $event): void
+    {
+        $variant = $event->getTranslatedEntity();
+
+        if (!$variant instanceof Listing || null !== $variant->getSlug()) {
+            return;
+        }
+
+        // Unique per variant, obviously non-public, easy to assert on later.
+        $variant->setSlug(sprintf('draft-%s-%s', $event->getLocale(), $variant->getTuuid()));
+    }
+}
+```
+
+Before publication, assert the variant carries real content rather than placeholders — the
+per-locale completeness API (`LocaleCompletenessResolver`, see below) reports a variant whose
+required content is still missing as `Incomplete`.
+
+### Translate event
+You can alter the entities before and after a variant is constructed using the `Tmi\TranslationBundle\Event\TranslateEvent`
+
+- `TranslateEvent::PRE_TRANSLATE` — dispatched before a handler builds the new variant; carries the source entity and the target locale.
+- `TranslateEvent::POST_TRANSLATE` — dispatched right after the new variant has been constructed and **before it is persisted**; carries source, locale and the translated entity. Mutations applied here land in the persisted row — this is the supported seeding hook (see above).
+
+Both events also fire for translatable entities reached through associations, so check the entity class in your listener.
 
 ### Filtering your contents
 
