@@ -316,6 +316,36 @@ $batch = $repository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
 
 Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales.
 
+### Per-Locale Completeness
+
+`LocaleCompletenessResolver` answers, per enabled locale, whether a Tuuid has a variant and
+whether that variant's translatable content is complete — the building block for admin views
+showing per-language translation status:
+
+```php
+use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
+use Tmi\TranslationBundle\ValueObject\TranslationStatus;
+
+public function __construct(private LocaleCompletenessResolver $completeness) {}
+
+$status = $this->completeness->resolveForEntity($product);
+
+$status->statusOf('de_DE');    // TranslationStatus::Missing | Incomplete | Complete
+$status->missingLocales();     // ['it_IT']
+$status->isFullyTranslated();  // false
+
+// Admin lists: hundreds of rows, one query
+$byTuuid = $this->completeness->resolveBatch(Product::class, $tuuids);
+$byTuuid[(string) $product->getTuuid()]->statuses(); // ['en_US' => Complete, ...]
+```
+
+Completeness is relative to a **baseline variant** — the default-locale row, or the first
+variant when no default-locale row exists: a variant is *complete* when every translatable
+property that is filled on the baseline is filled on it too. Optional fields left empty on
+the baseline never count against the translations. Identifiers, system columns, shared
+properties and associations are not inspected; embedded fields contribute their non-shared
+inner properties; "filled" means not null and, for strings, not blank.
+
 The `tuuid` column is automatically indexed: the bundle injects a composite `(tuuid, locale)`
 index into every translatable entity at mapping time, so locale-variant lookups never hit an
 unindexed scan. Set `unique_locale_variants: true` to promote it to a `UNIQUE` constraint —

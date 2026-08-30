@@ -57,6 +57,19 @@ services:
         alias: Tmi\TranslationBundle\Translation\EntityTranslator
 
     # ----------------------------
+    # Per-Locale Completeness
+    # ----------------------------
+    Tmi\TranslationBundle\Translation\LocaleCompletenessResolver:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $defaultLocale: '%tmi_translation.default_locale%'
+            $locales: '%kernel.enabled_locales%'
+
+    tmi_translation.translation.locale_completeness_resolver:
+        alias: Tmi\TranslationBundle\Translation\LocaleCompletenessResolver
+
+    # ----------------------------
     # Translation Handlers
     # ----------------------------
     Tmi\TranslationBundle\Translation\Handlers\PrimaryKeyHandler:

@@ -1206,6 +1206,30 @@ $batch = $productRepository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
 
 Use `@phpstan-require-extends \Doctrine\ORM\EntityRepository` in the trait for PHPStan level max compatibility.
 
+### [LocaleCompletenessResolver](src/Translation/LocaleCompletenessResolver.php) (v3.1)
+
+Answers, per enabled locale, whether a Tuuid has a variant and whether that variant's
+translatable content is complete. Returns a [LocaleCompleteness](src/ValueObject/LocaleCompleteness.php)
+value object with a [TranslationStatus](src/ValueObject/TranslationStatus.php) per locale
+(`Missing` | `Incomplete` | `Complete`).
+
+- **`resolve(class-string $class, Tuuid $tuuid): LocaleCompleteness`**
+- **`resolveForEntity(TranslatableInterface $entity): LocaleCompleteness`**
+- **`resolveBatch(class-string $class, list<Tuuid> $tuuids): array<string, LocaleCompleteness>`** — one query for many Tuuids; admin lists must not issue N queries. One entry per requested Tuuid, even when no rows exist.
+
+Semantics: completeness is relative to a **baseline variant** (default-locale row, else the
+first variant found; `baselineLocale()` names it). A variant is `Complete` when every
+translatable property filled on the baseline is filled on it too — optional properties left
+empty on the baseline never count against translations. Translatable property = mapped
+column minus identifier, system columns (tuuid/locale/translations) and
+`#[SharedAmongstTranslations]`; embedded fields contribute their non-shared inner
+properties; associations are not inspected. "Filled" = not null, and for strings not blank.
+The locale filter is suspended for the lookup and restored afterwards.
+
+`LocaleCompleteness` API: `statusOf($locale)`, `hasVariant($locale)`, `statuses()`,
+`missingLocales()`, `incompleteLocales()`, `completeLocales()`, `isFullyTranslated()`,
+`baselineLocale()`, `tuuid()`.
+
 ---
 
 ## Tuuid Linkage Integrity (v2.2)

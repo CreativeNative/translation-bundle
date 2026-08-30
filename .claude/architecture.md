@@ -91,6 +91,15 @@ private ?string $cachedSlug = null;
 - `Doctrine/Repository/TranslatableEntityRepository` — ready-made repository base class.
 - `Doctrine/TranslatableEntityLocator` — discovers all `TranslatableInterface` entity classes.
 
+## Per-Locale Completeness (v3.1)
+
+- `Translation/LocaleCompletenessResolver` — per enabled locale: does a variant exist, is
+  its translatable content complete? Baseline-relative: a variant is complete when every
+  translatable (non-shared, non-system, non-id) property filled on the default-locale row
+  is filled on it too. `resolveBatch()` answers many Tuuids with one query.
+- `ValueObject/LocaleCompleteness` + `ValueObject/TranslationStatus` (enum
+  `Missing`/`Incomplete`/`Complete`) — the returned value objects.
+
 ## Console Commands
 
 | Command | Purpose |
