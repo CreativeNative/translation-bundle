@@ -17,7 +17,9 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
 final class LocaleFilterConfiguratorTest extends IntegrationTestCase
@@ -63,6 +65,55 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
             new FinishRequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST),
         );
         self::assertSame("'en_US'", $this->filterLocale());
+    }
+
+    /**
+     * Regression for the v3.0 fix "Locale filter leaked out of sub-requests",
+     * in the exact shape the consumer hit: a fragment rendered in another
+     * locale runs and finishes, and the parent request's *subsequent queries*
+     * must be filtered by the parent's locale again. Without the restore, every
+     * later query in the worker keeps returning the sub-request's language.
+     */
+    public function testSubRequestLocaleDoesNotLeakIntoParentQueries(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('English'));
+        $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('Deutsch'));
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $kernel = $this->createMock(HttpKernelInterface::class);
+
+        $mainRequest = new Request();
+        $mainRequest->setLocale('en_US');
+
+        $subRequest = new Request();
+        $subRequest->setLocale('de_DE');
+
+        $requestStack = new RequestStack();
+        $subscriber   = new LocaleFilterConfigurator($this->entityManager(), [], null, $requestStack);
+
+        // Main request starts: queries return the parent locale's variant.
+        $requestStack->push($mainRequest);
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $mainRequest, HttpKernelInterface::MAIN_REQUEST));
+        self::assertSame(['English'], $this->titlesOf($tuuid));
+
+        // A fragment rendered in another locale queries in its own locale.
+        $requestStack->push($subRequest);
+        $subscriber->onKernelRequest(new RequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST));
+        self::assertSame(['Deutsch'], $this->titlesOf($tuuid));
+
+        // The sub-request finishes — finish_request fires before the stack pops,
+        // mirroring HttpKernel::finishRequest().
+        $subscriber->onKernelFinishRequest(
+            new FinishRequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST),
+        );
+        $requestStack->pop();
+
+        // The consumer failure: without the restore this stays ['Deutsch'] for
+        // the rest of the parent request.
+        self::assertSame(['English'], $this->titlesOf($tuuid));
     }
 
     public function testFinishRequestLeavesLocaleAloneForTheMainRequest(): void
@@ -254,6 +305,27 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $result  = $this->invokePrivateMethod($subscriber, [$request]);
 
         self::assertFalse($result, 'Expected isDisabledFirewall to return false if config is null');
+    }
+
+    /**
+     * Titles of every Scalar row the current filter state lets a fresh query see.
+     *
+     * @return list<string|null>
+     */
+    private function titlesOf(Tuuid $tuuid): array
+    {
+        $this->entityManager()->clear();
+
+        /** @var list<Scalar> $rows */
+        $rows = $this->entityManager()->createQueryBuilder()
+            ->select('s')
+            ->from(Scalar::class, 's')
+            ->where('s.tuuid = :tuuid')
+            ->setParameter('tuuid', (string) $tuuid)
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (Scalar $row): string|null => $row->getTitle(), $rows);
     }
 
     private function filterLocale(): mixed
