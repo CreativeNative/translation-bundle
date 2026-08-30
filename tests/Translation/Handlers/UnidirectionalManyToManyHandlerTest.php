@@ -456,14 +456,14 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     }
 
     /**
-     * Covers line 151: the continue when an item is not TranslatableInterface.
-     *
-     * Mixes a non-TranslatableInterface stdClass into the items. The handler
-     * should skip it and only translate TranslatableInterface items.
+     * Covers the non-TranslatableInterface branch: such items must be preserved,
+     * not dropped. A unidirectional ManyToMany to a plain entity (tags, categories)
+     * is the most common shape for this association, so silently emptying the
+     * collection would be a real data loss bug.
      *
      * @throws \ReflectionException
      */
-    public function testTranslateSkipsNonTranslatableItemInCollection(): void
+    public function testTranslatePreservesNonTranslatableItemInCollection(): void
     {
         $parent = new TranslatableManyToManyUnidirectionalParent();
 
@@ -484,15 +484,145 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        // ArrayCollection with one stdClass (not TranslatableInterface) -> continue at line 151
-        $args = new TranslationArgs(new ArrayCollection([new \stdClass()]), 'en', 'de_DE')
+        $nonTranslatable = new \stdClass();
+
+        $args = new TranslationArgs(new ArrayCollection([$nonTranslatable]), 'en', 'de_DE')
             ->setTranslatedParent($parent)
             ->setProperty($prop);
 
         $result = $handler->translate($args);
 
-        // The stdClass was skipped, so the result collection is empty
-        self::assertCount(0, $result);
+        // The stdClass is preserved as-is, not translated and not dropped.
+        self::assertCount(1, $result);
+        self::assertSame($nonTranslatable, $result->first());
+    }
+
+    /**
+     * Mixed collection: a TranslatableInterface item is translated, a plain
+     * (non-translatable) item is preserved untouched. Both end up in the result,
+     * proving the loop no longer drops one category in favour of the other.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslatePreservesMixOfTranslatableAndNonTranslatableItems(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child  = new TranslatableManyToManyUnidirectionalChild();
+        $child->setLocale('en');
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $handler = $this->createHandler();
+
+        $tag       = new \stdClass();
+        $tag->name = 'category';
+
+        $args = new TranslationArgs(new ArrayCollection([$child, $tag]), 'en', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        // Both the translatable child (routed through EntityTranslator::translate())
+        // and the non-translatable tag (passed through as-is) survive -- neither
+        // category is dropped in favour of the other.
+        self::assertCount(2, $result);
+        self::assertTrue($result->contains($tag));
+        self::assertTrue($result->contains($child));
+    }
+
+    /**
+     * The null-target-locale edge case mirrors BidirectionalManyToManyHandler: an
+     * item is preserved untranslated rather than dropped when no target locale
+     * is available to translate into.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslatePreservesItemWhenTargetLocaleIsNull(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child  = new TranslatableManyToManyUnidirectionalChild();
+        $child->setLocale('en');
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $handler = $this->createHandler();
+
+        $args = new TranslationArgs(new ArrayCollection([$child]), 'en', null)
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        self::assertCount(1, $result);
+        self::assertSame($child, $result->first());
+    }
+
+    /**
+     * Covers the contains() dedup guard on the preserved-as-is branch: the same
+     * non-translatable instance appearing twice in the source collection must
+     * only be added to the result once.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateDedupsRepeatedNonTranslatableItem(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $handler = $this->createHandler();
+
+        $tag = new \stdClass();
+
+        // The same instance appears twice in the source iterable.
+        $args = new TranslationArgs([$tag, $tag], 'en', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        self::assertCount(1, $result);
+        self::assertSame($tag, $result->first());
     }
 
     private function createHandler(): UnidirectionalManyToManyHandler

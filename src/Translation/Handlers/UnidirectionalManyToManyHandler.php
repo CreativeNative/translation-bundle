@@ -140,6 +140,13 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
         foreach ($itemsToTranslate as $item) {
             if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {
+                // Non-translatable items (e.g. tags, categories) and the missing-target-locale
+                // edge case are preserved as-is instead of being dropped -- mirrors
+                // BidirectionalManyToManyHandler::translate(), which does the same.
+                if (!$translatedItems->contains($item)) {
+                    $translatedItems->add($item);
+                }
+
                 continue;
             }
 

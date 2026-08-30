@@ -321,8 +321,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Methods:**
   - `supports()` — Returns true if the value is a `Collection` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
   - `translate()` — Translates each item in the collection:
-    - Translates each item for the target locale using `EntityTranslator`.
-    - Collects them into a **new** `ArrayCollection`, preventing duplicates.
+    - `TranslatableInterface` items are translated for the target locale using `EntityTranslator`; every other item (plain entities such as tags or categories, the most common shape for a unidirectional ManyToMany — plus any item when no target locale is available) is added to the result **as-is**, not dropped.
+    - Collects them into a **new** `ArrayCollection`, preventing duplicates (same instance check for both translated and passed-through items).
     - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
   - `handleSharedAmongstTranslations()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported). Otherwise, delegates to `translate()`.
   - `handleEmptyOnTranslate()` — Returns a new empty `ArrayCollection`.
@@ -330,6 +330,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
   - Maintains Doctrine collection integrity while cloning translated items.
   - Prevents shared translation attributes from being misused on unidirectional relations.
+  - Non-translatable items in the collection are preserved rather than silently dropped — mirrors `BidirectionalManyToManyHandler`'s pass-through behaviour for the same case.
 
 ---
 
