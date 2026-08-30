@@ -81,9 +81,11 @@ private ?string $cachedSlug = null;
 - `Doctrine/EventListener/TranslatableIndexListener` — injects a composite `(tuuid, locale)`
   index into every translatable entity at `loadClassMetadata`. `unique_locale_variants: true`
   promotes it to a `UNIQUE` constraint.
-- `TranslatableEventSubscriber::prePersist()` — flags entities persisted in a non-default
-  locale without a shared Tuuid. `strict_orphan_check` (`true` / `false` / `null` = auto on
-  `kernel.debug`) decides between `OrphanTranslationException` and a PSR-3 warning.
+- `TranslatableEventSubscriber` — flags entities persisted in a non-default locale without
+  a shared Tuuid; the verdict is settled at flush time (a same-flush translation adopting
+  the Tuuid clears the flag). `strict_orphan_check` (`true` / `false` / `null` = auto on
+  `kernel.debug`) decides between `OrphanTranslationException` and a PSR-3 warning (the
+  warning only fires with `enable_logging: true`).
 - `Doctrine/Repository/TranslatableEntityRepository` — ready-made repository base class.
 - `Doctrine/TranslatableEntityLocator` — discovers all `TranslatableInterface` entity classes.
 

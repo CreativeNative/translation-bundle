@@ -21,6 +21,17 @@ use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 #[AsDoctrineListener(event: Events::onFlush)]
 final readonly class TranslatableEventSubscriber implements EventSubscriber
 {
+    /**
+     * Entities persisted in a non-default locale before any Tuuid was assigned.
+     *
+     * The orphan verdict is deferred to flush time: prePersist auto-generates a
+     * Tuuid below, and a translate() call later in the same flush clones it onto
+     * the new locale variants — at persist time the entity only *looks* orphaned.
+     *
+     * @var \WeakMap<TranslatableInterface, true>
+     */
+    private \WeakMap $pendingOrphans;
+
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
         private string $defaultLocale,
@@ -29,6 +40,7 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         #[Autowire(param: 'tmi_translation.strict_orphan_check')]
         private bool $strictOrphanCheck = false,
     ) {
+        $this->pendingOrphans = new \WeakMap();
     }
 
     /**
@@ -55,13 +67,14 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
 
         // Orphan smell: a non-default locale with no shared Tuuid is almost
         // always application code that bypassed EntityTranslator::translate().
+        // The verdict is deferred to onFlush — see $pendingOrphans.
         if (
             !$entity->hasTuuid()
             && null    !== $locale
             && ''      !== $locale
             && $locale !== $this->defaultLocale
         ) {
-            $this->reportOrphan($entity::class, $locale);
+            $this->pendingOrphans[$entity] = true;
         }
 
         $entity->generateTuuid();
@@ -91,7 +104,11 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         $entityManager = $args->getObjectManager();
         $uow           = $entityManager->getUnitOfWork();
 
-        foreach ($uow->getScheduledEntityInsertions() as $entity) {
+        $insertions = $uow->getScheduledEntityInsertions();
+
+        $this->reportOrphansAmong($insertions);
+
+        foreach ($insertions as $entity) {
             if ($entity instanceof TranslatableInterface) {
                 $this->entityTranslator->beforePersist($entity);
                 $meta = $entityManager->getClassMetadata($entity::class);
@@ -115,6 +132,64 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
     }
 
     /**
+     * Settles the orphan verdict for entities flagged at persist time that are
+     * part of this flush: an entity whose auto-generated Tuuid was adopted by
+     * another insertion (translate() ran in the same flush) is linked, not
+     * orphaned. Runs before the translator hooks so strict mode fails fast.
+     *
+     * @param array<object> $insertions
+     */
+    private function reportOrphansAmong(array $insertions): void
+    {
+        foreach ($insertions as $entity) {
+            if (!$entity instanceof TranslatableInterface || !isset($this->pendingOrphans[$entity])) {
+                continue;
+            }
+
+            unset($this->pendingOrphans[$entity]);
+
+            $locale = $entity->getLocale();
+
+            // The locale may have been corrected between persist() and flush().
+            if (null === $locale || '' === $locale || $locale === $this->defaultLocale) {
+                continue;
+            }
+
+            if ($this->tuuidIsSharedWithin($insertions, $entity)) {
+                continue;
+            }
+
+            $this->reportOrphan($entity::class, $locale);
+        }
+    }
+
+    /**
+     * Whether another entity in the same flush carries this entity's Tuuid.
+     *
+     * A flagged entity received a freshly generated Tuuid at persist time and
+     * Tuuids are immutable, so the only way it can be linked is other entities
+     * cloned from it — which are always new, i.e. scheduled insertions.
+     *
+     * @param array<object> $insertions
+     */
+    private function tuuidIsSharedWithin(array $insertions, TranslatableInterface $entity): bool
+    {
+        $tuuid = (string) $entity->getTuuid();
+
+        foreach ($insertions as $other) {
+            if ($other === $entity || !$other instanceof TranslatableInterface) {
+                continue;
+            }
+
+            if ($other->hasTuuid() && (string) $other->getTuuid() === $tuuid) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Surfaces an orphaned translation: throw in strict mode, otherwise warn.
      */
     private function reportOrphan(string $class, string $locale): void
@@ -124,8 +199,9 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         }
 
         $this->logger?->warning(
-            'Translatable {class} persisted in non-default locale "{locale}" without a shared Tuuid '
-            .'— created as a standalone entity. Use EntityTranslator::translate() to link it.',
+            'Translatable {class} flushed in non-default locale "{locale}" without a shared Tuuid '
+            .'— no other locale variant links to it. Use EntityTranslator::translate() to create '
+            .'linked translations, or run tmi:translation:doctor to audit existing rows.',
             ['class' => $class, 'locale' => $locale],
         );
     }

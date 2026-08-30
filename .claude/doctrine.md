@@ -89,8 +89,10 @@ $this->entityManager->getFilters()->enable('locale_filter');
 - Validates locale is configured
 - Maintains translation metadata
 - Flags **orphaned translations** — an entity persisted in a non-default locale without a
-  shared `Tuuid`. Governed by `strict_orphan_check` (`true` throws `OrphanTranslationException`,
-  `false` logs a warning, `null` = auto: throws when `kernel.debug` is on).
+  shared `Tuuid`, settled at flush time: a same-flush translation adopting the `Tuuid` clears
+  the flag. Governed by `strict_orphan_check` (`true` throws `OrphanTranslationException`,
+  `false` logs a warning — only with `enable_logging: true`, `null` = auto: throws when
+  `kernel.debug` is on).
 
 ## Composite Index on `(tuuid, locale)`
 

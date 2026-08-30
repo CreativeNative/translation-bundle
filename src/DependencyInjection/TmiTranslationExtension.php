@@ -12,6 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
+use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 
@@ -94,16 +95,16 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
 
-        // Configure logging for EntityTranslator
-        if ($container->has(EntityTranslator::class)) {
-            $definition = $container->getDefinition(EntityTranslator::class);
-
-            if (!$config['enable_logging']) {
-                // Explicitly disable - don't inject logger even if available
-                $definition->setArgument('$logger', null);
+        // Logging is opt-in: without enable_logging, strip the logger from every
+        // service that services.yaml would otherwise wire it into.
+        if (!$config['enable_logging']) {
+            foreach ([EntityTranslator::class, TranslatableEventSubscriber::class] as $serviceWithLogger) {
+                if ($container->has($serviceWithLogger)) {
+                    $container->getDefinition($serviceWithLogger)->setArgument('$logger', null);
+                }
             }
-            // If enabled, let autowiring handle it via services.yaml
         }
+        // If enabled, let autowiring handle it via services.yaml
     }
 
     public function prepend(ContainerBuilder $container): void

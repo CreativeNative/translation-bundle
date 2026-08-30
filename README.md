@@ -321,9 +321,12 @@ is a *standalone* entity linked to no other locale — a silent data bug.
 
 The bundle guards against this:
 
-- **On persist** — an entity persisted in a non-default locale without a shared `Tuuid` is
-  flagged. `strict_orphan_check` controls the reaction: `true` throws, `false` logs a warning,
-  `null` (default) is *auto* — throws when `kernel.debug` is on, warns otherwise.
+- **At flush time** — an entity persisted in a non-default locale without a shared `Tuuid` is
+  flagged, and the verdict is settled when the flush runs: a translation created in the same
+  flush that adopted the entity's `Tuuid` clears it. `strict_orphan_check` controls the
+  reaction to an entity still orphaned at flush: `true` throws, `false` logs a warning
+  (only when `enable_logging: true` — logging is opt-in), `null` (default) is *auto* —
+  throws when `kernel.debug` is on, warns otherwise.
 - **`tmi:translation:doctor`** — scans every translatable table and reports standalone
   translations, incomplete translations (fewer locale rows than configured locales) and
   duplicate `(tuuid, locale)` pairs. Exits non-zero on findings, so it works as a

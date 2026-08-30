@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Doctrine\EventSubscriber;
 
+use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
+use Psr\Log\AbstractLogger;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -122,5 +124,72 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
         $this->entityManager()->flush();
 
         $this->addToAssertionCount(1); // Just assert no exception is thrown
+    }
+
+    /**
+     * Regression for the false orphan warning: a source created in a
+     * non-default locale and translated before the flush shares its Tuuid with
+     * the new variants — it must not be reported as an orphan.
+     */
+    public function testOrphanIsNotReportedWhenTranslationJoinsTheSameFlush(): void
+    {
+        $logger     = $this->createSpyLogger();
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator(), $logger, false);
+        $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
+
+        $entity = new Scalar();
+        $entity->setTitle('Non-default source');
+        $entity->setLocale('de_DE');
+
+        // Flag before the pipeline auto-generates the Tuuid, exactly as the
+        // first-registered subscriber would observe the entity in production.
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager()));
+
+        $this->entityManager()->persist($entity);
+        $translation = $this->translator()->translateAndPersist($entity, 'en_US');
+        $this->entityManager()->flush();
+
+        self::assertIsTranslation($entity, $translation, 'en_US');
+        self::assertSame([], $logger->records, 'A source linked within the same flush must not be reported as an orphan');
+    }
+
+    public function testOrphanStillFlushedAloneIsReported(): void
+    {
+        $logger     = $this->createSpyLogger();
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator(), $logger, false);
+        $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
+
+        $entity = new Scalar();
+        $entity->setTitle('True orphan');
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager()));
+
+        $this->entityManager()->persist($entity);
+        $this->entityManager()->flush();
+
+        self::assertCount(1, $logger->records);
+        self::assertSame('warning', $logger->records[0]['level']);
+        self::assertStringContainsString('without a shared Tuuid', $logger->records[0]['message']);
+        self::assertSame(['class' => Scalar::class, 'locale' => 'de_DE'], $logger->records[0]['context']);
+    }
+
+    /**
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array<mixed>}>}
+     */
+    private function createSpyLogger(): AbstractLogger
+    {
+        return new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            /**
+             * @param array<mixed> $context
+             */
+            public function log(mixed $level, \Stringable|string $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
     }
 }

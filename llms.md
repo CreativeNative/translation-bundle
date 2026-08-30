@@ -1236,16 +1236,24 @@ class ProductRepository extends TranslatableEntityRepository {}
 promote it to a `UNIQUE` constraint — a DB-level guard against duplicate locale rows. Enable
 it only after `tmi:translation:doctor` reports the data is clean.
 
-### Orphan detection on persist
+### Orphan detection at flush time
 
-`TranslatableEventSubscriber::prePersist()` flags an entity persisted in a **non-default
-locale** with **no shared Tuuid**. The `strict_orphan_check` option controls the reaction:
+`TranslatableEventSubscriber` flags an entity persisted in a **non-default locale** with
+**no shared Tuuid**, but the verdict is settled at **flush time**: if a translation created
+in the same flush adopted the entity's Tuuid (the `translate()` + `persist()` + `flush()`
+shape), the entity is linked and nothing is reported. The `strict_orphan_check` option
+controls the reaction to an entity still orphaned at flush:
 
 | Value          | Behavior                                                      |
 |----------------|---------------------------------------------------------------|
 | `true`         | Throws `OrphanTranslationException`                           |
-| `false`        | Logs a PSR-3 `warning`                                        |
+| `false`        | Logs a PSR-3 `warning` (requires `enable_logging: true`)      |
 | `null` (default) | *Auto* — throws when `kernel.debug` is on, warns otherwise   |
+
+The warning respects the bundle's opt-in logging: with `enable_logging: false` (the
+default) no logger is injected and nothing is logged. An entity flushed alone and only
+linked in a *later* flush is still reported — `tmi:translation:doctor` is the authoritative
+audit for data at rest.
 
 ### `tmi:translation:doctor`
 

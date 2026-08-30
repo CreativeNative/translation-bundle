@@ -35,7 +35,7 @@ final class Configuration implements ConfigurationInterface
                 ->end()
                 ->booleanNode('strict_orphan_check')
                     ->defaultNull()
-                    ->info('Throw when an entity is persisted in a non-default locale without a shared Tuuid. Null (default) = auto: enabled when kernel.debug is true.')
+                    ->info('Throw when an entity is flushed in a non-default locale without a Tuuid shared by any other locale variant. Null (default) = auto: enabled when kernel.debug is true.')
                 ->end()
                 ->booleanNode('unique_locale_variants')
                     ->defaultFalse()

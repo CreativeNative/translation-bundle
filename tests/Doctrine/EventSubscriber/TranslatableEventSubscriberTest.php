@@ -73,22 +73,39 @@ final class TranslatableEventSubscriberTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testPrePersistThrowsOnOrphanWhenStrict(): void
+    public function testPrePersistDoesNotReportOrphans(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->never())->method('warning');
+
+        // Even strict mode must not throw at persist time — the Tuuid generated
+        // here may still be adopted by a translation created later in the flush.
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, $logger, true);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        self::assertTrue($entity->hasTuuid());
+    }
+
+    public function testOnFlushThrowsOnOrphanWhenStrict(): void
     {
         $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
 
         $entity = new Scalar();
         $entity->setLocale('de_DE');
 
-        $args = new PrePersistEventArgs($entity, $this->entityManager);
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
 
         self::expectException(OrphanTranslationException::class);
         self::expectExceptionMessage(Scalar::class);
 
-        $subscriber->prePersist($args);
+        $this->flushInsertions($subscriber, [$entity]);
     }
 
-    public function testPrePersistWarnsOnOrphanWhenNotStrict(): void
+    public function testOnFlushWarnsOnOrphanWhenNotStrict(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
@@ -105,19 +122,83 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
 
+        // An unrelated insertion with its own Tuuid must not silence the report.
+        $unrelated = new Scalar();
+        $unrelated->setTuuid(Tuuid::generate());
+
+        $this->flushInsertions($subscriber, [$entity, $unrelated]);
+
         // Tuuid is still generated so the row remains persistable.
         self::assertTrue($entity->hasTuuid());
     }
 
-    public function testPrePersistToleratesOrphanWithoutLogger(): void
+    public function testOnFlushToleratesOrphanWithoutLogger(): void
     {
         $entity = new Scalar();
         $entity->setLocale('de_DE');
 
         // Default subscriber: logger null, not strict — must neither throw nor fail.
         $this->subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+        $this->flushInsertions($this->subscriber, [$entity]);
 
         self::assertTrue($entity->hasTuuid());
+    }
+
+    public function testOnFlushDoesNotReportWhenTuuidAdoptedInSameFlush(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        // A translation cloned from the flagged entity carries its Tuuid — the
+        // exact shape translate() + persist() produce within a single flush.
+        $translation = new Scalar();
+        $translation->setTuuid($entity->getTuuid());
+        $translation->setLocale('en_US');
+
+        // Insertions the shared-Tuuid scan must skip: a non-translatable and a
+        // translatable that has no Tuuid assigned yet.
+        $blank = new Scalar();
+
+        $this->flushInsertions($subscriber, [$entity, new \stdClass(), $blank, $translation]);
+
+        self::assertSame((string) $entity->getTuuid(), (string) $translation->getTuuid());
+    }
+
+    public function testOnFlushReportsOrphanOnlyOnce(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning');
+
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, $logger, false);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        $this->flushInsertions($subscriber, [$entity]);
+        $this->flushInsertions($subscriber, [$entity]);
+    }
+
+    public function testOnFlushDoesNotReportWhenLocaleResetToDefault(): void
+    {
+        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator, null, true);
+
+        $entity = new Scalar();
+        $entity->setLocale('de_DE');
+
+        $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+
+        // The locale was corrected between persist() and flush().
+        $entity->setLocale('en_US');
+
+        $this->flushInsertions($subscriber, [$entity]);
+
+        self::assertSame('en_US', $entity->getLocale());
     }
 
     public function testPrePersistDoesNotFlagDefaultLocale(): void
@@ -128,6 +209,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity->setLocale('en_US');
 
         $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+        $this->flushInsertions($subscriber, [$entity]);
 
         self::assertTrue($entity->hasTuuid());
     }
@@ -139,6 +221,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity = new Scalar();
 
         $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+        $this->flushInsertions($subscriber, [$entity]);
 
         self::assertSame('en_US', $entity->getLocale());
     }
@@ -152,6 +235,7 @@ final class TranslatableEventSubscriberTest extends TestCase
         $entity->setLocale('de_DE');
 
         $subscriber->prePersist(new PrePersistEventArgs($entity, $this->entityManager));
+        $this->flushInsertions($subscriber, [$entity]);
 
         self::assertSame('de_DE', $entity->getLocale());
     }
@@ -252,5 +336,24 @@ final class TranslatableEventSubscriberTest extends TestCase
 
         $args = new OnFlushEventArgs($this->entityManager);
         $this->subscriber->onFlush($args);
+    }
+
+    /**
+     * Runs onFlush with the given entities scheduled for insertion.
+     *
+     * @param list<object> $insertions
+     */
+    private function flushInsertions(TranslatableEventSubscriber $subscriber, array $insertions): void
+    {
+        $uow = $this->createMock(UnitOfWork::class);
+        $uow->method('getScheduledEntityInsertions')->willReturn($insertions);
+        $uow->method('getScheduledEntityUpdates')->willReturn([]);
+        $uow->method('getScheduledEntityDeletions')->willReturn([]);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getUnitOfWork')->willReturn($uow);
+        $entityManager->method('getClassMetadata')->willReturn(new ClassMetadata(Scalar::class));
+
+        $subscriber->onFlush(new OnFlushEventArgs($entityManager));
     }
 }

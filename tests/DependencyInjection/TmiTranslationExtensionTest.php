@@ -12,6 +12,7 @@ use Doctrine\DBAL\Types\Type;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
+use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -189,6 +190,25 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
 
         $definition = $containerBuilder->getDefinition(EntityTranslator::class);
         self::assertNull($definition->getArgument('$logger'));
+
+        // The orphan warning respects the same opt-in: no logger, no warning.
+        $subscriber = $containerBuilder->getDefinition(TranslatableEventSubscriber::class);
+        self::assertNull($subscriber->getArgument('$logger'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testLoadKeepsLoggerWiringWhenLoggingEnabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'enable_logging' => true]], $containerBuilder);
+
+        self::assertNotNull($containerBuilder->getDefinition(EntityTranslator::class)->getArgument('$logger'));
+        self::assertNotNull($containerBuilder->getDefinition(TranslatableEventSubscriber::class)->getArgument('$logger'));
     }
 
     public function testLoadThrowsWhenEnabledLocalesNotConfigured(): void

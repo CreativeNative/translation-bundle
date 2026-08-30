@@ -117,9 +117,10 @@ Run `tmi:translation:doctor` (Layer 6) — likely a standalone Tuuid created by 
 ### "Shared field differs between locales"
 Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. See diagnostics Check 6.2.
 
-### "OrphanTranslationException on persist"
-An entity is being persisted in a non-default locale without a shared Tuuid. Create
-translations via `EntityTranslator::translate()`, or adjust `strict_orphan_check`.
+### "OrphanTranslationException on flush"
+An entity is being flushed in a non-default locale without a shared Tuuid — no other
+locale variant links to it, not even one created in the same flush. Create translations
+via `EntityTranslator::translate()`, or adjust `strict_orphan_check`.
 
 ## Quick Commands
 
