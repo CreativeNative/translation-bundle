@@ -1,3 +1,57 @@
+# UPGRADE FROM 3.0 to 3.1
+
+Version 3.1 is backwards compatible — no signatures moved, nothing was removed. It ships a
+per-locale completeness API, a CI gate for shared-value drift, a corrected
+`#[SharedAmongstTranslations]` contract, and a more accurate orphan check. One item deserves
+a re-read of your own code:
+
+## Re-read your code against the real `SharedAmongstTranslations` contract
+
+The attribute was documented as *"value stays identical across all locales: if you update
+this field in any translation, all the others will be synchronized"*. **That was never
+true.** The bundle copies shared values from the source **once, when a variant is created**
+via `translate()`; there is no update-time propagation — deliberately, since consumers may
+legitimately vary such values per locale (for example, publishing one language at a time).
+
+What to do:
+
+- If you relied on the documented-but-nonexistent synchronization, either stop marking the
+  property `#[SharedAmongstTranslations]` (it is per-locale data), or reconcile explicitly
+  with `bin/console tmi:translation:sync-shared`.
+- If shared values must never diverge, gate CI on the new
+  `bin/console tmi:translation:sync-shared --check` — it writes nothing and exits non-zero
+  as soon as any shared value (writable or readonly) has drifted.
+
+## Orphan check moved to flush time; the warning respects `enable_logging`
+
+The *"persisted in non-default locale without a shared Tuuid"* check ran at `persist()`
+time — before a same-flush `translate()` could link the new variants to the entity — so it
+reported entities that ended up correctly linked, and it logged its warning even with
+`enable_logging: false`.
+
+- The verdict is now settled at **flush time**: an entity whose Tuuid was adopted by another
+  insertion in the same flush is linked, not orphaned. With `strict_orphan_check` on,
+  `OrphanTranslationException` is thrown from `flush()` instead of `persist()` — adjust any
+  code that caught it around `persist()`.
+- The warning is only emitted when `enable_logging: true`; with the default `false` the
+  subscriber receives no logger, matching the bundle's opt-in logging contract.
+
+## New in 3.1
+
+- **`LocaleCompletenessResolver`** — answers, per enabled locale, whether a Tuuid has a
+  variant and whether its translatable content is complete relative to the baseline
+  (default-locale) variant. `resolveBatch()` answers many Tuuids with one query for admin
+  lists. Returns `LocaleCompleteness` / `TranslationStatus` (`Missing` | `Incomplete` |
+  `Complete`) value objects.
+- **`tmi:translation:sync-shared --check`** — the CI drift gate described above.
+- **Documented seeding hook** — with `copy_source: false` new variants are seeded empty
+  (empty name, empty slug: `(slug, locale)` unique-key collisions and placeholder leaks are
+  yours to prevent). Listen to `TranslateEvent::POST_TRANSLATE`, which fires after the
+  variant is constructed and before it is persisted, to mint locale-correct placeholders —
+  do not clone the source's slug.
+
+---
+
 # UPGRADE FROM 2.x to 3.0
 
 Version 3.0 raises the minimum Symfony requirement to **8.0** and fixes a set of bugs that were
