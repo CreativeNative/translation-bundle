@@ -9,6 +9,8 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use ReflectionException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -280,6 +282,48 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
 
         self::assertInstanceOf(Scalar::class, $result);
         self::assertNull($result->getId(), 'Generated ID must be reset to null on clone');
+        self::assertSame('de_DE', $result->getLocale());
+        self::assertSame((string) $tuuid, (string) $result->getTuuid());
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslateResetsGeneratedIdInheritedFromMappedSuperclass(): void
+    {
+        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
+
+        $originalEntity = new InheritedIdEntity()
+            ->setTuuid($tuuid)
+            ->setLocale('en_US');
+
+        // The generated id lives as a PRIVATE property on the mapped superclass —
+        // ReflectionClass::getProperties() on the child class never lists it.
+        $idProperty = new \ReflectionProperty(PrivateIdSuperclass::class, 'id');
+        $idProperty->setValue($originalEntity, 42);
+
+        $translationArgs = new TranslationArgs(
+            $originalEntity,
+            'en_US',
+            'de_DE',
+        );
+
+        // Mock repository to return null (no existing translation)
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->expects($this->once())
+            ->method('findOneBy')
+            ->willReturn(null);
+
+        $this->entityManager()->expects($this->once())
+            ->method('getRepository')
+            ->with(InheritedIdEntity::class)
+            ->willReturn($repository);
+
+        $result = $this->handler->translate($translationArgs);
+
+        self::assertInstanceOf(InheritedIdEntity::class, $result);
+        self::assertNull($result->getId(), 'Generated id declared private on a mapped superclass must be reset to null on the clone');
+        self::assertSame(42, $originalEntity->getId(), 'Source entity must keep its id');
         self::assertSame('de_DE', $result->getLocale());
         self::assertSame((string) $tuuid, (string) $result->getTuuid());
     }

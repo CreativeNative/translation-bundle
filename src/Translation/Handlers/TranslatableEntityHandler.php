@@ -68,12 +68,17 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
     private function resetGeneratedIds(TranslatableInterface $clone): void
     {
+        // ReflectionClass::getProperties() never lists private properties of parent
+        // classes, so a generated id declared private on a mapped superclass would
+        // keep the source's value on the clone — walk the full hierarchy instead.
         $reflection = new \ReflectionClass($clone);
-
-        foreach ($reflection->getProperties() as $property) {
-            if ($this->attributeHelper->isId($property) && $this->attributeHelper->isGeneratedValue($property)) {
-                $property->setValue($clone, null);
+        do {
+            foreach ($reflection->getProperties() as $property) {
+                if ($this->attributeHelper->isId($property) && $this->attributeHelper->isGeneratedValue($property)) {
+                    $property->setValue($clone, null);
+                }
             }
-        }
+            $reflection = $reflection->getParentClass();
+        } while (false !== $reflection);
     }
 }
