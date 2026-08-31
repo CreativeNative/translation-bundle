@@ -21,15 +21,6 @@ final class InMemoryTranslationCache implements TranslationCacheInterface
     /** @var array<string, true> */
     private array $inProgress = [];
 
-    /**
-     * has() and get() read the same array here, so they can never disagree the way they can
-     * on a persistent backend (see {@see Psr6TranslationCache}).
-     */
-    public function has(string $tuuid, string $locale): bool
-    {
-        return isset($this->cache[$tuuid][$locale]);
-    }
-
     public function get(string $tuuid, string $locale): TranslatableInterface|null
     {
         return $this->cache[$tuuid][$locale] ?? null;

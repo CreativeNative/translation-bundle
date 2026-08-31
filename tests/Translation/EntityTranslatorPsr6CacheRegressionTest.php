@@ -14,15 +14,16 @@ use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
 /**
- * Regression: on a PSR-6 pool, has() and get() can disagree — the pool still
- * holds the key while the entry no longer loads (row deleted after caching,
- * pre-3.2 entry format). The check-then-get in EntityTranslator handed that
- * null straight to translate(), whose \assert is compiled out under
+ * Regression: on a PSR-6 pool, key presence and loadability can disagree — the
+ * pool still holds the key while the entry no longer loads (row deleted after
+ * caching, pre-3.2 entry format). The pre-3.2.1 check-then-get in
+ * EntityTranslator (via the has() the interface carried until v3.4.0) handed
+ * that null straight to translate(), whose \assert is compiled out under
  * zend.assertions=-1 (the production default), so the null escaped as
  * "TypeError: Return value must be of type TranslatableInterface, null
  * returned". A hit that cannot be loaded must be an ordinary miss.
  *
- * Unreachable with InMemoryTranslationCache (its has()/get() cannot disagree),
+ * Unreachable with InMemoryTranslationCache (its entries cannot go stale),
  * which is why the regular suite never saw it — this test runs the real
  * pipeline against a real PSR-6 pool.
  */
@@ -35,7 +36,8 @@ final class EntityTranslatorPsr6CacheRegressionTest extends IntegrationTestCase
         // filter would turn that reload itself into a miss and blur what is under test.
         $entityManager->getFilters()->disable('tmi_translation_locale_filter');
 
-        $cache      = new Psr6TranslationCache(new ArrayAdapter(), $entityManager);
+        $pool       = new ArrayAdapter();
+        $cache      = new Psr6TranslationCache($pool, $entityManager);
         $translator = $this->psr6Translator($cache);
 
         $source = new Scalar()->setLocale('en_US')->setTitle('EN');
@@ -50,16 +52,17 @@ final class EntityTranslatorPsr6CacheRegressionTest extends IntegrationTestCase
         $entityManager->flush();
 
         // Second translate: warmup finds the flushed row and caches [class, id].
-        $tuuid = $source->getTuuid()->getValue();
+        $tuuid   = $source->getTuuid()->getValue();
+        $poolKey = 'tmi_translation.'.str_replace('-', '_', $tuuid).'.'.self::TARGET_LOCALE;
         self::assertSame($variant, $translator->translate($source, self::TARGET_LOCALE));
-        self::assertTrue($cache->has($tuuid, self::TARGET_LOCALE), 'precondition: the pool holds the entry');
+        self::assertTrue($pool->hasItem($poolKey), 'precondition: the pool holds the entry');
 
         // Delete the row behind the cache entry: the key survives, the entity is gone.
         $entityManager->remove($variant);
         $entityManager->flush();
         $entityManager->clear();
 
-        self::assertTrue($cache->has($tuuid, self::TARGET_LOCALE), 'precondition: has() still reports a hit');
+        self::assertTrue($pool->hasItem($poolKey), 'precondition: the pool still holds the key');
         self::assertNull($cache->get($tuuid, self::TARGET_LOCALE), 'precondition: the stale entry no longer loads');
 
         // Production shape: zend.assertions=-1 compiles \assert() away entirely, so the

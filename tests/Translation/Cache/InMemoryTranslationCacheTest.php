@@ -20,20 +20,6 @@ final class InMemoryTranslationCacheTest extends TestCase
         $this->cache = new InMemoryTranslationCache();
     }
 
-    public function testHasReturnsFalseWhenEmpty(): void
-    {
-        self::assertFalse($this->cache->has('some-tuuid', 'en'));
-    }
-
-    public function testSetAndHasReturnsTrue(): void
-    {
-        $entity = $this->createEntity('en');
-
-        $this->cache->set('tuuid-1', 'en', $entity);
-
-        self::assertTrue($this->cache->has('tuuid-1', 'en'));
-    }
-
     public function testGetReturnsNullWhenNotCached(): void
     {
         self::assertNull($this->cache->get('tuuid-1', 'en'));
@@ -59,13 +45,13 @@ final class InMemoryTranslationCacheTest extends TestCase
         self::assertSame($second, $this->cache->get('tuuid-1', 'en'));
     }
 
-    public function testHasReturnsFalseForDifferentLocale(): void
+    public function testGetReturnsNullForDifferentLocale(): void
     {
         $entity = $this->createEntity('en');
 
         $this->cache->set('tuuid-1', 'en', $entity);
 
-        self::assertFalse($this->cache->has('tuuid-1', 'de'));
+        self::assertNull($this->cache->get('tuuid-1', 'de'));
     }
 
     public function testMarkInProgressAndIsInProgress(): void

@@ -1,3 +1,27 @@
+# UPGRADE FROM 3.3 to 3.4
+
+## `TranslationCacheInterface::has()` was removed
+
+**BREAKING (callers only), shipped deliberately in a minor:** `has()` is gone from
+`TranslationCacheInterface`, `InMemoryTranslationCache` and `Psr6TranslationCache`.
+
+**Why in a minor and not v4:** the method's answer is inherently unreliable on persistent
+backends — a key can exist while the entry no longer loads (row deleted since caching, older
+entry format), which is precisely the check-then-get trap that produced a production
+`TypeError` before v3.2.1. The bundle itself has not called `has()` since v3.2.1. At the
+time of removal the package has no known external consumers (zero Packagist dependents; both
+in-house consumers verified free of callers), so the trap is being removed before anyone can
+adopt it, rather than deprecated across a major cycle.
+
+**Migration Steps:**
+- Calling `$cache->has($tuuid, $locale)`: replace with `$cache->get($tuuid, $locale) !== null`.
+  This is the only reliable check and costs one pool round-trip instead of two.
+- A custom `TranslationCacheInterface` implementation that declares `has()` keeps working —
+  removing a method from an interface does not break implementors, an extra public method is
+  simply no longer part of the contract. Delete it at your convenience.
+
+---
+
 # UPGRADE FROM 3.1 to 3.2
 
 ## `Psr6TranslationCache` now requires an `EntityManagerInterface`

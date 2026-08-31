@@ -391,7 +391,7 @@ Abstraction for translation caching and circular-reference detection. Replaces t
 
 `EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. Custom implementations backed by a persistent store should still give the mark a short TTL (the bundled `Psr6TranslationCache` uses 60s) so a mark that outlives its process expires on its own.
 
-**`has()` staleness:** `has()` only proves a cache key is present -- it does not prove the entry still loads. On `InMemoryTranslationCache` that distinction doesn't exist (`has()` and `get()` read the same array, so they can never disagree). On a persistent backend such as `Psr6TranslationCache`, a row deleted since it was cached, or an entry written in an older format, leaves the key behind while `get()` reports a miss; `has()` cannot see that and still returns `true`. This is exactly the v3.2.1 trap (see Revision History): a check-then-get on `has()` let that gap surface as a `TypeError`. `has() === true` therefore does NOT guarantee a following `get()` returns non-null -- prefer `get() !== null`, which is both the reliable check and one round-trip instead of two. The bundle itself no longer calls `has()` anywhere in the translation pipeline; it remains on the interface for now as a removal candidate for v4.
+**No `has()` on the contract:** `TranslationCacheInterface` deliberately has no existence check besides `get()`. A `has()` the bundle shipped up to v3.3.0 was removed in v3.4.0, because on a persistent backend key presence proves nothing: a row deleted since it was cached, or an entry written in an older format, leaves the key behind while the entry no longer loads -- exactly the v3.2.1 trap (see Revision History), where a check-then-get let that gap surface as a `TypeError` in production. The one reliable check is `get() !== null`, which also costs one pool round-trip instead of two. A custom cache implementation that still declares a `has()` method keeps working (an extra public method is harmless) -- just delete it.
 
 ### Default Implementation: InMemoryTranslationCache
 
@@ -433,12 +433,14 @@ class RedisTranslationCache implements TranslationCacheInterface
 {
     public function __construct(private RedisClient $redis) {}
 
-    public function has(string $tuuid, string $locale): bool
+    public function get(string $tuuid, string $locale): TranslatableInterface|null
     {
-        return $this->redis->exists("translation.{$tuuid}.{$locale}");
+        $entity = $this->redis->get("translation.{$tuuid}.{$locale}");
+
+        return $entity instanceof TranslatableInterface ? $entity : null;
     }
 
-    // ... implement remaining 5 methods
+    // ... implement remaining 4 methods
 }
 ```
 

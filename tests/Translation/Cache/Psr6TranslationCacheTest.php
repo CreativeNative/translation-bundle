@@ -51,20 +51,6 @@ final class Psr6TranslationCacheTest extends TestCase
         $this->cache = new Psr6TranslationCache($this->pool, $this->entityManager);
     }
 
-    public function testHasReturnsFalseWhenEmpty(): void
-    {
-        self::assertFalse($this->cache->has('some-tuuid', 'en'));
-    }
-
-    public function testSetAndHasReturnsTrue(): void
-    {
-        $entity = $this->createEntity('en');
-
-        $this->cache->set('tuuid-1', 'en', $entity);
-
-        self::assertTrue($this->cache->has('tuuid-1', 'en'));
-    }
-
     public function testGetReturnsNullWhenNotCached(): void
     {
         self::assertNull($this->cache->get('tuuid-1', 'en'));
@@ -96,7 +82,7 @@ final class Psr6TranslationCacheTest extends TestCase
 
         $this->entityManager->method('find')->willReturn(null);
 
-        self::assertTrue($this->cache->has('tuuid-1', 'en'), 'the pool entry itself is still present');
+        self::assertTrue($this->pool->hasItem('tmi_translation.tuuid_1.en'), 'the pool entry itself is still present');
         self::assertNull($this->cache->get('tuuid-1', 'en'));
     }
 
@@ -109,7 +95,7 @@ final class Psr6TranslationCacheTest extends TestCase
 
         $this->cache->set('tuuid-1', 'en', $entity);
 
-        self::assertFalse($this->cache->has('tuuid-1', 'en'));
+        self::assertFalse($this->pool->hasItem('tmi_translation.tuuid_1.en'));
         self::assertNull($this->cache->get('tuuid-1', 'en'));
     }
 
@@ -130,13 +116,13 @@ final class Psr6TranslationCacheTest extends TestCase
         self::assertSame($second, $retrieved);
     }
 
-    public function testHasReturnsFalseForDifferentLocale(): void
+    public function testGetReturnsNullForDifferentLocale(): void
     {
         $entity = $this->createEntity('en');
 
         $this->cache->set('tuuid-1', 'en', $entity);
 
-        self::assertFalse($this->cache->has('tuuid-1', 'de'));
+        self::assertNull($this->cache->get('tuuid-1', 'de'));
     }
 
     public function testMarkInProgressAndIsInProgress(): void
@@ -214,7 +200,10 @@ final class Psr6TranslationCacheTest extends TestCase
         // If dashes were NOT replaced, PSR-6 would throw InvalidArgumentException
         $this->cache->set($uuidWithDashes, 'en', $entity);
 
-        self::assertTrue($this->cache->has($uuidWithDashes, 'en'));
+        self::assertTrue(
+            $this->pool->hasItem('tmi_translation.a1b2c3d4_e5f6_7890_abcd_ef1234567890.en'),
+            'the entry is stored under the dash-normalised key',
+        );
         $retrieved = $this->cache->get($uuidWithDashes, 'en');
         self::assertSame($entity, $retrieved);
     }
