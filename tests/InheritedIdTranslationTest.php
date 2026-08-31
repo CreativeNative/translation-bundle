@@ -47,4 +47,36 @@ final class InheritedIdTranslationTest extends IntegrationTestCase
         self::assertNotSame($entity->getId(), $translation->getId(), 'Variant must get its own generated id');
         self::assertSame('English title', $translation->getTitle());
     }
+
+    /**
+     * Private parent-class columns must run through the translation pipeline —
+     * a plain clone would copy #[EmptyOnTranslate] values verbatim.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testInheritedPrivatePropertiesRunThroughTheTranslationPipeline(): void
+    {
+        $entity = new InheritedIdEntity();
+        $entity->setLocale('en_US');
+        $entity->setTitle('English title');
+        $entity->setNotes('English notes');
+        $entity->setSharedCode('CODE-1');
+        $entity->setEphemeral('draft leftovers');
+
+        $this->entityManager()->persist($entity);
+        $this->entityManager()->flush();
+
+        $translation = $this->translator()->translate($entity, self::TARGET_LOCALE);
+        self::assertInstanceOf(InheritedIdEntity::class, $translation);
+
+        self::assertSame('English notes', $translation->getNotes(), 'Plain inherited column is copied to the variant');
+        self::assertSame('CODE-1', $translation->getSharedCode(), 'Inherited #[SharedAmongstTranslations] column keeps the source value');
+        self::assertNull($translation->getEphemeral(), 'Inherited #[EmptyOnTranslate] column must be emptied on the variant');
+
+        $this->entityManager()->persist($translation);
+        $this->entityManager()->flush();
+
+        self::assertIsTranslation($entity, $translation, self::TARGET_LOCALE);
+    }
 }

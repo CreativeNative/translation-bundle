@@ -12,6 +12,7 @@ use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Handles basic Doctrine objects. Usually the entry point for translating an entity.
@@ -97,16 +98,17 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
         $accessor = $this->accessor ?? PropertyAccess::createPropertyAccessor();
 
         $reflect    = new \ReflectionClass($translation::class);
-        $properties = $reflect->getProperties();
+        $properties = ReflectionHelper::getHierarchyProperties($reflect);
 
         foreach ($properties as $property) {
             // read the current value (let exceptions bubble as runtime)
             try {
                 $propValue = $accessor->getValue($translation, $property->name);
             } catch (NoSuchPropertyException) {
-                // If property is not accessible by accessor, fallback to reflection read
-                $rp        = new \ReflectionProperty($translation::class, $property->name);
-                $propValue = $rp->getValue($translation);
+                // If property is not accessible by accessor, fallback to reflection read.
+                // $property itself must do the reading — constructing a ReflectionProperty
+                // from the child class name fails for private parent-class properties.
+                $propValue = $property->getValue($translation);
             }
 
             if (null === $propValue) {
@@ -145,8 +147,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
             try {
                 $accessor->setValue($translation, $property->name, $propertyTranslation);
             } catch (NoSuchPropertyException) {
-                $rp = new \ReflectionProperty($translation::class, $property->name);
-                $rp->setValue($translation, $propertyTranslation);
+                $property->setValue($translation, $propertyTranslation);
             }
         }
     }

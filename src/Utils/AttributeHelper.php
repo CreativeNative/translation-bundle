@@ -156,7 +156,10 @@ class AttributeHelper
             return true;
         }
 
-        return array_any($embeddable->getProperties(), $this->isSharedAmongstTranslations(...));
+        return array_any(
+            ReflectionHelper::getHierarchyProperties($embeddable),
+            $this->isSharedAmongstTranslations(...),
+        );
     }
 
     /**
@@ -199,7 +202,7 @@ class AttributeHelper
             $errors[] = new ClassLevelAttributeConflictException($class->getName());
         }
 
-        foreach ($class->getProperties() as $property) {
+        foreach (ReflectionHelper::getHierarchyProperties($class) as $property) {
             try {
                 $this->validateProperty($property);
             } catch (ValidationException $e) {

@@ -8,6 +8,7 @@ use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable as EmbeddedTranslatable;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
@@ -90,6 +91,34 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
         $completeness = $this->resolver()->resolve(Scalar::class, $tuuid);
 
         self::assertTrue($completeness->isFullyTranslated());
+    }
+
+    /**
+     * Translatable columns declared PRIVATE on a mapped superclass must count
+     * towards completeness — the property walk has to see them.
+     */
+    public function testInheritedPrivatePropertiesCountTowardsCompleteness(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $source = new InheritedIdEntity()->setTuuid($tuuid)->setLocale('en_US');
+        $source->setTitle('EN title');
+        $source->setNotes('EN notes');
+
+        // Blank inherited notes while the baseline has them -> incomplete.
+        $variant = new InheritedIdEntity()->setTuuid($tuuid)->setLocale('de_DE');
+        $variant->setTitle('DE Titel');
+        $variant->setNotes('   ');
+
+        $this->entityManager()->persist($source);
+        $this->entityManager()->persist($variant);
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $completeness = $this->resolver()->resolve(InheritedIdEntity::class, $tuuid);
+
+        self::assertSame(TranslationStatus::Complete, $completeness->statusOf('en_US'));
+        self::assertSame(TranslationStatus::Incomplete, $completeness->statusOf('de_DE'));
     }
 
     public function testBaselineFallsBackToFirstVariantWithoutDefaultLocale(): void

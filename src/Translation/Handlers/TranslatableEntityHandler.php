@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
@@ -68,17 +69,12 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
     private function resetGeneratedIds(TranslatableInterface $clone): void
     {
-        // ReflectionClass::getProperties() never lists private properties of parent
-        // classes, so a generated id declared private on a mapped superclass would
-        // keep the source's value on the clone — walk the full hierarchy instead.
-        $reflection = new \ReflectionClass($clone);
-        do {
-            foreach ($reflection->getProperties() as $property) {
-                if ($this->attributeHelper->isId($property) && $this->attributeHelper->isGeneratedValue($property)) {
-                    $property->setValue($clone, null);
-                }
+        // Hierarchy-aware walk: a generated id declared private on a mapped
+        // superclass must not keep the source's value on the clone.
+        foreach (ReflectionHelper::getHierarchyProperties(new \ReflectionClass($clone)) as $property) {
+            if ($this->attributeHelper->isId($property) && $this->attributeHelper->isGeneratedValue($property)) {
+                $property->setValue($clone, null);
             }
-            $reflection = $reflection->getParentClass();
-        } while (false !== $reflection);
+        }
     }
 }

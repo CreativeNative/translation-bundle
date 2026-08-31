@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 use Tmi\TranslationBundle\ValueObject\LocaleCompleteness;
 use Tmi\TranslationBundle\ValueObject\TranslationStatus;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -189,7 +190,7 @@ final class LocaleCompletenessResolver
         $reflection = $metadata->getReflectionClass();
         $checked    = [];
 
-        foreach ($reflection->getProperties() as $property) {
+        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
             $name = $property->getName();
 
             if (in_array($name, self::SYSTEM_PROPERTIES, true)) {
@@ -239,7 +240,7 @@ final class LocaleCompletenessResolver
         $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($embeddable);
         $checked     = [];
 
-        foreach ($embeddable->getProperties() as $inner) {
+        foreach (ReflectionHelper::getHierarchyProperties($embeddable) as $inner) {
             if ($this->attributeHelper->isSharedAmongstTranslations($inner)) {
                 continue;
             }

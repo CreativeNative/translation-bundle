@@ -14,6 +14,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Retroactively propagates #[SharedAmongstTranslations] values across all
@@ -449,7 +450,7 @@ final class SyncSharedTranslationsCommand extends Command
         $reflection = $metadata->getReflectionClass();
         $shared     = [];
 
-        foreach ($reflection->getProperties() as $property) {
+        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
             $name = $property->getName();
 
             if (in_array($name, self::SYSTEM_PROPERTIES, true)) {
@@ -506,7 +507,7 @@ final class SyncSharedTranslationsCommand extends Command
         $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($embeddable);
         $shared      = [];
 
-        foreach ($embeddable->getProperties() as $inner) {
+        foreach (ReflectionHelper::getHierarchyProperties($embeddable) as $inner) {
             if ($this->attributeHelper->isSharedAmongstTranslations($inner)) {
                 $shared[] = ['owner' => $property, 'property' => $inner];
 

@@ -9,6 +9,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Validates attribute usage on all Doctrine-mapped TranslatableInterface entities at compile time.
@@ -162,20 +163,16 @@ final class AttributeValidationPass implements CompilerPassInterface
             );
         }
 
-        // Validate all properties (including inherited)
-        $currentClass = $class;
-        do {
-            foreach ($currentClass->getProperties() as $property) {
-                try {
-                    $attributeHelper->validateProperty($property);
-                } catch (ValidationException $e) {
-                    foreach ($e->getErrors() as $error) {
-                        $errors[] = sprintf('%s: %s', $class->getName(), $error->getMessage());
-                    }
+        // Validate all properties (including private ones inherited from parents)
+        foreach (ReflectionHelper::getHierarchyProperties($class) as $property) {
+            try {
+                $attributeHelper->validateProperty($property);
+            } catch (ValidationException $e) {
+                foreach ($e->getErrors() as $error) {
+                    $errors[] = sprintf('%s: %s', $class->getName(), $error->getMessage());
                 }
             }
-            $currentClass = $currentClass->getParentClass();
-        } while (false !== $currentClass);
+        }
 
         // Check locale field presence
         $this->validateLocaleField($class, $errors);
@@ -189,15 +186,11 @@ final class AttributeValidationPass implements CompilerPassInterface
      */
     private function validateLocaleField(\ReflectionClass $class, array &$errors): void
     {
-        $currentClass = $class;
-        do {
-            foreach ($currentClass->getProperties() as $property) {
-                if ('locale' === $property->getName()) {
-                    return; // Found locale property
-                }
+        foreach (ReflectionHelper::getHierarchyProperties($class) as $property) {
+            if ('locale' === $property->getName()) {
+                return; // Found locale property
             }
-            $currentClass = $currentClass->getParentClass();
-        } while (false !== $currentClass);
+        }
 
         // No locale property found
         $errors[] = sprintf(

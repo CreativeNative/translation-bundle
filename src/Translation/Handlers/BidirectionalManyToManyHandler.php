@@ -16,6 +16,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Handles translation of Doctrine ManyToMany associations.
@@ -207,7 +208,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     {
         $refClass = new \ReflectionClass($owner);
 
-        foreach ($refClass->getProperties() as $prop) {
+        foreach (ReflectionHelper::getHierarchyProperties($refClass) as $prop) {
             try {
                 $value = ($this->propertyAccessor)($prop, $owner);
             } catch (\Throwable) {

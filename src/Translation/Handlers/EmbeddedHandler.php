@@ -8,6 +8,7 @@ use Psr\Log\LoggerInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Handler for Doctrine embeddable objects.
@@ -80,7 +81,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         $reflection = new \ReflectionClass($clone);
         $changed    = false;
 
-        foreach ($reflection->getProperties() as $prop) {
+        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
             if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
                 continue;
             }
@@ -132,7 +133,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         // Clone the embedded object for selective modification
         $clone = clone $embeddable;
 
-        foreach ($reflection->getProperties() as $prop) {
+        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
             // Resolve effective attribute via three-level cascade
             $resolved = $this->resolvePropertyAttribute($prop, $classShared, $classEmpty);
 

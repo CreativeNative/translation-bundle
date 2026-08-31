@@ -12,6 +12,7 @@ use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
 use Tmi\TranslationBundle\Fixtures\Entity\ReadonlyShared\ReadonlyShared;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedDate\SharedDate;
@@ -235,6 +236,37 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         for ($i = 0; $i < $groupCount; ++$i) {
             self::assertSame('canonical'.$i, $this->reloadShared($siblingIds[$i]), sprintf('group %d did not sync', $i));
         }
+    }
+
+    /**
+     * A #[SharedAmongstTranslations] column declared PRIVATE on a mapped
+     * superclass must be seen by the back-fill — a child-class-only property
+     * walk reports "already in sync" while the rows stay divergent.
+     */
+    public function testPropagatesInheritedPrivateSharedProperty(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new InheritedIdEntity()->setTuuid($tuuid)->setLocale('en_US');
+        $en->setTitle('EN');
+        $en->setSharedCode('canonical');
+
+        $de = new InheritedIdEntity()->setTuuid($tuuid)->setLocale('de_DE');
+        $de->setTitle('DE');
+        $de->setSharedCode('stale');
+
+        $deId = $this->persistPair($en, $de);
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
+
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $reloaded = $this->entityManager()->find(InheritedIdEntity::class, $deId);
+        self::assertInstanceOf(InheritedIdEntity::class, $reloaded);
+        self::assertSame('canonical', $reloaded->getSharedCode());
     }
 
     public function testPickSourceFallsBackWhenNoDefaultLocaleVariant(): void
