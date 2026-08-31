@@ -99,49 +99,99 @@ final class AttributeValidationPass implements CompilerPassInterface
                 continue;
             }
 
-            $className = $this->extractClassName($file->getPathname());
-            if (null === $className) {
-                continue;
-            }
+            foreach ($this->extractClassNames($file->getPathname()) as $className) {
+                if (!class_exists($className)) {
+                    continue;
+                }
 
-            if (!class_exists($className)) {
-                continue;
-            }
+                $reflection = new \ReflectionClass($className);
 
-            $reflection = new \ReflectionClass($className);
+                // Skip abstract classes, interfaces, traits
+                if ($reflection->isAbstract() || $reflection->isInterface() || $reflection->isTrait()) {
+                    continue;
+                }
 
-            // Skip abstract classes, interfaces, traits
-            if ($reflection->isAbstract() || $reflection->isInterface() || $reflection->isTrait()) {
-                continue;
-            }
-
-            // Only include TranslatableInterface implementors
-            if ($reflection->implementsInterface(TranslatableInterface::class)) {
-                $classes[] = $reflection;
+                // Only include TranslatableInterface implementors
+                if ($reflection->implementsInterface(TranslatableInterface::class)) {
+                    $classes[] = $reflection;
+                }
             }
         }
     }
 
     /**
-     * Extract fully qualified class name from PHP file.
+     * Extract every fully qualified class name genuinely declared in a PHP file.
+     *
+     * Walks PHP's own tokens instead of matching a regex against the raw text,
+     * so a class name mentioned in a comment or string literal before the real
+     * declaration can never be mistaken for it, `Foo::class` constant fetches
+     * and anonymous classes (`new class`) are never mistaken for declarations,
+     * and a file that declares several classes yields all of them.
+     *
+     * @return list<string>
      */
-    private function extractClassName(string $filePath): string|null
+    private function extractClassNames(string $filePath): array
     {
-        $contents = (string) file_get_contents($filePath);
+        $tokens = \PhpToken::tokenize((string) file_get_contents($filePath));
 
-        // Extract namespace
-        if (1 !== preg_match('/namespace\s+([^;]+);/', $contents, $namespaceMatches)) {
-            return null;
+        $namespace  = null;
+        $classNames = [];
+
+        foreach ($tokens as $index => $token) {
+            if ($token->is(\T_NAMESPACE)) {
+                $namespace = $this->nextSignificantToken($tokens, $index)?->text;
+                continue;
+            }
+
+            if (!$token->is(\T_CLASS)) {
+                continue;
+            }
+
+            $previous          = $this->previousSignificantToken($tokens, $index);
+            $isNotADeclaration = $previous instanceof \PhpToken && ($previous->is(\T_DOUBLE_COLON) || $previous->is(\T_NEW));
+
+            if ($isNotADeclaration) {
+                continue;
+            }
+
+            $next = $this->nextSignificantToken($tokens, $index);
+            if (null !== $namespace && $next instanceof \PhpToken) {
+                $classNames[] = $namespace.'\\'.$next->text;
+            }
         }
-        $namespace = trim($namespaceMatches[1]);
 
-        // Extract class name (allowing for final, abstract, readonly modifiers)
-        if (1 !== preg_match('/(?:final\s+|abstract\s+|readonly\s+)*class\s+(\w+)/', $contents, $classMatches)) {
-            return null;
+        return $classNames;
+    }
+
+    /**
+     * The next token that is not whitespace, a comment, or an opening tag.
+     *
+     * @param array<\PhpToken> $tokens
+     */
+    private function nextSignificantToken(array $tokens, int $index): \PhpToken|null
+    {
+        $count = count($tokens);
+        $i     = $index + 1;
+        while ($i < $count && $tokens[$i]->isIgnorable()) {
+            ++$i;
         }
-        $className = trim($classMatches[1]);
 
-        return $namespace.'\\'.$className;
+        return $i < $count ? $tokens[$i] : null;
+    }
+
+    /**
+     * The previous token that is not whitespace, a comment, or an opening tag.
+     *
+     * @param array<\PhpToken> $tokens
+     */
+    private function previousSignificantToken(array $tokens, int $index): \PhpToken|null
+    {
+        $i = $index - 1;
+        while ($i >= 0 && $tokens[$i]->isIgnorable()) {
+            --$i;
+        }
+
+        return $i >= 0 ? $tokens[$i] : null;
     }
 
     /**

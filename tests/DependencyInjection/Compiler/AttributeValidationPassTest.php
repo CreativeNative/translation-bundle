@@ -259,7 +259,8 @@ final class AttributeValidationPassTest extends TestCase
 
         // Register metadata driver pointing to EdgeCases directory
         // This directory contains: abstract classes, interfaces, traits, non-translatable classes,
-        // files without namespace, files without class, non-PHP files
+        // files without namespace, files without class, non-PHP files, a docblock-trap fixture and
+        // a multi-class file. Every fixture here is either not discovered or validates cleanly.
         $driverDef = new Definition(\stdClass::class);
         $driverDef->addArgument([__DIR__.'/../../Fixtures/Validation/EdgeCases']);
         $container->setDefinition('doctrine.orm.default_attribute_metadata_driver', $driverDef);
@@ -267,7 +268,54 @@ final class AttributeValidationPassTest extends TestCase
         $pass = new AttributeValidationPass();
         $pass->process($container);
 
-        // Should complete without error - all files in EdgeCases should be skipped
+        // Should complete without error - nothing in EdgeCases should fail validation
         self::assertTrue($container->has('doctrine.orm.entity_manager'));
+    }
+
+    public function testExtractClassNamesResolvesRealClassDespiteMisleadingDocblock(): void
+    {
+        $pass   = new AttributeValidationPass();
+        $method = new \ReflectionMethod($pass, 'extractClassNames');
+
+        $classNames = $method->invoke($pass, __DIR__.'/../../Fixtures/Validation/EdgeCases/DocblockTrapEntity.php');
+
+        // The docblock talks about a class named "Misleading" - it must not
+        // be extracted. Only the real declaration below it may be returned.
+        self::assertSame(
+            ['Tmi\TranslationBundle\Fixtures\Validation\EdgeCases\DocblockTrapEntity'],
+            $classNames,
+        );
+    }
+
+    public function testExtractClassNamesReturnsEveryClassDeclaredInAFile(): void
+    {
+        $pass   = new AttributeValidationPass();
+        $method = new \ReflectionMethod($pass, 'extractClassNames');
+
+        $classNames = $method->invoke($pass, __DIR__.'/../../Fixtures/Validation/EdgeCases/MultipleClasses.php');
+
+        self::assertSame(
+            [
+                'Tmi\TranslationBundle\Fixtures\Validation\EdgeCases\MultipleClassesHelper',
+                'Tmi\TranslationBundle\Fixtures\Validation\EdgeCases\MultipleClassesEntity',
+            ],
+            $classNames,
+        );
+    }
+
+    public function testExtractClassNamesReturnsNothingWhenFileHasNoClass(): void
+    {
+        $pass   = new AttributeValidationPass();
+        $method = new \ReflectionMethod($pass, 'extractClassNames');
+
+        self::assertSame([], $method->invoke($pass, __DIR__.'/../../Fixtures/Validation/EdgeCases/NoClass.php'));
+    }
+
+    public function testExtractClassNamesReturnsNothingWhenFileHasNoNamespace(): void
+    {
+        $pass   = new AttributeValidationPass();
+        $method = new \ReflectionMethod($pass, 'extractClassNames');
+
+        self::assertSame([], $method->invoke($pass, __DIR__.'/../../Fixtures/Validation/EdgeCases/NoNamespace.php'));
     }
 }
