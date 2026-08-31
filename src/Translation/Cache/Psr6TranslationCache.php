@@ -46,6 +46,11 @@ final class Psr6TranslationCache implements TranslationCacheInterface
     ) {
     }
 
+    /**
+     * Only checks key presence in the pool -- it does not verify the referenced entity still
+     * loads. See {@see TranslationCacheInterface::has()} for why `get() !== null` is the
+     * reliable check on this implementation.
+     */
     public function has(string $tuuid, string $locale): bool
     {
         return $this->cachePool->hasItem($this->translationKey($tuuid, $locale));

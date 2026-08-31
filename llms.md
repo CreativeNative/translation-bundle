@@ -390,6 +390,8 @@ Abstraction for translation caching and circular-reference detection. Replaces t
 
 `EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. Custom implementations backed by a persistent store should still give the mark a short TTL (the bundled `Psr6TranslationCache` uses 60s) so a mark that outlives its process expires on its own.
 
+**`has()` staleness:** `has()` only proves a cache key is present -- it does not prove the entry still loads. On `InMemoryTranslationCache` that distinction doesn't exist (`has()` and `get()` read the same array, so they can never disagree). On a persistent backend such as `Psr6TranslationCache`, a row deleted since it was cached, or an entry written in an older format, leaves the key behind while `get()` reports a miss; `has()` cannot see that and still returns `true`. This is exactly the v3.2.1 trap (see Revision History): a check-then-get on `has()` let that gap surface as a `TypeError`. `has() === true` therefore does NOT guarantee a following `get()` returns non-null -- prefer `get() !== null`, which is both the reliable check and one round-trip instead of two. The bundle itself no longer calls `has()` anywhere in the translation pipeline; it remains on the interface for now as a removal candidate for v4.
+
 ### Default Implementation: InMemoryTranslationCache
 
 Stores translations in PHP arrays, scoped to the current request. Registered as the default implementation.
