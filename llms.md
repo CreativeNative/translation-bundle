@@ -400,6 +400,24 @@ Ships with the bundle for cross-request caching. Uses Symfony's `cache.app` pool
 
 It never stores the entity itself -- `set()` stores `[class, identifier]`, and `get()` reloads through the injected `EntityManagerInterface` on every hit. That is what makes it safe on persistent backends (Redis, filesystem, ...): a serialized Doctrine entity would carry dead proxy/EntityManager references across requests, but an identifier reloads cleanly. Within one request, Doctrine's identity map returns the same instance the pipeline already produced, so this costs nothing extra for the in-memory case. A row deleted after it was cached reloads to `null`, which is reported as a cache miss; an entity with no identifier yet (not persisted, or persisted but not flushed) is not cached by `set()`.
 
+The service is registered but **not active by default** -- the interface stays aliased to `InMemoryTranslationCache`. To switch to the PSR-6 cache, override the alias in your application:
+
+```yaml
+# config/services.yaml
+Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
+    alias: Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache
+```
+
+To back it with a pool other than `cache.app`, redefine the service with your own pool (the second argument stays the entity manager):
+
+```yaml
+# config/services.yaml
+Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache:
+    arguments:
+        $cachePool: '@cache.translation_pool'
+        $entityManager: '@doctrine.orm.entity_manager'
+```
+
 ### Custom Implementation
 
 To use a custom cache (e.g., Redis):
@@ -1385,5 +1403,6 @@ Step-by-step guide for building custom translation handlers for field types not 
 - v3.0.1: Documentation only, no code change. Corrected claims that no longer matched the code (or never did): the entity translator service id, the `Doctrine\Model\` namespaces, the `AttributeHelper` service reference in the custom-handler template, the `TranslationCacheInterface` example signatures, and the description of `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` as a precedence rule rather than a compile-time conflict. `UPGRADING.md` gained the v3.0 behavioural changes it was missing.
 - v3.1.0: Consumer-findings release from the first Terra Mia production audit. Corrected the `#[SharedAmongstTranslations]` contract everywhere (copy-on-translate, not an enforced invariant), added `tmi:translation:sync-shared --check` (writes nothing, exits non-zero on drift — a CI gate), added the per-locale completeness API (`LocaleCompletenessResolver` + `LocaleCompleteness` / `TranslationStatus`), documented `TranslateEvent::POST_TRANSLATE` as the seeding hook for `copy_source: false` variants, and made the orphan check accurate: verdict at flush time (same-flush translations count as linked) with the warning gated behind `enable_logging`.
 - v3.1.1: Dependency guard, no behavioural change. Added a composer `conflict` with `doctrine/orm` 3.6.8 — its `GenerateSchemaEventArgs::setSchema()` throws `BadMethodCallException` unless the unreleased `doctrine/dbal` 4.5 provides `Schema::edit()`, so on Symfony 8.0.x any `SchemaTool` run explodes; excluding exactly 3.6.8 resolves 3.6.7 and self-heals once 3.6.9 ships. The test kernel now wires a `NullLogger` so test output stays deterministic without monolog.
+- v3.2.0: Fix release from the second adversarial bug hunt. Unidirectional ManyToMany translation now preserves non-translatable collection items instead of silently dropping them (consistent with the bidirectional handler). `tmi:translation:sync-shared` streams entities grouped by Tuuid via `toIterable()` with batched flushes instead of `findAll()`, so memory stays bounded on large tables, and `DateTimeInterface` shared values compare by instant without `serialize()`. `Psr6TranslationCache` now stores `[class, id]` references and reloads entities through the `EntityManager` — persistent backends (Redis, filesystem) are safe; its constructor gained a required `EntityManagerInterface` (see `UPGRADING.md`). Embeddables marked `#[SharedAmongstTranslations]` are always cloned in both translate paths (values synced, instances never shared), and `translate()`'s idempotent get-or-create contract is documented explicitly.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 
