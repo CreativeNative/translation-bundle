@@ -32,6 +32,16 @@ final class AttributeValidationPass implements CompilerPassInterface
 
         $translatableClasses = $this->discoverTranslatableClasses($container);
 
+        if ([] === $translatableClasses) {
+            $container->log($this, sprintf(
+                '0 translatable entities discovered under the configured Doctrine attribute mapping directories. '
+                .'This can be legitimate (no %s entities yet), but it can also mean doctrine-bundle changed the '
+                .'shape of its attribute metadata driver service definitions and this bundle\'s compile-time '
+                .'discovery silently found nothing to validate.',
+                TranslatableInterface::class,
+            ));
+        }
+
         $errors = [];
         foreach ($translatableClasses as $class) {
             $this->validateEntity($class, $errors);

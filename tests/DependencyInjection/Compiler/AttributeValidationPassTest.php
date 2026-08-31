@@ -250,6 +250,29 @@ final class AttributeValidationPassTest extends TestCase
         self::assertTrue($container->has('doctrine.orm.entity_manager'));
     }
 
+    public function testProcessLogsWhenZeroTranslatableEntitiesDiscovered(): void
+    {
+        $container = new ContainerBuilder();
+
+        // Register entity manager
+        $container->register('doctrine.orm.entity_manager', \stdClass::class);
+
+        // Register metadata driver pointing to a directory that legitimately
+        // contains no TranslatableInterface implementors.
+        $driverDef = new Definition(\stdClass::class);
+        $driverDef->addArgument([__DIR__.'/../../Fixtures/Validation/NoTranslatables']);
+        $container->setDefinition('doctrine.orm.default_attribute_metadata_driver', $driverDef);
+
+        $pass = new AttributeValidationPass();
+        $pass->process($container);
+
+        $log = $container->getCompiler()->getLog();
+
+        self::assertCount(1, $log);
+        self::assertIsString($log[0]);
+        self::assertStringContainsString('0 translatable entities discovered', $log[0]);
+    }
+
     public function testProcessSkipsEdgeCaseFiles(): void
     {
         $container = new ContainerBuilder();
