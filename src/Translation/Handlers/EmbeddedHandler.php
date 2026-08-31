@@ -45,20 +45,18 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     /**
      * Handle #[SharedAmongstTranslations] for embeddable.
      *
-     * If the embeddable is marked shared (via parent property, class, or inner property)
-     * then return the same instance so siblings share it.
-     * If not shared, return a clone so each locale gets its own copy.
-     *
-     * @throws \ReflectionException
+     * Always returns a clone, never the original instance — sharing one embeddable
+     * object across locale variants is its own Doctrine footgun: a mutation made
+     * through one locale variant would bleed into every sibling still holding that
+     * same instance, before anything is even flushed. The clone's property values
+     * are left untouched (unlike {@see translate()}, which resets non-shared inner
+     * properties), so the persisted data stays identical across siblings — only the
+     * in-memory object identity differs, matching {@see translate()}'s contract.
      */
     public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
     {
         $embeddable = $args->getDataToBeTranslated();
         assert(\is_object($embeddable));
-
-        if ($this->isShared($args)) {
-            return $embeddable;
-        }
 
         return clone $embeddable;
     }
@@ -268,25 +266,6 @@ final class EmbeddedHandler implements TranslationHandlerInterface
             $prop->setValue($clone, $prop->getDefaultValue());
         }
         // If no default and not nullable, leave the cloned value as-is
-    }
-
-    /**
-     * Returns true when the embeddable should be shared across translations, i.e.:
-     * - the parent property is marked #[SharedAmongstTranslations], or
-     * - the embeddable class itself is marked #[SharedAmongstTranslations], or
-     * - any property inside the embeddable is marked #[SharedAmongstTranslations].
-     *
-     * @throws \ReflectionException
-     */
-    private function isShared(TranslationArgs $args): bool
-    {
-        $embeddable = $args->getDataToBeTranslated();
-        assert(\is_object($embeddable));
-
-        return $this->attributeHelper->isEmbeddableShared(
-            new \ReflectionClass($embeddable),
-            $args->getProperty(),
-        );
     }
 
     /**

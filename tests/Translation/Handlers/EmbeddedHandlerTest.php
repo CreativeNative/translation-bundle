@@ -73,7 +73,7 @@ final class EmbeddedHandlerTest extends UnitTestCase
         self::assertTrue($this->embeddedHandler->supports($args));
     }
 
-    public function testHandleSharedAmongstTranslationsDelegatesToObjectHandler(): void
+    public function testHandleSharedAmongstTranslationsReturnsCloneWithMatchingValues(): void
     {
         $data = new class {
             public string $foo = 'bar';
@@ -82,11 +82,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $args   = new TranslationArgs($data, 'en_US', 'de_DE');
         $result = $this->embeddedHandler->handleSharedAmongstTranslations($args);
 
-        self::assertEquals(
-            $data,
-            $result,
-            'EmbeddedHandler should delegate to DoctrineObjectHandler::handleSharedAmongstTranslations (returns same data)',
-        );
+        self::assertNotSame($data, $result, 'handleSharedAmongstTranslations must clone, not return the source instance');
+        self::assertEquals($data, $result, 'the clone must keep the same property values as the source');
     }
 
     // ---------------------------------------------------------------
@@ -313,29 +310,19 @@ final class EmbeddedHandlerTest extends UnitTestCase
     }
 
     // ---------------------------------------------------------------
-    // isShared inner property tests (via handleSharedAmongstTranslations)
+    // handleSharedAmongstTranslations: always a clone, values preserved
     // ---------------------------------------------------------------
 
     /**
-     * Covers line 263: array_any() check for inner properties with #[SharedAmongstTranslations].
-     *
-     * AddressWithEmptyAndSharedProperty has:
-     * - No class-level #[SharedAmongstTranslations]
-     * - Property-level #[SharedAmongstTranslations] on $country
-     *
-     * When called without a parent property (so line 252 check is false)
-     * and the class has no class-level shared attribute (line 258 check is false),
-     * the array_any at line 263 finds $country and returns true.
-     * handleSharedAmongstTranslations then returns the original (not a clone).
-     */
-    /**
-     * Covers line 259: classHasSharedAmongstTranslations returns true for SharedClassEmbeddable.
-     *
      * SharedClassEmbeddable has #[SharedAmongstTranslations] at the class level.
-     * No parent property is set, so line 252 is skipped.
-     * classHasSharedAmongstTranslations (line 258) returns true -> line 259 returns true.
+     *
+     * translate() and handleSharedAmongstTranslations() must agree on identity
+     * semantics: both always return a clone, never the source instance. Only
+     * translate()'s per-property cascade differs; handleSharedAmongstTranslations()
+     * leaves every property value untouched so persisted data stays identical
+     * across locale siblings.
      */
-    public function testHandleSharedAmongstTranslationsReturnsTrueWhenClassLevelShared(): void
+    public function testHandleSharedAmongstTranslationsReturnsCloneWhenClassLevelShared(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -343,16 +330,19 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable = new SharedClassEmbeddable();
         $embeddable->setSharedByDefault('Test Value');
 
-        // No parent property set -> line 252 check is false
+        // No parent property set.
         $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
 
         $result = $handler->handleSharedAmongstTranslations($args);
 
-        // isShared returns true (class-level #[SharedAmongstTranslations]) -> returns original
-        self::assertSame($embeddable, $result);
+        // Always a clone -- never the source instance (matches translate()'s contract).
+        self::assertNotSame($embeddable, $result);
+        self::assertInstanceOf(SharedClassEmbeddable::class, $result);
+        // The shared property's value is preserved in the clone.
+        self::assertSame('Test Value', $result->getSharedByDefault());
     }
 
-    public function testHandleSharedAmongstTranslationsReturnsTrueWhenInnerPropertyIsShared(): void
+    public function testHandleSharedAmongstTranslationsReturnsCloneWhenInnerPropertyIsShared(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -361,13 +351,18 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setStreet('Test Street');
         $address->setCountry('Test Country');
 
-        // No parent property set -> line 252 check is false
+        // No parent property set.
         $args = new TranslationArgs($address, 'en_US', 'de_DE');
 
         $result = $handler->handleSharedAmongstTranslations($args);
 
-        // isShared returns true (inner $country has #[SharedAmongstTranslations]) -> returns original
-        self::assertSame($address, $result);
+        // Always a clone -- never the source instance (matches translate()'s contract).
+        self::assertNotSame($address, $result);
+        self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
+        // Both the shared and non-shared property values are preserved in the clone
+        // (unlike translate(), handleSharedAmongstTranslations() does not reset anything).
+        self::assertSame('Test Country', $result->getCountry());
+        self::assertSame('Test Street', $result->getStreet());
     }
 
     // ---------------------------------------------------------------

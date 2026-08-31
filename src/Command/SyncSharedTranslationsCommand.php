@@ -482,7 +482,8 @@ final class SyncSharedTranslationsCommand extends Command
      * Expands one embedded field into the values that must stay in sync, mirroring what
      * EmbeddedHandler does at translate time:
      * - #[SharedAmongstTranslations] on the entity property shares the whole embeddable
-     *   (EmbeddedHandler::handleSharedAmongstTranslations returns the source instance);
+     *   (EmbeddedHandler::handleSharedAmongstTranslations returns a clone with the
+     *   source's property values, not the source instance itself);
      * - otherwise each inner property is resolved on its own, where a class-level attribute
      *   acts as the default for every property that does not override it.
      *

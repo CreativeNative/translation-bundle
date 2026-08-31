@@ -65,13 +65,16 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
 
         $translated = $this->translateAndPersist($entity);
 
-        // Shared Address instance is identical
-        self::assertSame(
+        // Shared embeddable is still cloned -- each locale variant gets its own instance,
+        // just like the non-shared path. Sharing one embeddable instance across entities
+        // would let a mutation on one locale bleed into every sibling before any flush.
+        self::assertNotSame(
             $entity->getSharedAddress(),
             $translated->getSharedAddress(),
         );
 
-        // Shared property also identical
+        // ...but the clone's property values match the source, so persisted data is
+        // identical across locale siblings.
         $entitySharedAddress     = $entity->getSharedAddress();
         $translatedSharedAddress = $translated->getSharedAddress();
         self::assertNotNull($entitySharedAddress);
@@ -79,6 +82,10 @@ final class EmbeddedTranslationTest extends IntegrationTestCase
         self::assertSame(
             $entitySharedAddress->getStreet(),
             $translatedSharedAddress->getStreet(),
+        );
+        self::assertSame(
+            $entitySharedAddress->getCountry(),
+            $translatedSharedAddress->getCountry(),
         );
     }
 

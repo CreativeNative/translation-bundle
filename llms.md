@@ -171,10 +171,10 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 
 #### 2. Shared Fields (#[SharedAmongstTranslations])
 - Fields or embeddables whose value is copied from the source when a translation is created.
-- All translations reference the same object instance at translate time.
+- Scalar and association fields reference the same object instance at translate time. Embeddables are the exception: `EmbeddedHandler` always returns a clone (never the source instance) — the clone's property values match the source, so persisted data is identical, but each locale still holds its own embeddable object.
 - **Copy-on-translate, not an enforced invariant**: editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale). `tmi:translation:sync-shared` reconciles; `--check` gates CI on drift.
-- If the attribute is on the embeddable, the whole object is shared.
-- If the attribute is on properties within an embeddable, only those properties are shared; others may still be cloned.
+- If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance).
+- If the attribute is on properties within an embeddable, only those properties' values are shared; others may still be cloned/reset.
 
 #### 3. Empty-on-Translate Fields (#[EmptyOnTranslate])
 - Fields that must be reset when creating a new translation.
@@ -256,7 +256,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Methods:**
   - `supports()` — Returns true if property is an embeddable.
   - `translate()` — Returns a cloned embeddable.
-  - `handleSharedAmongstTranslations()` — Returns original object unchanged.
+  - `handleSharedAmongstTranslations()` — Returns a cloned embeddable too (never the original instance), with property values left untouched so persisted data still matches across locale siblings.
   - `handleEmptyOnTranslate()` — Returns null for nullable embeddables, or a new empty instance with type-safe property defaults for non-nullable embedded objects.
 - **Notes:** Works on value objects embedded in entities, preserves immutability.
 
@@ -1046,21 +1046,22 @@ $entityManager->flush();
 
 If annotations are correct but behavior is wrong, check for attribute conflicts (`#[SharedAmongstTranslations]` vs `#[EmptyOnTranslate]`).
 
-### Embedded Object Shared Unexpectedly
+### Embedded Object Values Diverged Across Locales
 
-**Symptom:** Changing an embedded value on one locale changes all locales
+**Symptom:** An embedded value copied identically into every locale at creation time has since drifted between locales
 
-**Cause:** `#[SharedAmongstTranslations]` on embedded property shares the instance across all translations
+**Cause:** `EmbeddedHandler` always clones the embeddable — even when `#[SharedAmongstTranslations]` applies — so no two locale variants ever hold the *same* in-memory instance. What `#[SharedAmongstTranslations]` guarantees is that the clone's property values match the source **at the moment a new translation is created**; it is not an enforced invariant afterwards (same rule as scalar shared fields — see "Shared Fields" above). Editing the embeddable on one locale variant post-creation does not propagate to siblings.
 
-**Resolution:** Remove the attribute if per-locale values are needed. Keep it if sharing is intentional (e.g., postal address same across all language variants):
+**Resolution:** Use `#[SharedAmongstTranslations]` (on the entity property, the embeddable class, or an inner property) so new variants start with matching values, and run `tmi:translation:sync-shared` to back-fill or reconcile values that have since diverged:
 
 ```php
-// Shared: All locales reference same Address instance
+// Shared: every new locale variant's Address starts with the same values
+// (each locale still gets its own Address instance)
 #[SharedAmongstTranslations]
 #[ORM\Embedded(class: Address::class)]
 private Address $address;
 
-// Per-locale: Each translation gets cloned Address
+// Per-locale: each translation gets a cloned Address with class-default values
 #[ORM\Embedded(class: Address::class)]
 private Address $address;
 ```

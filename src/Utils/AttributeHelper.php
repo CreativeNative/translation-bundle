@@ -137,9 +137,10 @@ class AttributeHelper
      * - on the embeddable class itself, or
      * - on any property inside the embeddable.
      *
-     * Single source of truth for EmbeddedHandler (translate time) and
-     * SyncSharedTranslationsCommand (back-fill time), which must agree on what counts as
-     * shared.
+     * Used by SyncSharedTranslationsCommand (back-fill time) to decide which embedded
+     * values must stay in sync with the default-locale row; this must agree with how
+     * EmbeddedHandler resolves sharing at translate time (three-level cascade in
+     * EmbeddedHandler::resolvePropertyAttribute()).
      *
      * @param \ReflectionClass<object> $embeddable
      */
