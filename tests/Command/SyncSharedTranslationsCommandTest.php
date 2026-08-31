@@ -140,6 +140,103 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertEquals(new \DateTimeImmutable('2020-01-01 00:00:00'), $reloaded->getPublishedAt());
     }
 
+    /**
+     * The command orders its streaming query by tuuid, so sibling locale variants of
+     * the same tuuid land next to each other in the result set regardless of physical
+     * insertion/PK order. Persisting two tuuid groups with interleaved rows -- B, A, B,
+     * A instead of A, A, B, B -- proves the grouping comes from the ORDER BY clause and
+     * not from an assumption that rows already arrive pre-grouped.
+     */
+    public function testGroupsByTuuidRegardlessOfInsertionOrder(): void
+    {
+        $tuuidA = Tuuid::generate();
+        $tuuidB = Tuuid::generate();
+
+        $bEn = new Scalar()->setTuuid($tuuidB)->setLocale('en_US')->setTitle('B EN')->setShared('B shared');
+        $aEn = new Scalar()->setTuuid($tuuidA)->setLocale('en_US')->setTitle('A EN')->setShared('A shared');
+        $bDe = new Scalar()->setTuuid($tuuidB)->setLocale('de_DE')->setTitle('B DE')->setShared('B stale');
+        $aDe = new Scalar()->setTuuid($tuuidA)->setLocale('de_DE')->setTitle('A DE')->setShared('A stale');
+
+        $this->entityManager()->persist($bEn);
+        $this->entityManager()->persist($aEn);
+        $this->entityManager()->persist($bDe);
+        $this->entityManager()->persist($aDe);
+        $this->entityManager()->flush();
+
+        $aDeId = $aDe->getId();
+        $bDeId = $bDe->getId();
+        self::assertNotNull($aDeId);
+        self::assertNotNull($bDeId);
+
+        $this->entityManager()->clear();
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('2 translation(s) updated', $tester->getDisplay());
+        self::assertSame('A shared', $this->reloadShared($aDeId));
+        self::assertSame('B shared', $this->reloadShared($bDeId));
+    }
+
+    /**
+     * SyncSharedTranslationsCommand flushes and detaches every 10 completed tuuid
+     * groups while streaming, instead of holding the whole table in memory. Seeding 11
+     * groups forces one such mid-stream batch boundary (after the 10th group).
+     *
+     * The 11th group's sibling (de_DE) is persisted *before* its source (en_US), which
+     * on SQLite is enough to make it the first row ORDER BY tuuid returns for that
+     * group -- i.e. the "lookahead" row the streaming loop reads to discover the batch
+     * is complete, before that row's own group has been synced. A batching
+     * implementation that detaches via a blanket EntityManager::clear() at the
+     * boundary would detach this lookahead entity too, and its later mutation would
+     * never reach the database -- so this also guards the flush/detach split, not just
+     * the batch-boundary branch.
+     */
+    public function testFlushesAndDetachesInBatchesDuringApply(): void
+    {
+        $groupCount = 11;
+        $siblingIds = [];
+
+        for ($i = 0; $i < $groupCount - 1; ++$i) {
+            $tuuid = Tuuid::generate();
+
+            $en = new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN'.$i)->setShared('canonical'.$i);
+            $de = new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE'.$i)->setShared('stale'.$i);
+
+            $this->entityManager()->persist($en);
+            $this->entityManager()->persist($de);
+            $this->entityManager()->flush();
+
+            $id = $de->getId();
+            self::assertNotNull($id);
+            $siblingIds[$i] = $id;
+        }
+
+        $lastTuuid = Tuuid::generate();
+        $lastIndex = $groupCount - 1;
+        $lastDe    = new Scalar()->setTuuid($lastTuuid)->setLocale('de_DE')->setTitle('DE'.$lastIndex)->setShared('stale'.$lastIndex);
+        $lastEn    = new Scalar()->setTuuid($lastTuuid)->setLocale('en_US')->setTitle('EN'.$lastIndex)->setShared('canonical'.$lastIndex);
+
+        $this->entityManager()->persist($lastDe);
+        $this->entityManager()->persist($lastEn);
+        $this->entityManager()->flush();
+
+        $lastId = $lastDe->getId();
+        self::assertNotNull($lastId);
+        $siblingIds[$lastIndex] = $lastId;
+
+        $this->entityManager()->clear();
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString(sprintf('%d translation(s) updated', $groupCount), $tester->getDisplay());
+
+        for ($i = 0; $i < $groupCount; ++$i) {
+            self::assertSame('canonical'.$i, $this->reloadShared($siblingIds[$i]), sprintf('group %d did not sync', $i));
+        }
+    }
+
     public function testPickSourceFallsBackWhenNoDefaultLocaleVariant(): void
     {
         $tuuid = Tuuid::generate();
@@ -356,7 +453,11 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     private function reloadShared(int $id): string|null
     {
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+
+        $filters = $this->entityManager()->getFilters();
+        if ($filters->isEnabled('tmi_translation_locale_filter')) {
+            $filters->disable('tmi_translation_locale_filter');
+        }
 
         $entity = $this->entityManager()->find(Scalar::class, $id);
         self::assertInstanceOf(Scalar::class, $entity);

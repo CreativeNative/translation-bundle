@@ -41,6 +41,13 @@ final class SyncSharedTranslationsCommand extends Command
     /** @var list<string> */
     private const array SYSTEM_PROPERTIES = ['tuuid', 'locale', 'translations'];
 
+    /**
+     * Tuuid groups processed between EntityManager flush/clear cycles while streaming
+     * a class. Bounds peak memory to O(batch size × locale count) instead of O(table),
+     * no matter how many rows the class holds.
+     */
+    private const int SYNC_BATCH_SIZE = 10;
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
@@ -100,11 +107,9 @@ final class SyncSharedTranslationsCommand extends Command
 
         try {
             foreach ($classes as $class) {
+                // syncClass() streams the class and flushes/clears its own batches, so
+                // no additional flush is needed here once the loop completes.
                 $totalUpdated += $this->syncClass($io, $class, !$dryRun, $readonlyDrift);
-            }
-
-            if (!$dryRun && $totalUpdated > 0) {
-                $this->entityManager->flush();
             }
         } finally {
             if ($wasEnabled) {
@@ -166,27 +171,114 @@ final class SyncSharedTranslationsCommand extends Command
             return 0;
         }
 
-        /** @var list<TranslatableInterface> $entities */
-        $entities = $this->entityManager->getRepository($class)->findAll();
-
-        /** @var array<string, list<TranslatableInterface>> $byTuuid */
-        $byTuuid = [];
-
-        foreach ($entities as $entity) {
-            $byTuuid[(string) $entity->getTuuid()][] = $entity;
-        }
-
-        $updated = 0;
-
-        foreach ($byTuuid as $variants) {
-            $updated += $this->syncGroup($variants, $sharedProperties, $apply, $readonlyDrift);
-        }
+        $updated = $this->syncStream($class, $sharedProperties, $apply, $readonlyDrift);
 
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
             : sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
 
         return $updated;
+    }
+
+    /**
+     * Streams $class ordered by tuuid instead of loading the whole table with findAll():
+     * sibling locale variants of the same tuuid land next to each other in the result
+     * set, so each group can be synced and released before most of the table is even
+     * hydrated. Peak memory stays a small, table-size-independent multiple of the
+     * locale count instead of growing with the table.
+     *
+     * In --apply mode the EntityManager is flushed and the just-completed groups are
+     * detached every self::SYNC_BATCH_SIZE groups (plus once more for the trailing
+     * partial batch); in --check/--dry-run mode entities are only detached, since
+     * nothing was written.
+     *
+     * Detaching is deliberately per-entity (self::flushBatch()'s $settled list), not a
+     * blanket EntityManager::clear(): toIterable() has already hydrated the *next*
+     * group's first row (the "lookahead" entity, used above to detect the tuuid
+     * change) by the time a batch boundary is decided, and that entity has not been
+     * synced yet -- it is still sitting in the freshly reset $group. clear() would
+     * detach it too, and a property write to a detached entity is invisible to every
+     * later flush(), so whichever group happens to land on a batch boundary would
+     * silently lose its update. Restricting detachment to $settled -- entities whose
+     * group has already been synced -- keeps the still-forming group's entities
+     * attached until their own turn to be flushed.
+     *
+     * @param class-string          $class
+     * @param list<SharedProperty>  $sharedProperties
+     * @param list<string>         &$readonlyDrift
+     */
+    private function syncStream(string $class, array $sharedProperties, bool $apply, array &$readonlyDrift): int
+    {
+        $query = $this->entityManager->createQueryBuilder()
+            ->select('t')
+            ->from($class, 't')
+            ->orderBy('t.tuuid')
+            ->getQuery();
+
+        $updated       = 0;
+        $groupsInBatch = 0;
+        $currentTuuid  = null;
+
+        /** @var list<TranslatableInterface> $group */
+        $group = [];
+        /** @var list<TranslatableInterface> $settled */
+        $settled = [];
+
+        foreach ($query->toIterable() as $entity) {
+            assert($entity instanceof TranslatableInterface);
+
+            $tuuid = (string) $entity->getTuuid();
+
+            if (null !== $currentTuuid && $tuuid !== $currentTuuid) {
+                $updated += $this->syncGroup($group, $sharedProperties, $apply, $readonlyDrift);
+
+                foreach ($group as $settledEntity) {
+                    $settled[] = $settledEntity;
+                }
+
+                $group = [];
+
+                if (++$groupsInBatch >= self::SYNC_BATCH_SIZE) {
+                    $this->flushBatch($apply, $settled);
+                    $settled       = [];
+                    $groupsInBatch = 0;
+                }
+            }
+
+            $currentTuuid = $tuuid;
+            $group[]      = $entity;
+        }
+
+        if ([] !== $group) {
+            $updated += $this->syncGroup($group, $sharedProperties, $apply, $readonlyDrift);
+
+            foreach ($group as $settledEntity) {
+                $settled[] = $settledEntity;
+            }
+        }
+
+        $this->flushBatch($apply, $settled);
+
+        return $updated;
+    }
+
+    /**
+     * Persists whatever the given already-synced entities changed (apply mode only)
+     * and detaches them, so the identity map never grows past one batch regardless of
+     * table size. Only ever called with entities whose group has already run through
+     * syncGroup() -- see the "lookahead entity" note on syncStream().
+     *
+     * @param list<TranslatableInterface> $settled
+     */
+    private function flushBatch(bool $apply, array $settled): void
+    {
+        if ($apply) {
+            $this->entityManager->flush();
+        }
+
+        foreach ($settled as $entity) {
+            $this->entityManager->detach($entity);
+        }
     }
 
     /**
