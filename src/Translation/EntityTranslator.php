@@ -117,9 +117,15 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             $tuuidValue = $entity->getTuuid()->getValue();
 
-            // Return cached translation immediately if available
-            if ($this->cache->has($tuuidValue, $locale)) {
-                return $this->cache->get($tuuidValue, $locale);
+            // Return a cached translation immediately when available. get() doubles as
+            // the existence check: on a PSR-6 pool, has() can report a hit whose entry
+            // no longer loads (row deleted after caching, pre-3.2 entry format), and
+            // a check-then-get would hand that null to translate(), where it escapes
+            // as a TypeError once zend.assertions=-1 compiles the assert away. A hit
+            // that cannot be loaded is a miss.
+            $cached = $this->cache->get($tuuidValue, $locale);
+            if (null !== $cached) {
+                return $cached;
             }
 
             // Detect cycles to avoid infinite recursion
@@ -142,8 +148,10 @@ final class EntityTranslator implements EntityTranslatorInterface
             try {
                 $this->warmupTranslations([$entity], $locale);
 
-                if ($this->cache->has($tuuidValue, $locale)) {
-                    return $this->cache->get($tuuidValue, $locale);
+                // Single-call pattern as above: a "hit" that cannot be loaded is a miss.
+                $cached = $this->cache->get($tuuidValue, $locale);
+                if (null !== $cached) {
+                    return $cached;
                 }
 
                 return $this->runHandlers($args, $entity, $locale);
@@ -391,7 +399,9 @@ final class EntityTranslator implements EntityTranslatorInterface
                 continue;
             }
             $tuuid = $entity->getTuuid()->getValue();
-            if ($this->cache->has($tuuid, $locale)) {
+            // get() rather than has(): a stale pool key whose entry no longer loads
+            // must not suppress the warmup query for its tuuid.
+            if (null !== $this->cache->get($tuuid, $locale)) {
                 continue;
             }
             $byClass[$entity::class][] = $tuuid;
