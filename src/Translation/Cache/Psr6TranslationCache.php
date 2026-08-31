@@ -4,16 +4,26 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Cache;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * PSR-6 adapter wrapping CacheItemPoolInterface.
  *
- * Note: Persistent PSR-6 backends (Redis, filesystem) may not serialize Doctrine
- * entities cleanly due to proxy objects and EntityManager references. The primary
- * use case is in-memory backends like Symfony's ArrayAdapter. For persistent
- * caching, consider storing identifiers only and letting Doctrine reload.
+ * Entries hold the entity's class and identifier, never the entity itself: set() resolves
+ * the identifier through Doctrine metadata and get() reloads through the EntityManager on
+ * every hit. That is what makes this cache safe on persistent backends (Redis, filesystem,
+ * ...) -- a serialized Doctrine entity would carry dead proxy/EntityManager references
+ * across requests or processes, but an identifier reloads cleanly wherever it is read back.
+ * Within a single request, Doctrine's identity map hands back the exact instance the
+ * translation pipeline already produced, so nothing is lost for the in-memory case either.
+ *
+ * A row deleted after it was cached simply reloads to null, which get() reports as a cache
+ * miss rather than handing back a stale or corrupted object -- same for a cache entry
+ * written before this identifier-based format (an upgrade path from an older release, or
+ * any other unrecognised value). An entity that has no identifier yet (not persisted, or
+ * persisted but not flushed) cannot be reloaded later, so set() does not cache it.
  */
 final class Psr6TranslationCache implements TranslationCacheInterface
 {
@@ -32,6 +42,7 @@ final class Psr6TranslationCache implements TranslationCacheInterface
 
     public function __construct(
         private readonly CacheItemPoolInterface $cachePool,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -48,15 +59,31 @@ final class Psr6TranslationCache implements TranslationCacheInterface
             return null;
         }
 
-        $value = $item->get();
+        $reference = $item->get();
+        $class     = \is_array($reference) ? ($reference['class'] ?? null) : null;
+        $id        = \is_array($reference) ? ($reference['id'] ?? null) : null;
 
-        return $value instanceof TranslatableInterface ? $value : null;
+        if (!\is_string($class) || !class_exists($class) || !\is_array($id)) {
+            return null;
+        }
+
+        $entity = $this->entityManager->find($class, $id);
+
+        return $entity instanceof TranslatableInterface ? $entity : null;
     }
 
     public function set(string $tuuid, string $locale, TranslatableInterface $entity): void
     {
+        $identifier = $this->entityManager->getClassMetadata($entity::class)->getIdentifierValues($entity);
+
+        if ([] === $identifier) {
+            // Not persisted (or persisted but not yet flushed): there is no stable
+            // identifier to reload by later, so there is nothing useful to cache.
+            return;
+        }
+
         $item = $this->cachePool->getItem($this->translationKey($tuuid, $locale));
-        $item->set($entity);
+        $item->set(['class' => $entity::class, 'id' => $identifier]);
         $this->cachePool->save($item);
     }
 

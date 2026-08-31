@@ -49,6 +49,7 @@ This is a **complete refactoring** based on PHP 8.4, Symfony 8.0, and Doctrine O
 
 * **`SharedAmongstTranslations` is not available on association collections** (`OneToMany`, `ManyToMany`). One collection shared between locale variants makes the owning side of the relation ambiguous, so the handlers reject it with a `RuntimeException`. Share the related entity's scalar columns instead. Associations themselves — including `ManyToMany` in both directions — are translated normally.
 * Entities with single-column `unique: true` constraints will trigger a validation error at `cache:warmup` -- use composite constraints (field + locale) instead. See [UPGRADING.md](UPGRADING.md#5-composite-unique-constraint-validation) for the pattern.
+* The bundled `Psr6TranslationCache` (opt-in PSR-6 adapter, see [llms.md](llms.md#translation-cache-service)) stores entity identifiers, not entities, so it is safe to back with a persistent pool (Redis, filesystem, ...) -- `get()` reloads via Doctrine and reports a deleted row as a cache miss instead of returning a stale object.
 * Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support)
 
 ## 📦 Installation

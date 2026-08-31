@@ -397,6 +397,8 @@ Stores translations in PHP arrays, scoped to the current request. Registered as 
 
 Ships with the bundle for cross-request caching. Uses Symfony's `cache.app` pool. Keys use dot separators with underscore-replaced UUIDs for PSR-6 compliance.
 
+It never stores the entity itself -- `set()` stores `[class, identifier]`, and `get()` reloads through the injected `EntityManagerInterface` on every hit. That is what makes it safe on persistent backends (Redis, filesystem, ...): a serialized Doctrine entity would carry dead proxy/EntityManager references across requests, but an identifier reloads cleanly. Within one request, Doctrine's identity map returns the same instance the pipeline already produced, so this costs nothing extra for the in-memory case. A row deleted after it was cached reloads to `null`, which is reported as a cache miss; an entity with no identifier yet (not persisted, or persisted but not flushed) is not cached by `set()`.
+
 ### Custom Implementation
 
 To use a custom cache (e.g., Redis):

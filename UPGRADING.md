@@ -1,3 +1,43 @@
+# UPGRADE FROM 3.1 to 3.2
+
+## `Psr6TranslationCache` now requires an `EntityManagerInterface`
+
+**BREAKING (constructor signature only):** `Psr6TranslationCache::__construct()` takes a
+second, required argument.
+
+**Before (v3.1):**
+```php
+new Psr6TranslationCache($cachePool);
+```
+
+**After (v3.2):**
+```php
+new Psr6TranslationCache($cachePool, $entityManager);
+```
+
+**Why:** `set()` used to store the full translated entity in the pool. On a persistent
+backend (Redis, filesystem, ...) that entity deserializes as a detached object with dead
+proxy/EntityManager references, and `EntityTranslator` handed it straight to consumers --
+silent corruption on any backend other than an in-memory one. `set()` now stores the
+entity's class and identifier instead, and `get()` reloads through the EntityManager on
+every hit. A row deleted after it was cached now reloads to `null` (a clean cache miss)
+rather than handing back a stale object, and an entity with no identifier yet (not
+persisted, or persisted but not flushed) is no longer cached at all.
+
+**Migration Steps:**
+- Wired through the bundle's `services.yaml` (the default): nothing to do — the service
+  definition now passes `@doctrine.orm.entity_manager` automatically.
+- Instantiating `Psr6TranslationCache` directly (tests, a custom service definition): pass
+  an `EntityManagerInterface` as the second argument.
+- If you back this cache with a persistent pool, no code change is needed to *keep it
+  working* — but existing entries written by v3.1 or earlier are in the old (raw-entity)
+  format. `get()` recognises them as unrecognised values and treats them as a miss rather
+  than erroring, so they are simply re-translated and re-cached in the new format; no
+  manual purge is required, though clearing the pool once avoids paying for that first
+  re-translation.
+
+---
+
 # UPGRADE FROM 3.0 to 3.1
 
 Version 3.1 is backwards compatible — no signatures moved, nothing was removed. It ships a
