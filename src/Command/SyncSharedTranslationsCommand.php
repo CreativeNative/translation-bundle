@@ -402,6 +402,13 @@ final class SyncSharedTranslationsCommand extends Command
             return true;
         }
 
+        // DateTimeInterface objects compare by the instant they represent (timezone-aware)
+        // under both "==" and "<=>" -- no need to serialize() either side. "<=>" is used
+        // because project strict rules forbid "==".
+        if ($a instanceof \DateTimeInterface && $b instanceof \DateTimeInterface) {
+            return ($a <=> $b) === 0;
+        }
+
         if (is_object($a) && is_object($b)) {
             return $a::class === $b::class && serialize($a) === serialize($b);
         }

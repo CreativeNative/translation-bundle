@@ -375,6 +375,31 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
     }
 
+    public function testValuesEqualComparesDistinctDateTimeImmutableInstancesByValue(): void
+    {
+        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
+        $b = new \DateTimeImmutable('2024-01-01 13:00:00', new \DateTimeZone('Europe/Berlin'));
+
+        self::assertNotSame($a, $b);
+        self::assertTrue($this->valuesEqual($a, $b));
+    }
+
+    public function testValuesEqualReturnsFalseForDifferentDateTimeImmutableTimestamps(): void
+    {
+        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
+        $b = new \DateTimeImmutable('2024-01-01 12:00:01', new \DateTimeZone('UTC'));
+
+        self::assertFalse($this->valuesEqual($a, $b));
+    }
+
+    public function testValuesEqualFallsThroughToSerializeWhenOnlyOneSideIsDateTime(): void
+    {
+        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
+        $b = new \stdClass();
+
+        self::assertFalse($this->valuesEqual($a, $b));
+    }
+
     public function testReportsWhenNoTranslatableEntitiesExist(): void
     {
         $factory = self::createStub(ClassMetadataFactory::class);
@@ -463,6 +488,21 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertInstanceOf(Scalar::class, $entity);
 
         return $entity->getShared();
+    }
+
+    /**
+     * SyncSharedTranslationsCommand::valuesEqual() is private static -- reflection is the
+     * narrowest way to unit-test its DateTimeInterface fast path directly, instead of only
+     * exercising it indirectly through a full sync run.
+     */
+    private function valuesEqual(mixed $a, mixed $b): bool
+    {
+        $method = new \ReflectionMethod(SyncSharedTranslationsCommand::class, 'valuesEqual');
+
+        $result = $method->invoke(null, $a, $b);
+        self::assertIsBool($result);
+
+        return $result;
     }
 
     /**
