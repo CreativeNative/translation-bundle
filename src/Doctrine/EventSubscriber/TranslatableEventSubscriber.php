@@ -16,6 +16,25 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Exception\OrphanTranslationException;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
+/**
+ * Doctrine lifecycle hooks for translatable entities: locale defaulting,
+ * Tuuid generation, orphan detection, and routing entities through the
+ * translator's beforePersist/beforeUpdate/beforeRemove/afterLoad hooks.
+ *
+ * Orphan detection is scoped to a single flush(): the verdict for an entity
+ * persisted in a non-default locale is settled only against the entities
+ * scheduled for insertion in *that* flush (see $pendingOrphans and
+ * reportOrphansAmong()). A locale variant that is persisted and flushed on
+ * its own, then linked to its shared Tuuid by a translate() + persist() in a
+ * LATER flush, still triggers the orphan warning/exception in the first
+ * flush even though it becomes consistent afterwards. This is a documented
+ * limitation, not a bug: catching it would mean carrying state across flush
+ * boundaries (an ever-growing map of not-yet-linked entities with no clear
+ * point to forget them) and would defeat the purpose of strict mode, where
+ * the exception must surface in the flush() call that actually created the
+ * inconsistency — not in some unrelated, later flush. `tmi:translation:doctor`
+ * is the authoritative audit for orphans that persist across flushes.
+ */
 #[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::onFlush)]

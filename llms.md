@@ -175,6 +175,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - **Copy-on-translate, not an enforced invariant**: editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale). `tmi:translation:sync-shared` reconciles; `--check` gates CI on drift.
 - If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance).
 - If the attribute is on properties within an embeddable, only those properties' values are shared; others may still be cloned/reset.
+- Intentionally inert on a class that does not implement `TranslatableInterface`: nothing reads the attribute outside the translate() pipeline, so a trait shared between translatable and non-translatable classes (e.g. a `GeoLocatableTrait` mixed into both) can carry it on a property with no effect on the classes that merely reuse the trait.
 
 #### 3. Empty-on-Translate Fields (#[EmptyOnTranslate])
 - Fields that must be reset when creating a new translation.
@@ -1316,6 +1317,14 @@ The warning respects the bundle's opt-in logging: with `enable_logging: false` (
 default) no logger is injected and nothing is logged. An entity flushed alone and only
 linked in a *later* flush is still reported — `tmi:translation:doctor` is the authoritative
 audit for data at rest.
+
+This per-flush scoping is a documented limitation, not a bug. The verdict is settled with a
+`\WeakMap` inside `onFlush`, checked only against the entities scheduled for insertion in
+that same flush — the subscriber has no visibility into a translate() + persist() that
+happens in a later, separate flush. Carrying the pending-orphan state across flush
+boundaries to close this gap would mean an ever-growing map with no clear point to forget
+entries, and would defeat the point of strict mode: the exception has to surface in the
+flush() call that actually created the inconsistency, not in some unrelated later one.
 
 ### `tmi:translation:doctor`
 
