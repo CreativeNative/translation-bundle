@@ -146,6 +146,15 @@ $translatedEntity = $entityTranslator->getOrTranslate($entity, 'de_DE');
 Every attribute of the source entity will be cloned into a new entity, unless specified otherwise with the `EmptyOnTranslate`
 attribute. Generated IDs (properties with `#[ORM\Id]` + `#[ORM\GeneratedValue]`) are automatically reset to `null` on cloned translations.
 
+**`translate()` is idempotent get-or-create, not a live sync.** If a locale variant for the
+source's Tuuid and the target locale already exists, all three methods above return that
+existing row as-is — the handler chain does not re-run over it, so edits made to the source
+entity *after* the variant was created are **not** copied into it. This is deliberate:
+persist/update hooks call `translate()` on every flush, and re-cloning on every call would
+mint duplicate locale variants instead of returning the one already on record. To propagate
+a changed value into existing siblings, mark the field `#[SharedAmongstTranslations]` and
+run `tmi:translation:sync-shared` — see below.
+
 ## 🔧 Advanced Usage
 
 Usually, you don't wan't to get **all** fields of your entity to be cloned. Some should be shared throughout all

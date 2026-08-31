@@ -213,6 +213,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Internally delegates to appropriate handler(s) depending on object type (entity vs embeddable vs collection).
 - Ensures metadata (locale property, Tuuid) is set correctly.
 - Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached. The Doctrine hooks (`afterLoad`, `beforePersist`, `beforeUpdate`, `beforeRemove`) ask for exactly that on every flush, so a clone cached under `(tuuid, locale)` there would be handed to every later `translate()` for that pair.
+- Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]` + `tmi:translation:sync-shared`'s job, not `translate()`'s.
 - `#[EmptyOnTranslate]` on a **collection** property is emptied by its handler (a fresh empty collection). Only non-collection, non-nullable properties fall back to `TypeDefaultResolver`.
 
 ### Translation Handlers

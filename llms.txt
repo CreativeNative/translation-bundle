@@ -83,6 +83,7 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - Requires Symfony `^8.0` and PHP `>=8.4`; the `^7.3` branch is dropped
 - To-many properties (`OneToMany`, `ManyToMany`) are now actually translated — all three collection handlers were unreachable before, so a translation silently shared the source entity's collection instance
 - Translating an entity into the locale it already carries is the identity operation: the same instance comes back, nothing is cloned or cached
+- Translating into a different locale is get-or-create, not a live sync: an existing variant for that Tuuid + locale is returned as-is, so in-memory edits made to the source after the variant was created are not propagated into it — use `#[SharedAmongstTranslations]` + `tmi:translation:sync-shared` to propagate such changes
 - `#[SharedAmongstTranslations]` on an association collection throws instead of being silently ignored
 - Handler tag `priority` is honoured by the compiler pass; equal priorities keep registration order
 - `LocaleFilterConfigurator` restores the parent request's locale on `kernel.finish_request` after sub-requests
