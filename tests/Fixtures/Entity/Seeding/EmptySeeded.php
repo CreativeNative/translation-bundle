@@ -12,7 +12,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
 /**
  * Entity whose variants are seeded empty (copySource: false) — the shape that
- * needs the POST_TRANSLATE seeding hook to mint placeholder values.
+ * needs the PostTranslateEvent seeding hook to mint placeholder values.
  */
 #[ORM\Entity]
 #[Translatable(copySource: false)]

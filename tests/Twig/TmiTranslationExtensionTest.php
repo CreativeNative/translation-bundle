@@ -32,13 +32,13 @@ final class TmiTranslationExtensionTest extends TestCase
         self::assertFalse($callback($nonTranslatable));
     }
 
-    public function testGetGlobalsReturnsLocalesArray(): void
+    public function testGetGlobalsReturnsTmiLocalesArray(): void
     {
         $locales   = ['en_US', 'it_IT'];
         $extension = new TmiTranslationExtension($locales);
 
         $globals = $extension->getGlobals();
-        self::assertArrayHasKey('locales', $globals);
-        self::assertSame($locales, $globals['locales']);
+        self::assertArrayHasKey('tmi_locales', $globals);
+        self::assertSame($locales, $globals['tmi_locales']);
     }
 }

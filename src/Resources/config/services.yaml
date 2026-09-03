@@ -2,10 +2,18 @@ services:
     # ----------------------------
     # Default service configuration
     # ----------------------------
+    # Nothing here is public. Consumers autowire against an interface or class
+    # (EntityTranslatorInterface, LocaleVariantFinder, ...); commands, the Twig
+    # extension, the cache warmer and every listener/subscriber reach the
+    # container through their tag, never through container->get(). This
+    # default also governs every alias declared below it (an alias with no
+    # explicit `public:` inherits _defaults.public), so
+    # tmi_translation.translation.entity_translator and its siblings are
+    # private too.
     _defaults:
         autowire: true
         autoconfigure: true
-        public: true
+        public: false
 
     # ----------------------------
     # Utility Services

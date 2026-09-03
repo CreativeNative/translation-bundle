@@ -13,7 +13,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Event\TranslateEvent;
+use Tmi\TranslationBundle\Event\PostTranslateEvent;
+use Tmi\TranslationBundle\Event\PreTranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
@@ -214,12 +215,11 @@ final class EntityTranslator implements EntityTranslatorInterface
                 'data_type' => is_object($entity) ? $entity::class : gettype($entity),
             ]);
 
-            // Dispatch PRE_TRANSLATE event for top-level entities
+            // Dispatch PreTranslateEvent for top-level entities. Passing no event
+            // name dispatches it under its own class, which is what listeners
+            // registered on PreTranslateEvent::class (or #[AsEventListener]) expect.
             if ($entity instanceof TranslatableInterface) {
-                $this->eventDispatcher->dispatch(
-                    new TranslateEvent($entity, $locale),
-                    TranslateEvent::PRE_TRANSLATE,
-                );
+                $this->eventDispatcher->dispatch(new PreTranslateEvent($entity, $locale));
             }
 
             if ($property instanceof \ReflectionProperty) {
@@ -323,10 +323,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             $translated = $handler->translate($args);
 
             if ($entity instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
-                $this->eventDispatcher->dispatch(
-                    new TranslateEvent($entity, $locale, $translated),
-                    TranslateEvent::POST_TRANSLATE,
-                );
+                $this->eventDispatcher->dispatch(new PostTranslateEvent($entity, $locale, $translated));
 
                 $this->cache->set($translated->getTuuid()->getValue(), $translated->getLocale() ?? $locale, $translated);
 

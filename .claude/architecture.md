@@ -72,10 +72,14 @@ private ?string $cachedSlug = null;
 
 ## Events
 
+Both extend `TranslateEvent` and are dispatched by class (v4.0), not by a string event
+name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
+`addListener(PreTranslateEvent::class, ...)`.
+
 | Event | When |
 |-------|------|
-| `TranslateEvent::PRE_TRANSLATE` | Before translation starts |
-| `TranslateEvent::POST_TRANSLATE` | After successful translation |
+| `PreTranslateEvent` | Before translation starts |
+| `PostTranslateEvent` | After successful translation |
 
 ## Tuuid Linkage Integrity (v2.2)
 

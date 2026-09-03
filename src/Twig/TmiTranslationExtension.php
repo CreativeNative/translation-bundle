@@ -35,7 +35,7 @@ final class TmiTranslationExtension extends AbstractExtension implements Globals
     public function getGlobals(): array
     {
         return [
-            'locales' => $this->locales,
+            'tmi_locales' => $this->locales,
         ];
     }
 }

@@ -21,12 +21,6 @@ final class TranslateEventTest extends TestCase
         self::assertSame($source, $event->getSourceEntity());
         self::assertSame($translated, $event->getTranslatedEntity());
         self::assertSame($locale, $event->getLocale());
-
-        // Test constants contain expected prefix and differentiate pre/post
-        self::assertStringStartsWith('tmi_translation.', TranslateEvent::PRE_TRANSLATE);
-        self::assertStringStartsWith('tmi_translation.', TranslateEvent::POST_TRANSLATE);
-        self::assertStringContainsString('pre', TranslateEvent::PRE_TRANSLATE);
-        self::assertStringContainsString('post', TranslateEvent::POST_TRANSLATE);
     }
 
     public function testTranslatedEntityCanBeNull(): void

@@ -593,6 +593,53 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         );
     }
 
+    /**
+     * `_defaults.public: false` (v4.0) only protects consumers who autowire against an
+     * interface or class instead of calling `container->get('tmi_translation....')` --
+     * a forgotten direct lookup is a runtime ServiceNotFoundException, not a PHPStan
+     * error, because KernelTestCase::getContainer() makes every service public again
+     * for the test container (framework.test: true) and would pass either way. This
+     * builds the container the way production does, without that test-only escape
+     * hatch, and walks every definition and alias the bundle registers.
+     *
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testBundleServicesAndAliasesArePrivate(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        $isBundleOwned = static fn (string $id): bool => str_starts_with($id, 'Tmi\\TranslationBundle\\')
+            || str_starts_with($id, 'tmi_translation.');
+
+        $checked = 0;
+
+        foreach ($containerBuilder->getDefinitions() as $id => $definition) {
+            if (!$isBundleOwned($id)) {
+                continue;
+            }
+
+            self::assertFalse($definition->isPublic(), sprintf('Service "%s" must stay private.', $id));
+            ++$checked;
+        }
+
+        foreach ($containerBuilder->getAliases() as $id => $alias) {
+            if (!$isBundleOwned($id)) {
+                continue;
+            }
+
+            self::assertFalse($alias->isPublic(), sprintf('Alias "%s" must stay private.', $id));
+            ++$checked;
+        }
+
+        // Guards the loop above against a services.yaml rewrite that silently stops
+        // registering the bundle's own services under either id shape.
+        self::assertGreaterThanOrEqual(25, $checked);
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();

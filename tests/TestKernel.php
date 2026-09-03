@@ -13,6 +13,7 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 
 final class TestKernel extends BaseKernel
 {
@@ -98,5 +99,16 @@ final class TestKernel extends BaseKernel
             ->set(TranslatableEventSubscriber::class)
             ->public()
             ->tag('doctrine.event_subscriber');
+
+        // EntityTranslator (and everything it needs) is private in the bundle's own
+        // services.yaml (v4.0) -- correctly so, since a real consuming application
+        // anchors it the moment one of ITS OWN autowired services type-hints
+        // EntityTranslatorInterface. This test kernel has no such consumer, so
+        // without this alias the whole cluster is unreachable from any public
+        // service and the compiler prunes it outright; IntegrationTestCase fetches
+        // the translator through this public alias rather than the private class id.
+        $container->services()
+            ->alias('test.entity_translator', EntityTranslator::class)
+            ->public();
     }
 }

@@ -56,7 +56,14 @@ class IntegrationTestCase extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $entityManager, 'EntityManager service must implement EntityManagerInterface');
         $this->entityManager = $entityManager;
 
-        $translator = $container->get('tmi_translation.translation.entity_translator');
+        // Not tmi_translation.translation.entity_translator: that alias, and the
+        // EntityTranslator class id it targets, are private in the bundle's own
+        // services.yaml (v4.0) and nothing inside the bundle references either one,
+        // so the compiler prunes the whole cluster -- "test: true" only keeps private
+        // services reachable that survive normal removal for some other reason, it
+        // does not itself keep anything alive. TestKernel declares this public alias
+        // as the stand-in for the autowired consumer a real application would supply.
+        $translator = $container->get('test.entity_translator');
         self::assertInstanceOf(EntityTranslator::class, $translator, 'EntityTranslator service must be an EntityTranslator instance');
         $this->translator = $translator;
 
