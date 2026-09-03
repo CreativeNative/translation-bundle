@@ -26,14 +26,19 @@ Translation uses a priority-based handler chain. Each handler implements `Transl
 ### Adding New Handlers
 
 ```php
-#[AsTaggedItem('tmi_translation.translation_handler', priority: 75)]
-class MyCustomHandler implements TranslationHandlerInterface
+final class MyCustomHandler implements TranslationHandlerInterface
 {
-    public function supports(mixed $value, TranslationArgs $args): bool;
-    public function translate(mixed $value, TranslationArgs $args): mixed;
-    public function handleSharedAmongstTranslations(mixed $value, TranslationArgs $args): mixed;
-    public function handleEmptyOnTranslate(mixed $value, TranslationArgs $args): mixed;
+    public function supports(TranslationArgs $args): bool;
+    public function translate(TranslationArgs $args): mixed;
+    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed;
+    public function handleEmptyOnTranslate(TranslationArgs $args): mixed;
 }
+```
+
+```yaml
+# config/services.yaml
+App\Translation\Handler\MyCustomHandler:
+    tags: [{ name: 'tmi_translation.translation_handler', priority: 75 }]
 ```
 
 The chain is first-match-wins and sorted by descending priority, so the tag priority decides
@@ -99,7 +104,14 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `Doctrine/TranslatableRemover` — removes every locale variant sharing a Tuuid (or exempts one
   variant from that) via `EntityManager::remove()` per variant, so ORM cascades / `orphanRemoval`
   / lifecycle callbacks fire per variant — never a bulk DQL DELETE. `$em->remove()` alone only
-  ever touches the one row it is given.
+  ever touches the one row it is given. Two process-local state maps (an in-progress guard
+  keyed by Tuuid string, a `\WeakMap` exemption keyed by object identity) prevent recursion
+  and double `preRemove` firing when the cascade below is active — both are set before the
+  work and cleared in a `finally`.
+- `Doctrine/EventListener/LocaleVariantRemovalListener` — opt-in `preRemove` listener (always
+  registered; `cascade_remove_locale_variants` decides at runtime whether it does anything)
+  that calls `TranslatableRemover::cascadeFromPreRemove()` so a plain `$em->remove()` on any
+  translatable entity cascades to its sibling locale variants automatically.
 
 ## Per-Locale Completeness (v3.1)
 
@@ -114,8 +126,25 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 
 | Command | Purpose |
 |---------|---------|
-| `tmi:translation:doctor` | Scan for standalone/incomplete translations and duplicate `(tuuid, locale)` pairs; exits non-zero on findings |
-| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` column values across existing locale variants |
+| `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (v4.0: a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
+| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` column values across existing locale variants; `--dry-run`, `--check` (CI gate), `--entity`; prints a `Property \| Tuuids \| Rows \| Writable` drift table (v4.0) |
+
+## Performance (v4.0)
+
+- `Utils/AttributeHelper` (per `declaringClass::property::attribute`) and
+  `Utils/ReflectionHelper::getHierarchyProperties()` (per proxy-unwrapped class) memoize for
+  the process lifetime — the `translate()` hot path no longer re-walks a class's attributes
+  and property hierarchy on every property, every call.
+- `EntityTranslator::preload(iterable $entities, string $locale): void` batches an import's
+  existing-variant lookups per class instead of per entity (one `LocaleVariantFinder` query
+  per class); `getOrTranslate()`'s internal warmup calls it with a single entity, so a bare
+  loop still costs one lookup per entity — call `preload()` with the whole batch first.
+- `InMemoryTranslationCache` is tagged `kernel.reset` (`ResetInterface`, explicit tag —
+  Symfony does not autoconfigure it) so a long-running worker resets the cache between units
+  of work.
+- `tests/Performance/QueryBudgetTest.php` asserts an exact query count (`assertSame`, not a
+  ceiling) for every operation in this list, via `tests/Support/QueryCounter.php` behind
+  DBAL's logging middleware — see README.md § Performance for the numbers.
 
 ## Directory Structure
 

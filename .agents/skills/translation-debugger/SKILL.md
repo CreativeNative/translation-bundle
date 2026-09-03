@@ -27,8 +27,8 @@ Execute all checks from **references/diagnostics.md** in order:
 2. **Attribute Configuration Layer** - ERROR/WARNING issues
 3. **Handler Chain Mapping Layer** - Handler compatibility
 4. **Runtime Configuration Layer** - Environment setup
-5. **Compile-Time Validation Layer** - v2.0 attribute conflicts and unique constraints
-6. **Tuuid Linkage Integrity Layer** - v2.2 broken linkage (run `tmi:translation:doctor`)
+5. **Compile-Time Validation Layer** - v2.0 attribute conflicts and unique constraints, `strict_discovery` (v4.0)
+6. **Tuuid Linkage Integrity Layer** - v2.2 broken linkage (run `tmi:translation:doctor`, four anomaly classes as of v4.0) plus Removal Semantics (v4.0)
 
 ### Step 3: Present Results
 
@@ -122,6 +122,36 @@ An entity is being flushed in a non-default locale without a shared Tuuid — no
 locale variant links to it, not even one created in the same flush. Create translations
 via `EntityTranslator::translate()`, or adjust `strict_orphan_check`.
 
+### "Deleted entity still served in another locale" (v4.0)
+A plain `$em->remove($entity)` only removes the one row passed to it — nothing links its
+sibling locale variants for Doctrine to cascade through. Fix: `TranslatableRemover::
+removeAllLocaleVariants($entity)`, or `cascade_remove_locale_variants: true`. See diagnostics
+Check 6.4.
+
+### "Duplicate variant / new row on every translate() call under a locale filter" (v4.0-fixed)
+Before v4.0, the existing-variant lookup queried through the entity's own repository under an
+active locale filter, which silently combined into a contradiction that could never match. As
+of v4.0 this goes through `LocaleVariantFinder` (filter-suspended) and does not reoccur — on
+an older version, upgrade rather than working around it. See diagnostics Check 6.4.
+
+### "Detached entity duplicated during an import" (v4.0-fixed)
+Before v4.0, a cache hit surviving `$em->clear()` was still handed back as reusable even
+though `UnitOfWork` no longer tracked it, and `persist()` re-inserted it as a new row. As of
+v4.0 a cache hit is checked against the entity's real `UnitOfWork` state; a detached hit is a
+miss. Nothing to change in application code. See diagnostics Check 6.4.
+
+### "null-tuuid rows reported by tmi:translation:doctor" (v4.0)
+The `tuuid` column is `NOT NULL` as of v4.0, so this anomaly can only come from a write that
+bypassed the entity layer (a raw INSERT, or a pre-v4 legacy row). No automatic fix — repair or
+delete the row at the database level. See diagnostics Check 6.4.
+
+### "LogicException: ...strict_discovery... is enabled..." at compile time (v4.0)
+`strict_discovery: true` turned a `0 translatable entities discovered` result from a logged
+warning into a hard failure. Either the project genuinely has no translatable entities yet
+(set `strict_discovery: false`), or doctrine-bundle's `attribute_metadata_driver` service
+shape changed and compile-time discovery is silently finding nothing — investigate before
+disabling the check. See diagnostics Check 5.4.
+
 ## Quick Commands
 
 For users who know what to check:
@@ -139,4 +169,6 @@ For users who know what to check:
 - **references/diagnostics.md** - Detailed check procedures for each layer
 - **llms.md -> Troubleshooting** - Fix procedures for each issue type
 - **llms.md -> Handler Chain Decision Tree** - Handler priority and routing
-- **UPGRADING.md** - Migration guide for v1.x to v2.0 breaking changes
+- **llms.md -> Removal Semantics (v4)** - `TranslatableRemover`, `cascade_remove_locale_variants`
+- **llms.md -> Performance (v4.0)** - `preload()`, reflection caches, query budgets
+- **UPGRADING.md** - Migration guide, including the 3.4 -> 4.0 breaking/behavioural changes

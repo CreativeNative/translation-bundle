@@ -91,6 +91,25 @@ For complete handler chain architecture, priority order, and decision tree, see 
 - Custom handlers can inject `TypeDefaultResolver` to resolve type-safe defaults for `handleEmptyOnTranslate()`
 - Custom handlers can inject `TranslationCacheInterface` to check/store translations
 
+### v4.0: Two Reusable Building Blocks Instead of Hand-Rolling
+
+If the custom handler needs either of these, delegate — don't reimplement:
+
+- **Translating a nested `TranslatableInterface` value.** Inject
+  `Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler` and call
+  `->translate($args)` on it, the way the bundle's own
+  `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` do. It already does the
+  existing-variant lookup (filter-suspended, via `LocaleVariantFinder`), runs the target's own
+  property pipeline, and resets generated ids — a plain `clone $value` skips all three and
+  duplicates rows on the next translate.
+- **Walking a class's properties, including private ones on a parent class.**
+  `\ReflectionClass::getProperties()` never lists a private property declared on a parent —
+  use `Tmi\TranslationBundle\Utils\ReflectionHelper::getHierarchyProperties($class)` (a full
+  walk, memoized per class) or `ReflectionHelper::getProperty($class, $name)` (one named
+  property) instead of a hand-rolled loop. Both also resolve a Doctrine proxy to its real
+  class first — reflecting the proxy subclass directly finds neither the parent's private
+  properties nor any PHP attribute the real class declares.
+
 ## Quick Reference: TranslationHandlerInterface
 
 All handlers implement these 4 methods:

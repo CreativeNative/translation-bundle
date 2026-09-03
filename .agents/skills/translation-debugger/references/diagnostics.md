@@ -38,7 +38,8 @@ class Product implements TranslatableInterface
 
 **If missing:**
 - **Severity:** BLOCKING
-- **Error:** Missing $tuuid, $locale, $translations properties
+- **Error:** Missing $tuuid, $locale properties (both `NOT NULL` as of v4.0; the trait's
+  `$translations` column and its accessors were removed in v4.0 -- nothing to expect there)
 - **Symptom:** Translation fails with property access errors
 - **Fix:** Add `use TranslatableTrait;` after class opening brace
 - **llms.md:** See "Missing TranslatableInterface" troubleshooting entry
@@ -254,8 +255,8 @@ framework:
 doctrine:
     orm:
         filters:
-            translation_locale:
-                class: Tmi\TranslationBundle\Doctrine\Filter\TranslationFilter
+            tmi_translation_locale_filter:
+                class: Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter
                 enabled: true
 ```
 
@@ -388,21 +389,46 @@ bin/console cache:warmup
 - **Error:** LogicException with migration guidance
 - **Fix:** Follow the error message guidance or see UPGRADING.md
 
+### Check 5.4: `strict_discovery` (v4.0)
+
+**What to look for:** A compile-time failure mentioning `tmi_translation.strict_discovery`.
+
+**How to check:**
+```bash
+bin/console cache:warmup
+# Look for: "...tmi_translation.strict_discovery" is enabled, which turns this into a hard failure..."
+```
+
+**Cause:** `AttributeValidationPass` found zero `TranslatableInterface` classes under the
+configured Doctrine attribute mapping directories, and `strict_discovery: true` turns that
+from a logged message into a hard `LogicException`.
+
+**If found:**
+- **Severity:** ERROR (only when `strict_discovery: true`; otherwise this is just a logged
+  message, not a failure)
+- **Fix:** Either the project genuinely has no translatable entities yet (set
+  `strict_discovery: false`, or add one), or something changed the shape of doctrine-bundle's
+  `attribute_metadata_driver` service definitions and compile-time discovery is silently
+  finding nothing -- investigate that before disabling the check. The container parameter
+  `tmi_translation.discovered_translatable_classes` names exactly what discovery found (empty
+  when the failure fires).
+
 ---
 
-## Layer 6: Tuuid Linkage Integrity (v2.2)
+## Layer 6: Tuuid Linkage Integrity (v2.2) & Removal Semantics (v4.0)
 
 This layer inspects *data*, not configuration — broken linkage between locale rows.
 
 ### Check 6.1: Run the doctor command
 
-**What to look for:** Locale rows that share no `Tuuid`, incomplete translation sets, or
-duplicate `(tuuid, locale)` pairs.
+**What to look for:** Locale rows that share no `Tuuid`, incomplete translation sets,
+duplicate `(tuuid, locale)` pairs, or (v4.0) a literal database `NULL` in the `tuuid` column.
 
 **How to check:**
 
 ```bash
 php bin/console tmi:translation:doctor
+php bin/console tmi:translation:doctor --entity="App\Entity\Product"   # v4.0: restrict to one class
 ```
 
 **Interpreting the output:**
@@ -414,12 +440,15 @@ php bin/console tmi:translation:doctor
 - **Incomplete translations** — a `Tuuid` with fewer locale rows than configured locales. The
   entity simply has not been translated into every locale yet.
 - **Duplicate `(tuuid, locale)` pairs** — two rows claiming to be the same locale variant.
+- **`null-tuuid` (v4.0)** — the `tuuid` column itself is a literal database `NULL`. As of v4.0
+  the column is `NOT NULL`, so this only happens through a write that bypassed the entity
+  layer entirely (a raw INSERT, or a row left over from before the v4 schema migration).
 
-**Severity:** ERROR (standalone, duplicate) / INFO (incomplete).
+**Severity:** ERROR (standalone, duplicate, null-tuuid) / INFO (incomplete).
 
 **Fix:**
-- Standalone/duplicate rows must be repaired in the database (re-point the `tuuid`, or remove
-  the duplicate). There is no automatic fix — the doctor is read-only by design.
+- Standalone/duplicate/null-tuuid rows must be repaired in the database (re-point the
+  `tuuid`, or remove the row). There is no automatic fix — the doctor is read-only by design.
 - Prevent recurrence: always create translations via `EntityTranslator::translate()` (or
   `translateAndPersist()` / `getOrTranslate()`), and enable `strict_orphan_check` so the
   bundle throws `OrphanTranslationException` instead of silently minting an orphan.
@@ -452,6 +481,37 @@ correction. **Severity:** WARNING.
 when `kernel.debug` is on. For production safety prefer explicit logging or strict mode.
 
 **Severity:** INFO.
+
+### Check 6.4: Removal leaves sibling locale variants online (v4.0)
+
+**What to look for:** Code that calls `$em->remove($entity)` directly on a translatable
+entity, or a hand-rolled `findBy(['tuuid' => ...])` loop before removing.
+
+**How to check:**
+```php
+// A plain remove() only ever touches the one row passed to it
+$em->remove($product);
+$em->flush();
+// Any other locale's copy of the same product is still in the database.
+```
+
+**If found:**
+- **Severity:** ERROR (silent data bug — the entity looks deleted in the locale the user was
+  working in, but resolves fine, stale, in every other locale)
+- **Fix:** Inject `Tmi\TranslationBundle\Doctrine\TranslatableRemover` and call
+  `removeAllLocaleVariants($entity)` (every sibling, `$entity` included) or
+  `removeSingleLocaleVariant($entity)` (just this one), then `flush()` once. To make every
+  plain `$em->remove()` cascade automatically, set `cascade_remove_locale_variants: true`.
+- **llms.md:** See "Removal Semantics (v4)" and the "Deleted Entity Still Served in Another
+  Locale" troubleshooting entry.
+
+**Related, both fixed by the v4.0 upgrade itself (nothing to change in application code):**
+- **Duplicate variant on every `translate()` call under an active locale filter** — before
+  v4.0, the existing-variant lookup queried through the entity's own repository, which the
+  filter silently rewrote into a query that could never match.
+- **Detached entity duplicated during an import** (`$em->clear()` between batches) — before
+  v4.0, a cache hit surviving `clear()` was handed back as reusable and re-inserted as a new
+  row by `persist()`.
 
 ---
 
@@ -489,11 +549,13 @@ LAYER 5: Compile-Time Validation (v2.0)
   [X] No attribute conflicts
   [X] No single-column unique constraints
   [X] No removed v1.x config keys
+  [X] strict_discovery not tripped (v4.0)
 
-LAYER 6: Tuuid Linkage Integrity (v2.2)
-  [X] tmi:translation:doctor reports no anomalies
+LAYER 6: Tuuid Linkage Integrity (v2.2) & Removal Semantics (v4.0)
+  [X] tmi:translation:doctor reports no anomalies (incl. null-tuuid, v4.0)
   [X] Shared values in sync across locale variants
   [X] strict_orphan_check configured
+  [X] Deletions go through TranslatableRemover, not a plain $em->remove()
 
 ISSUES FOUND: 2
   - ERROR: SharedAmongstTranslations on bidirectional 'category'

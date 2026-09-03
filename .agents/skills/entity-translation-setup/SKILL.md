@@ -27,12 +27,11 @@ Ask: **"Want me to use defaults (quick mode), or walk through each decision (gui
 
 Tell the user:
 
-**"The TranslatableTrait provides three fields automatically:**
-- **tuuid**: Translation UUID (non-nullable in v2.0) linking all locale variants (already marked SharedAmongstTranslations)
-- **locale**: Current locale code (e.g., 'en', 'fr')
-- **translations**: JSON storage for all locale data
+**"The TranslatableTrait provides two fields automatically:**
+- **tuuid**: Translation UUID, `NOT NULL` (v4.0) linking all locale variants (already marked SharedAmongstTranslations)
+- **locale**: Current locale code (e.g., 'en', 'fr'), `NOT NULL`, up to 16 characters (v4.0)
 
-You don't add these fields yourself - the trait handles them."
+You don't add these fields yourself - the trait handles them. (v4.0 removed the dead `$translations` JSON column and its accessors that earlier versions of the trait carried -- nothing in the bundle ever read it.)"
 
 ## Step 2.5: Configuration Check (v2.0)
 
@@ -161,7 +160,7 @@ use Doctrine\ORM\Mapping as ORM;
 - class Product
 + class Product implements TranslatableInterface
 {
-+     use TranslatableTrait;  // Adds: tuuid, locale, translations
++     use TranslatableTrait;  // Adds: tuuid, locale (both NOT NULL as of v4.0)
 
     #[ORM\Column(type: Types::STRING)]
     private string $name;  // Translatable (no attribute = copied on translate)
@@ -202,7 +201,47 @@ Wait for user confirmation (yes/y/apply/confirm).
 `#[SharedAmongstTranslations]` is rejected on all of these association handlers — sharing one
 collection or relation between locale variants makes the owning side ambiguous.
 
+A plain `#[ORM\ManyToOne(inversedBy: ...)]`/`#[ORM\OneToOne]` field declared on the *owning*
+class (not reached as a back-reference) now translates its target too, get-or-create (v4.0)
+— if the intent is one shared target across every locale instead, mark the association
+`#[SharedAmongstTranslations]` and skip this paragraph entirely for that field. If it should
+translate, give it `cascade: ['persist']` so a newly created target variant gets saved.
+
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
+
+## Removing a Translatable Entity
+
+Mention this whenever the user's workflow includes deleting instances of the entity you just
+made translatable: a plain `$em->remove($entity)` only ever removes the one row you pass it —
+sibling locale variants stay online. Point them at
+`Tmi\TranslationBundle\Doctrine\TranslatableRemover`:
+
+```php
+$remover->removeAllLocaleVariants($entity);   // every locale variant, $entity included
+$remover->removeSingleLocaleVariant($entity); // just this one
+$entityManager->flush();                      // caller flushes, once, after
+```
+
+Or set `cascade_remove_locale_variants: true` to make every plain `$em->remove()` on a
+translatable entity cascade automatically (then `removeSingleLocaleVariant()` becomes the
+escape hatch for deleting one variant only). See **llms.md → "Removal Semantics (v4)"**.
+
+## Import / Seed Recipe
+
+For a "translate N entities in bulk" or "seed data" request:
+
+1. Call `$entityTranslator->preload($batch, $locale)` **once** before looping — it turns one
+   lookup query per entity into one lookup query per class (see **llms.md → "Performance
+   (v4.0)"** for the exact budget).
+2. Loop `getOrTranslate($entity, $locale)` over the batch, `flush()` in batches, `clear()`
+   between batches if memory matters.
+3. If the process outlives one request/job (a queue consumer), nothing extra is needed —
+   `InMemoryTranslationCache` is tagged `kernel.reset` and clears itself between units of
+   work, and a cache hit that survived a `clear()` is treated as a miss rather than
+   duplicated (both as of v4.0).
+4. With `copy_source: false`, a freshly created variant starts empty, including mandatory
+   fields like a slug — seed locale-correct placeholders in a `PostTranslateEvent` listener,
+   not by cloning the source's value. See **llms.md → "Seeding hook for empty variants"**.
 
 ## Smart Field Suggestions
 

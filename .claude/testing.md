@@ -13,7 +13,9 @@ tests/
 ├── Fixtures/Entity/             # Test entities
 ├── Translation/Handlers/        # Handler unit tests
 ├── Doctrine/                    # ORM integration tests
-└── DependencyInjection/         # Container tests
+├── DependencyInjection/         # Container tests
+├── Performance/                 # Query-budget tests (QueryBudgetTest.php)
+└── Support/                     # Test-only infrastructure (QueryCounter.php)
 ```
 
 ## Base Classes
@@ -74,7 +76,7 @@ public function testSupportsReturnsTrueForValidValue(): void
     $handler = new ScalarHandler();
     $args = $this->createTranslationArgs();
 
-    self::assertTrue($handler->supports('value', $args));
+    self::assertTrue($handler->supports($args));
 }
 ```
 
@@ -92,6 +94,40 @@ public function testTranslateCreatesNewEntityWithCorrectLocale(): void
     self::assertSame($entity->getTuuid(), $translated->getTuuid());
 }
 ```
+
+### Query-Budget Tests (v4.0)
+
+`tests/Performance/QueryBudgetTest.php` (`IntegrationTestCase`) asserts an exact database
+round-trip count for a documented operation — `assertSame`, never a ceiling (`assertLessThan`
+lets a budget silently regress; `assertSame` fails the moment it does):
+
+```php
+public function testTranslateEntityWithExistingVariantIsOneQueryAndNoInserts(): void
+{
+    // ... seed a de_DE variant, reset the counter ...
+    $this->translator->translate($product, 'de_DE');
+
+    self::assertSame(1, $this->queryCounter->count());
+}
+```
+
+`tests/Support/QueryCounter.php` is a PSR-3 logger wired behind DBAL's own logging middleware
+in `TestKernel` (test env only); it counts one message per executed statement and
+deliberately excludes transaction-control messages (`beginTransaction`/`commit`/`rollBack`),
+so `flush()`'s implicit transaction never inflates a budget. Every number in README.md §
+Performance and llms.md § Performance traces back to one of these assertions — changing a
+number in either doc without a corresponding test change is a discrepancy the reviewer should
+flag.
+
+### Negative-Proof Discipline
+
+Every bug-fix commit in this codebase carries a test that is demonstrably **red against the
+old code**, not merely green after the fix — proven either by `git stash`-ing the `src/`
+change and re-running the new test (documented in the commit body), or by the test itself
+asserting the specific wrong behaviour the old code produced (e.g. a second row with a new
+id, not a generic exception) rather than a vague "it doesn't crash" check. This is a
+reviewable claim, not a convention taken on faith — a reviewer checking a bug-fix PR asks for
+the red run, the same way `composer check` is asked for the green one.
 
 ## CI Pipeline
 

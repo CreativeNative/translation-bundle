@@ -32,12 +32,17 @@ class Product implements TranslatableInterface
 
 ## Trait Provides
 
-The `TranslatableTrait` adds:
+The `TranslatableTrait` adds (both columns `NOT NULL` as of v4.0 — the PHP properties stay
+`?Tuuid`/`?string`, since a freshly `new`-ed, not-yet-persisted entity legitimately has
+neither yet; `TranslatableEventSubscriber::prePersist()` assigns both before insert):
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `tuuid` | `Tuuid` | Groups translations (auto-generated) |
-| `locale` | `string` | Entity's language |
+| Field | Type | Column | Purpose |
+|-------|------|--------|---------|
+| `tuuid` | `?Tuuid` | `tuuid`, `length: 36`, NOT NULL | Groups translations (auto-generated) |
+| `locale` | `?string` | `Types::STRING`, `length: 16`, NOT NULL | Entity's language |
+
+v4.0 removed the dead `$translations` JSON column and its four accessors
+(`getTranslations()` et al.) — nothing in the bundle ever read them.
 
 ## Custom Doctrine Type
 
@@ -53,15 +58,22 @@ Registered automatically by the bundle.
 
 ## Locale Filter
 
-`LocaleFilter` automatically filters queries by current locale. Configured via:
+`LocaleFilter` automatically filters queries by current locale. Locales come from Symfony's
+own `framework.enabled_locales`, not a bundle-specific key — configured via:
 
 ```yaml
+# config/packages/framework.yaml
+framework:
+    enabled_locales: ['en_US', 'de_DE', 'it_IT']
+
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    locales: ['en_US', 'de_DE', 'it_IT']
     default_locale: 'en_US'
     disabled_firewalls: ['api']  # Disable for specific firewalls
 ```
+
+Each locale must be 2-16 characters and match `language[_SUBTAG...]` — validated at compile
+time (v4.0), so a locale the `locale` column cannot hold fails fast instead of truncating.
 
 ### Sub-requests
 
@@ -75,10 +87,15 @@ request.
 ### Disabling Filter Temporarily
 
 ```php
-$this->entityManager->getFilters()->disable('locale_filter');
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+
+$this->entityManager->getFilters()->disable(LocaleFilter::NAME); // 'tmi_translation_locale_filter'
 // ... query all locales
-$this->entityManager->getFilters()->enable('locale_filter');
+$this->entityManager->getFilters()->enable(LocaleFilter::NAME);
 ```
+
+Prefer `LocaleVariantFinder::withoutLocaleFilter(callable $query)` (below) over hand-rolling
+this disable/try/finally/enable dance — it is exactly this pattern, already correct.
 
 ## Event Subscriber
 
@@ -124,13 +141,25 @@ every variant (via `EntityManager::remove()` per variant, never a bulk DQL DELET
 cascades / `orphanRemoval` / lifecycle callbacks still fire); `removeSingleLocaleVariant()` removes
 just one, exempting it from the opt-in cascade-removal listener.
 
+Set `cascade_remove_locale_variants: true` to make a **plain** `$em->remove($entity)` on any
+translatable entity cascade to its sibling locale variants automatically, via
+`LocaleVariantRemovalListener` (a `preRemove` Doctrine listener, always registered — the flag
+gates it at runtime) calling `TranslatableRemover::cascadeFromPreRemove()`. With the flag on,
+`removeSingleLocaleVariant()` is the escape hatch for removing one variant while its siblings
+stay online.
+
 ## Diagnostic Commands
 
-- `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage
-  (standalone / incomplete translations, duplicate `(tuuid, locale)` pairs); exits non-zero.
+- `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage:
+  standalone / incomplete translations, duplicate `(tuuid, locale)` pairs, and (v4.0)
+  `null-tuuid` rows (a literal DB `NULL` in the `tuuid` column — only reachable via a write
+  outside the entity layer, since the column is `NOT NULL`); `--entity=<FQCN>` (v4.0)
+  restricts the scan to one entity, checked against Doctrine's metadata so a concrete
+  subclass is accepted; exits non-zero.
 - `php bin/console tmi:translation:sync-shared` — propagates `#[SharedAmongstTranslations]`
   column values from the default-locale row to all sibling locale variants (`--dry-run`,
-  `--entity=<FQCN>`).
+  `--check` for a CI drift gate, `--entity=<FQCN>`); prints a `Property | Tuuids | Rows |
+  Writable` table naming every drifted property (v4.0).
 
 ## Relationship Handling
 
@@ -144,8 +173,13 @@ just one, exempting it from the opt-in cascade-removal listener.
 
 ## Known Limitations
 
-1. **ManyToMany + SharedAmongstTranslations**: Not yet supported
-2. **Unique constraints**: May fail without locale-based uniqueness in schema
-3. **Non-nullable scalars + EmptyOnTranslate**: Requires nullable field
+1. **Association collections + SharedAmongstTranslations**: Rejected on `OneToMany` and
+   `ManyToMany` (both directions) — one collection shared between locale variants makes the
+   owning side ambiguous. Share the related entity's own scalar columns instead.
+2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
+   validation at `cache:warmup` — use a composite `field + locale` constraint.
+3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to
+   *N*× the rows for a translatable entity, paid regardless of how many locales are actually
+   filled in.
 
-See GitHub Issues for workarounds.
+See UPGRADING.md and README.md § Limitations for detail and workarounds.
