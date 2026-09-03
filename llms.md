@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **646 tests, 5,206 assertions**, all green.
+  `failOnDeprecation`). As of this release: **654 tests, 5,555 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -868,7 +868,7 @@ $entityManager->persist($frenchProduct);
 $entityManager->flush(); // cascade: ['persist'] on $category also saves its new 'fr' variant
 
 // Both share the same Tuuid - they're the same product in different languages
-$product->getTuuid() === $frenchProduct->getTuuid(); // true
+$product->getTuuid()->equals($frenchProduct->getTuuid()); // true
 
 // But they have different locales
 $product->getLocale(); // 'en'
@@ -879,7 +879,7 @@ $product->getPrice() === $frenchProduct->getPrice(); // true (same value)
 
 // Category points at its own locale variant, not the same object
 $product->getCategory() === $frenchProduct->getCategory(); // false -- different Category instances
-$product->getCategory()->getTuuid() === $frenchProduct->getCategory()->getTuuid(); // true -- same Category group
+$product->getCategory()->getTuuid()->equals($frenchProduct->getCategory()->getTuuid()); // true -- same Category group
 $frenchProduct->getCategory()->getLocale(); // 'fr'
 ```
 
