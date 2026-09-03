@@ -88,6 +88,24 @@ final class InMemoryTranslationCacheTest extends TestCase
         self::assertFalse($this->cache->isInProgress('tuuid-1', 'en'));
     }
 
+    public function testResetClearsCachedEntries(): void
+    {
+        $this->cache->set('tuuid-1', 'en', $this->createEntity('en'));
+
+        $this->cache->reset();
+
+        self::assertNull($this->cache->get('tuuid-1', 'en'));
+    }
+
+    public function testResetClearsInProgressMarks(): void
+    {
+        $this->cache->markInProgress('tuuid-1', 'en');
+
+        $this->cache->reset();
+
+        self::assertFalse($this->cache->isInProgress('tuuid-1', 'en'));
+    }
+
     private function createEntity(string $locale): Scalar
     {
         $entity = new Scalar();

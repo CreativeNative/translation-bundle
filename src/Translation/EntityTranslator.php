@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\UnitOfWork;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -119,14 +120,20 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             $tuuidValue = $entity->getTuuid()->getValue();
 
-            // Return a cached translation immediately when available. get() doubles as
-            // the existence check: on a PSR-6 pool, has() can report a hit whose entry
-            // no longer loads (row deleted after caching, pre-3.2 entry format), and
-            // a check-then-get would hand that null to translate(), where it escapes
-            // as a TypeError once zend.assertions=-1 compiles the assert away. A hit
-            // that cannot be loaded is a miss.
+            // Return a cached translation immediately when available -- but only while
+            // the EntityManager still recognizes it. A hit surviving an EntityManager::
+            // clear() (import batches, long-running workers) still sits in the cache
+            // holding an identifier, yet the UnitOfWork no longer tracks it: without
+            // $assume, getEntityState() falls through to the identifier check and
+            // reports STATE_DETACHED. Handing that instance back would make
+            // getOrTranslate() persist() it -- and persist() assumes STATE_NEW for
+            // anything the UnitOfWork does not track, re-inserting the detached
+            // instance as a brand-new row instead of reusing the existing one. A stale
+            // hit is therefore treated as a miss and falls through to the regular
+            // lookup, which reloads (or reuses) a managed instance and overwrites the
+            // cache entry.
             $cached = $this->cache->get($tuuidValue, $locale);
-            if (null !== $cached) {
+            if (null !== $cached && !$this->isDetachedCacheHit($cached)) {
                 return $cached;
             }
 
@@ -150,9 +157,11 @@ final class EntityTranslator implements EntityTranslatorInterface
             try {
                 $this->warmupTranslations([$entity], $locale);
 
-                // Single-call pattern as above: a "hit" that cannot be loaded is a miss.
+                // Same identity check as above: warmupTranslations() may have refreshed
+                // the entry, but a still-detached hit (its tuuid was skipped because the
+                // cache already held something for it) is still a miss here.
                 $cached = $this->cache->get($tuuidValue, $locale);
-                if (null !== $cached) {
+                if (null !== $cached && !$this->isDetachedCacheHit($cached)) {
                     return $cached;
                 }
 
@@ -371,6 +380,22 @@ final class EntityTranslator implements EntityTranslatorInterface
             return;
         }
         $this->logger->info('[TMI Translation] '.$message, $context);
+    }
+
+    /**
+     * A cache hit is stale once the EntityManager itself no longer recognizes it.
+     *
+     * Called without $assume, getEntityState() only ever reports STATE_DETACHED for an
+     * entity that carries an identifier but is absent from the UnitOfWork's own
+     * bookkeeping -- exactly what EntityManager::clear() produces for a previously
+     * managed instance still sitting in this cache. A freshly cloned, not-yet-flushed
+     * translation has no identifier yet and reports STATE_NEW instead, and a
+     * persisted-but-unflushed one is already recorded as STATE_MANAGED -- both remain
+     * valid hits.
+     */
+    private function isDetachedCacheHit(TranslatableInterface $cached): bool
+    {
+        return UnitOfWork::STATE_DETACHED === $this->entityManager->getUnitOfWork()->getEntityState($cached);
     }
 
     /**

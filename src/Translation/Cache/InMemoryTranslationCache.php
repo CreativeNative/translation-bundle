@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Cache;
 
+use Symfony\Contracts\Service\ResetInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 
 /**
  * Array-based per-request cache implementation.
  *
  * Stores translations in nested arrays and in-progress flags in a flat array,
- * matching the original EntityTranslator caching behavior. The cache resets
- * automatically on each request since the service is instantiated per-request.
+ * matching the original EntityTranslator caching behavior. A new instance per
+ * request (the default, non-shared-worker case) already starts empty; reset()
+ * additionally makes this safe under long-running workers (Messenger consumers,
+ * FrameworkBundle's `services_resetter`), where the same instance survives
+ * across requests and must not hand a later request an entity cached -- and
+ * possibly since detached -- by an earlier one. services.yaml tags this
+ * service `kernel.reset` explicitly: Symfony does not autoconfigure
+ * ResetInterface into that tag.
  */
-final class InMemoryTranslationCache implements TranslationCacheInterface
+final class InMemoryTranslationCache implements TranslationCacheInterface, ResetInterface
 {
     /** @var array<string, array<string, TranslatableInterface>> */
     private array $cache = [];
@@ -44,5 +51,11 @@ final class InMemoryTranslationCache implements TranslationCacheInterface
     public function isInProgress(string $tuuid, string $locale): bool
     {
         return isset($this->inProgress[$tuuid.':'.$locale]);
+    }
+
+    public function reset(): void
+    {
+        $this->cache      = [];
+        $this->inProgress = [];
     }
 }

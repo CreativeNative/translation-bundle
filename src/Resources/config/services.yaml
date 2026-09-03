@@ -16,7 +16,12 @@ services:
     # ----------------------------
     # Cache Service
     # ----------------------------
-    Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache: ~
+    # Symfony does not autoconfigure ResetInterface into the kernel.reset tag --
+    # it is added explicitly here so a long-running worker resets this cache
+    # between requests instead of handing a later one an entity the earlier
+    # one cached (and possibly, since, detached).
+    Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache:
+        tags: [ { name: kernel.reset, method: reset } ]
 
     Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
         alias: Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache

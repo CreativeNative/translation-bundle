@@ -499,6 +499,27 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         );
     }
 
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testInMemoryCacheIsTaggedForKernelReset(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        $definition = $containerBuilder->getDefinition(InMemoryTranslationCache::class);
+
+        // Not autoconfigured by Symfony -- services.yaml must tag it explicitly, or a
+        // long-running worker never resets this cache between requests.
+        self::assertSame(
+            [['method' => 'reset']],
+            $definition->getTag('kernel.reset'),
+        );
+    }
+
     private function createContainerBuilderFromKernel(): ContainerBuilder
     {
         $containerBuilder = new ContainerBuilder();
