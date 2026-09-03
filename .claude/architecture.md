@@ -100,7 +100,8 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `Doctrine/TranslatableEntityLocator` — discovers all `TranslatableInterface` entity classes.
 - `Doctrine/LocaleVariantFinder` — the one place that queries across every locale variant of a
   Tuuid, suspending the locale filter for the query (`withoutLocaleFilter()`).
-  `TranslatableRepositoryTrait` and `LocaleCompletenessResolver` delegate to it.
+  `TranslatableRepositoryTrait`, `LocaleCompletenessResolver`, `EntityTranslator`,
+  `TranslatableEntityHandler` and `TranslatableRemover` delegate to it.
 - `Doctrine/TranslatableRemover` — removes every locale variant sharing a Tuuid (or exempts one
   variant from that) via `EntityManager::remove()` per variant, so ORM cascades / `orphanRemoval`
   / lifecycle callbacks fire per variant — never a bulk DQL DELETE. `$em->remove()` alone only
