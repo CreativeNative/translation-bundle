@@ -14,12 +14,10 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Exception\OrphanTranslationException;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
 /**
  * Doctrine lifecycle hooks for translatable entities: locale defaulting,
- * Tuuid generation, orphan detection, and routing entities through the
- * translator's beforePersist/beforeUpdate/beforeRemove/afterLoad hooks.
+ * Tuuid generation, and orphan detection.
  *
  * Orphan detection is scoped to a single flush(): the verdict for an entity
  * persisted in a non-default locale is settled only against the entities
@@ -54,7 +52,6 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
         private string $defaultLocale,
-        private EntityTranslatorInterface $entityTranslator,
         private LoggerInterface|null $logger = null,
         #[Autowire(param: 'tmi_translation.strict_orphan_check')]
         private bool $strictOrphanCheck = false,
@@ -114,8 +111,6 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         if (null === $entity->getLocale() || '' === $entity->getLocale()) {
             $entity->setLocale($this->defaultLocale);
         }
-
-        $this->entityTranslator->afterLoad($entity);
     }
 
     public function onFlush(OnFlushEventArgs $args): void
@@ -126,35 +121,13 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         $insertions = $uow->getScheduledEntityInsertions();
 
         $this->reportOrphansAmong($insertions);
-
-        foreach ($insertions as $entity) {
-            if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforePersist($entity);
-                $meta = $entityManager->getClassMetadata($entity::class);
-                $uow->recomputeSingleEntityChangeSet($meta, $entity);
-            }
-        }
-
-        foreach ($uow->getScheduledEntityUpdates() as $entity) {
-            if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeUpdate($entity);
-                $meta = $entityManager->getClassMetadata($entity::class);
-                $uow->recomputeSingleEntityChangeSet($meta, $entity);
-            }
-        }
-
-        foreach ($uow->getScheduledEntityDeletions() as $entity) {
-            if ($entity instanceof TranslatableInterface) {
-                $this->entityTranslator->beforeRemove($entity);
-            }
-        }
     }
 
     /**
      * Settles the orphan verdict for entities flagged at persist time that are
      * part of this flush: an entity whose auto-generated Tuuid was adopted by
      * another insertion (translate() ran in the same flush) is linked, not
-     * orphaned. Runs before the translator hooks so strict mode fails fast.
+     * orphaned.
      *
      * @param array<object> $insertions
      */

@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Translation;
 
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
 final class EntityTranslatorInterfaceTest extends TestCase
@@ -16,11 +17,9 @@ final class EntityTranslatorInterfaceTest extends TestCase
 
         $methods = [
             'translate',
+            'translateAndPersist',
+            'getOrTranslate',
             'processTranslation',
-            'afterLoad',
-            'beforePersist',
-            'beforeUpdate',
-            'beforeRemove',
         ];
 
         foreach ($methods as $method) {
@@ -32,49 +31,81 @@ final class EntityTranslatorInterfaceTest extends TestCase
     }
 
     /**
-     * @throws \ReflectionException
+     * The four Doctrine lifecycle hooks (afterLoad, beforePersist, beforeUpdate,
+     * beforeRemove) were removed in v4.0 (#19): TranslatableEventSubscriber
+     * normalises an entity's locale in prePersist/postLoad before any hook ran,
+     * so translate($e, $e->getLocale()) always hit the identity return -- the
+     * hooks never translated anything, on any flush. Anyone who relied on them
+     * as an extension point hooks into Doctrine's own lifecycle events or
+     * PreTranslateEvent/PostTranslateEvent instead.
      */
-    public function testAfterLoadMethodSignature(): void
+    public function testLifecycleHooksWereRemoved(): void
     {
-        $this->assertParameterType('afterLoad');
+        $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
+
+        foreach (['afterLoad', 'beforePersist', 'beforeUpdate', 'beforeRemove'] as $method) {
+            self::assertFalse(
+                $reflection->hasMethod($method),
+                sprintf('Method %s should no longer exist on EntityTranslatorInterface', $method),
+            );
+        }
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function testBeforePersistMethodSignature(): void
+    public function testTranslateMethodSignature(): void
     {
-        $this->assertParameterType('beforePersist');
+        $this->assertFirstParameterIsTranslatable('translate', 2);
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function testBeforeUpdateMethodSignature(): void
+    public function testTranslateAndPersistMethodSignature(): void
     {
-        $this->assertParameterType('beforeUpdate');
+        $this->assertFirstParameterIsTranslatable('translateAndPersist', 2);
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function testBeforeRemoveMethodSignature(): void
+    public function testGetOrTranslateMethodSignature(): void
     {
-        $this->assertParameterType('beforeRemove');
+        $this->assertFirstParameterIsTranslatable('getOrTranslate', 2);
     }
 
     /**
-     * Helper to assert that a method parameter has the expected type.
+     * @throws \ReflectionException
+     */
+    public function testProcessTranslationMethodSignature(): void
+    {
+        $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
+        $method     = $reflection->getMethod('processTranslation');
+        $parameters = $method->getParameters();
+
+        self::assertCount(1, $parameters);
+        $param = $parameters[0];
+        self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
+
+        $type = $param->getType();
+        self::assertInstanceOf(\ReflectionNamedType::class, $type);
+        self::assertSame(TranslationArgs::class, $type->getName());
+    }
+
+    /**
+     * Helper to assert a method's parameter count and that its first
+     * parameter is typed TranslatableInterface.
      *
      * @throws \ReflectionException
      */
-    private function assertParameterType(string $methodName): void
+    private function assertFirstParameterIsTranslatable(string $methodName, int $expectedParameterCount): void
     {
         $reflection = new \ReflectionClass(EntityTranslatorInterface::class);
         $method     = $reflection->getMethod($methodName);
         $parameters = $method->getParameters();
 
-        self::assertCount(1, $parameters);
+        self::assertCount($expectedParameterCount, $parameters);
         $param = $parameters[0];
         self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
 

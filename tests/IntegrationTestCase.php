@@ -71,13 +71,9 @@ class IntegrationTestCase extends KernelTestCase
         self::assertInstanceOf(AttributeHelper::class, $attributeHelper, 'Attribute helper service must be an AttributeHelper instance');
         $this->attributeHelper = $attributeHelper;
 
-        $translator    = $this->translator();
         $entityManager = $this->entityManager();
 
-        $subscriber = new TranslatableEventSubscriber(
-            'en_US',
-            $translator,
-        );
+        $subscriber = new TranslatableEventSubscriber('en_US');
 
         $eventManager = $entityManager->getEventManager();
         $eventManager->addEventSubscriber($subscriber);

@@ -56,12 +56,6 @@ final class EntityTranslator implements EntityTranslatorInterface
 
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
-        $this->logInfo('Starting translation of {class}', [
-            'class'         => $entity::class,
-            'source_locale' => $entity->getLocale(),
-            'target_locale' => $locale,
-        ]);
-
         $result = $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
         \assert($result instanceof TranslatableInterface);
 
@@ -114,10 +108,19 @@ final class EntityTranslator implements EntityTranslatorInterface
             // Translating an entity into the locale it already carries is the identity
             // operation. Cloning it would be wrong on its own, and caching that clone under
             // (tuuid, locale) would hand it back to every later translate() for this pair --
-            // which is exactly what the persist/update hooks ask for on every flush.
+            // which is exactly what translate($entity, $entity->getLocale()) asks for, a call
+            // shape consumers are free to make (a no-op by construction). The info log below
+            // sits after this check for the same reason: an identity call did no translation
+            // work and should not be reported as if it had.
             if ($entity->getLocale() === $locale) {
                 return $entity;
             }
+
+            $this->logInfo('Starting translation of {class}', [
+                'class'         => $entity::class,
+                'source_locale' => $entity->getLocale(),
+                'target_locale' => $locale,
+            ]);
 
             $tuuidValue = $entity->getTuuid()->getValue();
 
@@ -188,28 +191,6 @@ final class EntityTranslator implements EntityTranslatorInterface
         // PHP sorts are stable, so equal priorities keep their registration order and two
         // handlers sharing a priority cannot displace each other.
         usort($this->handlers, static fn (array $a, array $b): int => $b['priority'] <=> $a['priority']);
-    }
-
-    // --- EntityTranslatorInterface Hooks ---
-
-    public function afterLoad(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforePersist(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforeUpdate(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
-    }
-
-    public function beforeRemove(TranslatableInterface $entity): void
-    {
-        $this->translate($entity, $entity->getLocale() ?? $this->defaultLocale);
     }
 
     /**

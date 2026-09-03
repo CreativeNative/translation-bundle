@@ -206,50 +206,24 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertSame('first', $this->translator()->processTranslation($args));
     }
 
-    public function testLifecycleHooksUseEntityLocaleIfPresent(): void
+    /**
+     * Negative proof for #19: translate() used to log "Starting translation"
+     * unconditionally, before processTranslation() ever reached the identity
+     * check. Calling translate($entity, $entity->getLocale()) -- the exact
+     * shape the old afterLoad/beforePersist/beforeUpdate/beforeRemove hooks
+     * used -- is a no-op by construction and must produce no log entry.
+     */
+    public function testIdentityTranslateDoesNotLog(): void
     {
         $entity = new Scalar();
         $entity->setTitle('Original Title');
+        $entity->setLocale('en_US');
 
-        // Make attribute helper report "no special attributes" for the property
-        $this->attributeHelper()->method('isSharedAmongstTranslations')
-            ->willReturnCallback(fn ($property) => false);
-        $this->attributeHelper()->method('isEmptyOnTranslate')
-            ->willReturnCallback(fn ($property) => false);
+        $this->logger()->expects($this->never())->method('info');
 
-        // Handler called once (first lifecycle event); subsequent events use cache
-        $handler = $this->createMock(TranslationHandlerInterface::class);
-        $handler->method('supports')->willReturn(true);
-        $handler->expects($this->once())->method('translate')->willReturn($entity);
+        $result = $this->translator()->translate($entity, 'en_US');
 
-        $this->translator()->addTranslationHandler($handler);
-        $this->translator()->afterLoad($entity);
-        $this->translator()->beforePersist($entity);
-        $this->translator()->beforeUpdate($entity);
-    }
-
-    public function testLifecycleHooksFallbackToDefaultLocaleWhenNull(): void
-    {
-        $entity = new Scalar();
-        $entity->setTitle('Original Title');
-
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
-        $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
-
-        $handler = $this->createMock(TranslationHandlerInterface::class);
-        $handler->method('supports')->willReturn(true);
-
-        // Handler called once (first lifecycle event); subsequent events use cache
-        $handler->expects($this->once())->method('translate')->willReturn($entity);
-
-        $this->translator()->addTranslationHandler($handler);
-
-        // 4 lifecycle methods: afterLoad + beforePersist + beforeUpdate + beforeRemove
-        // Only the first actually invokes the handler; the rest return from cache
-        $this->translator()->afterLoad($entity);
-        $this->translator()->beforePersist($entity);
-        $this->translator()->beforeUpdate($entity);
-        $this->translator()->beforeRemove($entity);
+        self::assertSame($entity, $result);
     }
 
     public function testProcessTranslationUsesExistingCacheEntry(): void

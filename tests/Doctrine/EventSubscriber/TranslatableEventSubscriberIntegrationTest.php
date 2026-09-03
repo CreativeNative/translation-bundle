@@ -8,6 +8,7 @@ use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
@@ -23,10 +24,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     {
         parent::setUp();
 
-        $this->subscriber = new TranslatableEventSubscriber(
-            'en_US',
-            $this->translator(),
-        );
+        $this->subscriber = new TranslatableEventSubscriber('en_US');
 
         $this->entityManager()->getEventManager()->addEventSubscriber($this->subscriber);
     }
@@ -64,11 +62,23 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     }
 
     /**
+     * Negative proof for #19: the subscriber used to route every scheduled
+     * insertion, update and deletion through EntityTranslator::beforePersist/
+     * beforeUpdate/beforeRemove -- always a no-op, since prePersist/postLoad
+     * already normalise the entity's own locale before onFlush ever runs, so
+     * translate($e, $e->getLocale()) always hit the identity return. Against
+     * the pre-WP13 subscriber, this logger stub would see one info() call per
+     * flush below (three); the current subscriber makes no such call at all.
+     *
      * @throws ORMException
      * @throws OptimisticLockException
      */
-    public function testOnFlushCallsTranslatorBeforePersistUpdateRemove(): void
+    public function testOnFlushNeverInvokesTheTranslator(): void
     {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->never())->method('info');
+        $this->translator()->setLogger($logger);
+
         // --- Persist entity ---
         $entity = new Scalar();
         $entity->setTitle('Initial Title');
@@ -81,13 +91,13 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
 
         // --- Update entity ---
         $entity->setTitle('Updated Title');
-        $this->entityManager()->flush(); // triggers onFlush, subscriber should call translator
+        $this->entityManager()->flush();
 
         $entityId = $entity->getId();
 
         // --- Remove entity ---
         $this->entityManager()->remove($entity);
-        $this->entityManager()->flush(); // triggers onFlush
+        $this->entityManager()->flush();
 
         // Verify entity is gone from database
         self::assertNull($this->entityManager()->find(Scalar::class, $entityId));
@@ -134,7 +144,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     public function testOrphanIsNotReportedWhenTranslationJoinsTheSameFlush(): void
     {
         $logger     = $this->createSpyLogger();
-        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator(), $logger, false);
+        $subscriber = new TranslatableEventSubscriber('en_US', $logger, false);
         $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
 
         $entity = new Scalar();
@@ -156,7 +166,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     public function testOrphanStillFlushedAloneIsReported(): void
     {
         $logger     = $this->createSpyLogger();
-        $subscriber = new TranslatableEventSubscriber('en_US', $this->translator(), $logger, false);
+        $subscriber = new TranslatableEventSubscriber('en_US', $logger, false);
         $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
 
         $entity = new Scalar();
