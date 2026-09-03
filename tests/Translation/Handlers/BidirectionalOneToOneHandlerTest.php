@@ -79,7 +79,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $context = $this->entityContext($entity, $prop)->setShared(true);
 
-        self::expectException(\ErrorException::class);
+        self::expectException(\RuntimeException::class);
         self::expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
 
         $handler->translate($context);

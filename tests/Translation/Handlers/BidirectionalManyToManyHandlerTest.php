@@ -387,7 +387,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     /**
      * @throws \ReflectionException|MappingException
      */
-    public function testTranslateSharedThrowsErrorException(): void
+    public function testTranslateSharedThrowsRuntimeException(): void
     {
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 

@@ -35,6 +35,7 @@ with a migration path.
   - [6. `tmi:translation:sync-shared` names the properties that drifted](#6-tmitranslationsync-shared-names-the-properties-that-drifted)
   - [7. TranslatableEntityHandler no longer checks for an existing variant itself](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)
   - [8. A cycle-guard fallback never mutates the source entity](#8-a-cycle-guard-fallback-never-mutates-the-source-entity)
+  - [9. Shared bidirectional associations throw RuntimeException everywhere](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere)
 - [New in 4.0](#new-in-40)
 - [Upgrade Checklist (4.0)](#upgrade-checklist-40)
 
@@ -627,6 +628,32 @@ longer be there in that in-memory collection; reload after `flush()` to see it. 
 unlikely to be visible code: the shape only exists inside one recursive `translate()` call, and
 most applications never inspect a mid-translation collection before persisting it.
 
+### 9. Shared bidirectional associations throw RuntimeException everywhere
+
+`#[SharedAmongstTranslations]` is not supported on any bidirectional association — the owning
+side would have to point at two different parents at once — so every bidirectional handler
+rejects it. Through v3.4, three of the five did not agree on how:
+
+| Handler | Before v4 | After v4 |
+|---|---|---|
+| `BidirectionalManyToOneHandler` | `\ErrorException` | `\RuntimeException` |
+| `BidirectionalOneToOneHandler` | `\ErrorException` | `\RuntimeException` |
+| `BidirectionalOneToManyHandler` | `\ErrorException` | `\RuntimeException` |
+| `BidirectionalManyToManyHandler` | `\RuntimeException` | `\RuntimeException` (unchanged) |
+| `UnidirectionalManyToManyHandler` | `\RuntimeException` | `\RuntimeException` (unchanged) |
+
+`\ErrorException` is a PHP error-wrapper class — it does not extend `\RuntimeException` — so
+`catch (\RuntimeException $e)` around a `translate()` call silently missed it for three of the
+five association shapes, even though the documentation always described a single
+`RuntimeException` contract. Message text is unchanged for every handler; only the thrown
+class moved.
+
+**What to check:** if you catch exceptions around `translate()`/`translateAndPersist()` to
+detect a misconfigured `#[SharedAmongstTranslations]`, a `catch (\RuntimeException $e)` now
+reliably catches all five shapes. A `catch (\ErrorException $e)` written specifically to work
+around the old ManyToOne/OneToOne/OneToMany behaviour no longer matches and should be changed
+to `\RuntimeException`.
+
 ---
 
 ## New in 4.0
@@ -720,7 +747,11 @@ last bullet):
     [§ 8](#8-a-cycle-guard-fallback-never-mutates-the-source-entity) — an in-progress item
     reached through a translation cycle is no longer in that in-memory collection (it is after
     a reload).
-15. Run your test suite. Behavioural Changes 1-8 above are the ones most likely to surface as
+15. If you `catch (\ErrorException $e)` around a `translate()`/`translateAndPersist()` call to
+    detect `#[SharedAmongstTranslations]` on a bidirectional `ManyToOne`/`OneToOne`/`OneToMany`,
+    change it to `\RuntimeException` — see
+    [§ 9](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere).
+16. Run your test suite. Behavioural Changes 1-9 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.
 

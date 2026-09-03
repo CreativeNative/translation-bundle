@@ -65,7 +65,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     }
 
     /**
-     * @throws \ErrorException
+     * @throws \RuntimeException
      * @throws \ReflectionException
      *
      * @return Collection<int, mixed>
@@ -81,7 +81,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
                 'amongst translations. Either remove the SharedAmongstTranslation '.
                 'attribute or choose another association type.';
 
-            throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
+            throw new \RuntimeException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
         }
 
         if ($context->isEmpty()) {

@@ -39,7 +39,7 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
 
     public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
     {
-        self::expectException(\ErrorException::class);
+        self::expectException(\RuntimeException::class);
 
         $child  = new TranslatableOneToOneBidirectionalChild()->setLocale('en_US');
         $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en_US');

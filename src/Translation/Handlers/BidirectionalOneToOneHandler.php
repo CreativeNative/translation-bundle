@@ -52,7 +52,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     }
 
     /**
-     * @throws \ErrorException
+     * @throws \RuntimeException
      */
     public function translate(TranslationContext $context): mixed
     {
@@ -65,7 +65,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
                     'amongst translations. Either remove the @SharedAmongstTranslation '.
                     'annotation or choose another association type.';
 
-                throw new \ErrorException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => $property->name]));
+                throw new \RuntimeException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => $property->name]));
             }
 
             return $context->getEntity();
