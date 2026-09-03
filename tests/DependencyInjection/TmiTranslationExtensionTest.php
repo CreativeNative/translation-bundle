@@ -16,6 +16,8 @@ use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
+use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
@@ -450,6 +452,23 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension->load([['default_locale' => 'en_US', 'unique_locale_variants' => true]], $containerBuilder);
 
         self::assertTrue($containerBuilder->getParameter('tmi_translation.unique_locale_variants'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testTranslationCacheInterfaceAliasesToInMemoryCache(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertSame(
+            InMemoryTranslationCache::class,
+            (string) $containerBuilder->getAlias(TranslationCacheInterface::class),
+        );
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder

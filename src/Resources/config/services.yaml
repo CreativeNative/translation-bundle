@@ -21,11 +21,6 @@ services:
     Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
         alias: Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache
 
-    Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache:
-        arguments:
-            $cachePool: '@cache.app'
-            $entityManager: '@doctrine.orm.entity_manager'
-
     # ----------------------------
     # Type Default Resolver
     # ----------------------------

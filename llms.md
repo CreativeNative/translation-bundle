@@ -389,37 +389,15 @@ Abstraction for translation caching and circular-reference detection. Replaces t
 - `unmarkInProgress(string $tuuid, string $locale): void` -- Remove in-progress mark
 - `isInProgress(string $tuuid, string $locale): bool` -- Check if translation is in-progress
 
-`EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. Custom implementations backed by a persistent store should still give the mark a short TTL (the bundled `Psr6TranslationCache` uses 60s) so a mark that outlives its process expires on its own.
+`EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. A cache hands back managed instances or null; a custom implementation backed by a persistent store must reload through the `EntityManager` with the locale filter suspended -- in-progress markers are per-process by definition and are never expected to outlive the request that set them.
 
 **No `has()` on the contract:** `TranslationCacheInterface` deliberately has no existence check besides `get()`. A `has()` the bundle shipped up to v3.3.0 was removed in v3.4.0, because on a persistent backend key presence proves nothing: a row deleted since it was cached, or an entry written in an older format, leaves the key behind while the entry no longer loads -- exactly the v3.2.1 trap (see Revision History), where a check-then-get let that gap surface as a `TypeError` in production. The one reliable check is `get() !== null`, which also costs one pool round-trip instead of two. A custom cache implementation that still declares a `has()` method keeps working (an extra public method is harmless) -- just delete it.
 
 ### Default Implementation: InMemoryTranslationCache
 
-Stores translations in PHP arrays, scoped to the current request. Registered as the default implementation.
+Stores translations in PHP arrays, scoped to the current request. Registered as the default and only bundled implementation; the interface is aliased to it and there is no other option to switch to via configuration.
 
-### PSR-6 Implementation: Psr6TranslationCache
-
-Ships with the bundle for cross-request caching. Uses Symfony's `cache.app` pool. Keys use dot separators with underscore-replaced UUIDs for PSR-6 compliance.
-
-It never stores the entity itself -- `set()` stores `[class, identifier]`, and `get()` reloads through the injected `EntityManagerInterface` on every hit. That is what makes it safe on persistent backends (Redis, filesystem, ...): a serialized Doctrine entity would carry dead proxy/EntityManager references across requests, but an identifier reloads cleanly. Within one request, Doctrine's identity map returns the same instance the pipeline already produced, so this costs nothing extra for the in-memory case. A row deleted after it was cached reloads to `null`, which is reported as a cache miss; an entity with no identifier yet (not persisted, or persisted but not flushed) is not cached by `set()`.
-
-The service is registered but **not active by default** -- the interface stays aliased to `InMemoryTranslationCache`. To switch to the PSR-6 cache, override the alias in your application:
-
-```yaml
-# config/services.yaml
-Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
-    alias: Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache
-```
-
-To back it with a pool other than `cache.app`, redefine the service with your own pool (the second argument stays the entity manager):
-
-```yaml
-# config/services.yaml
-Tmi\TranslationBundle\Translation\Cache\Psr6TranslationCache:
-    arguments:
-        $cachePool: '@cache.translation_pool'
-        $entityManager: '@doctrine.orm.entity_manager'
-```
+A cache hands back managed instances or null, never a detached or stale one. `InMemoryTranslationCache` gets this for free (it never outlives the request that created it, and Doctrine's identity map hands back the exact instance the pipeline already produced). A persistent, cross-request implementation (Redis, filesystem, ...) is possible via a custom `TranslationCacheInterface` -- see below -- but it must reload the entity through the `EntityManager` on every hit, with the locale filter suspended, rather than serializing the entity itself: a serialized Doctrine entity carries dead proxy/EntityManager references across requests or processes, and reloading also lets a row deleted since it was cached resolve to a clean miss instead of a stale object.
 
 ### Custom Implementation
 
