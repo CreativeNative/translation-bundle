@@ -19,6 +19,8 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
+use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -155,6 +157,23 @@ class UnitTestCase extends TestCase
         $emStub->method('createQueryBuilder')->willReturn($this->queryBuilderReturning($results));
 
         return new LocaleVariantFinder($emStub);
+    }
+
+    /**
+     * A real TranslatableEntityHandler built on the shared entityManager()/translator()/
+     * propertyAccessor() mocks -- the same clone-plus-pipeline entity handler that
+     * BidirectionalOneToOneHandler and BidirectionalManyToOneHandler now delegate the
+     * association target's clone to. Stub entityManager()->createQueryBuilder() (via
+     * queryBuilderReturning()) to control what its LocaleVariantFinder reports as the
+     * existing variant, if any.
+     */
+    protected function translatableEntityHandler(): TranslatableEntityHandler
+    {
+        return new TranslatableEntityHandler(
+            new LocaleVariantFinder($this->entityManager()),
+            new DoctrineObjectHandler($this->entityManager(), $this->translator(), $this->propertyAccessor()),
+            new AttributeHelper(),
+        );
     }
 
     private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator

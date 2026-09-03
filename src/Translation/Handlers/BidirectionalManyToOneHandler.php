@@ -9,17 +9,20 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
-use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * Translate a single entity which is on the many-side. If the related property is a translatable entity, translate that related entity
- * (by calling the translator). If there is no property or the entity is not translatable, return the entity (not a clone) --
- * or clone+set locale depending on your desired semantics (we'll choose safe/consistent behavior below).
+ * Translates a ManyToOne association, in either of the two shapes it can be reached in:
  *
- * Final rule of thumb
- * If no translation work is possible -> return original.
- * If translation is happening -> return a clone with new locale.
+ * - The direct form: $args->getDataToBeTranslated() is the related (many-)one-side entity
+ *   referenced through a property declared on a *different*, owning class (reached via
+ *   DoctrineObjectHandler::translateProperties()). There is no scalar field on the related
+ *   class to repair -- the related entity is simply translated to the matching locale
+ *   (get-or-create) and takes the property's new value.
+ * - The back-reference form: $args->getDataToBeTranslated() is the child entity itself,
+ *   reached via BidirectionalOneToManyHandler with a property that names the child's own
+ *   ManyToOne field pointing back at the parent. Here the field being processed *is* an
+ *   association on the entity's own class, which is how the two forms are told apart below.
  */
 final readonly class BidirectionalManyToOneHandler implements TranslationHandlerInterface
 {
@@ -27,7 +30,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         private AttributeHelper $attributeHelper,
         private EntityManagerInterface $entityManager,
         private PropertyAccessorInterface $propertyAccessor,
-        private EntityTranslatorInterface $translator,
+        private TranslatableEntityHandler $translatableEntityHandler,
     ) {
     }
 
@@ -89,25 +92,29 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         $propertyName = $property->name;
         $associations = $this->entityManager->getClassMetadata($entity::class)->getAssociationMappings();
 
-        if (!isset($associations[$propertyName])) {
-            return $entity;
+        // Delegate the clone itself to the entity pipeline: existing-variant lookup via the
+        // finder, translateProperties() over the entity's own fields (shared/empty/
+        // translatable, not just the back-reference), generated-id reset, and locale. A plain
+        // `clone $entity` here left all of that undone -- including the id, which PHP's clone
+        // copies verbatim, so a flush re-inserted the source's row under a fresh identity
+        // instead of ever reusing an existing translation.
+        $translated = $this->translatableEntityHandler->translate($args);
+
+        // Back-reference form only: $propertyName names an association declared on the
+        // entity's own class (reached via BidirectionalOneToManyHandler). The pipeline above
+        // just ran translateProperties() over that very field, which still held the source
+        // parent (a shallow copy) and got resolved through processTranslation() -- that
+        // parent is still mid-translation at this point, so the in-progress guard in
+        // EntityTranslator::processTranslation() caught the recursion and handed back the
+        // untranslated source instead of infinitely recursing. Overwrite it with the parent
+        // this handler already knows is being translated. The direct form (property declared
+        // on a different, owning class) never matches here -- $translated is simply the
+        // related entity translated to the matching locale, nothing left to repair.
+        $translatedParent = $args->getTranslatedParent();
+        if (isset($associations[$propertyName]) && \is_object($translatedParent)) {
+            $this->propertyAccessor->setValue($translated, $propertyName, $translatedParent);
         }
 
-        $targetLocale = $args->getTargetLocale();
-
-        // Clone so we don't mutate original; set the new locale.
-        $clone = clone $entity;
-        $clone->setLocale($targetLocale);
-
-        $related = $this->propertyAccessor->getValue($entity, $propertyName);
-
-        if ($related instanceof TranslatableInterface && \is_string($targetLocale)) {
-            $translatedRelated = $this->translator->translate($related, $targetLocale);
-            $this->propertyAccessor->setValue($clone, $propertyName, $translatedRelated);
-        } else {
-            $this->propertyAccessor->setValue($clone, $propertyName, $related);
-        }
-
-        return $clone;
+        return $translated;
     }
 }

@@ -139,4 +139,101 @@ final class TranslatableManyToOneBidirectionalTest extends IntegrationTestCase
         self::assertEquals($translatedChild, $translation->getSimpleChildren()->first());
         self::assertIsTranslation($parent, $translation, self::TARGET_LOCALE);
     }
+
+    /**
+     * The child clone must run the full entity pipeline, not a shallow `clone $entity`:
+     * its own generated id is reset (a persisted source row's id would otherwise be
+     * copied verbatim onto the clone), its shared field is copied, its EmptyOnTranslate
+     * field is cleared, and its own translatable field follows copy_source (true by
+     * default in the test kernel) -- on top of the back-reference to the translated
+     * parent, which already worked before this fix.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testChildCloneRunsTheFullEntityPipeline(): void
+    {
+        $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
+        $child  = new TranslatableManyToOneBidirectionalChild()
+            ->setLocale('en_US')
+            ->setTitle('Widget')
+            ->setShared('shared-value')
+            ->setEmpty('secret');
+        $child->setParentSimple($parent);
+        $parent->getSimpleChildren()->add($child);
+
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->persist($child);
+        $this->entityManager()->flush();
+
+        self::assertNotNull($child->getId(), 'Source child must be persisted before translating');
+
+        $translation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translation);
+
+        $translatedChild = $translation->getSimpleChildren()->first();
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $translatedChild);
+        self::assertNotSame($child, $translatedChild);
+        self::assertNull($translatedChild->getId(), 'Generated id must be reset, not copied verbatim from the source row');
+        self::assertSame('Widget', $translatedChild->getTitle(), 'Translatable field follows copy_source: true');
+        self::assertSame('shared-value', $translatedChild->getShared());
+        self::assertNull($translatedChild->getEmpty(), 'EmptyOnTranslate must clear the field -- a shallow clone would have kept it');
+        self::assertSame($translation, $translatedChild->getParentSimple());
+        self::assertSame(self::TARGET_LOCALE, $translatedChild->getLocale());
+
+        $this->entityManager()->persist($translation);
+        $this->entityManager()->flush();
+
+        self::assertIsTranslation($child, $translatedChild, self::TARGET_LOCALE);
+    }
+
+    /**
+     * The direct form (#15): a plain ManyToOne property declared on a *different*, owning
+     * class than the entity it points at -- here, the child's own `parentSimple` field
+     * reached by translating the child directly rather than through
+     * BidirectionalOneToManyHandler. The old code looked up the property's name in the
+     * *target's* own association mappings, never found it there, and silently returned the
+     * untranslated source parent. The fix translates the target to the matching locale
+     * (get-or-create) instead.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testDirectFormTranslatesTheRelatedEntityInsteadOfReturningItUnchanged(): void
+    {
+        $parent = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
+        $this->entityManager()->persist($parent);
+
+        // Deliberately not added to $parent->getSimpleChildren(): the owning side
+        // (parentSimple, below) is what Doctrine persists from, and keeping the inverse
+        // collection empty avoids also pipelining it here, which would recurse back into
+        // this very child through BidirectionalOneToManyHandler -- a separate, pre-existing
+        // interaction this test does not need to exercise.
+        $child = new TranslatableManyToOneBidirectionalChild()->setLocale('en_US');
+        $child->setParentSimple($parent);
+
+        $this->entityManager()->persist($child);
+        $this->entityManager()->flush();
+
+        // Translate the child on its own -- property is null at this top level, so
+        // TranslatableEntityHandler runs the pipeline over the child's own properties,
+        // including 'parentSimple', declared on the child's class and pointing at a
+        // *different* class (the direct form).
+        $childTranslation = $this->translator()->translate($child, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $childTranslation);
+
+        $translatedParent = $childTranslation->getParentSimple();
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translatedParent);
+        self::assertNotSame($parent, $translatedParent, 'The direct form must translate the target instead of returning the untranslated source');
+        self::assertSame(self::TARGET_LOCALE, $translatedParent->getLocale());
+        self::assertEquals($parent->getTuuid(), $translatedParent->getTuuid());
+
+        // parentSimple carries no cascade -- the direct form documents that the target
+        // needs its own persist() (or a mapping-level cascade) to be saved.
+        $this->entityManager()->persist($childTranslation);
+        $this->entityManager()->persist($translatedParent);
+        $this->entityManager()->flush();
+
+        self::assertIsTranslation($parent, $translatedParent, self::TARGET_LOCALE);
+    }
 }

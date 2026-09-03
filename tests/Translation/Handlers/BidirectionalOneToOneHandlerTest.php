@@ -124,13 +124,18 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     /** ------------------------- Translate -------------------------.
      * @throws \ReflectionException
      */
-    public function testTranslateClonesChildAndSetsParentAndLocale(): void
+    public function testTranslateRunsFullPipelineOnNewChildCloneAndSetsParentAndLocale(): void
     {
         $handler = $this->createHandler();
 
         $parent = new TranslatableOneToOneBidirectionalParent();
         $child  = new TranslatableOneToOneBidirectionalChild();
         $parent->setSimpleChild($child);
+
+        // Simulate a persisted row: a shallow `clone $data` would have copied this id
+        // verbatim onto the clone instead of resetting it.
+        $idProperty = new \ReflectionProperty(TranslatableOneToOneBidirectionalChild::class, 'id');
+        $idProperty->setValue($child, 42);
 
         $metadata = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
         $mapping  = new OneToOneOwningSideMapping(
@@ -147,6 +152,11 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
             ->with(TranslatableOneToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
+        // No existing de_DE/it_IT variant -- the finder's query returns nothing, so the
+        // delegated TranslatableEntityHandler takes the create path.
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
+
         $prop = new \ReflectionProperty($parent, 'simpleChild');
 
         $args = new TranslationArgs($child, 'en_US', 'it_IT');
@@ -157,8 +167,56 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         self::assertInstanceOf(TranslatableOneToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result);
+        self::assertNull($result->getId(), 'Generated id must be reset on the clone, not copied verbatim from the source row');
         self::assertSame($parent, $result->getSimpleParent());
         self::assertSame('it_IT', $result->getLocale());
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslateReusesExistingChildVariantAndRepairsBackReference(): void
+    {
+        $handler = $this->createHandler();
+
+        $parent = new TranslatableOneToOneBidirectionalParent();
+        $child  = new TranslatableOneToOneBidirectionalChild();
+        $parent->setSimpleChild($child);
+
+        $existingTranslation = new TranslatableOneToOneBidirectionalChild()->setLocale('it_IT');
+
+        $metadata = new ClassMetadata(TranslatableOneToOneBidirectionalChild::class);
+        $mapping  = new OneToOneOwningSideMapping(
+            fieldName: 'simpleParent',
+            sourceEntity: TranslatableOneToOneBidirectionalChild::class,
+            targetEntity: TranslatableOneToOneBidirectionalParent::class,
+        );
+        $mapping->inversedBy           = 'simpleChild';
+        $metadata->associationMappings = [
+            'simpleParent' => $mapping,
+        ];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(TranslatableOneToOneBidirectionalChild::class)
+            ->willReturn($metadata);
+
+        // The finder's query reports an already-translated row for this tuuid/locale.
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+
+        $prop = new \ReflectionProperty($parent, 'simpleChild');
+
+        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args->setProperty($prop);
+        $args->setTranslatedParent($parent);
+
+        $result = $handler->translate($args);
+
+        // The existing variant is returned as-is -- not a fresh clone. A handler that
+        // skipped the finder check here would mint a second (tuuid, locale) row on every
+        // call instead of reusing the one already in the database.
+        self::assertSame($existingTranslation, $result);
+        self::assertSame($parent, $result->getSimpleParent(), 'Back-reference must be repaired even on a reused variant');
     }
 
     private function createHandler(): BidirectionalOneToOneHandler
@@ -167,6 +225,7 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
             $this->entityManager(),
             $this->propertyAccessor(),
             $this->attributeHelper(),
+            $this->translatableEntityHandler(),
         );
     }
 }

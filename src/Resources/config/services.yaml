@@ -109,7 +109,7 @@ services:
             - '@tmi_translation.utils.attribute_helper'
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
-            - '@Tmi\TranslationBundle\Translation\EntityTranslator'
+            - '@Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler'
         tags: [ { name: tmi_translation.translation_handler, priority: 70 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler:
@@ -124,6 +124,7 @@ services:
             - '@doctrine.orm.entity_manager'
             - '@property_accessor'
             - '@tmi_translation.utils.attribute_helper'
+            - '@Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler'
         tags: [ { name: tmi_translation.translation_handler, priority: 50 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler:

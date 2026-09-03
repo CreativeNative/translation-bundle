@@ -24,6 +24,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         private EntityManagerInterface $entityManager,
         private PropertyAccessor $propertyAccessor,
         private AttributeHelper $attributeHelper,
+        private TranslatableEntityHandler $translatableEntityHandler,
     ) {
     }
 
@@ -82,9 +83,16 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $property = $args->getProperty();
         assert(null !== $property);
 
-        $clone           = clone $data;
+        // Delegate the clone itself to the entity pipeline: existing-variant lookup via the
+        // finder, translateProperties() over the related entity's own fields (shared/empty/
+        // translatable, not just the back-reference), generated-id reset, and locale. A plain
+        // `clone $data` here left all of that undone -- including the id, which PHP's clone
+        // copies verbatim, so a flush re-inserted the source's row under a fresh identity
+        // instead of ever reusing an existing translation.
+        $translated = $this->translatableEntityHandler->translate($args);
+
         $fieldName       = $property->name;
-        $associations    = $this->entityManager->getClassMetadata($clone::class)->getAssociationMappings();
+        $associations    = $this->entityManager->getClassMetadata($translated::class)->getAssociationMappings();
         $parentFieldName = null;
 
         // Find the field on the related class that points back at the parent. Which side
@@ -104,12 +112,18 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
             }
         }
 
-        $clone->setLocale($args->getTargetLocale());
-
-        if (\is_string($parentFieldName)) {
-            $this->propertyAccessor->setValue($clone, $parentFieldName, $args->getTranslatedParent());
+        // The entity pipeline above just ran translateProperties() over $translated's own
+        // properties, including this very back-reference field -- which still held the source
+        // parent (a shallow copy) and got resolved through processTranslation(). That parent is
+        // still mid-translation at this point (its own translate() call is what led here), so
+        // the in-progress guard in EntityTranslator::processTranslation() caught the recursion
+        // and handed back the untranslated source instead of infinitely recursing. Overwrite it
+        // with the parent this handler already knows is being translated.
+        $translatedParent = $args->getTranslatedParent();
+        if (\is_string($parentFieldName) && \is_object($translatedParent)) {
+            $this->propertyAccessor->setValue($translated, $parentFieldName, $translatedParent);
         }
 
-        return $clone;
+        return $translated;
     }
 }

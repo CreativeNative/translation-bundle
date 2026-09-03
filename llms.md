@@ -265,15 +265,19 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 ---
 
 #### [BidirectionalManyToOneHandler](src/Translation/Handlers/BidirectionalManyToOneHandler.php)
-- **Purpose:** Handles translation of **bidirectional ManyToOne associations**.
+- **Purpose:** Handles translation of **bidirectional ManyToOne associations**, in either of the two
+  shapes the property can be reached in: the **direct form** (the property is declared on a
+  *different*, owning class -- e.g. `Product::$category` -- reached via
+  `DoctrineObjectHandler::translateProperties()`) and the **back-reference form** (the property is
+  the child's own field pointing back at its parent, reached via `BidirectionalOneToManyHandler`).
 - **Priority:** 70
-- **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `PropertyAccessorInterface`, `EntityTranslatorInterface`.
+- **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `PropertyAccessorInterface`, `TranslatableEntityHandler`.
 - **Methods:**
   - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToOne association having `inversedBy`.
-  - `translate()` — Clones parent entity, translates related entity, sets translated entity on clone. Safe fallback to original if translation fails.
+  - `translate()` — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the entity's own property pipeline, generated-id reset, locale). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
   - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
   - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Ensures original objects are never mutated; integrates with `EntityTranslator` for nested translations.
+- **Notes:** Never mutates the source; integrates with `TranslatableEntityHandler`/`EntityTranslator` for nested translations.
 
 ---
 
@@ -293,13 +297,13 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### [BidirectionalOneToOneHandler](src/Translation/Handlers/BidirectionalOneToOneHandler.php)
 - **Purpose:** Handles translation of **bidirectional OneToOne associations**.
 - **Priority:** 50
-- **Dependencies:** `EntityManagerInterface`, `PropertyAccessor`, `AttributeHelper`.
+- **Dependencies:** `EntityManagerInterface`, `PropertyAccessor`, `AttributeHelper`, `TranslatableEntityHandler`.
 - **Methods:**
   - `supports()` — Returns true for `TranslatableInterface` entities with OneToOne having `mappedBy` or `inversedBy`.
-  - `translate()` — Clones entity, sets target locale, updates inverse property to link to translated parent.
+  - `translate()` — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the related entity's own property pipeline, generated-id reset, locale), then repairs the back-reference field to the parent already known to be under translation -- the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source parent in place.
   - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
   - `handleEmptyOnTranslate()` — Returns `null`.
-- **Notes:** Ensures bidirectional integrity between parent and child, clones original entities, works with `EntityTranslator`.
+- **Notes:** Ensures bidirectional integrity between parent and child, never mutates the source, works with `TranslatableEntityHandler`/`EntityTranslator`.
 
 ---
 
@@ -1010,6 +1014,16 @@ private ?Category $category = null;
 > The unidirectional escape hatch only applies to **to-one** relations. A `ManyToMany` is rejected
 > in either direction — `UnidirectionalManyToManyHandler` throws for the attribute as well. For
 > collections, share the related entity's own columns instead of the association.
+
+> The "DO" form above (a plain `ManyToOne` with `inversedBy`, no `SharedAmongstTranslations`) is the
+> **direct form**: `Category` is not itself a field the owning side (`Product`) has a scalar
+> back-reference to, so `BidirectionalManyToOneHandler` simply translates `$category` to the
+> matching locale (get-or-create) and assigns the result — there is nothing to repair on `Category`
+> itself. This means each translated `Product` gets its own, independently get-or-created `Category`
+> variant sharing the same Tuuid, not a shared reference to one `Category` row (that requires
+> `#[SharedAmongstTranslations]`, above). The target needs `cascade: ['persist']` on the mapping (or
+> an explicit `$entityManager->persist($product->getCategory())`) for a newly created variant to be
+> saved.
 
 ### Translations Not Persisted
 

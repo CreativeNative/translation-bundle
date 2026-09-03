@@ -77,4 +77,52 @@ final class TranslatableOneToOneBidirectionalTest extends IntegrationTestCase
 
         self::assertNull($parentTranslation->getEmptyChild());
     }
+
+    /**
+     * The child clone must run the full entity pipeline, not a shallow `clone $data`:
+     * its own generated id is reset (a persisted source row's id would otherwise be
+     * copied verbatim onto the clone), its shared field is copied, its EmptyOnTranslate
+     * field is cleared, and its own translatable field follows copy_source (true by
+     * default in the test kernel) -- on top of the back-reference to the translated
+     * parent, which already worked before this fix.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testChildCloneRunsTheFullEntityPipeline(): void
+    {
+        $child = new TranslatableOneToOneBidirectionalChild()
+            ->setLocale('en_US')
+            ->setTitle('Widget')
+            ->setShared('shared-value')
+            ->setEmpty('secret');
+        $parent = new TranslatableOneToOneBidirectionalParent()->setLocale('en_US');
+
+        $parent->setSimpleChild($child);
+        $child->setSimpleParent($parent);
+
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->persist($child);
+        $this->entityManager()->flush();
+
+        self::assertNotNull($child->getId(), 'Source child must be persisted before translating');
+
+        $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(TranslatableOneToOneBidirectionalParent::class, $parentTranslation);
+
+        $translatedChild = $parentTranslation->getSimpleChild();
+        self::assertInstanceOf(TranslatableOneToOneBidirectionalChild::class, $translatedChild);
+        self::assertNotSame($child, $translatedChild);
+        self::assertNull($translatedChild->getId(), 'Generated id must be reset, not copied verbatim from the source row');
+        self::assertSame('Widget', $translatedChild->getTitle(), 'Translatable field follows copy_source: true');
+        self::assertSame('shared-value', $translatedChild->getShared());
+        self::assertNull($translatedChild->getEmpty(), 'EmptyOnTranslate must clear the field -- a shallow clone would have kept it');
+        self::assertSame($parentTranslation, $translatedChild->getSimpleParent());
+        self::assertSame(self::TARGET_LOCALE, $translatedChild->getLocale());
+
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
+
+        self::assertIsTranslation($child, $translatedChild, self::TARGET_LOCALE);
+    }
 }

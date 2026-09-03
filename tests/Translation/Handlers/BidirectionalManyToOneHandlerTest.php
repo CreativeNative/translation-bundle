@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
-use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\ManyToOneAssociationMapping;
-use Doctrine\ORM\Mapping\OneToManyAssociationMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
@@ -131,54 +129,121 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         self::assertThat($result, self::isNull());
     }
 
-    /** @throws \ReflectionException */
-    public function testTranslateWithAssociationMapping(): void
+    /**
+     * Case (b), the back-reference form: $propertyName ('parentSimple') names a ManyToOne
+     * association declared on the entity's own class -- exactly how
+     * BidirectionalOneToManyHandler dispatches a child. The child clone must run the full
+     * entity pipeline (not a shallow clone) and its back-reference gets repaired to the
+     * parent this handler already knows is being translated.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateRunsFullPipelineOnBackReferenceFormAndRepairsParent(): void
     {
         $handler = $this->createHandler();
-        $parent  = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US');
 
-        $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
+        $parent = new TranslatableOneToManyBidirectionalParent();
+        $child  = new TranslatableManyToOneBidirectionalChild();
+        $child->setLocale('en_US')->setParentSimple($parent);
+
+        // Simulate a persisted row: a shallow `clone $entity` would have copied this id
+        // verbatim onto the clone instead of resetting it.
+        $idProperty = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'id');
+        $idProperty->setValue($child, 7);
+
+        $metadata                      = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
         $metadata->associationMappings = [
-            'simpleChildren' => new OneToManyAssociationMapping(
-                fieldName: 'simpleChildren',
-                sourceEntity: TranslatableOneToManyBidirectionalParent::class,
-                targetEntity: TranslatableManyToOneBidirectionalChild::class,
+            'parentSimple' => new ManyToOneAssociationMapping(
+                fieldName: 'parentSimple',
+                sourceEntity: TranslatableManyToOneBidirectionalChild::class,
+                targetEntity: TranslatableOneToManyBidirectionalParent::class,
             ),
         ];
 
         $this->entityManager()->method('getClassMetadata')
-            ->with(TranslatableOneToManyBidirectionalParent::class)
+            ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
-        $prop = new \ReflectionProperty($parent, 'simpleChildren');
-        $args = new TranslationArgs($parent, 'en_US', 'it_IT');
-        $args->setProperty($prop);
+        // No existing it_IT variant -- the finder's query returns nothing, so the
+        // delegated TranslatableEntityHandler takes the create path.
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
 
-        $children = new ArrayCollection([
-            new TranslatableManyToOneBidirectionalChild(),
-            new TranslatableManyToOneBidirectionalChild(),
-        ]);
-        $args->setTranslatedParent($children);
+        $prop = new \ReflectionProperty($child, 'parentSimple');
+        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args->setProperty($prop);
+        $args->setTranslatedParent($parent);
 
         $result = $handler->translate($args);
 
-        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $result);
-
-        // Translation always produces a clone → must not be the same object
-        self::assertNotSame($parent, $result);
-
-        // Locale should be updated
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $result);
+        self::assertNotSame($child, $result);
+        self::assertNull($result->getId(), 'Generated id must be reset on the clone, not copied verbatim from the source row');
+        self::assertSame($parent, $result->getParentSimple());
         self::assertSame('it_IT', $result->getLocale());
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function testTranslateDelegatesToTranslatorIfNoMapping(): void
+    public function testTranslateReusesExistingChildVariantOnBackReferenceForm(): void
     {
         $handler = $this->createHandler();
-        $entity  = new TranslatableOneToManyBidirectionalParent();
+
+        $parent = new TranslatableOneToManyBidirectionalParent();
+        $child  = new TranslatableManyToOneBidirectionalChild();
+        $child->setLocale('en_US')->setParentSimple($parent);
+
+        $existingTranslation = new TranslatableManyToOneBidirectionalChild()->setLocale('it_IT');
+
+        $metadata                      = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
+        $metadata->associationMappings = [
+            'parentSimple' => new ManyToOneAssociationMapping(
+                fieldName: 'parentSimple',
+                sourceEntity: TranslatableManyToOneBidirectionalChild::class,
+                targetEntity: TranslatableOneToManyBidirectionalParent::class,
+            ),
+        ];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(TranslatableManyToOneBidirectionalChild::class)
+            ->willReturn($metadata);
+
+        // The finder's query reports an already-translated row for this tuuid/locale.
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+
+        $prop = new \ReflectionProperty($child, 'parentSimple');
+        $args = new TranslationArgs($child, 'en_US', 'it_IT');
+        $args->setProperty($prop);
+        $args->setTranslatedParent($parent);
+
+        $result = $handler->translate($args);
+
+        // The existing variant is returned as-is -- not a fresh clone. A handler that
+        // skipped the finder check here would mint a second (tuuid, locale) row on every
+        // call instead of reusing the one already in the database.
+        self::assertSame($existingTranslation, $result);
+        self::assertSame($parent, $result->getParentSimple(), 'Back-reference must be repaired even on a reused variant');
+    }
+
+    /**
+     * Case (a), the direct form: the property ('parentSimple') is declared on a different,
+     * owning class than the entity being translated -- reached via
+     * DoctrineObjectHandler::translateProperties() on that owner, borrowed here via
+     * reflection on the Child fixture's own field to reproduce the exact mismatch (the
+     * target's own metadata never has a field literally named after another class's
+     * property). The old code returned the untranslated source whenever this lookup missed;
+     * the fix instead translates the target to the matching locale (get-or-create) -- there
+     * is no back-reference field to repair.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateOfDirectFormTranslatesTargetInsteadOfReturningSource(): void
+    {
+        $handler = $this->createHandler();
+
+        $target = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
 
         $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [];
@@ -187,13 +252,47 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
-        $prop = new \ReflectionProperty($entity, 'emptyChildren');
-        $args = new TranslationArgs($entity, 'en_US', 'it_IT');
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
+
+        $prop = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
+        $args = new TranslationArgs($target, 'en_US', 'it_IT');
         $args->setProperty($prop);
 
         $result = $handler->translate($args);
 
-        self::assertSame($entity, $result, 'Should return original entity if no mapping');
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $result);
+        self::assertNotSame($target, $result, 'The direct form must translate the target instead of returning the untranslated source');
+        self::assertSame('it_IT', $result->getLocale());
+        self::assertSame($target->getTuuid(), $result->getTuuid());
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testTranslateOfDirectFormReusesExistingTargetVariant(): void
+    {
+        $handler = $this->createHandler();
+
+        $target                        = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
+        $existingTranslation           = new TranslatableOneToManyBidirectionalParent()->setLocale('it_IT');
+        $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
+        $metadata->associationMappings = [];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(TranslatableOneToManyBidirectionalParent::class)
+            ->willReturn($metadata);
+
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+
+        $prop = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
+        $args = new TranslationArgs($target, 'en_US', 'it_IT');
+        $args->setProperty($prop);
+
+        $result = $handler->translate($args);
+
+        self::assertSame($existingTranslation, $result);
     }
 
     public function testTranslateWithNonTranslatableEntity(): void
@@ -292,6 +391,12 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
+        // No existing variant for either the child or its parent -- both finder lookups
+        // (this handler's own, and the recursive one hit while pipelining the child's own
+        // back-reference property) take the create path.
+        $this->entityManager()->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
+
         // --- Step 4: Build TranslationArgs ---
         $prop = new \ReflectionProperty($child, 'parentSimple');
         $args = new TranslationArgs($child, 'en_US', 'it_IT');
@@ -331,7 +436,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             $this->attributeHelper(),
             $this->entityManager(),
             $this->propertyAccessor(),
-            $this->translator(),
+            $this->translatableEntityHandler(),
         );
     }
 }

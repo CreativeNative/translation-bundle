@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Fixtures\Entity\Translatable;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
+use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 
@@ -14,9 +17,20 @@ class TranslatableManyToOneBidirectionalChild implements TranslatableInterface
     use TranslatableTrait;
 
     #[ORM\Id]
-    #[ORM\Column(type: \Doctrine\DBAL\Types\Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER)]
     #[ORM\GeneratedValue]
     private int|null $id = null;
+
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $title = null;
+
+    #[SharedAmongstTranslations]
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $shared = null;
+
+    #[EmptyOnTranslate]
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    private string|null $empty = null;
 
     #[ORM\ManyToOne(targetEntity: TranslatableOneToManyBidirectionalParent::class, inversedBy: 'simpleChildren')]
     #[ORM\JoinColumn(nullable: true)]
@@ -33,6 +47,42 @@ class TranslatableManyToOneBidirectionalChild implements TranslatableInterface
     public function getId(): int|null
     {
         return $this->id;
+    }
+
+    public function getTitle(): string|null
+    {
+        return $this->title;
+    }
+
+    public function setTitle(string|null $title): self
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    public function getShared(): string|null
+    {
+        return $this->shared;
+    }
+
+    public function setShared(string|null $shared): self
+    {
+        $this->shared = $shared;
+
+        return $this;
+    }
+
+    public function getEmpty(): string|null
+    {
+        return $this->empty;
+    }
+
+    public function setEmpty(string|null $empty): self
+    {
+        $this->empty = $empty;
+
+        return $this;
     }
 
     public function getParentSimple(): TranslatableOneToManyBidirectionalParent|null
