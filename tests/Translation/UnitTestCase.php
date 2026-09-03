@@ -14,6 +14,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
@@ -117,13 +119,19 @@ class UnitTestCase extends TestCase
         return $this->cache;
     }
 
-    private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
+    /**
+     * A chainable QueryBuilder stub (select/from/where/andWhere/setParameter/getQuery)
+     * whose query always returns $results -- the shape LocaleVariantFinder builds
+     * internally for its cross-locale lookups, without exercising real Doctrine
+     * query building.
+     *
+     * @param list<TranslatableInterface> $results
+     */
+    protected function queryBuilderReturning(array $results): QueryBuilder
     {
-        // Create a stub Query object
         $queryStub = static::createStub(Query::class);
-        $queryStub->method('getResult')->willReturn([]); // Always return empty array
+        $queryStub->method('getResult')->willReturn($results);
 
-        // Create a stub QueryBuilder with chainable methods
         $qbStub = static::createStub(QueryBuilder::class);
         $qbStub->method('select')->willReturnSelf();
         $qbStub->method('from')->willReturnSelf();
@@ -132,10 +140,25 @@ class UnitTestCase extends TestCase
         $qbStub->method('setParameter')->willReturnSelf();
         $qbStub->method('getQuery')->willReturn($queryStub);
 
-        // Stub EntityManager to return our QueryBuilder
-        $emStub = static::createStub(EntityManagerInterface::class);
-        $emStub->method('createQueryBuilder')->willReturn($qbStub);
+        return $qbStub;
+    }
 
+    /**
+     * A LocaleVariantFinder backed by a disposable EntityManager stub whose only
+     * query always returns $results.
+     *
+     * @param list<TranslatableInterface> $results
+     */
+    protected function localeVariantFinder(array $results = []): LocaleVariantFinder
+    {
+        $emStub = static::createStub(EntityManagerInterface::class);
+        $emStub->method('createQueryBuilder')->willReturn($this->queryBuilderReturning($results));
+
+        return new LocaleVariantFinder($emStub);
+    }
+
+    private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
+    {
         return new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US', 'it_IT'],
@@ -143,8 +166,9 @@ class UnitTestCase extends TestCase
             $this->eventDispatcher(),
             $this->attributeHelper(),
             new TypeDefaultResolver(),
-            $emStub,
+            static::createStub(EntityManagerInterface::class),
             $this->cache(),
+            $this->localeVariantFinder(),
             $logger,
         );
     }

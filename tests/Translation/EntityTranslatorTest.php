@@ -14,6 +14,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -364,6 +365,7 @@ final class EntityTranslatorTest extends UnitTestCase
             new TypeDefaultResolver(),
             $emStub,
             $this->cache(),
+            new LocaleVariantFinder($emStub),
         );
 
         $args = new TranslationArgs($entity, 'en_US', 'de_DE');
@@ -616,6 +618,7 @@ final class EntityTranslatorTest extends UnitTestCase
             new TypeDefaultResolver(),
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
+            $this->localeVariantFinder(),
             null, // No logger
         );
 
@@ -705,6 +708,7 @@ final class EntityTranslatorTest extends UnitTestCase
             new TypeDefaultResolver(),
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
+            $this->localeVariantFinder(),
             null,
         );
 
@@ -904,6 +908,7 @@ final class EntityTranslatorTest extends UnitTestCase
             new TypeDefaultResolver(),
             $emStub,
             $this->cache(),
+            new LocaleVariantFinder($emStub),
             $this->logger(),
         );
 
@@ -1362,6 +1367,7 @@ final class EntityTranslatorTest extends UnitTestCase
             new TypeDefaultResolver(),
             $em,
             $this->cache(),
+            new LocaleVariantFinder($em),
         );
 
         return [$translator, $em];

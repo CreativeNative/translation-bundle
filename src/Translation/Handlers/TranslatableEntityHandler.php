@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use Doctrine\ORM\EntityManagerInterface;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -13,7 +13,7 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
+        private LocaleVariantFinder $finder,
         private DoctrineObjectHandler $doctrineObjectHandler,
         private AttributeHelper $attributeHelper,
     ) {
@@ -45,24 +45,26 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         $data = $args->getDataToBeTranslated();
         \assert($data instanceof TranslatableInterface);
 
-        // Search in database if the content exists, otherwise translate it.
-        $existingTranslation = $this->entityManager->getRepository($data::class)->findOneBy([
-            'locale' => $args->getTargetLocale(),
-            'tuuid'  => (string) $data->getTuuid(),
-        ]);
+        $targetLocale = $args->getTargetLocale();
+        \assert(\is_string($targetLocale));
 
-        if ($existingTranslation instanceof TranslatableInterface) {
+        // Search across every locale variant of the Tuuid, not just the ones visible
+        // under the current locale filter -- an in-filter lookup here would never see
+        // an existing variant in $targetLocale and mint a duplicate row on every call.
+        $existingTranslation = $this->finder->findLocaleVariant($data::class, $data->getTuuid(), $targetLocale);
+
+        if (null !== $existingTranslation) {
             return $existingTranslation;
         }
 
         $clone = clone $data;
 
-        $subArgs = new TranslationArgs($clone, $clone->getLocale(), $args->getTargetLocale());
+        $subArgs = new TranslationArgs($clone, $clone->getLocale(), $targetLocale);
         $subArgs->setCopySource($args->getCopySource());
         $this->doctrineObjectHandler->translateProperties($subArgs);
 
         $this->resetGeneratedIds($clone);
-        $clone->setLocale($args->getTargetLocale());
+        $clone->setLocale($targetLocale);
 
         return $clone;
     }

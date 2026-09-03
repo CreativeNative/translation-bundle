@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
-use Doctrine\ORM\EntityRepository;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use ReflectionException;
 use Symfony\Component\Uid\Uuid;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
@@ -38,7 +38,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         );
 
         $this->handler = new TranslatableEntityHandler(
-            $this->entityManager(),
+            new LocaleVariantFinder($this->entityManager()),
             $doctrineObjectHandler,
             new AttributeHelper(),
         );
@@ -74,19 +74,9 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('getTuuid')
             ->willReturn($tuuid);
 
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->with([
-                'locale' => 'de_DE',
-                'tuuid'  => (string) $tuuid,
-            ])
-            ->willReturn($translatable);
-
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with($translatable::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([$translatable]));
 
         $result = $this->handler->handleSharedAmongstTranslations($args);
         self::assertSame($translatable, $result);
@@ -122,20 +112,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             'de_DE',
         );
 
-        // Mock repository to return existing translation
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->with([
-                'locale' => 'de_DE',
-                'tuuid'  => (string) $tuuid,
-            ])
-            ->willReturn($existingTranslation);
-
+        // Stub the finder's query to return the existing translation
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with($originalEntity::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
 
         $result = $this->handler->translate($translationArgs);
 
@@ -159,20 +139,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             'de_DE',
         );
 
-        // Mock repository to return null (no existing translation)
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->with([
-                'locale' => 'de_DE',
-                'tuuid'  => (string) $tuuid,
-            ])
-            ->willReturn(null);
-
+        // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with($originalEntity::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
 
         // Call the method under test
         $result = $this->handler->translate($translationArgs);
@@ -209,20 +179,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             'de_DE',
         );
 
-        // Mock repository to return null (no existing translation)
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->with([
-                'locale' => 'de_DE',
-                'tuuid'  => (string) $tuuid,
-            ])
-            ->willReturn(null);
-
+        // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with($originalEntity::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
 
         // Create a mock translator that throws ReflectionException
         $exceptionTranslator = $this->createMock(EntityTranslatorInterface::class);
@@ -238,7 +198,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         );
 
         $exceptionHandler = new TranslatableEntityHandler(
-            $this->entityManager(),
+            new LocaleVariantFinder($this->entityManager()),
             $exceptionDoctrineObjectHandler,
             new AttributeHelper(),
         );
@@ -267,16 +227,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             'de_DE',
         );
 
-        // Mock repository to return null (no existing translation)
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->willReturn(null);
-
+        // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with(Scalar::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
 
         $result = $this->handler->translate($translationArgs);
 
@@ -308,16 +262,10 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             'de_DE',
         );
 
-        // Mock repository to return null (no existing translation)
-        $repository = $this->createMock(EntityRepository::class);
-        $repository->expects($this->once())
-            ->method('findOneBy')
-            ->willReturn(null);
-
+        // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
-            ->method('getRepository')
-            ->with(InheritedIdEntity::class)
-            ->willReturn($repository);
+            ->method('createQueryBuilder')
+            ->willReturn($this->queryBuilderReturning([]));
 
         $result = $this->handler->translate($translationArgs);
 

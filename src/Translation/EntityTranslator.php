@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
@@ -40,6 +41,7 @@ final class EntityTranslator implements EntityTranslatorInterface
         private readonly TypeDefaultResolver $typeDefaultResolver,
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslationCacheInterface $cache,
+        private readonly LocaleVariantFinder $finder,
         LoggerInterface|null $logger = null,
     ) {
         $this->logger = $logger;
@@ -387,6 +389,10 @@ final class EntityTranslator implements EntityTranslatorInterface
     /**
      * Batch-load translations for given entities and target locale.
      *
+     * Goes through the finder rather than a plain query builder: a locale-filtered
+     * lookup here would only ever see the current request's locale, never find an
+     * existing translation in $locale, and mint a duplicate row on every warmup.
+     *
      * @param array<mixed> $entities
      */
     private function warmupTranslations(array $entities, string $locale): void
@@ -408,18 +414,7 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         foreach ($byClass as $class => $tuuids) {
-            $qb = $this->entityManager->createQueryBuilder()
-                ->select('t')
-                ->from($class, 't')
-                ->where('t.tuuid IN (:tuuids)')
-                ->andWhere('t.locale = :locale')
-                ->setParameter('tuuids', $tuuids)
-                ->setParameter('locale', $locale);
-
-            /** @var array<TranslatableInterface>|null $translations */
-            $translations = $qb->getQuery()->getResult();
-
-            foreach ($translations ?? [] as $translation) {
+            foreach ($this->finder->findLocaleVariantsBatch($class, $tuuids, $locale) as $translation) {
                 $this->cache->set(
                     $translation->getTuuid()->getValue(),
                     $translation->getLocale() ?? $locale,

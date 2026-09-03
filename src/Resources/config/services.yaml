@@ -47,6 +47,7 @@ services:
             $attributeHelper: '@tmi_translation.utils.attribute_helper'
             $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
             $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             $logger: '@?logger'
 
     tmi_translation.translation.entity_translator:
@@ -136,7 +137,7 @@ services:
 
     Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler:
         arguments:
-            - '@doctrine.orm.entity_manager'
+            - '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             - '@Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler'
             - '@tmi_translation.utils.attribute_helper'
         tags: [ { name: tmi_translation.translation_handler, priority: 20 } ]
