@@ -41,6 +41,10 @@ final class Configuration implements ConfigurationInterface
                     ->defaultFalse()
                     ->info('Promote the auto-injected (tuuid, locale) index to a UNIQUE constraint. Enable only once existing data is free of duplicate locale rows (see tmi:translation:doctor).')
                 ->end()
+                ->booleanNode('cascade_remove_locale_variants')
+                    ->defaultFalse()
+                    ->info('When true, $em->remove() on a translatable entity also removes every sibling locale variant sharing its Tuuid. Use TranslatableRemover::removeSingleLocaleVariant() to delete one variant only while this is enabled.')
+                ->end()
             ->end();
 
         return $treeBuilder;

@@ -187,6 +187,15 @@ services:
         tags: [ { name: doctrine.event_listener, event: loadClassMetadata } ]
 
     # ----------------------------
+    # Doctrine Listener — opt-in cascade removal of locale variants
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\EventListener\LocaleVariantRemovalListener:
+        arguments:
+            $remover: '@Tmi\TranslationBundle\Doctrine\TranslatableRemover'
+            $enabled: '%tmi_translation.cascade_remove_locale_variants%'
+        tags: [ { name: doctrine.event_listener, event: preRemove } ]
+
+    # ----------------------------
     # Diagnostic / Maintenance Commands
     # ----------------------------
     Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator:

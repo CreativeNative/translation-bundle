@@ -458,6 +458,34 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
      * @throws Exception
      * @throws TypesException
      */
+    public function testCascadeRemoveLocaleVariantsDefaultsToFalse(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.cascade_remove_locale_variants'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testCascadeRemoveLocaleVariantsCanBeEnabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'cascade_remove_locale_variants' => true]], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.cascade_remove_locale_variants'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
     public function testTranslationCacheInterfaceAliasesToInMemoryCache(): void
     {
         $containerBuilder = $this->createContainerBuilderFromKernel();

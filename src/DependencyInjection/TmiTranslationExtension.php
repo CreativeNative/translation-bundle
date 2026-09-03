@@ -36,7 +36,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         }
 
         $configuration = new Configuration();
-        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool, copy_source: bool, strict_orphan_check: bool|null, unique_locale_variants: bool} $config */
+        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool, copy_source: bool, strict_orphan_check: bool|null, unique_locale_variants: bool, cascade_remove_locale_variants: bool} $config */
         $config = $this->processConfiguration($configuration, $configs);
 
         // Resolve strict_orphan_check — null means "auto": enabled in debug environments.
