@@ -486,6 +486,34 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
      * @throws Exception
      * @throws TypesException
      */
+    public function testStrictDiscoveryDefaultsToFalse(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.strict_discovery'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testStrictDiscoveryCanBeEnabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'strict_discovery' => true]], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.strict_discovery'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
     public function testTranslationCacheInterfaceAliasesToInMemoryCache(): void
     {
         $containerBuilder = $this->createContainerBuilderFromKernel();

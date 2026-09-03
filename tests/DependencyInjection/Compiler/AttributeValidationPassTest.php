@@ -26,6 +26,21 @@ final class AttributeValidationPassTest extends TestCase
         self::assertFalse($container->has('doctrine.orm.entity_manager'));
     }
 
+    public function testProcessSetsEmptyDiscoveredClassesParameterWhenDoctrineNotConfigured(): void
+    {
+        $container = new ContainerBuilder();
+        $pass      = new AttributeValidationPass();
+
+        // Even a strict_discovery: true config must not throw here -- the
+        // parameter is simply empty, and there is no ORM to have missed
+        // discovering anything from.
+        $container->setParameter('tmi_translation.strict_discovery', true);
+
+        $pass->process($container);
+
+        self::assertSame([], $container->getParameter('tmi_translation.discovered_translatable_classes'));
+    }
+
     public function testProcessSkipsWhenNoMetadataDriversFound(): void
     {
         $container = new ContainerBuilder();
@@ -257,6 +272,10 @@ final class AttributeValidationPassTest extends TestCase
         // Register entity manager
         $container->register('doctrine.orm.entity_manager', \stdClass::class);
 
+        // strict_discovery is explicitly off -- zero discoveries must still
+        // only log, never throw.
+        $container->setParameter('tmi_translation.strict_discovery', false);
+
         // Register metadata driver pointing to a directory that legitimately
         // contains no TranslatableInterface implementors.
         $driverDef = new Definition(\stdClass::class);
@@ -271,6 +290,64 @@ final class AttributeValidationPassTest extends TestCase
         self::assertCount(1, $log);
         self::assertIsString($log[0]);
         self::assertStringContainsString('0 translatable entities discovered', $log[0]);
+        self::assertSame([], $container->getParameter('tmi_translation.discovered_translatable_classes'));
+    }
+
+    public function testProcessThrowsWhenStrictDiscoveryEnabledAndZeroEntitiesDiscovered(): void
+    {
+        $container = new ContainerBuilder();
+
+        // Register entity manager
+        $container->register('doctrine.orm.entity_manager', \stdClass::class);
+        $container->setParameter('tmi_translation.strict_discovery', true);
+
+        // Same legitimately-empty directory as the logging test above --
+        // strict_discovery is what turns this from a log line into a failure.
+        $driverDef = new Definition(\stdClass::class);
+        $driverDef->addArgument([__DIR__.'/../../Fixtures/Validation/NoTranslatables']);
+        $container->setDefinition('doctrine.orm.default_attribute_metadata_driver', $driverDef);
+
+        $pass = new AttributeValidationPass();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('0 translatable entities discovered');
+        $this->expectExceptionMessage('strict_discovery');
+
+        $pass->process($container);
+    }
+
+    public function testProcessSetsDiscoveredClassesParameterSortedAcrossDirectories(): void
+    {
+        $container = new ContainerBuilder();
+
+        // Register entity manager
+        $container->register('doctrine.orm.entity_manager', \stdClass::class);
+
+        // Valid comes first here, but its class name sorts *last* --
+        // proving the parameter is genuinely sorted, not just discovered
+        // in argument order.
+        $driverDef = new Definition(\stdClass::class);
+        $driverDef->addArgument([
+            __DIR__.'/../../Fixtures/Validation/Valid',
+            __DIR__.'/../../Fixtures/Validation/EdgeCases',
+        ]);
+        $container->setDefinition('doctrine.orm.default_attribute_metadata_driver', $driverDef);
+
+        $pass = new AttributeValidationPass();
+        $pass->process($container);
+
+        // MultipleClassesEntity (also under EdgeCases) is deliberately excluded here: it is
+        // declared second inside MultipleClasses.php, so PSR-4 autoloading never resolves it
+        // and discovery's own class_exists() guard silently skips it -- proven separately by
+        // testExtractClassNamesReturnsEveryClassDeclaredInAFile, which reads the file's tokens
+        // directly instead of relying on the autoloader.
+        self::assertSame(
+            [
+                'Tmi\TranslationBundle\Fixtures\Validation\EdgeCases\DocblockTrapEntity',
+                'Tmi\TranslationBundle\Fixtures\Validation\Valid\ValidEntity',
+            ],
+            $container->getParameter('tmi_translation.discovered_translatable_classes'),
+        );
     }
 
     public function testProcessSkipsEdgeCaseFiles(): void

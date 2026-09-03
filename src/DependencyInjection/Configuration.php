@@ -45,6 +45,10 @@ final class Configuration implements ConfigurationInterface
                     ->defaultFalse()
                     ->info('When true, $em->remove() on a translatable entity also removes every sibling locale variant sharing its Tuuid. Use TranslatableRemover::removeSingleLocaleVariant() to delete one variant only while this is enabled.')
                 ->end()
+                ->booleanNode('strict_discovery')
+                    ->defaultFalse()
+                    ->info('Throw at compile time when AttributeValidationPass discovers zero TranslatableInterface entities under the configured Doctrine attribute mapping directories, instead of only logging it. Off by default because an empty result can be legitimate (no translatable entities yet); turn it on once you have at least one, to catch doctrine-bundle silently changing the shape of its attribute metadata driver definitions.')
+                ->end()
             ->end();
 
         return $treeBuilder;

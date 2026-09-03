@@ -26,11 +26,17 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
  * DoctrineExtension against it, configured the same way tests/TestKernel.php
  * configures doctrine. If doctrine-bundle ever renames or reshapes the
  * attribute metadata driver service, discovery silently finds nothing and this
- * test - not a hand-built one - is what catches it.
+ * test - not a hand-built one - is what catches it. Running the full process()
+ * (rather than reflecting into discoverTranslatableClasses() directly) also
+ * proves the "tmi_translation.discovered_translatable_classes" parameter it
+ * sets carries the real, doctrine-bundle-produced result - and, since the
+ * booted kernel's own strict_discovery: true travels along with the copied
+ * parameters, a future reshaping would fail this test loudly via the
+ * strict_discovery LogicException rather than merely leave the parameter empty.
  */
 final class AttributeValidationPassDoctrineDiscoveryTest extends IntegrationTestCase
 {
-    public function testDiscoverTranslatableClassesFindsFixtureEntityThroughRealDoctrineBundleExtension(): void
+    public function testProcessDiscoversFixtureEntityThroughRealDoctrineBundleExtensionAndSetsTheParameter(): void
     {
         $containerBuilder = $this->containerBuilderFromBootedKernelParameters();
 
@@ -40,16 +46,11 @@ final class AttributeValidationPassDoctrineDiscoveryTest extends IntegrationTest
         // The real extension, not a hand-built definition, produced this.
         self::assertTrue($containerBuilder->has('doctrine.orm.entity_manager'));
 
-        $pass   = new AttributeValidationPass();
-        $method = new \ReflectionMethod($pass, 'discoverTranslatableClasses');
+        $pass = new AttributeValidationPass();
+        $pass->process($containerBuilder);
 
-        /** @var array<\ReflectionClass<object>> $discovered */
-        $discovered = $method->invoke($pass, $containerBuilder);
-
-        $discoveredNames = array_map(
-            static fn (\ReflectionClass $class): string => $class->getName(),
-            $discovered,
-        );
+        /** @var list<class-string> $discoveredNames */
+        $discoveredNames = $containerBuilder->getParameter('tmi_translation.discovered_translatable_classes');
 
         self::assertContains(Scalar::class, $discoveredNames);
     }

@@ -79,6 +79,7 @@ final class TestKernel extends BaseKernel
             'disabled_firewalls'  => ['admin'],
             'copy_source'         => true,
             'strict_orphan_check' => false,
+            'strict_discovery'    => true,
         ]);
 
         // Without monolog, the framework's fallback logger writes to the SAPI

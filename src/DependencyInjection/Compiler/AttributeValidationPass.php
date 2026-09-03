@@ -27,19 +27,37 @@ final class AttributeValidationPass implements CompilerPassInterface
     {
         // Early return if Doctrine is not configured
         if (!$container->has('doctrine.orm.entity_manager')) {
+            $container->setParameter('tmi_translation.discovered_translatable_classes', []);
+
             return;
         }
 
         $translatableClasses = $this->discoverTranslatableClasses($container);
 
+        $discoveredClassNames = array_map(
+            static fn (\ReflectionClass $class): string => $class->getName(),
+            $translatableClasses,
+        );
+        sort($discoveredClassNames);
+        $container->setParameter('tmi_translation.discovered_translatable_classes', $discoveredClassNames);
+
         if ([] === $translatableClasses) {
-            $container->log($this, sprintf(
+            $message = sprintf(
                 '0 translatable entities discovered under the configured Doctrine attribute mapping directories. '
                 .'This can be legitimate (no %s entities yet), but it can also mean doctrine-bundle changed the '
                 .'shape of its attribute metadata driver service definitions and this bundle\'s compile-time '
                 .'discovery silently found nothing to validate.',
                 TranslatableInterface::class,
-            ));
+            );
+
+            $strictDiscovery = $container->hasParameter('tmi_translation.strict_discovery')
+                && true === $container->getParameter('tmi_translation.strict_discovery');
+
+            if ($strictDiscovery) {
+                throw new \LogicException(sprintf('%s "tmi_translation.strict_discovery" is enabled, which turns this into a hard failure -- set it to false to allow a legitimately empty result instead.', $message));
+            }
+
+            $container->log($this, $message);
         }
 
         $errors = [];
