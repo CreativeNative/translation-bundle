@@ -406,7 +406,6 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 Abstraction for translation caching and circular-reference detection. Replaces the internal `$translationCache` and `$inProgress` arrays from v1.x EntityTranslator.
 
 **Interface methods:**
-- `has(string $tuuid, string $locale): bool` -- Check if translation is cached
 - `get(string $tuuid, string $locale): TranslatableInterface|null` -- Get cached translation
 - `set(string $tuuid, string $locale, TranslatableInterface $entity): void` -- Store translation
 - `markInProgress(string $tuuid, string $locale): void` -- Mark translation as in-progress (cycle detection)
