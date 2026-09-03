@@ -33,6 +33,15 @@ interface EntityTranslatorInterface
      * lookup. Entities without a $locale variant are simply not found and
      * are translated (created) normally when translate() reaches them.
      *
+     * A (tuuid, locale) pair this call looks up and finds nothing for is
+     * remembered so a later preload() -- including translate()'s own internal
+     * one -- does not re-query it; the memory is dropped the moment this
+     * translator creates a translation for that pair. The one caveat: a
+     * variant for such a pair created by some other means (a manual
+     * persist(), another process) stays invisible until this translator
+     * creates one for that pair or the implementation is reset (an
+     * EntityTranslator is tagged kernel.reset for exactly this).
+     *
      * @param iterable<mixed> $entities
      */
     public function preload(iterable $entities, string $locale): void;

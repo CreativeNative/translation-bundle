@@ -297,7 +297,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `translate()`:
     - `isShared()` — Throws exception; unsupported.
     - `isEmpty()` — Returns `null`.
-    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the entity's own property pipeline, generated-id reset, locale). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
+    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (the entity's own property pipeline, generated-id reset, locale -- existence of a target-locale variant was already resolved before this handler ran, by `EntityTranslator::processTranslation()`'s own `preload()`-then-cache-check for this same subject). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
 - **Notes:** Never mutates the source; integrates with `TranslatableEntityHandler`/`EntityTranslator` for nested translations.
 
 ---
@@ -325,7 +325,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `translate()`:
     - `isShared()` — Throws exception; unsupported.
     - `isEmpty()` — Returns `null`.
-    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the related entity's own property pipeline, generated-id reset, locale), then repairs the back-reference field to the parent already known to be under translation -- the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source parent in place.
+    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (the related entity's own property pipeline, generated-id reset, locale -- existence of a target-locale variant was already resolved before this handler ran, by `EntityTranslator::processTranslation()`'s own `preload()`-then-cache-check for this same subject), then repairs the back-reference field to the parent already known to be under translation -- the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source parent in place.
 - **Notes:** Ensures bidirectional integrity between parent and child, never mutates the source, works with `TranslatableEntityHandler`/`EntityTranslator`.
 
 ---
@@ -368,13 +368,13 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### [TranslatableEntityHandler](src/Translation/Handlers/TranslatableEntityHandler.php)
 - **Purpose:** Handles **entities implementing `TranslatableInterface`**.
 - **Priority:** 20
-- **Dependencies:** `EntityManagerInterface`, `DoctrineObjectHandler`, `AttributeHelper`.
+- **Dependencies:** `DoctrineObjectHandler`, `AttributeHelper`. (v4.0: no longer `LocaleVariantFinder` — see below.)
 - **Methods:**
     - `supports()` — Returns true when the context is an `EntityTranslationContext`.
     - `translate()`:
         - `isEmpty()` — Returns `null`. (No `isShared()` branch here: the bidirectional handlers above never delegate to this one while shared — their own `translate()` branches on `isShared()` first and never reaches this call.)
-        - Otherwise — Checks database for existing translation by `tuuid` and target locale; clones and translates via `DoctrineObjectHandler` if not found. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
-- **Notes:** Integrates entity-level and property-level translation, ensures unique translations per locale. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations.
+        - Otherwise — Always clones and translates via `DoctrineObjectHandler`. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
+- **Notes:** Integrates entity-level and property-level translation. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations. **v4.0:** no longer checks for an existing target-locale variant itself — `EntityTranslator::processTranslation()` resolves that exactly once, via its own `preload()`-then-cache-check, before dispatching to *any* handler (see that method's docblock). This handler is reached only (a) from `EntityTranslator::runHandlers()`, always after that check ran for the same subject, or (b) from `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler`, themselves reached the same way for the same subject. Calling `translate()` any other way — bypassing `EntityTranslatorInterface::translate()`/`processTranslation()` — skips the check entirely and always clones, minting a duplicate row for a Tuuid that already has a variant in the target locale.
 
 ---
 
@@ -1532,13 +1532,13 @@ inflates a budget).
 |------------------------------------------------------------------------------|---------------|
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
-| `translate()` a parent with *K* already-translated `OneToMany` children       | 2 + *K*       |
+| `translate()` a parent with *K* already-translated `OneToMany` children       | 1 + *K*       |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
-| Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + 3*N*      |
+| Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + *N*       |
 
-### `preload()`: batch import lookups per class, not per entity
+### `preload()`: batch import lookups per class, not per entity, and remembered misses
 
 ```php
 $entityTranslator->preload($batch, 'de_DE');   // one query per class, not per entity
@@ -1556,12 +1556,21 @@ its own cache entry before running the handler chain, so a bare loop calling `tr
 entity at a time still costs one lookup query per entity regardless — calling `preload()`
 with the whole batch first is what turns that into one query per class.
 
-**Why the import row above isn't `1 + N`.** A first-time import has no existing variants to
-find, so the upfront batched `preload()` pays one query that finds nothing (a miss for every
-Tuuid), and each entity still pays its own per-entity `preload()` miss plus
-`TranslatableEntityHandler`'s own existing-variant check once the handler chain runs — two
-lookup queries per entity, on top of its `INSERT`. Re-running the same import afterwards costs
-one query total: every Tuuid is now a cache hit.
+`EntityTranslator` also remembers, per (tuuid, locale) pair, every Tuuid a batched `preload()`
+query looked up and found nothing for. `translate()`'s own internal single-entity `preload()`
+call checks that memory first and skips its query for a remembered miss instead of asking the
+database the same question again — the mechanism that keeps the import row above at `1 + N`
+(the upfront batch query plus *N* `INSERT`s) rather than `1 + 3N` (upfront query, each entity's
+own redundant preload query, and `TranslatableEntityHandler`'s former redundant existence check,
+removed in v4.0 — see [§ 7 of UPGRADING.md](UPGRADING.md#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)).
+The memory entry for a pair is dropped the instant `EntityTranslator` itself caches a
+translation for it, so a variant this translator creates is always found again, even across an
+`EntityManager::clear()`. **The one caveat:** a variant for a remembered pair created by
+anything other than this translator (a manual `persist()`, another process) stays invisible to
+`preload()` until this translator creates one for that pair or the service is reset —
+`EntityTranslator` is tagged `kernel.reset` for exactly this (see Long-running workers below).
+Re-running the same import afterwards costs one query total: every Tuuid is now an actual
+cache hit, not just a remembered miss.
 
 ### Reflection is cached, not repeated
 
@@ -1580,12 +1589,14 @@ a query planner would usually ignore it anyway.
 
 ### Long-running workers
 
-`InMemoryTranslationCache` is tagged `kernel.reset` (`ResetInterface`) — Symfony does not
-autoconfigure that tag, so the bundle wires it explicitly. In a process that outlives one
-request or job (a queue consumer, a long-running import), the cache clears itself between
-units of work instead of handing the next one an entity the previous one cached — and,
-since v4.0's identity fix, an entity possibly since detached by an `EntityManager::clear()`
-call in between.
+Both `InMemoryTranslationCache` and `EntityTranslator` are tagged `kernel.reset`
+(`ResetInterface`) — Symfony does not autoconfigure that tag, so the bundle wires each
+explicitly. In a process that outlives one request or job (a queue consumer, a long-running
+import), the cache clears itself between units of work instead of handing the next one an
+entity the previous one cached — and, since v4.0's identity fix, an entity possibly since
+detached by an `EntityManager::clear()` call in between — and `EntityTranslator` forgets its
+own `preload()` miss memory (see above), so a variant created by another unit of work becomes
+visible again immediately instead of staying a remembered miss.
 
 ---
 
@@ -1660,7 +1671,8 @@ Step-by-step guide for building custom translation handlers for field types not 
   - `Psr6TranslationCache` removed; `TranslationCacheInterface` aliases only to `InMemoryTranslationCache` now.
   - `LocaleVariantFinder` (all cross-locale lookups, filter-suspended) and `TranslatableRemover` (`removeAllLocaleVariants()` / `removeSingleLocaleVariant()` / `cascadeFromPreRemove()`) — see Removal Semantics (v4) above.
   - Opt-in `cascade_remove_locale_variants` + `LocaleVariantRemovalListener` cascade a plain `$em->remove()` to sibling locale variants automatically.
-  - `preload()`'s internal warmup and `TranslatableEntityHandler`'s existing-variant check now go through `LocaleVariantFinder` — an active locale filter no longer mints a duplicate row on `translate()`.
+  - `preload()`'s internal warmup now goes through `LocaleVariantFinder` — an active locale filter no longer mints a duplicate row on `translate()`.
+  - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself (its own such check, redundant with `preload()`'s, is removed along with its `LocaleVariantFinder` dependency); `EntityTranslator` remembers a `preload()` batch's misses so a per-entity `getOrTranslate()` import loop after it costs no further lookup queries, and is now `kernel.reset`-tagged to forget that memory between units of work.
   - The translation cache is identity-safe across `EntityManager::clear()` (a detached hit is a miss, not a re-inserted duplicate); `InMemoryTranslationCache` implements `ResetInterface` (`kernel.reset`).
   - `tmi:translation:doctor` / `tmi:translation:sync-shared` / `TranslatableEntityValidationWarmer` walk each inheritance hierarchy's root once, resolving each hydrated row's own concrete class for its property list — no more double-counted SINGLE_TABLE/JOINED rows.
   - The direct `ManyToOne`/`OneToOne` form (a field on the *owning* class, not a back-reference) now translates its target through the full entity pipeline (get-or-create) instead of returning the untranslated source.

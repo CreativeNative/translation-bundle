@@ -51,6 +51,11 @@ services:
     # ----------------------------
     # Entity Translator
     # ----------------------------
+    # Symfony does not autoconfigure ResetInterface into the kernel.reset tag -- it
+    # is added explicitly here, same as InMemoryTranslationCache above, so a
+    # long-running worker forgets a batch's preload() miss memory between units of
+    # work instead of treating a variant another unit of work (or process) created
+    # since as still absent. See EntityTranslator::preload()'s docblock.
     Tmi\TranslationBundle\Translation\EntityTranslator:
         arguments:
             $defaultLocale: '%tmi_translation.default_locale%'
@@ -62,6 +67,7 @@ services:
             $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
             $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             $logger: '@?logger'
+        tags: [ { name: kernel.reset, method: reset } ]
 
     tmi_translation.translation.entity_translator:
         alias: Tmi\TranslationBundle\Translation\EntityTranslator
@@ -151,7 +157,6 @@ services:
 
     Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler:
         arguments:
-            - '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             - '@Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler'
             - '@tmi_translation.utils.attribute_helper'
         tags: [ { name: tmi_translation.translation_handler, priority: 20 } ]

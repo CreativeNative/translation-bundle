@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Performance;
 
+use Doctrine\ORM\UnitOfWork;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
@@ -13,6 +14,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidi
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Test\Support\QueryCounter;
+use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
@@ -46,7 +48,7 @@ final class QueryBudgetTest extends IntegrationTestCase
      * translate() of an entity whose target-locale variant already exists:
      * EntityTranslator::processTranslation() finds it via its own preload()
      * call and returns straight from the cache, never reaching the handler
-     * chain (and its own, separate existing-variant lookup) at all.
+     * chain at all.
      */
     public function testTranslateEntityWithExistingVariantIsOneQueryAndNoInserts(): void
     {
@@ -106,10 +108,12 @@ final class QueryBudgetTest extends IntegrationTestCase
      * EntityTranslator::processTranslation(), not around it), so an
      * already-existing child variant resolves from the shared cache in
      * exactly one query each, same as testTranslateEntityWithExistingVariantIsOneQueryAndNoInserts().
-     * The parent itself costs two: its own preload() lookup (miss) plus
-     * TranslatableEntityHandler's own existing-variant lookup once the
-     * miss falls through to the handler chain -- that duplicate check is
-     * pre-existing (WP3/WP6), not something this WP introduces or changes.
+     * The parent itself costs exactly one: its own preload() lookup (a
+     * miss). TranslatableEntityHandler, reached once that miss falls
+     * through to the handler chain, does not look for an existing variant
+     * a second time -- existence is resolved exactly once, by
+     * processTranslation()'s own preload()-then-cache-check, before any
+     * handler runs (see TranslatableEntityHandler's class docblock).
      */
     public function testTranslateWithExistingChildVariantsCostsOneQueryPerChild(): void
     {
@@ -135,11 +139,11 @@ final class QueryBudgetTest extends IntegrationTestCase
         self::assertSame('de_DE', $translated->getLocale());
         self::assertCount($childCount, $translated->getSimpleChildren());
 
-        // 1 (parent's own preload(), miss) + 1 (TranslatableEntityHandler's
-        // own existing-variant lookup once the miss falls through to it) +
-        // $childCount (one cache-satisfied lookup per already-translated
-        // child) -- see class docblock above.
-        self::assertSame(2 + $childCount, $this->counter()->count());
+        // 1 (parent's own preload(), a miss -- TranslatableEntityHandler does not
+        // look again once it falls through to the handler chain) + $childCount
+        // (one cache-satisfied lookup per already-translated child) -- see the
+        // method docblock above.
+        self::assertSame(1 + $childCount, $this->counter()->count());
     }
 
     public function testResolveBatchOfManyTuuidsIsOneQuery(): void
@@ -213,17 +217,23 @@ final class QueryBudgetTest extends IntegrationTestCase
     /**
      * The recommended import shape: preload() once for the whole batch,
      * then getOrTranslate() + flush() per entity. Every Tuuid here is brand
-     * new (no existing de_DE variant), so the upfront preload() finds
-     * nothing to warm the cache with -- each entity's own translate() still
-     * pays its usual create-path cost (its own preload() miss, then
-     * TranslatableEntityHandler's own existing-variant miss once the
-     * handler chain runs, same two-query pattern as the parent's miss path
-     * in testTranslateWithExistingChildVariantsCostsOneQueryPerChild()) on
-     * top of the N inserts flush() issues. preload() only pays off here
-     * as a duplicate-import guard, not as a lookup eliminator: a re-run of
-     * the same import would find every Tuuid already translated and skip
-     * straight to the identity cache hit, at one query total for the whole
-     * batch (see testPreloadCollapsesPerEntityLookupsIntoOneQueryPerClass()).
+     * new (no existing de_DE variant), so the upfront preload() pays one
+     * query that finds nothing and remembers every Tuuid as a known miss
+     * for (tuuid, de_DE) (see EntityTranslator::preload()'s docblock).
+     * Each entity's own translate() call still runs its internal preload()
+     * for that one entity, but finds its Tuuid already remembered as a
+     * miss and skips the query entirely instead of asking the database the
+     * same question again -- and TranslatableEntityHandler, reached once
+     * that (remembered, query-free) miss falls through to the handler
+     * chain, does not look for an existing variant either (see its class
+     * docblock): existence for a Tuuid this preload() batch already ruled
+     * out is never re-asked. The only queries left are the upfront one and
+     * the N inserts flush() issues -- 1 + N, not 1 + 3N.
+     *
+     * preload() pays off twice over on a re-run of the same import: every
+     * Tuuid is now an actual cache hit (not just a remembered miss), so the
+     * upfront preload() call itself is the only query for the whole batch
+     * (see testPreloadCollapsesPerEntityLookupsIntoOneQueryPerClass()).
      */
     public function testImportWithPreloadCostsOneLookupPlusNInserts(): void
     {
@@ -241,10 +251,82 @@ final class QueryBudgetTest extends IntegrationTestCase
         }
         $this->entityManager()->flush();
 
-        // 1 (the upfront batched preload(), a miss for every Tuuid) + N
-        // (each entity's own preload() miss) + N (TranslatableEntityHandler's
-        // own miss once the handler chain runs) + N (INSERT on flush).
-        self::assertSame(1 + 3 * $n, $this->counter()->count());
+        // 1 (the upfront batched preload(), a miss for every Tuuid, remembered) +
+        // N (INSERT on flush) -- see the method docblock above.
+        self::assertSame(1 + $n, $this->counter()->count());
+    }
+
+    /**
+     * A cache hit surviving an EntityManager::clear() (import batches, long-running
+     * workers) must not suppress preload()'s query: the entry still sits in the
+     * cache holding an identifier, but the UnitOfWork no longer tracks it, and a
+     * later persist() on that stale instance would silently re-insert it as a new
+     * row instead of reusing the existing one (see EntityTranslator::preload()'s
+     * docblock, and EntityTranslatorCacheIdentityTest for the same rule applied to
+     * processTranslation()'s own cache-hit sites).
+     */
+    public function testPreloadRequeriesADetachedCacheHitExactlyOnce(): void
+    {
+        $tuuid = Tuuid::generate();
+        $en    = new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $this->entityManager()->persist($en);
+        $this->entityManager()->flush();
+
+        // Prime the cache with a managed de_DE instance.
+        $de = $this->translator()->getOrTranslate($en, 'de_DE');
+        $this->entityManager()->flush();
+        self::assertInstanceOf(Scalar::class, $de);
+        $deId = $de->getId();
+        self::assertNotNull($deId);
+
+        // clear() detaches every managed instance, including the de_DE clone still
+        // sitting in the cache.
+        $this->entityManager()->clear();
+
+        $this->counter()->reset();
+        $this->translator()->preload([$en], 'de_DE');
+        self::assertSame(1, $this->counter()->count(), 'a detached cache hit must not suppress the preload query');
+
+        $cache = self::getContainer()->get(InMemoryTranslationCache::class);
+        self::assertInstanceOf(InMemoryTranslationCache::class, $cache);
+        $cached = $cache->get((string) $tuuid, 'de_DE');
+        self::assertInstanceOf(Scalar::class, $cached);
+        self::assertSame(
+            UnitOfWork::STATE_MANAGED,
+            $this->entityManager()->getUnitOfWork()->getEntityState($cached),
+            'preload() must overwrite the detached hit with a freshly resolved, managed instance',
+        );
+
+        $again = $this->translator()->getOrTranslate($en, 'de_DE');
+        $this->entityManager()->flush();
+        self::assertInstanceOf(Scalar::class, $again);
+        self::assertSame($deId, $again->getId(), 'must reuse the existing row rather than mint a new one');
+        self::assertSame(2, $this->countScalarRows());
+    }
+
+    /**
+     * reset() (tagged kernel.reset in services.yaml) forgets every (tuuid, locale)
+     * pair preload() has recorded as a miss -- see EntityTranslator::preload()'s
+     * docblock. Without a reset() in between, translate()'s own internal preload()
+     * finds this same Tuuid already remembered as a miss and skips its query
+     * entirely -- exactly the mechanism that keeps the import in
+     * testImportWithPreloadCostsOneLookupPlusNInserts() at 1 + N instead of 1 + 3N.
+     * reset() clears that memory, so the miss is asked about again.
+     */
+    public function testResetForgetsAKnownMissSoTranslateQueriesAgain(): void
+    {
+        $entity = new Scalar()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('Reset');
+
+        // Establishes a known miss for (tuuid, de_DE) without resolving it --
+        // preload() alone never creates a translation, so nothing forgets the
+        // miss on its own the way runHandlers() would after a translate() call.
+        $this->translator()->preload([$entity], 'de_DE');
+
+        $this->translator()->reset();
+
+        $this->counter()->reset();
+        $this->translator()->translate($entity, 'de_DE');
+        self::assertSame(1, $this->counter()->count(), 'reset() must forget the known miss, so translate()\'s own internal preload() queries again instead of skipping it');
     }
 
     private function counter(): QueryCounter

@@ -107,8 +107,9 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `Doctrine/TranslatableEntityLocator` — discovers all `TranslatableInterface` entity classes.
 - `Doctrine/LocaleVariantFinder` — the one place that queries across every locale variant of a
   Tuuid, suspending the locale filter for the query (`withoutLocaleFilter()`).
-  `TranslatableRepositoryTrait`, `LocaleCompletenessResolver`, `EntityTranslator`,
-  `TranslatableEntityHandler` and `TranslatableRemover` delegate to it.
+  `TranslatableRepositoryTrait`, `LocaleCompletenessResolver`, `EntityTranslator` and
+  `TranslatableRemover` delegate to it. `TranslatableEntityHandler` does not (v4.0): it no
+  longer checks for an existing variant itself — see the Performance section below.
 - `Doctrine/TranslatableRemover` — removes every locale variant sharing a Tuuid (or exempts one
   variant from that) via `EntityManager::remove()` per variant, so ORM cascades / `orphanRemoval`
   / lifecycle callbacks fire per variant — never a bulk DQL DELETE. `$em->remove()` alone only
@@ -146,10 +147,18 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `EntityTranslator::preload(iterable $entities, string $locale): void` batches an import's
   existing-variant lookups per class instead of per entity (one `LocaleVariantFinder` query
   per class); `getOrTranslate()`'s internal warmup calls it with a single entity, so a bare
-  loop still costs one lookup per entity — call `preload()` with the whole batch first.
-- `InMemoryTranslationCache` is tagged `kernel.reset` (`ResetInterface`, explicit tag —
-  Symfony does not autoconfigure it) so a long-running worker resets the cache between units
-  of work.
+  loop still costs one lookup per entity — call `preload()` with the whole batch first. A
+  batch's misses are remembered per (tuuid, locale) pair, so the per-entity loop after it
+  costs no further lookup queries at all — dropped the instant this translator caches a
+  translation for that pair, so a variant it creates is always found again across an
+  `EntityManager::clear()`; the one gap is a variant for a remembered pair created by some
+  other means, invisible until this translator creates one or the service is reset.
+- `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself —
+  that question is resolved exactly once, by `processTranslation()`'s own
+  `preload()`-then-cache-check, before any handler runs; the handler always clones.
+- `InMemoryTranslationCache` **and** `EntityTranslator` are tagged `kernel.reset`
+  (`ResetInterface`, explicit tag — Symfony does not autoconfigure it) so a long-running
+  worker resets the cache, and forgets `preload()`'s miss memory, between units of work.
 - `tests/Performance/QueryBudgetTest.php` asserts an exact query count (`assertSame`, not a
   ceiling) for every operation in this list, via `tests/Support/QueryCounter.php` behind
   DBAL's logging middleware — see README.md § Performance for the numbers.

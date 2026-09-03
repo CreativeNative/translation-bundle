@@ -33,6 +33,7 @@ with a migration path.
   - [4. Inheritance hierarchies are counted once per concrete class](#4-inheritance-hierarchies-are-counted-once-per-concrete-class)
   - [5. `copy_source` resolution is proxy-safe; `EmptyOnTranslate` collections are never shared](#5-copy_source-resolution-is-proxy-safe-emptyontranslate-collections-are-never-shared)
   - [6. `tmi:translation:sync-shared` names the properties that drifted](#6-tmitranslationsync-shared-names-the-properties-that-drifted)
+  - [7. TranslatableEntityHandler no longer checks for an existing variant itself](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)
 - [New in 4.0](#new-in-40)
 - [Upgrade Checklist (4.0)](#upgrade-checklist-40)
 
@@ -471,20 +472,22 @@ translated `Product` points at it.
 
 ### 2. Cross-locale lookups no longer bypass the locale filter
 
-Two lookups that search for "does a variant of this Tuuid already exist in the target locale"
-— `EntityTranslator`'s internal warmup (now `preload()`) and
-`TranslatableEntityHandler::translate()`'s existing-variant check — used to query through the
+The lookup that searches for "does a variant of this Tuuid already exist in the target
+locale" — `EntityTranslator`'s internal warmup (now `preload()`) — used to query through the
 entity's own repository/query builder. Under an **active** `tmi_translation_locale_filter`
 pinned to the source locale, Doctrine's `SQLFilter` silently rewrote that query, combining the
 explicit "target locale" condition with the filter's own "source locale" condition into a
 contradiction that could never match — so `translate()` under an active filter minted a
 **duplicate row** on every call instead of reusing the one already there.
 
-**After v4:** both lookups go through `LocaleVariantFinder`, which suspends the filter for the
+**After v4:** the lookup goes through `LocaleVariantFinder`, which suspends the filter for the
 query and restores it afterwards. If your application always disables the locale filter before
 calling `translate()`, this changes nothing observable for you; if it translates entities
 while the filter is active (a request handler, a locale-scoped import), duplicate rows that
-used to appear silently no longer will.
+used to appear silently no longer will. (`TranslatableEntityHandler::translate()` ran a second,
+identical existing-variant check of its own at the time this fix landed; a later 4.0 change
+removed it entirely as redundant — existence is now resolved exactly once, by the `preload()`
+above, before any handler runs. See [§ 7](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself).)
 
 ### 3. The translation cache is identity-safe across `EntityManager::clear()`
 
@@ -549,6 +552,38 @@ right after the existing count line. Exit codes, sums, and streaming/detach beha
 unchanged; if you parse this command's output, the new table is additional output after what
 was already there.
 
+### 7. TranslatableEntityHandler no longer checks for an existing variant itself
+
+`TranslatableEntityHandler::translate()` used to run its own "does a variant in the target
+locale already exist" query before cloning — a duplicate of the check
+`EntityTranslator::processTranslation()` already runs via `preload()` before dispatching to
+any handler (see [§ 2](#2-cross-locale-lookups-no-longer-bypass-the-locale-filter)). Nothing
+this second check could still find slipped past the first one, except one case:
+`processTranslation()`'s own detached-cache-hit handling (see
+[§ 3](#3-the-translation-cache-is-identity-safe-across-entitymanagerclear)) originally left a
+narrow window after an `EntityManager::clear()` where `preload()` still skipped its query, and
+this handler's own lookup was what caught it. That window is closed directly in `preload()`
+now (it applies the same detached-hit check `processTranslation()` always has), so the second
+check had nothing left to do.
+
+**After v4:** `TranslatableEntityHandler::translate()` always clones — it takes only
+`DoctrineObjectHandler` and `AttributeHelper` in its constructor, no longer
+`LocaleVariantFinder`. This is a **breaking constructor change** if you construct this class
+directly (decorating it, or a unit test built on `new TranslatableEntityHandler(...)`) — drop
+the `LocaleVariantFinder` argument. Autowired consumers (the normal case: this class is
+private in `services.yaml` and only ever reached through the handler chain) see no change.
+Calling `translate()` on this handler any other way than through
+`EntityTranslatorInterface::translate()`/`processTranslation()` now always clones, existence
+check or not — see the class's own docblock.
+
+Also new in this change: `EntityTranslator` remembers, per (tuuid, locale) pair, when a
+`preload()` query already looked up a Tuuid and found nothing — so a batch `preload()` call
+followed by a per-entity `getOrTranslate()` loop (the recommended import shape, see
+[Performance](README.md#-performance)) no longer re-asks the database once per entity. Like
+`InMemoryTranslationCache`, `EntityTranslator` is now tagged `kernel.reset`: a long-running
+worker forgets that memory between units of work, so a variant created by some other means in
+the meantime becomes visible again immediately.
+
 ---
 
 ## New in 4.0
@@ -577,9 +612,16 @@ last bullet):
   `NOT NULL` — see § 2).
 - **`EntityTranslatorInterface::preload(iterable $entities, string $locale): void`** — batch-
   loads each entity's `$locale` variant ahead of time, one query per class instead of one per
-  entity; call it once before looping `getOrTranslate()` over an import batch. This is an
-  **additive interface method**: if you implement `EntityTranslatorInterface` directly
-  (rather than decorating or extending `EntityTranslator`), you must add it to keep
+  entity; call it once before looping `getOrTranslate()` over an import batch.
+  `EntityTranslator`'s own implementation also remembers, per (tuuid, locale) pair, when a
+  batched query already found nothing, so a per-entity `getOrTranslate()` loop after the
+  upfront `preload()` call costs no further lookup queries at all (see
+  [§ 7](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)) — the
+  one caveat: a variant for such a pair created by anything other than this translator (a
+  manual `persist()`, another process) stays invisible until this translator creates one for
+  that pair or the service is reset (`EntityTranslator` is tagged `kernel.reset` for exactly
+  this). This is an **additive interface method**: if you implement `EntityTranslatorInterface`
+  directly (rather than decorating or extending `EntityTranslator`), you must add it to keep
   implementing the interface. See [Performance](README.md#-performance) for the numbers this
   enables.
 
@@ -621,7 +663,11 @@ last bullet):
     `getSubject()`, and merge `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` into
     `translate()`, gated on `$context->isShared()`/`isEmpty()`
     ([§ 6](#6-translationhandlerinterface-is-two-methods-on-typed-contexts)).
-13. Run your test suite. Behavioural Changes 1-6 above are the ones most likely to surface as
+13. If you construct `TranslatableEntityHandler` directly (decorating it, or a unit test built
+    on `new TranslatableEntityHandler(...)`), drop the `LocaleVariantFinder` constructor
+    argument — see
+    [§ 7](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself).
+14. Run your test suite. Behavioural Changes 1-7 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.
 

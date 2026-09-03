@@ -96,12 +96,17 @@ For complete handler chain architecture, priority order, and decision tree, see 
 If the custom handler needs either of these, delegate — don't reimplement:
 
 - **Translating a nested `TranslatableInterface` value.** Inject
-  `Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler` and call
-  `->translate($context)` on it (an `EntityTranslationContext`), the way the bundle's own
-  `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` do. It already does the
-  existing-variant lookup (filter-suspended, via `LocaleVariantFinder`), runs the target's own
-  property pipeline, and resets generated ids — a plain `clone $value` skips all three and
-  duplicates rows on the next translate.
+  `Tmi\TranslationBundle\Translation\EntityTranslatorInterface` and call
+  `->processTranslation($context)` (an `EntityTranslationContext`) or `->translate($entity,
+  $locale)` — never `TranslatableEntityHandler` directly. `processTranslation()` resolves
+  whether a $locale variant already exists exactly once, via its own `preload()`-then-cache
+  lookup, *before* dispatching to any handler; a plain `clone $value`, or a direct call into
+  `TranslatableEntityHandler::translate()`, skips that check entirely and always clones,
+  duplicating rows on the next translate. `TranslatableEntityHandler` itself (what
+  `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` delegate a clone to) runs the
+  target's own property pipeline and resets generated ids, but performs **no** existence check
+  of its own since v4.0 — it is reached only from inside the handler chain, always after
+  `processTranslation()` already ran that check for the same subject (see its class docblock).
 - **Walking a class's properties, including private ones on a parent class.**
   `\ReflectionClass::getProperties()` never lists a private property declared on a parent —
   use `Tmi\TranslationBundle\Utils\ReflectionHelper::getHierarchyProperties($class)` (a full

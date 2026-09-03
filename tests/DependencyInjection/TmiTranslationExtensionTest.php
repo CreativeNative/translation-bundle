@@ -594,6 +594,28 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
     }
 
     /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testEntityTranslatorIsTaggedForKernelReset(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        $definition = $containerBuilder->getDefinition(EntityTranslator::class);
+
+        // Not autoconfigured by Symfony -- services.yaml must tag it explicitly, or a
+        // long-running worker never forgets a batch's preload() miss memory between
+        // units of work (see EntityTranslator::preload()'s docblock).
+        self::assertSame(
+            [['method' => 'reset']],
+            $definition->getTag('kernel.reset'),
+        );
+    }
+
+    /**
      * `_defaults.public: false` (v4.0) only protects consumers who autowire against an
      * interface or class instead of calling `container->get('tmi_translation....')` --
      * a forgotten direct lookup is a runtime ServiceNotFoundException, not a PHPStan

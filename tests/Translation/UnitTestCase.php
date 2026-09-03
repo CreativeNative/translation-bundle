@@ -181,15 +181,15 @@ class UnitTestCase extends TestCase
     /**
      * A real TranslatableEntityHandler built on the shared entityManager()/translator()/
      * propertyAccessor() mocks -- the same clone-plus-pipeline entity handler that
-     * BidirectionalOneToOneHandler and BidirectionalManyToOneHandler now delegate the
-     * association target's clone to. Stub entityManager()->createQueryBuilder() (via
-     * queryBuilderReturning()) to control what its LocaleVariantFinder reports as the
-     * existing variant, if any.
+     * BidirectionalOneToOneHandler and BidirectionalManyToOneHandler delegate the
+     * association target's clone to. It never queries entityManager() itself (existence
+     * is resolved once by EntityTranslator::processTranslation() before any handler
+     * runs -- see its own docblock), so calling it directly here, the way these two
+     * handler tests do, always clones.
      */
     protected function translatableEntityHandler(): TranslatableEntityHandler
     {
         return new TranslatableEntityHandler(
-            new LocaleVariantFinder($this->entityManager()),
             new DoctrineObjectHandler($this->entityManager(), $this->translator(), $this->propertyAccessor()),
             new AttributeHelper(),
         );

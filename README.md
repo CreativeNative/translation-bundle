@@ -496,20 +496,20 @@ executed statement.
 |------------------------------------------------------------------------------|---------------|
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
-| `translate()` a parent with *K* already-translated `OneToMany` children       | 2 + *K*       |
+| `translate()` a parent with *K* already-translated `OneToMany` children       | 1 + *K*       |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
-| Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + 3*N*      |
+| Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + *N*       |
 
-**Why the import row isn't `1 + N`.** `preload()` collapses *K* **already-translated** entities
-of one class into a single query — proven separately: three individual `translate()` calls
-cost three queries; the same three preceded by one `preload()` call cost one. A first-time
-import has no existing variants to find, so the upfront batched `preload()` pays one query
-that finds nothing (a miss for every Tuuid), and each entity still pays its own per-entity
-`preload()` miss plus `TranslatableEntityHandler`'s own existing-variant check once the
-handler chain runs — two lookup queries per entity, on top of its `INSERT`. Re-running the
-same import afterwards costs one query total: every Tuuid is now a cache hit.
+**Why the import row is `1 + N`, not `1 + 3N`.** The upfront `preload()` remembers every Tuuid
+its one batched query looked up and found nothing for, so each entity's own internal `preload()`
+call — and the handler chain reached once that (already-known) miss falls through to it — never
+asks the database the same question again; only the *N* `INSERT`s on `flush()` are left. The one
+caveat: a variant for a remembered Tuuid created by anything other than this translator (a manual
+`persist()`, another process) stays invisible to it until this translator creates one for that
+pair or the service is reset — `EntityTranslator` is tagged `kernel.reset` for exactly this (see
+[`preload()`](src/Translation/EntityTranslator.php)'s docblock).
 
 **Reflection is cached, not repeated.** `AttributeHelper` and
 `ReflectionHelper::getHierarchyProperties()` memoize per (proxy-unwrapped) class — the hot
@@ -522,9 +522,10 @@ query planner facing 2-10 distinct locale values would usually ignore one anyway
 
 **Imports and long-running workers.** Call `preload($batch, $locale)` once before looping
 `getOrTranslate()` over a batch (see the import row above) — and if your process outlives one
-request or job (a queue consumer, a long-running import), `InMemoryTranslationCache` is
-tagged `kernel.reset`, so it clears itself between units of work instead of handing the next
-one an entity the last one cached (and, since v4's identity fix, possibly detached).
+request or job (a queue consumer, a long-running import), both `InMemoryTranslationCache` and
+`EntityTranslator` itself are tagged `kernel.reset`, so they clear themselves between units of
+work instead of handing the next one an entity the last one cached (and, since v4's identity
+fix, possibly detached) or a stale "Tuuid not found" answer from `preload()`'s own miss memory.
 
 ## 🤖 AI-Assisted Development
 

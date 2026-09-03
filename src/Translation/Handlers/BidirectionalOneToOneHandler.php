@@ -80,12 +80,15 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $property = $context->getProperty();
         assert(null !== $property);
 
-        // Delegate the clone itself to the entity pipeline: existing-variant lookup via the
-        // finder, translateProperties() over the related entity's own fields (shared/empty/
-        // translatable, not just the back-reference), generated-id reset, and locale. A plain
-        // `clone $data` here left all of that undone -- including the id, which PHP's clone
-        // copies verbatim, so a flush re-inserted the source's row under a fresh identity
-        // instead of ever reusing an existing translation.
+        // Delegate the clone itself to the entity pipeline: translateProperties() over the
+        // related entity's own fields (shared/empty/translatable, not just the
+        // back-reference), generated-id reset, and locale. A plain `clone $data` here left
+        // all of that undone -- including the id, which PHP's clone copies verbatim, so a
+        // flush re-inserted the source's row under a fresh identity instead of ever reusing
+        // an existing translation. Whether $data already has a $targetLocale variant was
+        // already settled before this handler ever ran -- EntityTranslator::processTranslation()
+        // preloaded and cache-checked this same $context's subject first (see
+        // TranslatableEntityHandler's own docblock) -- so there is nothing left to look up here.
         $translated = $this->translatableEntityHandler->translate($context);
         \assert($translated instanceof TranslatableInterface);
 

@@ -4,17 +4,32 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
+/**
+ * Clones a translatable entity into its target locale, running the clone through
+ * the property pipeline and resetting its generated id(s).
+ *
+ * Does not check for an existing $targetLocale variant itself -- that existence
+ * question is resolved exactly once, before this handler ever runs, by
+ * EntityTranslator::processTranslation()'s own preload()-then-cache-check for the
+ * same subject (see that method's docblock). This handler is reached only two
+ * ways: (a) from EntityTranslator::runHandlers(), always after that preload() ran
+ * for the same entity, or (b) from BidirectionalManyToOneHandler /
+ * BidirectionalOneToOneHandler, which are themselves reached the same way for the
+ * same subject and simply pass their own context through. Calling translate()
+ * any other way -- a custom handler reaching for this class directly instead of
+ * delegating through EntityTranslatorInterface::translate()/processTranslation()
+ * -- skips that existence check entirely and always clones, minting a duplicate
+ * row for any Tuuid that already has a variant in the target locale.
+ */
 final readonly class TranslatableEntityHandler implements TranslationHandlerInterface
 {
     public function __construct(
-        private LocaleVariantFinder $finder,
         private DoctrineObjectHandler $doctrineObjectHandler,
         private AttributeHelper $attributeHelper,
     ) {
@@ -43,15 +58,6 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
         $targetLocale = $context->getTargetLocale();
         \assert(\is_string($targetLocale));
-
-        // Search across every locale variant of the Tuuid, not just the ones visible
-        // under the current locale filter -- an in-filter lookup here would never see
-        // an existing variant in $targetLocale and mint a duplicate row on every call.
-        $existingTranslation = $this->finder->findLocaleVariant($data::class, $data->getTuuid(), $targetLocale);
-
-        if (null !== $existingTranslation) {
-            return $existingTranslation;
-        }
 
         $clone = clone $data;
 

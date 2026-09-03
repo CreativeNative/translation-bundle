@@ -11,6 +11,7 @@ use Doctrine\Persistence\Proxy;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\Service\ResetInterface;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\PostTranslateEvent;
@@ -21,7 +22,7 @@ use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
-final class EntityTranslator implements EntityTranslatorInterface
+final class EntityTranslator implements EntityTranslatorInterface, ResetInterface
 {
     /**
      * Handlers ordered by descending priority; first match wins.
@@ -29,6 +30,15 @@ final class EntityTranslator implements EntityTranslatorInterface
      * @var list<array{priority: int, handler: TranslationHandlerInterface}>
      */
     private array $handlers = [];
+
+    /**
+     * (tuuid, locale) pairs a preload() batch query already looked up and found
+     * nothing for -- see the preload() docblock. Cleared per pair the moment
+     * runHandlers() caches a translation for it, and wholesale by reset().
+     *
+     * @var array<string, array<string, true>>
+     */
+    private array $knownMisses = [];
 
     private LoggerInterface|null $logger = null;
 
@@ -99,6 +109,28 @@ final class EntityTranslator implements EntityTranslatorInterface
      * lookup here would only ever see the current request's locale, never find an
      * existing translation in $locale, and mint a duplicate row on every warmup.
      *
+     * A cache hit is checked against the entity's real UnitOfWork state, the same
+     * rule processTranslation() applies at its own cache-hit sites: a hit surviving
+     * an EntityManager::clear() still sits in the cache holding an identifier the
+     * UnitOfWork no longer tracks, and get() alone cannot tell that apart from a
+     * live one. Treating a detached hit as reusable here would suppress the query
+     * that reloads (or reuses) a managed instance, and processTranslation()'s own
+     * post-preload check would then hand the caller a detached instance whose
+     * later persist() re-inserts it as a duplicate row instead of finding it.
+     *
+     * A (tuuid, locale) pair a batched lookup query below already looked up and
+     * found nothing for is remembered ($knownMisses) so a later preload() call --
+     * including processTranslation()'s own single-entity one, which is what makes
+     * an import's per-entity translate() loop not re-query a Tuuid this same
+     * preload() call already ruled out -- skips the query for it instead of asking
+     * the database the same question again. The memory entry for a pair is dropped
+     * the instant runHandlers() caches a translation for it, so a variant this
+     * translator itself creates is always found again, even across an
+     * EntityManager::clear(). The one gap this leaves: a variant for a remembered
+     * pair created by some other means -- a manual persist(), another process --
+     * stays invisible to preload() until this translator creates one for that pair
+     * or the service is reset (see reset(), tagged kernel.reset in services.yaml).
+     *
      * @param iterable<mixed> $entities
      */
     public function preload(iterable $entities, string $locale): void
@@ -111,23 +143,51 @@ final class EntityTranslator implements EntityTranslatorInterface
                 continue;
             }
             $tuuid = $entity->getTuuid()->getValue();
-            // get() rather than has(): a stale pool key whose entry no longer loads
-            // must not suppress the warmup query for its tuuid.
-            if (null !== $this->cache->get($tuuid, $locale)) {
+
+            $cached = $this->cache->get($tuuid, $locale);
+            if (null !== $cached && !$this->isDetachedCacheHit($cached)) {
                 continue;
             }
+
+            if (isset($this->knownMisses[$tuuid][$locale])) {
+                continue;
+            }
+
             $byClass[$entity::class][] = $tuuid;
         }
 
         foreach ($byClass as $class => $tuuids) {
+            /** @var array<string, true> $found */
+            $found = [];
+
             foreach ($this->finder->findLocaleVariantsBatch($class, $tuuids, $locale) as $translation) {
-                $this->cache->set(
-                    $translation->getTuuid()->getValue(),
-                    $translation->getLocale() ?? $locale,
-                    $translation,
-                );
+                $translationTuuid         = $translation->getTuuid()->getValue();
+                $found[$translationTuuid] = true;
+
+                $this->cache->set($translationTuuid, $translation->getLocale() ?? $locale, $translation);
+                unset($this->knownMisses[$translationTuuid][$locale]);
+            }
+
+            foreach ($tuuids as $tuuid) {
+                if (!isset($found[$tuuid])) {
+                    $this->knownMisses[$tuuid][$locale] = true;
+                }
             }
         }
+    }
+
+    /**
+     * Forgets every (tuuid, locale) pair preload() has recorded as a miss -- see
+     * the preload() docblock. services.yaml tags this service kernel.reset
+     * explicitly (Symfony does not autoconfigure ResetInterface into that tag), so
+     * a long-running worker starts each unit of work without a previous one's miss
+     * memory: a variant created between them by some means other than this
+     * translator becomes visible again immediately, matching
+     * InMemoryTranslationCache's own kernel.reset behaviour.
+     */
+    public function reset(): void
+    {
+        $this->knownMisses = [];
     }
 
     /**
@@ -375,7 +435,12 @@ final class EntityTranslator implements EntityTranslatorInterface
             if ($subject instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
                 $this->eventDispatcher->dispatch(new PostTranslateEvent($subject, $locale, $translated));
 
-                $this->cache->set($translated->getTuuid()->getValue(), $translated->getLocale() ?? $locale, $translated);
+                $translatedTuuid  = $translated->getTuuid()->getValue();
+                $translatedLocale = $translated->getLocale() ?? $locale;
+                $this->cache->set($translatedTuuid, $translatedLocale, $translated);
+                // A translation just created for this pair makes any earlier preload()
+                // miss recorded for it stale -- see the preload() docblock.
+                unset($this->knownMisses[$translatedTuuid][$translatedLocale]);
 
                 $this->logDebug('Translation complete', [
                     'class'         => $translated::class,

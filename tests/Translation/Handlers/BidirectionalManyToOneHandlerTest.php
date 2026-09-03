@@ -15,6 +15,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidi
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
 final class BidirectionalManyToOneHandlerTest extends UnitTestCase
@@ -175,11 +176,6 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
-        // No existing it_IT variant -- the finder's query returns nothing, so the
-        // delegated TranslatableEntityHandler takes the create path.
-        $this->entityManager()->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
-
         $prop    = new \ReflectionProperty($child, 'parentSimple');
         $context = $this->entityContext($child, $prop);
         $context->setTargetLocale('it_IT');
@@ -195,17 +191,20 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     }
 
     /**
+     * Existence is resolved once, before this handler runs, by
+     * EntityTranslator::processTranslation() -- the delegated TranslatableEntityHandler
+     * never queries the EntityManager for an existing variant itself (see its class
+     * docblock), so calling this handler directly, as this test does, always clones.
+     *
      * @throws \ReflectionException
      */
-    public function testTranslateReusesExistingChildVariantOnBackReferenceForm(): void
+    public function testTranslateOnBackReferenceFormNeverQueriesForAnExistingVariant(): void
     {
         $handler = $this->createHandler();
 
         $parent = new TranslatableOneToManyBidirectionalParent();
         $child  = new TranslatableManyToOneBidirectionalChild();
         $child->setLocale('en_US')->setParentSimple($parent);
-
-        $existingTranslation = new TranslatableManyToOneBidirectionalChild()->setLocale('it_IT');
 
         $metadata                      = new ClassMetadata(TranslatableManyToOneBidirectionalChild::class);
         $metadata->associationMappings = [
@@ -220,9 +219,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
-        // The finder's query reports an already-translated row for this tuuid/locale.
-        $this->entityManager()->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+        $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
         $prop    = new \ReflectionProperty($child, 'parentSimple');
         $context = $this->entityContext($child, $prop);
@@ -231,11 +228,9 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $result = $handler->translate($context);
 
-        // The existing variant is returned as-is -- not a fresh clone. A handler that
-        // skipped the finder check here would mint a second (tuuid, locale) row on every
-        // call instead of reusing the one already in the database.
-        self::assertSame($existingTranslation, $result);
-        self::assertSame($parent, $result->getParentSimple(), 'Back-reference must be repaired even on a reused variant');
+        self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $result);
+        self::assertNotSame($child, $result);
+        self::assertSame($parent, $result->getParentSimple(), 'Back-reference must be repaired on the clone');
     }
 
     /**
@@ -254,7 +249,12 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     {
         $handler = $this->createHandler();
 
-        $target = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
+        // An explicit Tuuid: TranslatableEntityHandler no longer forces the source's
+        // Tuuid to generate before cloning (that side effect of the removed finder
+        // lookup is gone -- see its class docblock), and TranslatableTrait::getTuuid()
+        // lazily generates a fresh one per still-null instance, so an unset Tuuid here
+        // would let the clone and $target each generate their own.
+        $target = new TranslatableOneToManyBidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US');
 
         $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [];
@@ -262,9 +262,6 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('getClassMetadata')
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
-
-        $this->entityManager()->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
 
         $prop    = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
         $context = $this->entityContext($target, $prop);
@@ -279,14 +276,20 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     }
 
     /**
+     * Existence is resolved once, before this handler runs, by
+     * EntityTranslator::processTranslation() -- the delegated TranslatableEntityHandler
+     * never queries the EntityManager for an existing variant itself (see its class
+     * docblock), so calling this handler directly, as this test does, always clones.
+     *
      * @throws \ReflectionException
      */
-    public function testTranslateOfDirectFormReusesExistingTargetVariant(): void
+    public function testTranslateOfDirectFormNeverQueriesForAnExistingVariant(): void
     {
         $handler = $this->createHandler();
 
-        $target                        = new TranslatableOneToManyBidirectionalParent()->setLocale('en_US');
-        $existingTranslation           = new TranslatableOneToManyBidirectionalParent()->setLocale('it_IT');
+        // See testTranslateOfDirectFormTranslatesTargetInsteadOfReturningSource() for
+        // why $target needs an explicit Tuuid here.
+        $target                        = new TranslatableOneToManyBidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US');
         $metadata                      = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
         $metadata->associationMappings = [];
 
@@ -294,8 +297,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableOneToManyBidirectionalParent::class)
             ->willReturn($metadata);
 
-        $this->entityManager()->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+        $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
         $prop    = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
         $context = $this->entityContext($target, $prop);
@@ -303,7 +305,9 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $result = $handler->translate($context);
 
-        self::assertSame($existingTranslation, $result);
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $result);
+        self::assertNotSame($target, $result);
+        self::assertSame($target->getTuuid(), $result->getTuuid());
     }
 
     public function testTranslateWithNullProperty(): void
@@ -353,11 +357,13 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with(TranslatableManyToOneBidirectionalChild::class)
             ->willReturn($metadata);
 
-        // No existing variant for either the child or its parent -- both finder lookups
-        // (this handler's own, and the recursive one hit while pipelining the child's own
-        // back-reference property) take the create path.
-        $this->entityManager()->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
+        // The delegated TranslatableEntityHandler no longer queries the EntityManager
+        // for an existing child variant itself (see its class docblock); the recursive
+        // EntityTranslator::processTranslation() call hit while pipelining the child's
+        // own back-reference property uses the translator's own LocaleVariantFinder,
+        // built on a separate stub (see UnitTestCase::localeVariantFinder()) -- so
+        // nothing in this call reaches this entityManager() mock's createQueryBuilder().
+        $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
         // --- Step 4: Build context ---
         $prop    = new \ReflectionProperty($child, 'parentSimple');

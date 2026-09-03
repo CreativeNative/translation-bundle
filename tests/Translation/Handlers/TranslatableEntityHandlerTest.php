@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use ReflectionException;
 use Symfony\Component\Uid\Uuid;
-use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
@@ -37,7 +36,6 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         );
 
         $this->handler = new TranslatableEntityHandler(
-            new LocaleVariantFinder($this->entityManager()),
             $doctrineObjectHandler,
             new AttributeHelper(),
         );
@@ -61,27 +59,29 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
 
     /**
      * The handler ignores the shared fact entirely -- a #[SharedAmongstTranslations]
-     * association still resolves via the normal get-or-create pipeline.
+     * association still resolves via the normal get-or-create pipeline -- and never
+     * touches the EntityManager: existence is resolved once by
+     * EntityTranslator::processTranslation() before any handler runs (see the class
+     * docblock), so this handler always just clones.
      *
      * @throws \ReflectionException
      */
     public function testTranslateIgnoresSharedFlag(): void
     {
-        $translatable = $this->createMock(TranslatableInterface::class);
-        $context      = $this->entityContext($translatable)->setShared(true);
-        $tuuid        = new Tuuid(Uuid::v4()->toRfc4122());
+        $tuuid          = new Tuuid(Uuid::v4()->toRfc4122());
+        $originalEntity = new Scalar()
+            ->setTuuid($tuuid)
+            ->setLocale('en_US');
+        $context = $this->entityContext($originalEntity)->setShared(true);
 
-        // Set up the mocks so that translate will return the translatable mock
-        $translatable->expects($this->once())
-            ->method('getTuuid')
-            ->willReturn($tuuid);
-
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([$translatable]));
+        $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
         $result = $this->handler->translate($context);
-        self::assertSame($translatable, $result);
+
+        self::assertNotSame($originalEntity, $result);
+        self::assertInstanceOf(Scalar::class, $result);
+        self::assertSame('de_DE', $result->getLocale());
+        self::assertSame((string) $tuuid, (string) $result->getTuuid());
     }
 
     public function testTranslateReturnsNullWhenEmpty(): void
@@ -94,30 +94,30 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     }
 
     /**
+     * Existence is resolved once, before this handler runs, by
+     * EntityTranslator::processTranslation() -- not by this handler, even when an
+     * existing variant is sitting right there for the EntityManager to find (see the
+     * class docblock). Calling translate() directly, as this test does, always clones.
+     *
      * @throws \ReflectionException
      */
-    public function testTranslateReturnsExistingTranslationWhenFound(): void
+    public function testTranslateNeverQueriesTheEntityManagerForAnExistingVariant(): void
     {
-        $existingTranslation = $this->createMock(TranslatableInterface::class);
-        $originalEntity      = $this->createMock(TranslatableInterface::class);
-
-        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
-
-        // Set up expectations
-        $originalEntity->expects($this->once())
-            ->method('getTuuid')
-            ->willReturn($tuuid);
+        $tuuid          = new Tuuid(Uuid::v4()->toRfc4122());
+        $originalEntity = new Scalar()
+            ->setTuuid($tuuid)
+            ->setLocale('en_US');
 
         $context = $this->entityContext($originalEntity);
 
-        // Stub the finder's query to return the existing translation
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([$existingTranslation]));
+        $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
         $result = $this->handler->translate($context);
 
-        self::assertSame($existingTranslation, $result);
+        self::assertNotSame($originalEntity, $result);
+        self::assertInstanceOf(Scalar::class, $result);
+        self::assertSame('de_DE', $result->getLocale());
+        self::assertSame((string) $tuuid, (string) $result->getTuuid());
     }
 
     /**
@@ -132,11 +132,6 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->setLocale('en_US');
 
         $context = $this->entityContext($originalEntity);
-
-        // Stub the finder's query to find no existing translation
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
 
         // Call the method under test
         $result = $this->handler->translate($context);
@@ -159,20 +154,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         self::expectException(\ReflectionException::class);
 
         $originalEntity = $this->createMock(TranslatableInterface::class);
-
-        $tuuid = new Tuuid(Uuid::v4()->toRfc4122());
-
-        // Set up expectations
-        $originalEntity->expects($this->once())
-            ->method('getTuuid')
-            ->willReturn($tuuid);
-
-        $context = $this->entityContext($originalEntity);
-
-        // Stub the finder's query to find no existing translation
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
+        $context        = $this->entityContext($originalEntity);
 
         // Create a mock translator that throws ReflectionException
         $exceptionTranslator = $this->createMock(EntityTranslatorInterface::class);
@@ -188,7 +170,6 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         );
 
         $exceptionHandler = new TranslatableEntityHandler(
-            new LocaleVariantFinder($this->entityManager()),
             $exceptionDoctrineObjectHandler,
             new AttributeHelper(),
         );
@@ -212,11 +193,6 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $idProperty->setValue($originalEntity, 42);
 
         $context = $this->entityContext($originalEntity);
-
-        // Stub the finder's query to find no existing translation
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
 
         $result = $this->handler->translate($context);
 
@@ -243,11 +219,6 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $idProperty->setValue($originalEntity, 42);
 
         $context = $this->entityContext($originalEntity);
-
-        // Stub the finder's query to find no existing translation
-        $this->entityManager()->expects($this->once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->queryBuilderReturning([]));
 
         $result = $this->handler->translate($context);
 
