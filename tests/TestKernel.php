@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Doctrine\DBAL\Logging\Middleware as LoggingMiddleware;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\Test\Support\QueryCounter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 
@@ -110,5 +115,36 @@ final class TestKernel extends BaseKernel
         $container->services()
             ->alias('test.entity_translator', EntityTranslator::class)
             ->public();
+
+        // Query-budget test infrastructure: a PSR-3 logger counting the debug
+        // messages DBAL's own logging middleware emits, one per executed
+        // statement or query. Registering the vendor Middleware class here
+        // (rather than the bundle's own config) is what keeps this test-only --
+        // doctrine-bundle autoconfigures every Doctrine\DBAL\Driver\Middleware
+        // implementation onto the "doctrine.middleware" tag (verified against
+        // doctrine-bundle 3.3.1's DoctrineExtension::dbalLoad()), which
+        // MiddlewaresPass then attaches to the (only) "default" connection --
+        // but only for a definition that is itself autoconfigured. That flag
+        // does NOT carry over from the `defaults()` call above: ServicesConfigurator
+        // ::defaults() stores it on that specific configurator instance
+        // (vendor ServicesConfigurator::$defaults, fresh per `services()`
+        // call), so it applies only to registrations chained off the very
+        // same `services()` return value, never to a later, separate
+        // `$container->services()->set(...)` call such as this one --
+        // verified by tracing autoconfigured() through a compiler pass while
+        // building this test. Every existing registration below the
+        // `defaults()` call happens to not depend on it (TranslatableEventSubscriber
+        // resolves its constructor via #[Autowire] attributes, not autowiring;
+        // the two aliases need neither), so this went unnoticed until a
+        // registration that genuinely needs the "doctrine.middleware"
+        // instanceof tag exposed it.
+        $container->services()
+            ->set(QueryCounter::class)
+            ->public();
+
+        $container->services()
+            ->set('test.query_counter_middleware', LoggingMiddleware::class)
+            ->autoconfigure()
+            ->arg('$logger', service(QueryCounter::class));
     }
 }

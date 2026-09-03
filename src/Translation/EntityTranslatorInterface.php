@@ -22,6 +22,22 @@ interface EntityTranslatorInterface
     public function getOrTranslate(TranslatableInterface $entity, string $locale): TranslatableInterface;
 
     /**
+     * Batch-loads each entity's $locale variant into the cache ahead of time,
+     * one query per class rather than one per entity.
+     *
+     * translate() already warms its own cache entry before running the
+     * handler chain, so a loop calling translate() one entity at a time
+     * costs one lookup query per entity regardless. Calling preload() with
+     * the whole batch first turns that into one lookup query per class --
+     * translate() then finds every entry already cached and skips its own
+     * lookup. Entities without a $locale variant are simply not found and
+     * are translated (created) normally when translate() reaches them.
+     *
+     * @param iterable<mixed> $entities
+     */
+    public function preload(iterable $entities, string $locale): void;
+
+    /**
      * Process translation for an entity, embedded object, or property value.
      *
      * Exposed so handlers may recursively translate sub-objects through the

@@ -36,6 +36,17 @@ class AttributeHelper
     private array $validatedClasses = [];
 
     /**
+     * Per declaringClass::property::attribute. #[Attribute] presence is a
+     * class-level fact, immutable for the life of the process -- same
+     * precedent as $validatedProperties -- and this is the single most
+     * frequently called method in the translation hot path (called once per
+     * property per attribute kind, per translate() call, uncached).
+     *
+     * @var array<string, bool>
+     */
+    private array $attributeCache = [];
+
+    /**
      * Defines if the property is embedded.
      */
     public function isEmbedded(\ReflectionProperty $property): bool
@@ -269,7 +280,10 @@ class AttributeHelper
      */
     private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
     {
-        return [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
+        $cacheKey = $property->class.'::'.$property->name.'::'.$attributeClass;
+
+        return $this->attributeCache[$cacheKey]
+            ??= [] !== $property->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
     }
 
     /**

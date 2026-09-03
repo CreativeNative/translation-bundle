@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Utils;
 
+use Doctrine\Persistence\Proxy;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Reflection\OneToMany\InheritedBackReferenceChild;
 use Tmi\TranslationBundle\Fixtures\Reflection\OneToMany\InheritedBackReferenceSuperclass;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -62,5 +64,47 @@ final class ReflectionHelperTest extends TestCase
         self::expectExceptionMessage(sprintf('Property "missing" does not exist on class "%s" or any of its parent classes.', $child::class));
 
         ReflectionHelper::getProperty($child::class, 'missing');
+    }
+
+    /**
+     * PHP never memoizes ReflectionProperty instances internally -- two
+     * unrelated ReflectionClass::getProperties() calls for the same class
+     * return equal but distinct objects (verified while building this
+     * cache), so `===` identity between two getHierarchyProperties() calls
+     * is proof the second one was served from the cache, not a fresh walk.
+     */
+    public function testGetHierarchyPropertiesMemoizesPerClass(): void
+    {
+        $first  = ReflectionHelper::getHierarchyProperties(new \ReflectionClass(Scalar::class));
+        $second = ReflectionHelper::getHierarchyProperties(new \ReflectionClass(Scalar::class));
+
+        self::assertSame($first, $second);
+    }
+
+    /**
+     * A classic (non-native-lazy-object) Doctrine proxy subclasses the real
+     * entity; reflecting the proxy class directly must resolve to the same
+     * cache entry as the real class, not a separate one keyed by the
+     * generated subclass name -- the same proxy-unwrapping precedent
+     * EntityTranslator::resolveCopySource() and DoctrineObjectHandler::
+     * supports() apply (WP7 #16).
+     */
+    public function testGetHierarchyPropertiesUnwrapsAProxyToTheRealClasssCacheEntry(): void
+    {
+        $proxy = new class extends Scalar implements Proxy {
+            public function __load(): void
+            {
+            }
+
+            public function __isInitialized(): bool
+            {
+                return true;
+            }
+        };
+
+        $direct   = ReflectionHelper::getHierarchyProperties(new \ReflectionClass(Scalar::class));
+        $viaProxy = ReflectionHelper::getHierarchyProperties(new \ReflectionClass($proxy));
+
+        self::assertSame($direct, $viaProxy);
     }
 }

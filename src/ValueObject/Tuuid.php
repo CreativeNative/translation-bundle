@@ -40,8 +40,20 @@ final readonly class Tuuid implements \Stringable
 
     public static function generate(): self
     {
-        // Creates a new UUIDv7 (time-based, SEO-friendly sequence)
-        return new self(strtolower(Uuid::v7()->toRfc4122()));
+        // Creates a new UUIDv7 (time-based, SEO-friendly sequence). Bypasses the
+        // public constructor: Uuid::v7() is already a valid, well-formed UUID, so
+        // routing it through `new self($value)` would re-parse and re-validate a
+        // string this method itself just produced -- Uuid::isValid() plus a second
+        // Uuid::fromString()->toRfc4122() round trip for nothing. Initializing
+        // $value via ReflectionProperty rather than a direct `$tuuid->value = ...`
+        // assignment is allowed by the same "declaring class's own scope" rule
+        // __construct() relies on (verified against PHP's readonly-property
+        // initialization rules), and reads as intentional rather than tripping
+        // a static-analysis rule meant to catch accidental mutation elsewhere.
+        $tuuid = (new \ReflectionClass(self::class))->newInstanceWithoutConstructor();
+        (new \ReflectionProperty(self::class, 'value'))->setValue($tuuid, strtolower(Uuid::v7()->toRfc4122()));
+
+        return $tuuid;
     }
 
     /**

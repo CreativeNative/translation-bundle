@@ -56,4 +56,24 @@ final class TuuidTest extends TestCase
 
         self::assertSame($tuuid->getValue(), (string) $tuuid);
     }
+
+    /**
+     * generate() bypasses the public constructor (see its docblock), so it
+     * needs its own direct coverage of the value it produces -- a valid,
+     * lowercase RFC4122 string, exactly what `new self($value)` would have
+     * normalized it to.
+     */
+    public function testGenerateReturnsAValidLowercaseRfc4122Uuid(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        self::assertTrue(Uuid::isValid($tuuid->getValue()));
+        self::assertSame(strtolower($tuuid->getValue()), $tuuid->getValue());
+        self::assertTrue($tuuid->equals(new Tuuid($tuuid->getValue())));
+    }
+
+    public function testGenerateReturnsDistinctValues(): void
+    {
+        self::assertFalse(Tuuid::generate()->equals(Tuuid::generate()));
+    }
 }

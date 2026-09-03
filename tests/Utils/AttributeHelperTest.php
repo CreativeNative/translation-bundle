@@ -156,6 +156,43 @@ final class AttributeHelperTest extends TestCase
         $this->addToAssertionCount(1); // If we reach here, second call was cached
     }
 
+    /**
+     * hasAttribute() is the single most frequently called method in the
+     * translate() hot path -- once per property per attribute kind, per
+     * call. Subclassing \ReflectionProperty to count getAttributes() calls
+     * is a real spy, not an assertion on the (identical either way) boolean
+     * result: PHP itself never memoizes ReflectionProperty's own attribute
+     * lookups, so a second call reaching getAttributes() again would mean
+     * the cache was not consulted.
+     */
+    public function testIsSharedAmongstTranslationsCachesPerPropertyAndAttribute(): void
+    {
+        $class = new class {
+            #[SharedAmongstTranslations]
+            public string|null $shared = null;
+        };
+
+        $spy = new class($class, 'shared') extends \ReflectionProperty {
+            public int $attributeCalls = 0;
+
+            public function getAttributes(string|null $name = null, int $flags = 0): array
+            {
+                ++$this->attributeCalls;
+
+                return parent::getAttributes($name, $flags);
+            }
+        };
+
+        self::assertTrue($this->attributeHelper->isSharedAmongstTranslations($spy));
+        self::assertTrue($this->attributeHelper->isSharedAmongstTranslations($spy));
+        self::assertSame(1, $spy->attributeCalls, 'the second call must be served from the cache');
+
+        // A different attribute kind on the very same property is its own
+        // cache entry -- not suppressed by the one above.
+        self::assertFalse($this->attributeHelper->isEmptyOnTranslate($spy));
+        self::assertSame(2, $spy->attributeCalls);
+    }
+
     public function testValidatePropertyLogsErrorsBeforeThrowing(): void
     {
         /** @var LoggerInterface&MockObject $logger */

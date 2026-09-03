@@ -83,6 +83,53 @@ final class EntityTranslator implements EntityTranslatorInterface
     }
 
     /**
+     * Batch-loads each entity's $locale variant into the cache ahead of time,
+     * one query per class rather than one per entity.
+     *
+     * translate() already warms its own cache entry before running the
+     * handler chain, so a loop calling translate() one entity at a time
+     * costs one lookup query per entity regardless. Calling preload() with
+     * the whole batch first turns that into one lookup query per class --
+     * translate() then finds every entry already cached and skips its own
+     * lookup. Entities without a $locale variant are simply not found and
+     * are translated (created) normally when translate() reaches them.
+     *
+     * Goes through the finder rather than a plain query builder: a locale-filtered
+     * lookup here would only ever see the current request's locale, never find an
+     * existing translation in $locale, and mint a duplicate row on every warmup.
+     *
+     * @param iterable<mixed> $entities
+     */
+    public function preload(iterable $entities, string $locale): void
+    {
+        /** @var array<class-string, list<string>> $byClass */
+        $byClass = [];
+
+        foreach ($entities as $entity) {
+            if (!$entity instanceof TranslatableInterface) {
+                continue;
+            }
+            $tuuid = $entity->getTuuid()->getValue();
+            // get() rather than has(): a stale pool key whose entry no longer loads
+            // must not suppress the warmup query for its tuuid.
+            if (null !== $this->cache->get($tuuid, $locale)) {
+                continue;
+            }
+            $byClass[$entity::class][] = $tuuid;
+        }
+
+        foreach ($byClass as $class => $tuuids) {
+            foreach ($this->finder->findLocaleVariantsBatch($class, $tuuids, $locale) as $translation) {
+                $this->cache->set(
+                    $translation->getTuuid()->getValue(),
+                    $translation->getLocale() ?? $locale,
+                    $translation,
+                );
+            }
+        }
+    }
+
+    /**
      * Process translation for a given entity or property.
      *
      * This method handles:
@@ -160,9 +207,9 @@ final class EntityTranslator implements EntityTranslatorInterface
             // every later translate() silently return the untranslated entity.
             $this->cache->markInProgress($tuuidValue, $locale);
             try {
-                $this->warmupTranslations([$entity], $locale);
+                $this->preload([$entity], $locale);
 
-                // Same identity check as above: warmupTranslations() may have refreshed
+                // Same identity check as above: preload() may have refreshed
                 // the entry, but a still-detached hit (its tuuid was skipped because the
                 // cache already held something for it) is still a miss here.
                 $cached = $this->cache->get($tuuidValue, $locale);
@@ -397,43 +444,5 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         return $this->copySource;
-    }
-
-    /**
-     * Batch-load translations for given entities and target locale.
-     *
-     * Goes through the finder rather than a plain query builder: a locale-filtered
-     * lookup here would only ever see the current request's locale, never find an
-     * existing translation in $locale, and mint a duplicate row on every warmup.
-     *
-     * @param array<mixed> $entities
-     */
-    private function warmupTranslations(array $entities, string $locale): void
-    {
-        /** @var array<class-string, list<string>> $byClass */
-        $byClass = [];
-
-        foreach ($entities as $entity) {
-            if (!$entity instanceof TranslatableInterface) {
-                continue;
-            }
-            $tuuid = $entity->getTuuid()->getValue();
-            // get() rather than has(): a stale pool key whose entry no longer loads
-            // must not suppress the warmup query for its tuuid.
-            if (null !== $this->cache->get($tuuid, $locale)) {
-                continue;
-            }
-            $byClass[$entity::class][] = $tuuid;
-        }
-
-        foreach ($byClass as $class => $tuuids) {
-            foreach ($this->finder->findLocaleVariantsBatch($class, $tuuids, $locale) as $translation) {
-                $this->cache->set(
-                    $translation->getTuuid()->getValue(),
-                    $translation->getLocale() ?? $locale,
-                    $translation,
-                );
-            }
-        }
     }
 }
