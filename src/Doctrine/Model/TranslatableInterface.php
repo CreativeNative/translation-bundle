@@ -20,11 +20,4 @@ interface TranslatableInterface
     public function getLocale(): string|null;
 
     public function setLocale(string|null $locale = null): self;
-
-    /**
-     * Returns translations ids per locale.
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    public function getTranslations(): array;
 }

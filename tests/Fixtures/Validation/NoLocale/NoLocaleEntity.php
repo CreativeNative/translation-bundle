@@ -15,9 +15,6 @@ class NoLocaleEntity implements TranslatableInterface
 {
     private Tuuid|null $tuuid = null;
 
-    /** @var array<string, array<string, mixed>> */
-    private array $translations = [];
-
     public function generateTuuid(): void
     {
         if (null === $this->tuuid) {
@@ -52,13 +49,5 @@ class NoLocaleEntity implements TranslatableInterface
     {
         // No locale property, so this is a no-op
         return $this;
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    public function getTranslations(): array
-    {
-        return $this->translations;
     }
 }

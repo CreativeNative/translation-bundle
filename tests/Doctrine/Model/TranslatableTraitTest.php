@@ -48,6 +48,17 @@ final class TranslatableTraitTest extends IntegrationTestCase
     }
 
     /**
+     * The dead "translations" JSON column must not be part of the mapping
+     * any more -- TranslatableTrait no longer declares it.
+     */
+    public function testTranslationsColumnIsGone(): void
+    {
+        $metadata = $this->entityManager()->getClassMetadata(Scalar::class);
+
+        self::assertFalse($metadata->hasField('translations'), 'The "translations" column must be gone.');
+    }
+
+    /**
      * Ensure that Tuuid is auto-generated before persist.
      *
      * @throws OptimisticLockException
@@ -114,23 +125,6 @@ final class TranslatableTraitTest extends IntegrationTestCase
 
         // Ensure lazy initialization persists value internally
         self::assertSame($generated, $property->getValue($entity));
-    }
-
-    /**
-     * Test translation array methods.
-     */
-    public function testTranslationMethods(): void
-    {
-        $entity = new Scalar();
-
-        $translations = ['de_DE' => ['title' => 'Titel'], 'en_US' => ['title' => 'Title']];
-        $entity->setTranslations($translations);
-        self::assertSame($translations, $entity->getTranslations());
-
-        $entity->setTranslation('fr', ['title' => 'Titre']);
-        self::assertSame(['title' => 'Titre'], $entity->getTranslation('fr'));
-
-        self::assertNull($entity->getTranslation('es'));
     }
 
     /**

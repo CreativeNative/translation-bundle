@@ -46,7 +46,7 @@ final class SyncSharedTranslationsCommand extends Command
     private const string LOCALE_FILTER = 'tmi_translation_locale_filter';
 
     /** @var list<string> */
-    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale', 'translations'];
+    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
 
     /**
      * Tuuid groups processed between EntityManager flush/clear cycles while streaming

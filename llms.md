@@ -674,10 +674,9 @@ class Product
 
 **Why this matters:**
 - **TranslatableInterface** tells the bundle this entity can be translated. The TranslatableEntityHandler (priority 20) checks for this interface using `supports()` to determine if it should process the entity.
-- **TranslatableTrait** provides three essential properties automatically:
+- **TranslatableTrait** provides two essential properties automatically:
   - `$tuuid` — Groups all language variants together (same Tuuid = same product in different languages)
   - `$locale` — Identifies which language this specific entity represents
-  - `$translations` — Collection linking to sibling translations
 
 Without the interface, the entity would fall through to DoctrineObjectHandler (priority 10), which doesn't understand translation semantics. Without the trait, you'd have to manually implement these properties and their getters/setters.
 

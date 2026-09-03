@@ -78,12 +78,4 @@ class NullableTuuidEntity implements TranslatableInterface
 
         return $this;
     }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    public function getTranslations(): array
-    {
-        return [];
-    }
 }

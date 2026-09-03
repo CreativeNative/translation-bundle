@@ -5,7 +5,6 @@
 Translations are stored in the same table as the source entity using:
 - `tuuid` (Translation UUID) - Groups all language variants
 - `locale` - Distinguishes translations
-- `translations` JSON field - Metadata
 
 ## Handler Chain Pattern
 

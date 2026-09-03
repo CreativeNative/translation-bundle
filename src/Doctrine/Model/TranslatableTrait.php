@@ -18,10 +18,6 @@ trait TranslatableTrait
     #[ORM\Column(type: Types::STRING, length: 5, nullable: true)]
     private string|null $locale = null;
 
-    /** @var array<string, array<string, mixed>> */
-    #[ORM\Column(type: Types::JSON)]
-    private array $translations = [];
-
     final public function generateTuuid(): void
     {
         if (null === $this->tuuid) {
@@ -88,41 +84,5 @@ trait TranslatableTrait
     final public function getLocale(): string|null
     {
         return $this->locale;
-    }
-
-    /**
-     * @param array<string, array<string, mixed>> $translations
-     */
-    final public function setTranslations(array $translations): self
-    {
-        $this->translations = $translations;
-
-        return $this;
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    final public function getTranslations(): array
-    {
-        return $this->translations;
-    }
-
-    /**
-     * @param array<string, mixed> $translation
-     */
-    final public function setTranslation(string $locale, array $translation): self
-    {
-        $this->translations[$locale] = $translation;
-
-        return $this;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    final public function getTranslation(string $locale): array|null
-    {
-        return $this->translations[$locale] ?? null;
     }
 }

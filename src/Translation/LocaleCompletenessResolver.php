@@ -25,7 +25,7 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * count against the translations.
  *
  * "Translatable property" means every mapped column except the identifier, the
- * bundle's system columns (tuuid, locale, translations) and properties marked
+ * bundle's system columns (tuuid, locale) and properties marked
  * #[SharedAmongstTranslations] — those are copied, not translated. Embedded
  * fields contribute their non-shared inner properties. Associations are not
  * inspected. "Filled" means not null and, for strings, not blank.
@@ -41,7 +41,7 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 final class LocaleCompletenessResolver
 {
     /** @var list<string> */
-    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale', 'translations'];
+    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
 
     /** @var array<class-string, list<CheckedProperty>> */
     private array $checkedProperties = [];

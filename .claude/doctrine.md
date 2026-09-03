@@ -38,7 +38,6 @@ The `TranslatableTrait` adds:
 |-------|------|---------|
 | `tuuid` | `Tuuid` | Groups translations (auto-generated) |
 | `locale` | `string` | Entity's language |
-| `translations` | `array` | JSON metadata |
 
 ## Custom Doctrine Type
 
