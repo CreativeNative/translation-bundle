@@ -203,16 +203,18 @@ collection or relation between locale variants makes the owning side ambiguous.
 
 A plain `#[ORM\ManyToOne(inversedBy: ...)]`/`#[ORM\OneToOne]` field declared on the *owning*
 class (not reached as a back-reference) now translates its target too, get-or-create (v4.0).
-There is no working escape hatch back to a single shared target: the bidirectional shape shown
-above rejects `#[SharedAmongstTranslations]` with a `RuntimeException`, and removing
-`inversedBy`/`mappedBy` does not fix that — the resulting unidirectional association falls
-through to `TranslatableEntityHandler`, which has no `isShared()` branch at all and always
-translates/clones the target regardless of the attribute, silently. `ManyToMany` cannot be
-shared either, in either direction: `UnidirectionalManyToManyHandler` rejects the attribute too.
-Share the related entity's own scalar columns instead, or keep the association out of the
-translation pipeline (a plain, non-translatable reference) if a single shared row is a hard
-requirement. If the association should translate rather than share, give it
-`cascade: ['persist']` so a newly created target variant gets saved.
+There is no way to share such an association across locale variants: the bidirectional shape
+shown above rejects `#[SharedAmongstTranslations]` with a `RuntimeException`, and removing
+`inversedBy`/`mappedBy` to make it unidirectional does not open an escape hatch either — that
+shape falls through to `TranslatableEntityHandler`, which rejects it with a `RuntimeException`
+too (v4.0). `ManyToMany` cannot be shared either, in either direction:
+`UnidirectionalManyToManyHandler` rejects the attribute too. Share the related entity's own
+scalar columns instead, or keep the association out of the translation pipeline (a plain,
+non-translatable reference) if a single shared row is a hard requirement. If the association
+should translate rather than share, give it `cascade: ['persist']` so a newly created target
+variant gets saved. This only applies when the *target* is itself translatable — a shared
+association to a non-translatable entity (a `GeoPlace`/`Owner`/`User`-style reference with no
+locale of its own) is unaffected and keeps returning the identical instance.
 
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
 

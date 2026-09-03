@@ -89,9 +89,11 @@ private ?string $locale = null;
 
 These checks verify attribute usage on fields.
 
-### Check 2.1: SharedAmongstTranslations on Bidirectional Relations
+### Check 2.1: SharedAmongstTranslations on an Association to a Translatable Entity
 
-**What to look for:** `#[SharedAmongstTranslations]` combined with `inversedBy` or `mappedBy`
+**What to look for:** `#[SharedAmongstTranslations]` on a `ManyToOne`/`OneToOne` (with or
+without `inversedBy`/`mappedBy`), a `OneToMany`, or a `ManyToMany` (either direction) whose
+target is itself a translatable entity
 
 **How to check:**
 ```php
@@ -104,30 +106,40 @@ private ?Category $category = null;
 #[SharedAmongstTranslations]
 #[ORM\OneToMany(targetEntity: Photo::class, mappedBy: 'product')]
 private Collection $photos;
+
+// INVALID too - no inversedBy does NOT make this work; still throws RuntimeException
+#[SharedAmongstTranslations]
+#[ORM\ManyToOne(targetEntity: Category::class)]
+private ?Category $category = null;
 ```
 
 **If found:**
 - **Severity:** ERROR
-- **Error:** `RuntimeException` — all five association handlers reject the attribute:
-  `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and
-  `BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`), plus
-  `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either
-  direction)
+- **Error:** `RuntimeException` — every handler that can reach an association whose target is
+  translatable rejects the attribute: `BidirectionalManyToOneHandler`,
+  `BidirectionalOneToOneHandler`, and `BidirectionalOneToManyHandler` (bidirectional
+  `ManyToOne`/`OneToOne`/`OneToMany`); `BidirectionalManyToManyHandler` and
+  `UnidirectionalManyToManyHandler` (`ManyToMany` in either direction); and
+  `TranslatableEntityHandler` (v4.0), the catch-all for a *unidirectional*
+  `ManyToOne`/`OneToOne` — no `inversedBy`/`mappedBy` — which none of the other five handle
 - **Symptom:** Translation fails completely when processing this field
 - **Fix options:**
   1. Remove `#[SharedAmongstTranslations]` (each locale gets its own relation, translated normally)
   2. Share the related entity's own scalar columns instead of the association — the only way to
      keep a value actually shared across locales, for every association shape (`ManyToOne`,
-     `OneToOne`, `OneToMany`, `ManyToMany`). For a **to-one** relation, removing
-     `inversedBy`/`mappedBy` stops the `RuntimeException` (the association falls through to
-     `TranslatableEntityHandler` instead of a bidirectional handler) but does **not** make
-     sharing work — that handler has no `isShared()` branch and silently translates/clones the
-     target regardless of the attribute. `OneToMany` (`mappedBy` is intrinsic to how the bundle
-     recognizes the relation) and `ManyToMany` (`UnidirectionalManyToManyHandler` rejects the
-     attribute too, in either direction) have no unidirectional form to fall back to at all.
+     `OneToOne`, `OneToMany`, `ManyToMany`), bidirectional or not. Removing `inversedBy`/`mappedBy`
+     from a to-one relation does **not** avoid the `RuntimeException` — it just moves which
+     handler throws it, from a bidirectional handler to `TranslatableEntityHandler` (v4.0).
+     `OneToMany` (`mappedBy` is intrinsic to how the bundle recognizes the relation) and
+     `ManyToMany` (`UnidirectionalManyToManyHandler` rejects the attribute too, in either
+     direction) have no unidirectional form to fall back to at all.
   3. Keep the association out of the translation pipeline (a plain, non-translatable reference)
      if a single shared row is a hard requirement
-- **llms.md:** See "SharedAmongstTranslations on Bidirectional Relation" troubleshooting entry
+
+  None of this applies when the association's target is **not** translatable — sharing that
+  (a `GeoPlace`/`Owner`/`User`-style reference) is unaffected and returns the identical instance.
+- **llms.md:** See "SharedAmongstTranslations on an Association to a Translatable Entity"
+  troubleshooting entry
 
 ### Check 2.2: EmptyOnTranslate on Non-Nullable Scalar Fields
 

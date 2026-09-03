@@ -48,7 +48,7 @@ None found
 
 ERRORS (will cause failures)
 ----------------------------
-1. SharedAmongstTranslations on bidirectional relation 'category'
+1. SharedAmongstTranslations on association 'category' (target is translatable)
    -> RuntimeException when translating
    -> Affects: Translation will fail completely
    [blocks #2, #3 below]
@@ -96,7 +96,7 @@ Run checks: TranslatableInterface, TranslatableTrait, persist/flush sequence
 Run checks: Doctrine filter enabled, locale configuration, query filtering
 
 ### "RuntimeException during translation"
-Run checks: SharedAmongstTranslations on bidirectional relations
+Run checks: SharedAmongstTranslations on an association to a translatable entity
 
 ### "Field value unexpected after translation"
 Run checks: Handler chain mapping, attribute conflicts (Shared vs Empty)

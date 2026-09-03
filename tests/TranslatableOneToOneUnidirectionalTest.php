@@ -39,36 +39,28 @@ final class TranslatableOneToOneUnidirectionalTest extends IntegrationTestCase
     }
 
     /**
-     * @throws ORMException
-     * @throws OptimisticLockException
+     * A unidirectional OneToOne (no inversedBy) falls through the same way a
+     * unidirectional ManyToOne does -- neither BidirectionalOneToOneHandler nor any
+     * other dedicated association handler supports it, so it reaches
+     * TranslatableEntityHandler as the catch-all, which now rejects a shared
+     * association to a translatable target instead of silently translating it.
      */
-    public function testItCanShareTranslatableEntityValueAmongstTranslations(): void
+    public function testItCannotShareTranslatableEntityValueAmongstTranslations(): void
     {
-        $associatedEntity1 = new Scalar()
-            ->setLocale('en_US')
-            ->setTitle('shared');
-
-        $associatedEntity2 = new Scalar()
+        $associatedEntity = new Scalar()
             ->setLocale('en_US')
             ->setTitle('shared');
 
         $entity = new TranslatableOneToOneUnidirectional()
             ->setLocale('en_US')
-            ->setShared($associatedEntity1);
+            ->setShared($associatedEntity);
 
         $this->entityManager()->persist($entity);
 
-        $translation = $this->translator()->translate($entity, 'de_DE');
-        self::assertInstanceOf(TranslatableOneToOneUnidirectional::class, $translation);
-        $translation->setShared($associatedEntity2);
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessageMatches('/shared/');
 
-        $this->entityManager()->persist($translation);
-        $this->entityManager()->flush();
-
-        $translatedShared = $translation->getShared();
-        self::assertNotNull($translatedShared, 'Translated entity should have a shared association');
-        self::assertSame('shared', $translatedShared->getTitle());
-        self::assertIsTranslation($entity, $translation, 'de_DE');
+        $this->translator()->translate($entity, 'de_DE');
     }
 
     /**

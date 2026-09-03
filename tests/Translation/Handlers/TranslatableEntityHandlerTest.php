@@ -58,30 +58,45 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     }
 
     /**
-     * The handler ignores the shared fact entirely -- a #[SharedAmongstTranslations]
-     * association still resolves via the normal get-or-create pipeline -- and never
-     * touches the EntityManager: existence is resolved once by
-     * EntityTranslator::processTranslation() before any handler runs (see the class
-     * docblock), so this handler always just clones.
-     *
-     * @throws \ReflectionException
+     * The catch-all for a unidirectional ManyToOne/OneToOne (no inversedBy/mappedBy):
+     * none of the five dedicated association handlers' supports() match that shape, so
+     * a #[SharedAmongstTranslations] association whose target is itself translatable
+     * reaches this handler untreated. Rather than silently cloning the target, it
+     * rejects it -- the property name from the context is named in the message.
      */
-    public function testTranslateIgnoresSharedFlag(): void
+    public function testTranslateThrowsWhenShared(): void
     {
         $tuuid          = new Tuuid(Uuid::v4()->toRfc4122());
         $originalEntity = new Scalar()
             ->setTuuid($tuuid)
             ->setLocale('en_US');
-        $context = $this->entityContext($originalEntity)->setShared(true);
+
+        $prop    = new \ReflectionProperty(Scalar::class, 'title');
+        $context = $this->entityContext($originalEntity, $prop)->setShared(true);
 
         $this->entityManager()->expects($this->never())->method('createQueryBuilder');
 
-        $result = $this->handler->translate($context);
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessageMatches('/title/');
 
-        self::assertNotSame($originalEntity, $result);
-        self::assertInstanceOf(Scalar::class, $result);
-        self::assertSame('de_DE', $result->getLocale());
-        self::assertSame((string) $tuuid, (string) $result->getTuuid());
+        $this->handler->translate($context);
+    }
+
+    /**
+     * Defensive fallback: the property is unset (never happens on the real
+     * runHandlers() path, which always sets it before marking a context shared -- see
+     * EntityTranslator::runHandlers()), so the message names it "unknown" rather than
+     * fail trying to read a property name off null.
+     */
+    public function testTranslateThrowsWhenSharedWithoutProperty(): void
+    {
+        $originalEntity = $this->createMock(TranslatableInterface::class);
+        $context        = $this->entityContext($originalEntity)->setShared(true);
+
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessageMatches('/unknown/');
+
+        $this->handler->translate($context);
     }
 
     public function testTranslateReturnsNullWhenEmpty(): void

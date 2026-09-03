@@ -41,7 +41,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 * **Row-per-locale.** Every locale variant is a full row: *N* configured locales means up to *N*× the rows for a translatable entity, and that cost is paid per entity regardless of how many locales are actually filled in. If most of your content stays in one or two locales and only a handful of fields ever need translating, a dedicated translation-table design may cost fewer rows than this bundle's trade-off of no joins for full-row duplication.
 * **Unique constraints need the locale column.** A single-column `unique: true` on a translatable field triggers a validation error at `cache:warmup` — the same value legitimately repeats once per locale. Use a composite constraint (`field + locale`) instead — see [Quick Fix for unique fields](#quick-fix-for-unique-fields).
-* **`SharedAmongstTranslations` is not available on translatable associations** — `OneToMany`, `ManyToMany` (either direction), and a bidirectional `ManyToOne`/`OneToOne` (one declared with `inversedBy`/`mappedBy`) all reject it with a `RuntimeException`: sharing would leave the relation's ownership ambiguous across locale variants. Share the related entity's scalar columns instead. Associations themselves — including `ManyToMany` in both directions — are translated normally.
+* **`SharedAmongstTranslations` is not available on an association whose target is itself translatable** — `OneToMany`, `ManyToMany` (either direction), a bidirectional `ManyToOne`/`OneToOne` (`inversedBy`/`mappedBy` set), and a *unidirectional* `ManyToOne`/`OneToOne` (neither set) all reject it with a `RuntimeException`: sharing would leave the relation's ownership ambiguous across locale variants. Share the related entity's scalar columns instead. This only concerns a translatable target — a shared association to a non-translatable entity (a `GeoPlace`/`Owner`/`User`-style reference) is unaffected and keeps returning the identical instance. Associations themselves — including `ManyToMany` in both directions — are translated normally.
 * Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support).
 
 ## 📦 Installation
@@ -153,8 +153,9 @@ solve this.
 
 This attribute copies the field's value from the source entity **when a new translation is
 created**, and marks the field for retroactive reconciliation via `tmi:translation:sync-shared`.
-If the attribute is on a relation to a translatable entity, the correct translation is
-associated to each language.
+On a relation to a **non**-translatable entity, that "copy" is the identical instance — object
+identity is preserved by both `translate()` and `sync-shared`. A relation whose target is
+itself translatable cannot be shared at all — see the note below.
 
 **It is not an enforced invariant.** Updating the field on one locale variant after the
 translations exist does **not** propagate to the siblings — the value diverges silently.
@@ -163,14 +164,18 @@ publishing one language at a time). When divergence must not happen, gate CI wit
 `tmi:translation:sync-shared --check` (exits non-zero on drift) and repair with
 `tmi:translation:sync-shared`.
 
-***Note***: this attribute cannot be used on `OneToMany` or `ManyToMany` associations (either
-direction), or on a bidirectional `ManyToOne`/`OneToOne` — one declared with `inversedBy`/`mappedBy` —
-the handlers throw a `RuntimeException`. Share the related entity's own columns instead.
+***Note***: this attribute cannot be used on any association whose target is itself a
+translatable entity — `OneToMany`, `ManyToMany` (either direction), a bidirectional
+`ManyToOne`/`OneToOne` (`inversedBy`/`mappedBy` set), or a *unidirectional*
+`ManyToOne`/`OneToOne` (neither set) all reject it: every handler that can reach one throws a
+`RuntimeException`. Share the related entity's own columns instead. This does not apply to a
+relation whose target is **not** translatable — the `Media` example below is that case, and
+sharing it keeps working exactly as shown.
 
 ```php
 #[ORM\ManyToOne(targetEntity: Media::class)]
 #[SharedAmongstTranslations]
-private Media $video; // Shared across all translations
+private Media $video; // Shared across all translations -- Media is not itself translatable
 
 ```
 

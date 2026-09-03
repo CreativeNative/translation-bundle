@@ -35,7 +35,7 @@ with a migration path.
   - [6. `tmi:translation:sync-shared` names the properties that drifted](#6-tmitranslationsync-shared-names-the-properties-that-drifted)
   - [7. TranslatableEntityHandler no longer checks for an existing variant itself](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)
   - [8. A cycle-guard fallback never mutates the source entity](#8-a-cycle-guard-fallback-never-mutates-the-source-entity)
-  - [9. Shared bidirectional associations throw RuntimeException everywhere](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere)
+  - [9. Shared associations to a translatable entity throw RuntimeException everywhere](#9-shared-associations-to-a-translatable-entity-throw-runtimeexception-everywhere)
 - [New in 4.0](#new-in-40)
 - [Upgrade Checklist (4.0)](#upgrade-checklist-40)
 
@@ -463,14 +463,16 @@ translated `Product` points at it.
 **What to check:**
 - If a shared reference across all locales was actually what you wanted (one `Category` row,
   every `Product` locale pointing at it regardless of language), `#[SharedAmongstTranslations]`
-  cannot give you that here: a bidirectional association (`inversedBy`/`mappedBy` set, as in
-  `Product::$category` above) rejects the attribute with a `RuntimeException` — see
-  [§ 9](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere) — and a
-  unidirectional one silently ignores it instead, since `TranslatableEntityHandler` (the handler
-  for the direct/unidirectional form) has no `isShared()` branch and always translates the
-  target regardless of the attribute. Share the target entity's own scalar columns instead, or
-  keep the relation out of the translation pipeline (a plain, non-translatable reference) if a
-  single row across every locale is a hard requirement.
+  cannot give you that here: every association whose target is itself a translatable entity
+  rejects the attribute with a `RuntimeException`, whether it is bidirectional
+  (`inversedBy`/`mappedBy` set, as in `Product::$category` above) or the direct/unidirectional
+  form this section is about — see
+  [§ 9](#9-shared-associations-to-a-translatable-entity-throw-runtimeexception-everywhere).
+  Share the target entity's own scalar columns instead, or keep the relation out of the
+  translation pipeline (a plain, non-translatable reference) if a single row across every
+  locale is a hard requirement. This only concerns a target that is itself translatable — a
+  `GeoPlace`/`Owner`/`User`-style reference with no locale of its own is unaffected and keeps
+  returning the identical shared instance exactly as before.
 - If you do want the target translated, give the association `cascade: ['persist']` (or
   persist the translated target explicitly) — a newly created target variant needs to be
   saved like any other new entity.
@@ -641,31 +643,47 @@ longer be there in that in-memory collection; reload after `flush()` to see it. 
 unlikely to be visible code: the shape only exists inside one recursive `translate()` call, and
 most applications never inspect a mid-translation collection before persisting it.
 
-### 9. Shared bidirectional associations throw RuntimeException everywhere
+### 9. Shared associations to a translatable entity throw RuntimeException everywhere
 
-`#[SharedAmongstTranslations]` is not supported on any bidirectional association — the owning
-side would have to point at two different parents at once — so every bidirectional handler
-rejects it. Through v3.4, three of the five did not agree on how:
+`#[SharedAmongstTranslations]` is not supported on any association whose target is itself a
+translatable entity — the owning side would have to point at two different parents (or
+targets) at once — so every handler capable of reaching one rejects it, bidirectional or not.
+Sharing an association to a target that is **not** translatable is a different case entirely
+and is unaffected by this section: it resolves through `DoctrineObjectHandler`'s own
+`isShared()` branch, which returns the identical instance untouched, exactly as before (a
+`GeoPlace`/`Owner`/`User`-style reference with no locale of its own is the common real-world
+shape of this).
 
-| Handler | Before v4 | After v4 |
+Through v3.4, the five handlers that reject a bidirectional association did not even agree on
+how, and a sixth shape — the direct/unidirectional `ManyToOne`/`OneToOne` (no
+`inversedBy`/`mappedBy`) — did not reject it at all:
+
+| Handler / shape | Before v4 | After v4 |
 |---|---|---|
 | `BidirectionalManyToOneHandler` | `\ErrorException` | `\RuntimeException` |
 | `BidirectionalOneToOneHandler` | `\ErrorException` | `\RuntimeException` |
 | `BidirectionalOneToManyHandler` | `\ErrorException` | `\RuntimeException` |
 | `BidirectionalManyToManyHandler` | `\RuntimeException` | `\RuntimeException` (unchanged) |
 | `UnidirectionalManyToManyHandler` | `\RuntimeException` | `\RuntimeException` (unchanged) |
+| `TranslatableEntityHandler` (unidirectional `ManyToOne`/`OneToOne`) | *nothing — silently translated the target instead of sharing it* | `\RuntimeException` |
 
 `\ErrorException` is a PHP error-wrapper class — it does not extend `\RuntimeException` — so
 `catch (\RuntimeException $e)` around a `translate()` call silently missed it for three of the
-five association shapes, even though the documentation always described a single
-`RuntimeException` contract. Message text is unchanged for every handler; only the thrown
-class moved.
+original five bidirectional shapes, even though the documentation always described a single
+`RuntimeException` contract. The sixth, unidirectional shape missed it more completely still:
+nothing was thrown at all, and `#[SharedAmongstTranslations]` was quietly ignored — see
+[Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity)
+for what that fallthrough actually did to the data. Message text is unchanged for the five
+handlers that already threw; only the thrown class moved.
 
 **What to check:** if you catch exceptions around `translate()`/`translateAndPersist()` to
 detect a misconfigured `#[SharedAmongstTranslations]`, a `catch (\RuntimeException $e)` now
-reliably catches all five shapes. A `catch (\ErrorException $e)` written specifically to work
-around the old ManyToOne/OneToOne/OneToMany behaviour no longer matches and should be changed
-to `\RuntimeException`.
+reliably catches all six shapes. A `catch (\ErrorException $e)` written specifically to work
+around the old bidirectional ManyToOne/OneToOne/OneToMany behaviour no longer matches and
+should be changed to `\RuntimeException`. If any entity has a *unidirectional*
+`ManyToOne`/`OneToOne` to a translatable target marked `#[SharedAmongstTranslations]`, that
+combination now throws where it previously ran without complaint — drop the attribute and
+share the target's own scalar columns instead.
 
 ---
 
@@ -736,9 +754,11 @@ last bullet):
    directly, remove that wiring ([§ 5](#5-psr6translationcache-is-gone)).
 8. Search your entities for a direct `ManyToOne`/`OneToOne` to another translatable entity. If
    you want the target translated, add `cascade: ['persist']`. If you actually need one shared
-   row across every locale, `#[SharedAmongstTranslations]` will not do it — share the target's
+   row across every locale, `#[SharedAmongstTranslations]` will not do it — it now throws a
+   `RuntimeException` on this association shape too, same as every other — share the target's
    own scalar columns instead — see
-   [Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity).
+   [Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity)
+   and [§ 9](#9-shared-associations-to-a-translatable-entity-throw-runtimeexception-everywhere).
 9. Search for hand-rolled locale-variant deletion (a loop over `findBy(['tuuid' => ...])`, or
    a single `$em->remove()` you expected to remove every locale) and replace it with
    `TranslatableRemover` — see [New in 4.0](#new-in-40).
@@ -765,7 +785,7 @@ last bullet):
 15. If you `catch (\ErrorException $e)` around a `translate()`/`translateAndPersist()` call to
     detect `#[SharedAmongstTranslations]` on a bidirectional `ManyToOne`/`OneToOne`/`OneToMany`,
     change it to `\RuntimeException` — see
-    [§ 9](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere).
+    [§ 9](#9-shared-associations-to-a-translatable-entity-throw-runtimeexception-everywhere).
 16. Run your test suite. Behavioural Changes 1-9 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.

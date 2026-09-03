@@ -375,9 +375,10 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Methods:**
     - `supports()` — Returns true when the context is an `EntityTranslationContext`.
     - `translate()`:
-        - `isEmpty()` — Returns `null`. (No `isShared()` branch here: the bidirectional handlers above never delegate to this one while shared — their own `translate()` branches on `isShared()` first and never reaches this call.)
+        - `isShared()` — Throws a `RuntimeException` naming the property and class (v4.0). This is the catch-all for a *unidirectional* `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`): none of the five dedicated association handlers' `supports()` match that shape, so a `#[SharedAmongstTranslations]` association whose target is itself translatable reaches this handler untreated — it is rejected here instead of being silently translated. The bidirectional handlers above never delegate to this one while shared (their own `translate()` branches on `isShared()` first), so this branch only ever fires on the direct/unidirectional path.
+        - `isEmpty()` — Returns `null`.
         - Otherwise — Clones the entity itself (`$clone = clone $data`) and delegates only the property translation to `DoctrineObjectHandler::translateProperties($subContext)` — the clone is not `DoctrineObjectHandler`'s to make. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
-- **Notes:** Integrates entity-level and property-level translation. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations. **v4.0:** no longer checks for an existing target-locale variant itself — `EntityTranslator::processTranslation()` resolves that exactly once, via its own `preload()`-then-cache-check, before dispatching to *any* handler (see that method's docblock). This handler is reached only (a) from `EntityTranslator::runHandlers()`, always after that check ran for the same subject, or (b) from `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler`, themselves reached the same way for the same subject. Calling `translate()` any other way — bypassing `EntityTranslatorInterface::translate()`/`processTranslation()` — skips the check entirely and always clones, minting a duplicate row for a Tuuid that already has a variant in the target locale.
+- **Notes:** Integrates entity-level and property-level translation. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations. **v4.0:** no longer checks for an existing target-locale variant itself — `EntityTranslator::processTranslation()` resolves that exactly once, via its own `preload()`-then-cache-check, before dispatching to *any* handler (see that method's docblock). This handler is reached only (a) from `EntityTranslator::runHandlers()`, always after that check ran for the same subject, or (b) from `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler`, themselves reached the same way for the same subject. Calling `translate()` any other way — bypassing `EntityTranslatorInterface::translate()`/`processTranslation()` — skips the check entirely and always clones, minting a duplicate row for a Tuuid that already has a variant in the target locale. A shared association to a **non**-translatable target never reaches this handler at all — the property value is not a `TranslatableInterface`, so `DoctrineObjectHandler::translateProperties()` never wraps it in an `EntityTranslationContext`, and it resolves through `DoctrineObjectHandler`'s own `isShared()` branch instead, returning the identical instance.
 
 ---
 
@@ -765,7 +766,7 @@ Now decide, for each field, which of three behaviours it needs.
 - **Category:** `Category` is itself `TranslatableInterface`. Since v4.0 a direct `ManyToOne`/`OneToOne` to a translatable target is translated through the same pipeline as a top-level entity — `$frenchProduct->getCategory()` ends up pointing at `Category`'s own 'fr' variant (same Tuuid, different row), not the English one. This is the default for *any* such association; nothing needs to be marked for it.
 
 **Why this distinction matters:**
-The handler chain processes each field during translation. By default, `ScalarHandler` (priority 90) copies scalar values, and `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` (etc.) translate an association to a translatable target via the same get-or-create pipeline. `#[SharedAmongstTranslations]` overrides either default, making every translation reference the exact same instance instead — but it is **not** available on a bidirectional association (one declared with `inversedBy`/`mappedBy`, like `$category` below): the handlers reject it with a `RuntimeException`, since sharing it would leave the relation's ownership ambiguous across locale variants. Scalar columns have no such restriction.
+The handler chain processes each field during translation. By default, `ScalarHandler` (priority 90) copies scalar values, and `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` (etc.) translate an association to a translatable target via the same get-or-create pipeline. `#[SharedAmongstTranslations]` overrides either default, making every translation reference the exact same instance instead — but it is **not** available on any association whose target is itself translatable, bidirectional (one declared with `inversedBy`/`mappedBy`, like `$category` below) or unidirectional: every handler that can reach one rejects the attribute with a `RuntimeException`, since sharing it would leave the relation's ownership ambiguous across locale variants. Scalar columns have no such restriction, and neither does an association to a target that is not itself translatable.
 
 ### Step 3: Apply SharedAmongstTranslations Attribute
 
@@ -1081,15 +1082,24 @@ $entityManager->getFilters()->enable('tmi_translation_locale_filter');
 The filter name is available as the `LocaleFilter::NAME` constant -- use it instead of the
 literal string wherever possible.
 
-### SharedAmongstTranslations on Bidirectional Relation
+### SharedAmongstTranslations on an Association to a Translatable Entity
 
-**Symptom:** `RuntimeException` when translating entity with bidirectional relation
+**Symptom:** `RuntimeException` when translating an entity with an association to another
+translatable entity
 
-**Cause:** All five association handlers reject `#[SharedAmongstTranslations]` with a `RuntimeException`: `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and `BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`), plus `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either direction) — sharing would leave the relation's ownership ambiguous across locale variants
+**Cause:** Every association whose target is itself translatable rejects
+`#[SharedAmongstTranslations]` with a `RuntimeException`, whichever handler reaches it —
+sharing would leave the relation's ownership ambiguous across locale variants:
+`BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and
+`BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`);
+`BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either
+direction); and `TranslatableEntityHandler` (v4.0), the catch-all for a *unidirectional*
+`ManyToOne`/`OneToOne` — no `inversedBy`/`mappedBy` — which none of the other five handle.
 
-**Fix:** Remove `#[SharedAmongstTranslations]` from the relation; there is no way to keep a
-translatable-entity association shared. Let it translate normally, and share the related
-entity's own scalar columns instead if a value must stay identical across locales:
+**Fix:** Remove `#[SharedAmongstTranslations]` from the relation; there is no way to keep an
+association to a translatable entity shared, bidirectional or not. Let it translate normally,
+and share the related entity's own scalar columns instead if a value must stay identical
+across locales:
 
 ```php
 // DON'T: SharedAmongstTranslations on bidirectional -- throws RuntimeException
@@ -1097,10 +1107,9 @@ entity's own scalar columns instead if a value must stay identical across locale
 #[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
 private ?Category $category = null;
 
-// DON'T either: removing inversedBy stops the RuntimeException but doesn't share
-// anything -- the resulting unidirectional association falls through to
-// TranslatableEntityHandler, which has no isShared() branch and silently
-// translates/clones the target regardless of the attribute
+// DON'T either: removing inversedBy does not open an escape hatch -- the resulting
+// unidirectional association falls through to TranslatableEntityHandler, which
+// rejects it with a RuntimeException too (v4.0)
 #[SharedAmongstTranslations]
 #[ORM\ManyToOne(targetEntity: Category::class)]  // No inversedBy
 private ?Category $category = null;
@@ -1116,9 +1125,14 @@ private ?Category $category = null;
 private string $sku;
 ```
 
-> There is no working escape hatch for any association shape. A `ManyToMany` is rejected in
-> either direction too — `UnidirectionalManyToManyHandler` throws for the attribute as well. For
-> every shape, share the related entity's own columns instead of the association.
+> There is no working escape hatch for any association shape whose target is translatable. A
+> `ManyToMany` is rejected in either direction too — `UnidirectionalManyToManyHandler` throws for
+> the attribute as well. For every such shape, share the related entity's own columns instead of
+> the association. This only concerns a translatable target: sharing an association to a
+> **non**-translatable entity (a `GeoPlace`/`Owner`/`User`-style reference with no locale of its
+> own) is a different, unaffected case — it never becomes an `EntityTranslationContext` in the
+> first place, and resolves through `DoctrineObjectHandler`'s own `isShared()` branch instead,
+> returning the identical instance.
 
 > The "DO" form above (a plain `ManyToOne` with `inversedBy`, no `SharedAmongstTranslations`) is the
 > **direct form**: `Category` is not itself a field the owning side (`Product`) has a scalar
@@ -1758,6 +1772,7 @@ Step-by-step guide for building custom translation handlers for field types not 
   - `BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` each preload their whole collection in one batched query per child class before looping, instead of leaving every child's own `translate()` call to query for itself — a parent with *K* already-translated association children now costs 2 queries total, not `1 + K`.
   - Those same three handlers no longer mutate the source entity when the translator's cycle guard hands back the very instance it was given, still at the source locale (reachable in the ordinary shape once the ManyToOne/OneToOne direct form started running the full pipeline, above) — the item is skipped, not added and not back-referenced; a same-instance return already at the target locale is unaffected. See `UPGRADING.md` § 8.
   - `#[SharedAmongstTranslations]` on a bidirectional association now throws `RuntimeException` from all five handlers: `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler` and `BidirectionalOneToManyHandler` previously threw `\ErrorException` (a PHP error-wrapper class, not a `\RuntimeException` subclass), inconsistent with `BidirectionalManyToManyHandler`/`UnidirectionalManyToManyHandler` and with the documented contract; message text is unchanged. See `UPGRADING.md` § 9.
+  - The last silent gap in that same contract is closed: `TranslatableEntityHandler`, the catch-all for a *unidirectional* `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`), now also throws `RuntimeException` for `#[SharedAmongstTranslations]` instead of silently translating the target — previously the only one of the six association shapes that ran without complaint. Sharing an association to a target that is **not** translatable is unaffected (`DoctrineObjectHandler`'s `isShared()` branch, unchanged). See `UPGRADING.md` § 9.
   - The translation cache is identity-safe across `EntityManager::clear()` (a detached hit is a miss, not a re-inserted duplicate); `InMemoryTranslationCache` implements `ResetInterface` (`kernel.reset`).
   - `tmi:translation:doctor` and `tmi:translation:sync-shared` now go through `TranslatableEntityLocator`, which walks each inheritance hierarchy's root once, resolving each hydrated row's own concrete class for its property list — no more double-counted SINGLE_TABLE/JOINED rows. `TranslatableEntityValidationWarmer` was never affected by this bug (it runs at `cache:warmup` over every class `getAllMetadata()` returns, not over hydrated rows, and already deduped via `ClassMetadata::isInheritedField()` plus a per-table set).
   - The direct `ManyToOne`/`OneToOne` form (a field on the *owning* class, not a back-reference) now translates its target through the full entity pipeline (get-or-create) instead of returning the untranslated source.

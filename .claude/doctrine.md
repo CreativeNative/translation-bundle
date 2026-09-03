@@ -177,10 +177,13 @@ stay online.
 
 ## Known Limitations
 
-1. **Translatable associations + SharedAmongstTranslations**: Rejected on `OneToMany`,
-   `ManyToMany` (both directions), and a bidirectional `ManyToOne`/`OneToOne` — sharing would
-   leave the relation's ownership ambiguous across locale variants. Share the related entity's
-   own scalar columns instead.
+1. **Translatable associations + SharedAmongstTranslations**: Rejected on every association
+   shape whose target is itself translatable — `OneToMany`, `ManyToMany` (both directions), a
+   bidirectional `ManyToOne`/`OneToOne`, and a unidirectional `ManyToOne`/`OneToOne` (no
+   `inversedBy`/`mappedBy`, rejected by `TranslatableEntityHandler`) — sharing would leave the
+   relation's ownership ambiguous across locale variants. Share the related entity's own scalar
+   columns instead. Unaffected: sharing an association whose target is *not* translatable (a
+   `GeoPlace`/`Owner`/`User`-style reference) still returns the identical instance.
 2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
    validation at `cache:warmup` — use a composite `field + locale` constraint.
 3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to
