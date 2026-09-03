@@ -27,6 +27,10 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * Final rule of thumb
  * If we cannot translate (no parent or no property, or property not mapped) -> return the original collection.
  * If translation is possible -> build a new collection with translated children.
+ *
+ * Before iterating, the whole collection is handed to {@see EntityTranslatorInterface::preload()}
+ * once: one batched lookup query per child class rather than one per child, since each
+ * child is otherwise its own translate() call with its own internal single-entity preload().
  */
 final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
@@ -102,6 +106,16 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         $mappedBy   = $assocEntry instanceof InverseSideMapping ? $assocEntry->mappedBy : null;
         if (!\is_string($mappedBy)) {
             return $children; // not a valid relation -> return original
+        }
+
+        // One batched lookup for the whole collection instead of leaving each child's
+        // own translate() call to query for itself: preload() groups translatable
+        // children by class and issues one LocaleVariantFinder query per class,
+        // ignoring non-translatable items and anything already cached. A collection of
+        // K translatable children of one class then costs one query total here, not K.
+        $targetLocale = $context->getTargetLocale();
+        if (\is_string($targetLocale)) {
+            $this->translator->preload($children, $targetLocale);
         }
 
         $newCollection = new ArrayCollection();

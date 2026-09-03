@@ -496,11 +496,20 @@ executed statement.
 |------------------------------------------------------------------------------|---------------|
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
-| `translate()` a parent with *K* already-translated `OneToMany` children       | 1 + *K*       |
+| `translate()` a parent with *K* already-translated association children       | 2             |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
 | Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + *N*       |
+
+**Why the association-children row is `2`, not `1 + K`.** `BidirectionalOneToManyHandler`,
+`BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` each hand their whole
+collection to `preload()` once, before looping — one batched `LocaleVariantFinder` query per
+child class, whether it finds *K* hits, *K* misses, or a mix — instead of leaving each child's
+own `translate()` call to query for itself. The parent's own `preload()` lookup (a miss, since
+it is what triggered the translation) is the other query. A collection mixing several child
+classes costs one query per class, not per child; a non-translatable item mixed into a
+`ManyToMany` collection is skipped by `preload()` and never queried at all.
 
 **Why the import row is `1 + N`, not `1 + 3N`.** The upfront `preload()` remembers every Tuuid
 its one batched query looked up and found nothing for, so each entity's own internal `preload()`

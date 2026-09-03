@@ -622,8 +622,13 @@ last bullet):
   that pair or the service is reset (`EntityTranslator` is tagged `kernel.reset` for exactly
   this). This is an **additive interface method**: if you implement `EntityTranslatorInterface`
   directly (rather than decorating or extending `EntityTranslator`), you must add it to keep
-  implementing the interface. See [Performance](README.md#-performance) for the numbers this
-  enables.
+  implementing the interface. Collections reached through the bundled association handlers
+  (`BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler`,
+  `UnidirectionalManyToManyHandler`) are preloaded automatically — each hands its whole
+  collection to `preload()` once before looping, so a parent with *K* already-translated
+  children costs 2 queries total, not `1 + K`; you only need to call `preload()` yourself for a
+  batch of top-level entities (an import). See [Performance](README.md#-performance) for the
+  numbers this enables.
 
 ---
 

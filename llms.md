@@ -311,8 +311,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
     - `translate()`:
         - `isShared()` — Throws exception; unsupported.
         - `isEmpty()` — Returns an empty `ArrayCollection`.
-        - Otherwise — Iterates over child collection, translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`.
-- **Notes:** Maintains bidirectional integrity, ensures clones are used, integrates with `EntityTranslator`.
+        - Otherwise — Hands the whole child collection to `EntityTranslatorInterface::preload()` once (one batched query per child class, v4.0), then iterates the collection: translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`.
+- **Notes:** Maintains bidirectional integrity, ensures clones are used, integrates with `EntityTranslator`. **v4.0:** the upfront `preload()` call turns *K* already-translated children into one query per class instead of one per child — see [Performance (v4.0)](#performance-v40).
 
 ---
 
@@ -339,8 +339,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
     - `translate()`:
         - `isShared()` — Throws exception if `#[SharedAmongstTranslations]` is present (the common case, since `EntityTranslator` only sets `isShared()` when it is); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
         - `isEmpty()` — Best-effort clears the target collection on the translated parent, and returns an empty `ArrayCollection`.
-        - Otherwise — Builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries.
-- **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`.
+        - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class, v4.0), then builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries.
+- **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`. **v4.0:** the upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance (v4.0)](#performance-v40).
 
 ---
 
@@ -353,13 +353,14 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `translate()`:
     - `isShared()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
     - `isEmpty()` — Returns a new empty `ArrayCollection`.
-    - Otherwise — Translates each item in the collection:
+    - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class, v4.0 — `preload()` ignores non-translatable items on its own, so a mixed collection is safe to hand it whole), then translates each item in the collection:
       - `TranslatableInterface` items are translated for the target locale using `EntityTranslator`; every other item (plain entities such as tags or categories, the most common shape for a unidirectional ManyToMany — plus any item when no target locale is available) is added to the result **as-is**, not dropped.
       - Collects them into a **new** `ArrayCollection`, preventing duplicates (same instance check for both translated and passed-through items).
       - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
 - **Notes:**
   - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
   - Maintains Doctrine collection integrity while cloning translated items.
+  - **v4.0:** the upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance (v4.0)](#performance-v40).
   - Prevents shared translation attributes from being misused on unidirectional relations.
   - Non-translatable items in the collection are preserved rather than silently dropped — mirrors `BidirectionalManyToManyHandler`'s pass-through behaviour for the same case.
 
@@ -1532,7 +1533,7 @@ inflates a budget).
 |------------------------------------------------------------------------------|---------------|
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
-| `translate()` a parent with *K* already-translated `OneToMany` children       | 1 + *K*       |
+| `translate()` a parent with *K* already-translated association children       | 2             |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
@@ -1571,6 +1572,21 @@ anything other than this translator (a manual `persist()`, another process) stay
 `EntityTranslator` is tagged `kernel.reset` for exactly this (see Long-running workers below).
 Re-running the same import afterwards costs one query total: every Tuuid is now an actual
 cache hit, not just a remembered miss.
+
+### Association handlers preload their own collections automatically
+
+You do not need to call `preload()` yourself for a `OneToMany` or `ManyToMany` collection
+reached through `translate()` — the three collection handlers do it for you:
+`BidirectionalOneToManyHandler::translate()`, `BidirectionalManyToManyHandler::translateCollection()`
+and `UnidirectionalManyToManyHandler::translateCollection()` each hand their whole collection
+to `EntityTranslator::preload()` once, before looping over the children, instead of leaving
+every child's own `translate()` call to query for itself. A parent with *K* already-translated
+children of one class therefore costs **2** queries total — the parent's own `preload()` miss
+plus one batched children lookup — not `1 + K`; a collection mixing several child classes costs
+one query per class. `preload()` ignores non-translatable items on its own, so a `ManyToMany`
+collection mixing translatable and non-translatable items is safe to hand it whole — the
+non-translatable items are simply never looked up. This is why the association-children row in
+the table above reads `2` regardless of *K*.
 
 ### Reflection is cached, not repeated
 
@@ -1673,6 +1689,7 @@ Step-by-step guide for building custom translation handlers for field types not 
   - Opt-in `cascade_remove_locale_variants` + `LocaleVariantRemovalListener` cascade a plain `$em->remove()` to sibling locale variants automatically.
   - `preload()`'s internal warmup now goes through `LocaleVariantFinder` — an active locale filter no longer mints a duplicate row on `translate()`.
   - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself (its own such check, redundant with `preload()`'s, is removed along with its `LocaleVariantFinder` dependency); `EntityTranslator` remembers a `preload()` batch's misses so a per-entity `getOrTranslate()` import loop after it costs no further lookup queries, and is now `kernel.reset`-tagged to forget that memory between units of work.
+  - `BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` each preload their whole collection in one batched query per child class before looping, instead of leaving every child's own `translate()` call to query for itself — a parent with *K* already-translated association children now costs 2 queries total, not `1 + K`.
   - The translation cache is identity-safe across `EntityManager::clear()` (a detached hit is a miss, not a re-inserted duplicate); `InMemoryTranslationCache` implements `ResetInterface` (`kernel.reset`).
   - `tmi:translation:doctor` / `tmi:translation:sync-shared` / `TranslatableEntityValidationWarmer` walk each inheritance hierarchy's root once, resolving each hydrated row's own concrete class for its property list — no more double-counted SINGLE_TABLE/JOINED rows.
   - The direct `ManyToOne`/`OneToOne` form (a field on the *owning* class, not a back-reference) now translates its target through the full entity pipeline (get-or-create) instead of returning the untranslated source.

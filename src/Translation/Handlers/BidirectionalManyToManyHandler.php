@@ -129,6 +129,11 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
+     * The whole collection is handed to {@see EntityTranslatorInterface::preload()} once,
+     * before the loop below: one batched lookup query per item class rather than one per
+     * item, since each item is otherwise its own translate() call with its own internal
+     * single-entity preload().
+     *
      * @throws \ReflectionException
      * @throws MappingException
      *
@@ -155,6 +160,15 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
         $newCollection = new ArrayCollection();
         $targetLocale  = $context->getTargetLocale();
+
+        // One batched lookup for the whole collection instead of leaving each item's own
+        // translate() call to query for itself: preload() groups translatable items by
+        // class and issues one LocaleVariantFinder query per class, ignoring
+        // non-translatable items and anything already cached. A collection of K
+        // translatable items of one class then costs one query total here, not K.
+        if (\is_string($targetLocale)) {
+            $this->translator->preload($collection, $targetLocale);
+        }
 
         foreach ($collection as $item) {
             if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {

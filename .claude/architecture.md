@@ -153,6 +153,14 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
   translation for that pair, so a variant it creates is always found again across an
   `EntityManager::clear()`; the one gap is a variant for a remembered pair created by some
   other means, invisible until this translator creates one or the service is reset.
+- `BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and
+  `UnidirectionalManyToManyHandler` each call `preload()` with their whole collection once,
+  before iterating it, instead of leaving every child's own `translate()` call to query for
+  itself — a parent with *K* already-translated association children of one class costs 2
+  queries total (the parent's own miss + one batched children lookup), not `1 + K`. This is
+  automatic for any collection reached through these bundled handlers; the "bare loop" above
+  is about code that calls `translate()`/`getOrTranslate()` directly over a batch of top-level
+  entities, which still needs its own upfront `preload()` call.
 - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself —
   that question is resolved exactly once, by `processTranslation()`'s own
   `preload()`-then-cache-check, before any handler runs; the handler always clones.

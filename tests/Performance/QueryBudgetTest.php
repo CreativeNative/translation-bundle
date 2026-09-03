@@ -10,6 +10,10 @@ use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -103,19 +107,21 @@ final class QueryBudgetTest extends IntegrationTestCase
     /**
      * A parent entity (no existing target-locale variant, so it must be
      * created) with K already-translated children reachable through a
-     * bidirectional OneToMany: each child is itself a top-level-shaped
-     * translate() call (BidirectionalOneToManyHandler recurses through
-     * EntityTranslator::processTranslation(), not around it), so an
-     * already-existing child variant resolves from the shared cache in
-     * exactly one query each, same as testTranslateEntityWithExistingVariantIsOneQueryAndNoInserts().
-     * The parent itself costs exactly one: its own preload() lookup (a
-     * miss). TranslatableEntityHandler, reached once that miss falls
-     * through to the handler chain, does not look for an existing variant
-     * a second time -- existence is resolved exactly once, by
-     * processTranslation()'s own preload()-then-cache-check, before any
-     * handler runs (see TranslatableEntityHandler's class docblock).
+     * bidirectional OneToMany: BidirectionalOneToManyHandler::translate()
+     * preloads the whole children collection in one batched query per
+     * child class before looping, instead of leaving each child's own
+     * translate() call to query for itself (BidirectionalOneToManyHandler
+     * recurses through EntityTranslator::processTranslation(), not around
+     * it) -- so K already-translated children of one class cost one query
+     * total, not K. The parent itself costs exactly one more: its own
+     * preload() lookup (a miss). TranslatableEntityHandler, reached once
+     * that miss falls through to the handler chain, does not look for an
+     * existing variant a second time -- existence is resolved exactly
+     * once, by processTranslation()'s own preload()-then-cache-check,
+     * before any handler runs (see TranslatableEntityHandler's class
+     * docblock).
      */
-    public function testTranslateWithExistingChildVariantsCostsOneQueryPerChild(): void
+    public function testTranslateWithExistingChildVariantsCostsOneQueryPerChildClass(): void
     {
         $parentTuuid = Tuuid::generate();
         $parent      = new TranslatableOneToManyBidirectionalParent()->setTuuid($parentTuuid)->setLocale('en_US')->setTitle('Parent EN');
@@ -139,11 +145,207 @@ final class QueryBudgetTest extends IntegrationTestCase
         self::assertSame('de_DE', $translated->getLocale());
         self::assertCount($childCount, $translated->getSimpleChildren());
 
-        // 1 (parent's own preload(), a miss -- TranslatableEntityHandler does not
-        // look again once it falls through to the handler chain) + $childCount
-        // (one cache-satisfied lookup per already-translated child) -- see the
-        // method docblock above.
-        self::assertSame(1 + $childCount, $this->counter()->count());
+        // 1 (parent's own preload(), a miss) + 1 (one batched
+        // BidirectionalOneToManyHandler preload() query covering all K
+        // children, since they are all the same class) -- see the method
+        // docblock above.
+        self::assertSame(2, $this->counter()->count());
+    }
+
+    /**
+     * Same shape as testTranslateWithExistingChildVariantsCostsOneQueryPerChildClass(),
+     * except none of the K children have a de_DE variant yet: the upfront
+     * batched preload() still costs exactly one query for the whole class --
+     * it looks up all K children and finds nothing, remembering every one of
+     * their Tuuids as a known miss for (tuuid, de_DE) (see
+     * EntityTranslator::preload()'s docblock). Each child's own internal
+     * preload() then finds its Tuuid already remembered and skips its query
+     * entirely, so TranslatableEntityHandler clones every child without
+     * asking the database again. The only queries before flush() are
+     * therefore the parent's own preload() miss and the one batched children
+     * lookup -- 2, not 1 + K. flush() then inserts every row that did not
+     * already exist: the parent and all K children, K + 1 INSERTs.
+     */
+    public function testTranslateWithNewChildVariantsCostsTwoQueriesAndKPlusOneInserts(): void
+    {
+        $parent = new TranslatableOneToManyBidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('Parent EN');
+
+        $childCount = 3;
+        for ($i = 0; $i < $childCount; ++$i) {
+            $child = new TranslatableManyToOneBidirectionalChild()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('Child EN '.$i);
+            $child->setParentSimple($parent);
+            $parent->getSimpleChildren()->add($child);
+            $this->entityManager()->persist($child);
+        }
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $this->counter()->reset();
+        $translated = $this->translator()->getOrTranslate($parent, 'de_DE');
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translated);
+        self::assertCount($childCount, $translated->getSimpleChildren());
+        self::assertSame(2, $this->counter()->count(), '1 parent preload miss + 1 batched children lookup, regardless of K');
+
+        $this->counter()->reset();
+        $this->entityManager()->flush();
+        self::assertSame($childCount + 1, $this->counter()->count(), 'K child inserts + 1 parent insert, no further lookups');
+
+        self::assertNotNull($translated->getId());
+        foreach ($translated->getSimpleChildren() as $child) {
+            self::assertNotNull($child->getId());
+        }
+    }
+
+    /**
+     * A mixed collection: some children already have a de_DE variant,
+     * others do not. The upfront batched preload() still costs exactly one
+     * query for the whole class -- findLocaleVariantsBatch() is one query
+     * regardless of how many of the Tuuids it actually finds -- and the
+     * parent's own preload() miss is the other, so the budget stays at 2
+     * exactly like the all-existing and all-new cases above. flush() then
+     * inserts a row only for what did not already exist -- the new parent
+     * and the missing children; the existing children are reused (same
+     * managed instance, same id), so the child table grows by exactly
+     * $newCount rows, never $newCount + $existingCount. (The reused
+     * children still cost an UPDATE apiece, fixing their back-reference to
+     * the newly created parent -- since that parent did not exist before
+     * this call, no row could have pointed at it yet -- which is why this
+     * test measures the row-count delta rather than the flush()'s raw
+     * statement count.).
+     */
+    public function testTranslateWithMixedChildVariantsCostsTwoQueriesAndInsertsOnlyTheMissing(): void
+    {
+        $parent = new TranslatableOneToManyBidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('Parent EN');
+
+        $existingCount = 2;
+        $newCount      = 2;
+
+        $existingDeChildren = [];
+        for ($i = 0; $i < $existingCount; ++$i) {
+            $tuuid   = Tuuid::generate();
+            $childEn = new TranslatableManyToOneBidirectionalChild()->setTuuid($tuuid)->setLocale('en_US')->setTitle('Existing EN '.$i);
+            $childDe = new TranslatableManyToOneBidirectionalChild()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('Existing DE '.$i);
+            $childEn->setParentSimple($parent);
+            $parent->getSimpleChildren()->add($childEn);
+            $this->entityManager()->persist($childEn);
+            $this->entityManager()->persist($childDe);
+            $existingDeChildren[] = $childDe;
+        }
+        for ($i = 0; $i < $newCount; ++$i) {
+            $child = new TranslatableManyToOneBidirectionalChild()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('New EN '.$i);
+            $child->setParentSimple($parent);
+            $parent->getSimpleChildren()->add($child);
+            $this->entityManager()->persist($child);
+        }
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $this->counter()->reset();
+        $translated = $this->translator()->getOrTranslate($parent, 'de_DE');
+        self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $translated);
+        self::assertCount($existingCount + $newCount, $translated->getSimpleChildren());
+        self::assertSame(2, $this->counter()->count(), '1 parent preload miss + 1 batched children lookup covering both hits and misses');
+
+        foreach ($existingDeChildren as $existingDe) {
+            self::assertTrue(
+                $translated->getSimpleChildren()->contains($existingDe),
+                'the existing de_DE variant is reused (same managed instance, same id), never duplicated',
+            );
+        }
+
+        $childRowsBefore = $this->countChildRows();
+        $this->entityManager()->flush();
+        $childRowsAfter = $this->countChildRows();
+
+        self::assertSame(
+            $newCount,
+            $childRowsAfter - $childRowsBefore,
+            'the child table grows by exactly the missing count -- the existing variants were reused, not duplicated',
+        );
+    }
+
+    /**
+     * Same mechanism as testTranslateWithExistingChildVariantsCostsOneQueryPerChildClass(),
+     * for a bidirectional ManyToMany collection: BidirectionalManyToManyHandler::
+     * translateCollection() preloads the whole collection in one batched
+     * query per item class before looping, instead of leaving each item's
+     * own translate() call to query for itself.
+     */
+    public function testTranslateManyToManyBidirectionalWithExistingItemsCostsOneQueryPerItemClass(): void
+    {
+        $parent = new TranslatableManyToManyBidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US')->setTitle('Parent EN');
+
+        $itemCount = 3;
+        for ($i = 0; $i < $itemCount; ++$i) {
+            $itemTuuid = Tuuid::generate();
+            $itemEn    = new TranslatableManyToManyBidirectionalChild()->setTuuid($itemTuuid)->setLocale('en_US');
+            $itemDe    = new TranslatableManyToManyBidirectionalChild()->setTuuid($itemTuuid)->setLocale('de_DE');
+            $parent->addSimpleChild($itemEn);
+            $this->entityManager()->persist($itemEn);
+            $this->entityManager()->persist($itemDe);
+        }
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $this->counter()->reset();
+        $translated = $this->translator()->translate($parent, 'de_DE');
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $translated);
+        self::assertCount($itemCount, $translated->getSimpleChildren());
+
+        // 1 (parent's own preload(), a miss) + 1 (one batched
+        // BidirectionalManyToManyHandler preload() query covering all K
+        // items, since they are all the same class).
+        self::assertSame(2, $this->counter()->count());
+    }
+
+    /**
+     * A unidirectional ManyToMany collection mixing translatable items
+     * (some already translated) with a non-translatable one:
+     * UnidirectionalManyToManyHandler::translateCollection() preloads the
+     * whole collection in one batched query before looping -- preload()
+     * ignores the non-translatable item on its own, so it costs nothing
+     * extra and is preserved in the result untouched.
+     */
+    public function testTranslateUnidirectionalManyToManyWithMixedItemsCostsOneBatchedLookup(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent()->setTuuid(Tuuid::generate())->setLocale('en_US');
+
+        $itemCount = 3;
+        for ($i = 0; $i < $itemCount; ++$i) {
+            $itemTuuid = Tuuid::generate();
+            $itemEn    = new TranslatableManyToManyUnidirectionalChild()->setTuuid($itemTuuid)->setLocale('en_US')->setName('Item EN '.$i);
+            $itemDe    = new TranslatableManyToManyUnidirectionalChild()->setTuuid($itemTuuid)->setLocale('de_DE')->setName('Item DE '.$i);
+            $parent->addSimpleChild($itemEn);
+            $this->entityManager()->persist($itemEn);
+            $this->entityManager()->persist($itemDe);
+        }
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        // Appended after the flush establishing the existing de_DE variants
+        // above, directly on the still-plain (never reloaded) ArrayCollection
+        // -- in-memory only, never itself flushed, so a non-entity object can
+        // stand in for a non-translatable item (tags, categories) without
+        // needing a second, differently-typed join table. The collection
+        // enforces nothing at runtime (generics are PHPDoc-only); only
+        // PHPStan's own reading of getSimpleChildren()'s declared
+        // `Collection<int, ...Child>` return type objects to a stdClass
+        // going in, hence the two targeted ignores below.
+        $nonTranslatable = new \stdClass();
+        // @phpstan-ignore argument.type
+        $parent->getSimpleChildren()->add($nonTranslatable);
+
+        $this->counter()->reset();
+        $translated = $this->translator()->translate($parent, 'de_DE');
+        self::assertInstanceOf(TranslatableManyToManyUnidirectionalParent::class, $translated);
+        self::assertCount($itemCount + 1, $translated->getSimpleChildren());
+        // @phpstan-ignore staticMethod.impossibleType
+        self::assertTrue($translated->getSimpleChildren()->contains($nonTranslatable), 'the non-translatable item is preserved as-is');
+
+        // 1 (parent's own preload(), a miss) + 1 (one batched
+        // UnidirectionalManyToManyHandler preload() query covering the K
+        // translatable items; the stdClass is never looked up).
+        self::assertSame(2, $this->counter()->count());
     }
 
     public function testResolveBatchOfManyTuuidsIsOneQuery(): void
@@ -343,6 +545,18 @@ final class QueryBudgetTest extends IntegrationTestCase
         $count = $this->entityManager()->createQueryBuilder()
             ->select('COUNT(t.id)')
             ->from(Scalar::class, 't')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    private function countChildRows(): int
+    {
+        /** @var int|string $count */
+        $count = $this->entityManager()->createQueryBuilder()
+            ->select('COUNT(t.id)')
+            ->from(TranslatableManyToOneBidirectionalChild::class, 't')
             ->getQuery()
             ->getSingleScalarResult();
 
