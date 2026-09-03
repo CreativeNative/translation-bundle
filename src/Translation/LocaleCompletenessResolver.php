@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Translation;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -33,8 +34,6 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  */
 final class LocaleCompletenessResolver
 {
-    private const string LOCALE_FILTER = 'tmi_translation_locale_filter';
-
     /** @var list<string> */
     private const array SYSTEM_PROPERTIES = ['tuuid', 'locale', 'translations'];
 
@@ -51,6 +50,7 @@ final class LocaleCompletenessResolver
         private readonly string $defaultLocale,
         #[Autowire(param: 'kernel.enabled_locales')]
         private readonly array $locales,
+        private readonly LocaleVariantFinder $finder,
     ) {
     }
 
@@ -267,37 +267,6 @@ final class LocaleCompletenessResolver
      */
     private function loadVariants(string $class, array $tuuids): array
     {
-        $filters    = $this->entityManager->getFilters();
-        $wasEnabled = $filters->has(self::LOCALE_FILTER) && $filters->isEnabled(self::LOCALE_FILTER);
-
-        if ($wasEnabled) {
-            $filters->disable(self::LOCALE_FILTER);
-        }
-
-        try {
-            $tuuidStrings = array_map(static fn (Tuuid $tuuid): string => (string) $tuuid, $tuuids);
-
-            /** @var list<TranslatableInterface> $results */
-            $results = $this->entityManager->createQueryBuilder()
-                ->select('t')
-                ->from($class, 't')
-                ->where('t.tuuid IN (:tuuids)')
-                ->setParameter('tuuids', $tuuidStrings)
-                ->getQuery()
-                ->getResult();
-
-            /** @var array<string, array<string, TranslatableInterface>> $grouped */
-            $grouped = [];
-
-            foreach ($results as $entity) {
-                $grouped[(string) $entity->getTuuid()][$entity->getLocale() ?? ''] = $entity;
-            }
-
-            return $grouped;
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable(self::LOCALE_FILTER);
-            }
-        }
+        return $this->finder->findAllLocaleVariantsBatch($class, $tuuids);
     }
 }

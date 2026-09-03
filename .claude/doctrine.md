@@ -110,6 +110,21 @@ tmi_translation:
 Enable `unique_locale_variants` only once `tmi:translation:doctor` confirms no duplicate
 `(tuuid, locale)` rows exist — otherwise the schema migration fails.
 
+## Cross-Locale Lookups and Removal
+
+`LocaleVariantFinder` is the one place that queries across every locale variant of a Tuuid — it
+suspends the locale filter for the query and restores it afterwards, whatever state it was in.
+`TranslatableRepositoryTrait::findAllLocaleVariants()` / `findAllLocaleVariantsBatch()` and
+`LocaleCompletenessResolver` delegate to it; use it directly for anything else that needs to see
+every locale of an entity regardless of the current request's locale.
+
+`TranslatableRemover` removes every locale variant sharing a Tuuid — `$em->remove()` only ever
+acts on the one row it is given, so a naive "delete this" under a locale-filtered query only ever
+removes the current-locale row, leaving the others online. `removeAllLocaleVariants()` schedules
+every variant (via `EntityManager::remove()` per variant, never a bulk DQL DELETE, so ORM
+cascades / `orphanRemoval` / lifecycle callbacks still fire); `removeSingleLocaleVariant()` removes
+just one, exempting it from the opt-in cascade-removal listener.
+
 ## Diagnostic Commands
 
 - `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage

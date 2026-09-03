@@ -90,6 +90,13 @@ private ?string $cachedSlug = null;
   warning only fires with `enable_logging: true`).
 - `Doctrine/Repository/TranslatableEntityRepository` — ready-made repository base class.
 - `Doctrine/TranslatableEntityLocator` — discovers all `TranslatableInterface` entity classes.
+- `Doctrine/LocaleVariantFinder` — the one place that queries across every locale variant of a
+  Tuuid, suspending the locale filter for the query (`withoutLocaleFilter()`).
+  `TranslatableRepositoryTrait` and `LocaleCompletenessResolver` delegate to it.
+- `Doctrine/TranslatableRemover` — removes every locale variant sharing a Tuuid (or exempts one
+  variant from that) via `EntityManager::remove()` per variant, so ORM cascades / `orphanRemoval`
+  / lifecycle callbacks fire per variant — never a bulk DQL DELETE. `$em->remove()` alone only
+  ever touches the one row it is given.
 
 ## Per-Locale Completeness (v3.1)
 

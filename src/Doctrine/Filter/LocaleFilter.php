@@ -14,6 +14,14 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 final class LocaleFilter extends SQLFilter
 {
     /**
+     * The name this filter is registered under (`doctrine.orm.filters` /
+     * `dbal.filters` config) — the single source of truth for every place
+     * that needs to enable, disable, or query the state of this filter
+     * instead of repeating the string.
+     */
+    public const string NAME = 'tmi_translation_locale_filter';
+
+    /**
      * Dependency injection.
      */
     public function setLocale(string|null $locale): self

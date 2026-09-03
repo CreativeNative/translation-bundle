@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation;
 
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable as EmbeddedTranslatable;
@@ -318,6 +319,7 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
             $this->attributeHelper(),
             'en_US',
             ['en_US', 'de_DE', 'it_IT'],
+            new LocaleVariantFinder($this->entityManager()),
         );
     }
 }

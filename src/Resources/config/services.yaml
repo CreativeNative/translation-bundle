@@ -53,6 +53,21 @@ services:
         alias: Tmi\TranslationBundle\Translation\EntityTranslator
 
     # ----------------------------
+    # Locale Variant Lookups / Removal
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\LocaleVariantFinder:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+
+    Tmi\TranslationBundle\Doctrine\TranslatableRemover:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+
+    tmi_translation.doctrine.translatable_remover:
+        alias: Tmi\TranslationBundle\Doctrine\TranslatableRemover
+
+    # ----------------------------
     # Per-Locale Completeness
     # ----------------------------
     Tmi\TranslationBundle\Translation\LocaleCompletenessResolver:
@@ -61,6 +76,7 @@ services:
             $attributeHelper: '@tmi_translation.utils.attribute_helper'
             $defaultLocale: '%tmi_translation.default_locale%'
             $locales: '%kernel.enabled_locales%'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
 
     tmi_translation.translation.locale_completeness_resolver:
         alias: Tmi\TranslationBundle\Translation\LocaleCompletenessResolver
