@@ -115,13 +115,18 @@ private Collection $photos;
   direction)
 - **Symptom:** Translation fails completely when processing this field
 - **Fix options:**
-  1. Remove `#[SharedAmongstTranslations]` (each locale gets own relation)
-  2. For a **to-one** relation (`ManyToOne`/`OneToOne`), removing `inversedBy`/`mappedBy` makes
-     it unidirectional and sharing becomes legal again. This does **not** work for `OneToMany`
-     (a `mappedBy` is intrinsic to how the bundle recognizes the relation) or for `ManyToMany`:
-     `UnidirectionalManyToManyHandler` rejects the attribute too, in either direction — a
-     `ManyToMany` can never be shared.
-  3. Share the related entity's own scalar columns instead of the association
+  1. Remove `#[SharedAmongstTranslations]` (each locale gets its own relation, translated normally)
+  2. Share the related entity's own scalar columns instead of the association — the only way to
+     keep a value actually shared across locales, for every association shape (`ManyToOne`,
+     `OneToOne`, `OneToMany`, `ManyToMany`). For a **to-one** relation, removing
+     `inversedBy`/`mappedBy` stops the `RuntimeException` (the association falls through to
+     `TranslatableEntityHandler` instead of a bidirectional handler) but does **not** make
+     sharing work — that handler has no `isShared()` branch and silently translates/clones the
+     target regardless of the attribute. `OneToMany` (`mappedBy` is intrinsic to how the bundle
+     recognizes the relation) and `ManyToMany` (`UnidirectionalManyToManyHandler` rejects the
+     attribute too, in either direction) have no unidirectional form to fall back to at all.
+  3. Keep the association out of the translation pipeline (a plain, non-translatable reference)
+     if a single shared row is a hard requirement
 - **llms.md:** See "SharedAmongstTranslations on Bidirectional Relation" troubleshooting entry
 
 ### Check 2.2: EmptyOnTranslate on Non-Nullable Scalar Fields

@@ -1087,37 +1087,49 @@ literal string wherever possible.
 
 **Cause:** All five association handlers reject `#[SharedAmongstTranslations]` with a `RuntimeException`: `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and `BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`), plus `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either direction) — sharing would leave the relation's ownership ambiguous across locale variants
 
-**Fix:** Remove `#[SharedAmongstTranslations]` from bidirectional relations. Use unidirectional relations if sharing is required, or accept that each locale will have its own copy:
+**Fix:** Remove `#[SharedAmongstTranslations]` from the relation; there is no way to keep a
+translatable-entity association shared. Let it translate normally, and share the related
+entity's own scalar columns instead if a value must stay identical across locales:
 
 ```php
-// DON'T: SharedAmongstTranslations on bidirectional
+// DON'T: SharedAmongstTranslations on bidirectional -- throws RuntimeException
 #[SharedAmongstTranslations]
 #[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
 private ?Category $category = null;
 
-// DO: Remove attribute, each locale gets its own relation
-#[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
-private ?Category $category = null;
-
-// OR: Use unidirectional relation if sharing is needed
+// DON'T either: removing inversedBy stops the RuntimeException but doesn't share
+// anything -- the resulting unidirectional association falls through to
+// TranslatableEntityHandler, which has no isShared() branch and silently
+// translates/clones the target regardless of the attribute
 #[SharedAmongstTranslations]
 #[ORM\ManyToOne(targetEntity: Category::class)]  // No inversedBy
 private ?Category $category = null;
+
+// DO: let the association translate normally...
+#[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+private ?Category $category = null;
+
+// ...and share Category's own scalar column(s) if a value must be identical
+// everywhere
+#[SharedAmongstTranslations]
+#[ORM\Column]
+private string $sku;
 ```
 
-> The unidirectional escape hatch only applies to **to-one** relations. A `ManyToMany` is rejected
-> in either direction — `UnidirectionalManyToManyHandler` throws for the attribute as well. For
-> collections, share the related entity's own columns instead of the association.
+> There is no working escape hatch for any association shape. A `ManyToMany` is rejected in
+> either direction too — `UnidirectionalManyToManyHandler` throws for the attribute as well. For
+> every shape, share the related entity's own columns instead of the association.
 
 > The "DO" form above (a plain `ManyToOne` with `inversedBy`, no `SharedAmongstTranslations`) is the
 > **direct form**: `Category` is not itself a field the owning side (`Product`) has a scalar
 > back-reference to, so `BidirectionalManyToOneHandler` simply translates `$category` to the
 > matching locale (get-or-create) and assigns the result — there is nothing to repair on `Category`
 > itself. This means each translated `Product` gets its own, independently get-or-created `Category`
-> variant sharing the same Tuuid, not a shared reference to one `Category` row (that requires
-> `#[SharedAmongstTranslations]`, above). The target needs `cascade: ['persist']` on the mapping (or
-> an explicit `$entityManager->persist($product->getCategory())`) for a newly created variant to be
-> saved.
+> variant sharing the same Tuuid, not a shared reference to one `Category` row — nothing in this
+> bundle currently gives you that for a translatable-entity association; share `Category`'s own
+> scalar columns instead when a value must be identical everywhere. The target needs
+> `cascade: ['persist']` on the mapping (or an explicit
+> `$entityManager->persist($product->getCategory())`) for a newly created variant to be saved.
 
 ### Translations Not Persisted
 

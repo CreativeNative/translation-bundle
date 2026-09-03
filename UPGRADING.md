@@ -462,8 +462,15 @@ translated `Product` points at it.
 
 **What to check:**
 - If a shared reference across all locales was actually what you wanted (one `Category` row,
-  every `Product` locale pointing at it regardless of language), mark the association
-  `#[SharedAmongstTranslations]` instead of relying on the old pass-through bug.
+  every `Product` locale pointing at it regardless of language), `#[SharedAmongstTranslations]`
+  cannot give you that here: a bidirectional association (`inversedBy`/`mappedBy` set, as in
+  `Product::$category` above) rejects the attribute with a `RuntimeException` — see
+  [§ 9](#9-shared-bidirectional-associations-throw-runtimeexception-everywhere) — and a
+  unidirectional one silently ignores it instead, since `TranslatableEntityHandler` (the handler
+  for the direct/unidirectional form) has no `isShared()` branch and always translates the
+  target regardless of the attribute. Share the target entity's own scalar columns instead, or
+  keep the relation out of the translation pipeline (a plain, non-translatable reference) if a
+  single row across every locale is a hard requirement.
 - If you do want the target translated, give the association `cascade: ['persist']` (or
   persist the translated target explicitly) — a newly created target variant needs to be
   saved like any other new entity.
@@ -727,9 +734,11 @@ last bullet):
    ([§ 4c](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)).
 7. If you overrode `TranslationCacheInterface` to `Psr6TranslationCache`, or instantiated it
    directly, remove that wiring ([§ 5](#5-psr6translationcache-is-gone)).
-8. Search your entities for a direct `ManyToOne`/`OneToOne` to another translatable entity and
-   decide, per association, whether you want it translated (add `cascade: ['persist']`) or
-   shared (`#[SharedAmongstTranslations]`) — [Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity).
+8. Search your entities for a direct `ManyToOne`/`OneToOne` to another translatable entity. If
+   you want the target translated, add `cascade: ['persist']`. If you actually need one shared
+   row across every locale, `#[SharedAmongstTranslations]` will not do it — share the target's
+   own scalar columns instead — see
+   [Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity).
 9. Search for hand-rolled locale-variant deletion (a loop over `findBy(['tuuid' => ...])`, or
    a single `$em->remove()` you expected to remove every locale) and replace it with
    `TranslatableRemover` — see [New in 4.0](#new-in-40).

@@ -202,14 +202,17 @@ Wait for user confirmation (yes/y/apply/confirm).
 collection or relation between locale variants makes the owning side ambiguous.
 
 A plain `#[ORM\ManyToOne(inversedBy: ...)]`/`#[ORM\OneToOne]` field declared on the *owning*
-class (not reached as a back-reference) now translates its target too, get-or-create (v4.0). If
-the intent is one shared target across every locale instead, remove `inversedBy`/`mappedBy` to
-make the association unidirectional, then mark it `#[SharedAmongstTranslations]` — the
-bidirectional shape shown above rejects the attribute with a `RuntimeException`. This escape
-hatch does not exist for `ManyToMany`: `UnidirectionalManyToManyHandler` rejects the attribute
-too, in either direction; share the related entity's own scalar columns instead. If the
-association should translate rather than share, give it `cascade: ['persist']` so a newly
-created target variant gets saved.
+class (not reached as a back-reference) now translates its target too, get-or-create (v4.0).
+There is no working escape hatch back to a single shared target: the bidirectional shape shown
+above rejects `#[SharedAmongstTranslations]` with a `RuntimeException`, and removing
+`inversedBy`/`mappedBy` does not fix that — the resulting unidirectional association falls
+through to `TranslatableEntityHandler`, which has no `isShared()` branch at all and always
+translates/clones the target regardless of the attribute, silently. `ManyToMany` cannot be
+shared either, in either direction: `UnidirectionalManyToManyHandler` rejects the attribute too.
+Share the related entity's own scalar columns instead, or keep the association out of the
+translation pipeline (a plain, non-translatable reference) if a single shared row is a hard
+requirement. If the association should translate rather than share, give it
+`cascade: ['persist']` so a newly created target variant gets saved.
 
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
 
