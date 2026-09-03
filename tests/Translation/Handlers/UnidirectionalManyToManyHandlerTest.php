@@ -17,6 +17,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBid
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
+use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -223,10 +224,15 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($parent::class, 'items');
 
+        // Already at the target locale ('de_DE', propertyContext()'s default): the bare
+        // test translator has no handlers, so translate() hands every item back as the
+        // very same instance either way (see UnitTestCase::getTranslator()) -- setting
+        // the target locale up front is what tells a genuine kept translation apart from
+        // the cycle-guard fallback WP22 added.
         $child1 = new TranslatableManyToManyUnidirectionalChild();
-        $child1->setLocale('en');
+        $child1->setLocale('de_DE');
         $child2 = new TranslatableManyToManyUnidirectionalChild();
-        $child2->setLocale('en');
+        $child2->setLocale('de_DE');
 
         $data = new ArrayCollection([$child1, $child2]);
 
@@ -294,11 +300,13 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslateReplacesCollectionWithTranslatedItems(): void
     {
+        // Already at the target locale -- see the comment on
+        // testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField() above.
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child1 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en');
+            ->setLocale('de_DE');
         $child2 = new TranslatableManyToManyUnidirectionalChild()
-            ->setLocale('en');
+            ->setLocale('de_DE');
 
         $parent->addSimpleChild($child1)->addSimpleChild($child2);
 
@@ -366,9 +374,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     {
         $handler = $this->createHandler();
 
+        // Already at the target locale -- see the comment on
+        // testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField() above.
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child  = new TranslatableManyToManyUnidirectionalChild();
-        $child->setLocale('en');
+        $child->setLocale('de_DE');
         $parent->addSimpleChild($child);
 
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
@@ -409,9 +419,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslateWithIterableSourceData(): void
     {
+        // Already at the target locale -- see the comment on
+        // testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField() above.
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child  = new TranslatableManyToManyUnidirectionalChild();
-        $child->setLocale('en');
+        $child->setLocale('de_DE');
 
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
 
@@ -489,9 +501,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
      */
     public function testTranslatePreservesMixOfTranslatableAndNonTranslatableItems(): void
     {
+        // Already at the target locale -- see the comment on
+        // testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField() above.
         $parent = new TranslatableManyToManyUnidirectionalParent();
         $child  = new TranslatableManyToManyUnidirectionalChild();
-        $child->setLocale('en');
+        $child->setLocale('de_DE');
 
         $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
 
@@ -604,6 +618,95 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         self::assertCount(1, $result);
         self::assertSame($tag, $result->first());
+    }
+
+    /**
+     * WP22 negative proof (mock-based): a unidirectional ManyToMany item has no field
+     * pointing back at the owner, so this fixture cannot form a genuine in-progress cycle
+     * -- there is no path back to $newOwner's own tuuid for the recursion to close.
+     * A translator mock proves the rule directly instead: an item the translator hands
+     * back as the very same instance, still at the source locale (the shape
+     * EntityTranslator::processTranslation()'s in-progress guard produces), is a
+     * cycle-guard fallback and must be skipped -- not added to $newOwner's owning-side
+     * collection, which would otherwise persist a join row crossing locales.
+     *
+     * @throws \ReflectionException
+     */
+    public function testCycleGuardFallbackSkipsSameInstanceSourceLocaleReturn(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child  = new TranslatableManyToManyUnidirectionalChild()->setLocale('en_US');
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $translator = $this->createMock(EntityTranslatorInterface::class);
+        // The cycle-guard fallback: hands the very same instance back, untranslated.
+        $translator->method('translate')->with($child, self::TARGET_LOCALE)->willReturn($child);
+
+        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper(), $translator, $this->entityManager());
+
+        $context = $this->propertyContext(new ArrayCollection([$child]), $prop);
+        $context->setTranslatedParent($parent);
+
+        $result = $handler->translate($context);
+
+        self::assertCount(0, $result, 'the cycle-guard fallback must be skipped, not added to the owning-side collection');
+    }
+
+    /**
+     * The mirror case: an item the translator hands back as the very same instance but
+     * ALREADY carrying the target locale is a genuine target-locale entity, not a
+     * cycle-guard fallback -- it keeps today's behaviour and is still added.
+     *
+     * @throws \ReflectionException
+     */
+    public function testAlreadyTargetLocaleSameInstanceReturnIsKept(): void
+    {
+        $parent = new TranslatableManyToManyUnidirectionalParent();
+        $child  = new TranslatableManyToManyUnidirectionalChild()->setLocale(self::TARGET_LOCALE);
+
+        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
+
+        $mapping = new ManyToManyOwningSideMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
+            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
+        );
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMappings')->willReturn([
+            'simpleChildren' => $mapping,
+        ]);
+        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
+
+        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+
+        $translator = $this->createMock(EntityTranslatorInterface::class);
+        // Already the target locale: translate() hands the same instance back as an
+        // identity operation (see EntityTranslator::processTranslation()), not a guard.
+        $translator->method('translate')->with($child, self::TARGET_LOCALE)->willReturn($child);
+
+        $handler = new UnidirectionalManyToManyHandler($this->attributeHelper(), $translator, $this->entityManager());
+
+        $context = $this->propertyContext(new ArrayCollection([$child]), $prop);
+        $context->setTranslatedParent($parent);
+
+        $result = $handler->translate($context);
+
+        self::assertCount(1, $result);
+        self::assertSame($child, $result->first());
     }
 
     private function createHandler(): UnidirectionalManyToManyHandler

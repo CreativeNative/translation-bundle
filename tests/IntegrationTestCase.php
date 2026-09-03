@@ -16,6 +16,7 @@ use Symfony\Component\DependencyInjection\Container;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
+use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -29,6 +30,8 @@ class IntegrationTestCase extends KernelTestCase
     protected EntityManagerInterface|null $entityManager = null;
 
     protected AttributeHelper|null $attributeHelper = null;
+
+    protected TranslationCacheInterface|null $translationCache = null;
 
     protected static Container|null $container = null;
 
@@ -78,6 +81,10 @@ class IntegrationTestCase extends KernelTestCase
         self::assertInstanceOf(AttributeHelper::class, $attributeHelper, 'Attribute helper service must be an AttributeHelper instance');
         $this->attributeHelper = $attributeHelper;
 
+        $translationCache = $container->get('test.translation_cache');
+        self::assertInstanceOf(TranslationCacheInterface::class, $translationCache, 'Translation cache service must implement TranslationCacheInterface');
+        $this->translationCache = $translationCache;
+
         $entityManager = $this->entityManager();
 
         $subscriber = new TranslatableEventSubscriber('en_US');
@@ -104,7 +111,8 @@ class IntegrationTestCase extends KernelTestCase
         if (null !== $this->entityManager && $this->entityManager->isOpen()) {
             $this->entityManager->close();
         }
-        $this->translator = null;
+        $this->translator       = null;
+        $this->translationCache = null;
 
         static::$container = null;
         static::$kernel    = null;
@@ -149,6 +157,13 @@ class IntegrationTestCase extends KernelTestCase
         self::assertNotNull($this->attributeHelper, 'setUp() must run before accessing attributeHelper');
 
         return $this->attributeHelper;
+    }
+
+    protected function translationCache(): TranslationCacheInterface
+    {
+        self::assertNotNull($this->translationCache, 'setUp() must run before accessing translationCache');
+
+        return $this->translationCache;
     }
 
     private function registerTuuidTypeMapping(ContainerInterface $container): void

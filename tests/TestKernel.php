@@ -18,6 +18,7 @@ use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Test\Support\QueryCounter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
+use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 
 final class TestKernel extends BaseKernel
@@ -114,6 +115,17 @@ final class TestKernel extends BaseKernel
         // the translator through this public alias rather than the private class id.
         $container->services()
             ->alias('test.entity_translator', EntityTranslator::class)
+            ->public();
+
+        // Same reasoning as test.entity_translator above: TranslationCacheInterface is
+        // private in the bundle's own services.yaml, so it needs its own public alias to
+        // be reachable from a test. A cycle-guard negative proof stages the in-progress
+        // marker directly through this cache rather than assembling a graph deep enough
+        // to reach it via genuine recursion (the ManyToMany handlers' own detach/restore
+        // step already defeats the direct two-class recursion -- see
+        // BidirectionalManyToManyHandlerTest and the WP22 integration tests).
+        $container->services()
+            ->alias('test.translation_cache', TranslationCacheInterface::class)
             ->public();
 
         // Query-budget test infrastructure: a PSR-3 logger counting the debug

@@ -34,6 +34,7 @@ with a migration path.
   - [5. `copy_source` resolution is proxy-safe; `EmptyOnTranslate` collections are never shared](#5-copy_source-resolution-is-proxy-safe-emptyontranslate-collections-are-never-shared)
   - [6. `tmi:translation:sync-shared` names the properties that drifted](#6-tmitranslationsync-shared-names-the-properties-that-drifted)
   - [7. TranslatableEntityHandler no longer checks for an existing variant itself](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)
+  - [8. A cycle-guard fallback never mutates the source entity](#8-a-cycle-guard-fallback-never-mutates-the-source-entity)
 - [New in 4.0](#new-in-40)
 - [Upgrade Checklist (4.0)](#upgrade-checklist-40)
 
@@ -584,6 +585,48 @@ followed by a per-entity `getOrTranslate()` loop (the recommended import shape, 
 worker forgets that memory between units of work, so a variant created by some other means in
 the meantime becomes visible again immediately.
 
+### 8. A cycle-guard fallback never mutates the source entity
+
+`EntityTranslator::processTranslation()` breaks a translation cycle by handing back the
+untranslated source entity itself when its (tuuid, locale) pair is already mid-translation
+higher up the same call — this has always been the recursion guard, unchanged. What was wrong
+is what the three collection handlers (`BidirectionalOneToManyHandler`,
+`BidirectionalManyToManyHandler`, `UnidirectionalManyToManyHandler`) did with that fallback
+instance once WP6 made the direct `ManyToOne`/`OneToOne` form run the full entity pipeline
+(see [§ 1](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity)): they added
+it to the translated owner's collection like any other translated item, and — for the two
+bidirectional handlers — repointed its own back-reference field at the translated owner. The
+most ordinary shape it reaches in: translating a child with a bidirectional `ManyToOne` parent
+(`inversedBy`/`OneToMany` `mappedBy`) recurses parent → children → the very child already
+being translated; the fallback returns that child unchanged, and the old code then rewrote
+**the source child's own FK** to point at the translated (new-locale) parent. A flush moved the
+untranslated row to a different locale's parent — every other property on the child was still
+in the source locale. The mirror case exists for a bidirectional `ManyToMany` (the fallback
+item's own back-reference collection gained the translated owner, a persisted join row
+crossing locales) and, without a back-reference to corrupt, for a unidirectional `ManyToMany`
+(the fallback item still landed in the translated owner's owning-side collection, the same
+crossing-locale join row from the other end).
+
+**After v4:** all three handlers check, right before adding or touching a back-reference,
+whether the translator handed back the very instance it was given *and* that instance does not
+already carry the target locale. When both are true it is the cycle-guard fallback: the
+handler skips it outright — no add, no back-reference write, the source entity untouched. An
+instance handed back unchanged because it *already* carries the target locale (a genuine
+existing translation, not a guard) is unaffected and keeps being added and re-pointed exactly
+as before. The translated owner's collection is then missing the in-progress item until a
+reload — this is not data loss: that collection is never persisted on its own (Doctrine writes
+the owning `ManyToOne` field, or the join table row from its owning side), and Doctrine does
+not retroactively complete an inverse/queried collection from a FK or join-table write that
+went through a different entity instance, so a reload of either side always shows the
+complete, correct set.
+
+**What to check:** if your application reads a just-translated parent's freshly-clone
+collection *before* flushing and reloading — rather than re-querying afterward — and expected
+to find an in-progress child/item that was reachable through this exact cycle, it will no
+longer be there in that in-memory collection; reload after `flush()` to see it. This is very
+unlikely to be visible code: the shape only exists inside one recursive `translate()` call, and
+most applications never inspect a mid-translation collection before persisting it.
+
 ---
 
 ## New in 4.0
@@ -672,7 +715,12 @@ last bullet):
     on `new TranslatableEntityHandler(...)`), drop the `LocaleVariantFinder` constructor
     argument — see
     [§ 7](#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself).
-14. Run your test suite. Behavioural Changes 1-7 above are the ones most likely to surface as
+14. If you have bidirectional `ManyToOne`/`OneToMany` or `ManyToMany` associations and read a
+    just-translated parent's collection *before* flushing, re-check that code against
+    [§ 8](#8-a-cycle-guard-fallback-never-mutates-the-source-entity) — an in-progress item
+    reached through a translation cycle is no longer in that in-memory collection (it is after
+    a reload).
+15. Run your test suite. Behavioural Changes 1-8 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.
 

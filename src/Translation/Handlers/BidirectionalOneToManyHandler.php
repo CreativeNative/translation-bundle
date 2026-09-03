@@ -132,6 +132,31 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
                 ->setProperty(ReflectionHelper::getProperty($child::class, $mappedBy));
 
             $translatedChild = $this->translator->processTranslation($subContext);
+
+            // Cycle-guard fallback: EntityTranslator::processTranslation() hands back
+            // $child itself, untranslated, when (childTuuid, targetLocale) is already
+            // marked in-progress higher up this very call -- reachable in the most
+            // ordinary shape since the ManyToOne/OneToMany clones started running the
+            // full entity pipeline: translating a child recurses into its own ManyToOne
+            // parent (BidirectionalManyToOneHandler), which recurses into the parent's
+            // clone, which lands right back here at the SAME child, still mid-translation.
+            // Adding it here would put the SOURCE entity into the translated parent's
+            // collection, and the back-reference write below would repoint the SOURCE's
+            // own FK at the translated parent -- mutating an entity the caller is still
+            // holding a live reference to, for a flush neither of them asked for. Skip it
+            // outright instead. The translated parent's inverse-side collection is simply
+            // missing this child until a reload: that collection is never persisted on its
+            // own (Doctrine writes the owning ManyToOne side, i.e. the child's own FK, not
+            // this collection), and Doctrine does not retroactively complete an inverse
+            // collection from a FK write that went through a *different* entity instance --
+            // so a reload of either side always shows the complete, correct set. An
+            // instance handed back unchanged but already carrying the target locale is not
+            // this fallback -- it is a genuine existing translation -- and keeps today's
+            // behaviour below.
+            if ($translatedChild === $child && $child->getLocale() !== $targetLocale) {
+                continue;
+            }
+
             $newCollection->add($translatedChild);
 
             // keep bidirectional consistency

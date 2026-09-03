@@ -177,6 +177,23 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
             $translated = $this->translator->translate($item, $targetLocale);
 
+            // Cycle-guard fallback: EntityTranslator::processTranslation() hands back
+            // $item itself, untranslated, when (itemTuuid, targetLocale) is already
+            // marked in-progress higher up this very call -- reachable when $item is
+            // reachable again through some other path in the graph while its own
+            // translation is still on the call stack. There is no back-reference to
+            // touch on a unidirectional association, but adding $item here would still
+            // put the SOURCE entity into $newOwner's owning-side collection, persisting a
+            // join row that crosses locales. Skip it outright. $newOwner's collection is
+            // simply missing this item until a reload; the item is later reachable in its
+            // own right once its own translation completes and gets persisted on its own
+            // terms. An instance handed back unchanged but already carrying the target
+            // locale is not this fallback -- it is a genuine existing translation -- and
+            // keeps today's behaviour below.
+            if ($translated === $item && $item->getLocale() !== $targetLocale) {
+                continue;
+            }
+
             if (!$translatedItems->contains($translated)) {
                 $translatedItems->add($translated);
             }

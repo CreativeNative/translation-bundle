@@ -78,6 +78,87 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     }
 
     /**
+     * WP22 negative proof: a cycle-guard fallback must never mutate the source entity.
+     *
+     * BidirectionalManyToManyHandler::translateCollection() already detaches $item's own
+     * back-reference before recursing into it (see that method's docblock), which defeats
+     * a genuine in-progress cycle through this exact two-class, one-association fixture --
+     * verified empirically while building this test: translating either side, alone or
+     * with a second parent sharing the child, always produced a fresh clone, never the
+     * in-progress fallback. Reaching the fallback for real needs $child's own tuuid to
+     * already be marked in-progress through some OTHER path in the graph by the time this
+     * loop's translate() call reaches it -- exactly what a real multi-branch object graph
+     * (a third association, or a diamond through a third entity) would produce. Staging
+     * the marker directly on the real TranslationCacheInterface reaches the very same
+     * EntityTranslator::processTranslation() in-progress check such a graph would trigger,
+     * without inflating this fixture into one.
+     *
+     * Child is the OWNING side of the 'parent_child' join table (inversedBy on its own
+     * $simpleParents, see the fixture), so the bug this guards against is a persisted join
+     * row linking a de_DE parent to the untranslated en_US child.
+     *
+     * @throws OptimisticLockException
+     * @throws ORMException
+     */
+    public function testCycleGuardFallbackDoesNotMutateTheSourceItem(): void
+    {
+        $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
+        $child  = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $parent->addSimpleChild($child);
+
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->persist($child);
+        $this->entityManager()->flush();
+
+        $childTuuid = $child->getTuuid()->getValue();
+        $this->translationCache()->markInProgress($childTuuid, self::TARGET_LOCALE);
+
+        try {
+            $parentTranslation = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        } finally {
+            $this->translationCache()->unmarkInProgress($childTuuid, self::TARGET_LOCALE);
+        }
+
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $parentTranslation);
+
+        // The source item's own back-reference collection is untouched: old code added the
+        // translated (DE) parent to it, on top of the source's own (EN) parent.
+        self::assertCount(1, $child->getSimpleParents());
+        self::assertSame($parent, $child->getSimpleParents()->first());
+        self::assertSame('en_US', $child->getLocale());
+
+        // The in-progress child is absent from the translated parent's collection -- that
+        // collection is never persisted on its own (Doctrine writes the join table from
+        // the owning side, the child's own field) and Doctrine does not retroactively
+        // complete an inverse collection either, so this is not a data loss: a reload of
+        // either side shows the complete, correct set.
+        self::assertCount(0, $parentTranslation->getSimpleChildren());
+
+        $this->entityManager()->persist($parentTranslation);
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        // Reload both sides: no row in the owning side's join table links the de_DE parent
+        // to the en_US child.
+        $reloadedParent = $this->entityManager()->find(
+            TranslatableManyToManyBidirectionalParent::class,
+            $parentTranslation->getId(),
+        );
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $reloadedParent);
+        self::assertCount(0, $reloadedParent->getSimpleChildren());
+
+        $reloadedChild = $this->entityManager()->find(
+            TranslatableManyToManyBidirectionalChild::class,
+            $child->getId(),
+        );
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $reloadedChild);
+        self::assertCount(1, $reloadedChild->getSimpleParents());
+        $reloadedParentSide = $reloadedChild->getSimpleParents()->first();
+        self::assertInstanceOf(TranslatableManyToManyBidirectionalParent::class, $reloadedParentSide);
+        self::assertSame('en_US', $reloadedParentSide->getLocale());
+    }
+
+    /**
      * @throws OptimisticLockException
      * @throws ORMException
      */

@@ -23,6 +23,28 @@ Translation uses a priority-based handler chain. Each handler implements `Transl
 | 20 | TranslatableEntityHandler | TranslatableInterface entities |
 | 10 | DoctrineObjectHandler | Generic Doctrine objects |
 
+### Recursion Guard (Cycle Detection)
+
+`EntityTranslator::processTranslation()` marks a `(tuuid, locale)` pair in-progress before
+running the handler chain for it, and unmarks it in a `finally` — the flag stays set for the
+whole frame, including any handler recursion below it. A bidirectional association whose
+translation walks back to an entity already mid-translation for that same pair (the ordinary
+shape since the direct ManyToOne/OneToOne form started running the full entity pipeline, v4.0
+Behavioural Change 1) hits that mark and gets the untranslated **source instance itself** back,
+instead of recursing forever — this is the cycle-guard fallback, and it is indistinguishable
+from a legitimate "no translation happened" return except by comparing identity and locale.
+
+`BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and
+`UnidirectionalManyToManyHandler` are the three handlers that receive a *collection* of such
+results and decide whether to add each one to the translated owner's collection (and, for the
+two bidirectional handlers, repair its back-reference). As of v4.0 (WP22) all three check, right
+before that add/back-reference write, whether the result is `===` the item they handed in *and*
+that item's own locale is still the source locale — if so, it is the cycle-guard fallback and is
+skipped outright, rather than mutating the source entity's own FK or back-reference collection.
+An item returned unchanged because it *already* carries the target locale is a genuine existing
+translation, not the guard, and is still added/re-pointed as before. See
+[UPGRADING.md § 8](../UPGRADING.md#8-a-cycle-guard-fallback-never-mutates-the-source-entity).
+
 ### Adding New Handlers
 
 ```php

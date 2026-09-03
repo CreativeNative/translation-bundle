@@ -129,8 +129,13 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $handler = $this->createHandler();
 
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $child1 = new TranslatableManyToOneBidirectionalChild();
-        $child2 = new TranslatableManyToOneBidirectionalChild();
+        // Already at the target locale: the bare test translator has no handlers, so
+        // processTranslation() hands each child back as the very same instance either
+        // way (see UnitTestCase::getTranslator()) -- setting the target locale up front
+        // is what tells the two apart, keeping this test on the "kept" path rather than
+        // the cycle-guard fallback WP22 added (see BidirectionalOneToManyHandler::translate()).
+        $child1 = new TranslatableManyToOneBidirectionalChild()->setLocale('it_IT');
+        $child2 = new TranslatableManyToOneBidirectionalChild()->setLocale('it_IT');
 
         $parent->setSimpleChildren(new ArrayCollection([$child1, $child2]));
 
@@ -180,7 +185,10 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
         $handler = $this->createHandler();
 
         $parent = new TranslatableOneToManyBidirectionalParent();
-        $child  = new InheritedBackReferenceChild();
+        // Already at the target locale -- see the comment in
+        // testTranslateClonesCollectionAndProcessesChildren() above.
+        $child = new InheritedBackReferenceChild();
+        $child->setLocale('it_IT');
 
         $collection = new ArrayCollection([$child]);
 

@@ -427,11 +427,17 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
     /**
      * Normal translation path: children translated and inverse set.
+     *
+     * The child is already at the target locale ('de_DE', propertyContext()'s default):
+     * the bare test translator has no handlers, so translate() hands every item back as
+     * the very same instance either way (see UnitTestCase::getTranslator()) -- setting
+     * the target locale up front is what tells a genuine kept translation apart from the
+     * cycle-guard fallback WP22 added (see BidirectionalManyToManyHandler::translateCollection()).
      */
     public function testTranslateTranslatesAndSetsInverseMappedBy(): void
     {
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
-        $child  = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
+        $child  = new TranslatableManyToManyBidirectionalChild()->setLocale('de_DE');
         $parent->addSimpleChild($child);
         $child->addSimpleParent($parent);
 
@@ -445,7 +451,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $translatedChild = $result->first();
         self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $translatedChild);
-        self::assertSame('en_US', $translatedChild->getLocale());
+        self::assertSame('de_DE', $translatedChild->getLocale());
         self::assertTrue($translatedChild->getSimpleParents()->contains($parent));
     }
 
@@ -453,11 +459,14 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      * Owning-side direction: the translated entity declares inversedBy, not mappedBy.
      * The back-reference field on the related class comes from inversedBy there, and the
      * mapping is just as bidirectional -- it must not be rejected as "missing mappedBy".
+     *
+     * The child is already at the target locale -- see the comment on
+     * testTranslateTranslatesAndSetsInverseMappedBy() above.
      */
     public function testTranslateResolvesBackReferenceFromInversedByOnOwningSide(): void
     {
         $parent = new TranslatableManyToManyOwningParent()->setLocale('en_US');
-        $child  = new TranslatableManyToManyOwningChild()->setLocale('en_US');
+        $child  = new TranslatableManyToManyOwningChild()->setLocale('de_DE');
         $parent->addOwningChild($child);
 
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
@@ -477,6 +486,9 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      * No ManyToMany attribute on the property (XML/YAML mapping): the back-reference field
      * comes from the association metadata instead.
      *
+     * The child is already at the target locale -- see the comment on
+     * testTranslateTranslatesAndSetsInverseMappedBy() above.
+     *
      * @throws \ReflectionException|MappingException
      */
     public function testTranslateResolvesMappedByFromMetadataWhenAttributeIsAbsent(): void
@@ -493,7 +505,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         };
 
         $parent     = new TranslatableManyToManyOwningParent()->setLocale('en_US');
-        $child      = new TranslatableManyToManyOwningChild()->setLocale('en_US');
+        $child      = new TranslatableManyToManyOwningChild()->setLocale('de_DE');
         $collection = new ArrayCollection([$child]);
         $prop       = new \ReflectionProperty($unmapped::class, 'items');
 
@@ -544,8 +556,10 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         };
 
         $parent = new TranslatableManyToManyOwningParent()->setLocale('en_US');
-        $item   = new InheritedBackReferenceChild();
-        $item->setLocale('en_US');
+        // Already at the target locale -- see the comment on
+        // testTranslateTranslatesAndSetsInverseMappedBy() above.
+        $item = new InheritedBackReferenceChild();
+        $item->setLocale('de_DE');
         $collection = new ArrayCollection([$item]);
         $prop       = new \ReflectionProperty($unmapped::class, 'items');
 
@@ -582,7 +596,9 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
             /** @var Collection<int, mixed>|null */
             public Collection|null $owners = null;
         };
-        $item->setLocale('en_US');
+        // Already at the target locale -- see the comment on
+        // testTranslateTranslatesAndSetsInverseMappedBy() above.
+        $item->setLocale('de_DE');
 
         // Property without a ManyToMany attribute, so the back-reference name comes from the
         // mocked metadata below and can point at $item::$owners.
@@ -609,7 +625,9 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
         // The bare test translator has no handlers, so translate() hands the item back
-        // unchanged and its (restored) back-reference is still null.
+        // unchanged either way (see UnitTestCase::getTranslator()); its locale already
+        // matching the target is what marks it a kept translation rather than the
+        // cycle-guard fallback WP22 added -- its (restored) back-reference is still null.
         $context = $this->propertyContext(new ArrayCollection([$item]), $prop);
         $context->setTranslatedParent($parent);
 

@@ -190,6 +190,25 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
                 $rp->setValue($item, $sourceBackRef);
             }
 
+            // Cycle-guard fallback: the detach above only protects against $item's own
+            // back-reference walking straight back into $newOwner's collection. A second,
+            // independent path through the graph can still leave $item's own tuuid marked
+            // in-progress by the time translate() reaches it here, in which case it hands
+            // back $item itself, untranslated. addBackReference() below writes to $item's
+            // own field, and the owning side of that write is a persisted join row --
+            // exactly the mutation of the SOURCE entity this guard exists to prevent, so
+            // skip both the back-reference write and the add. The translated owner's
+            // collection is simply missing this item until a reload: the join table is
+            // never written from this collection when $item is the owning side (Doctrine
+            // writes it from $item's own field), and Doctrine does not retroactively
+            // complete an inverse collection either, so a reload of either side always
+            // shows the complete, correct set. An instance handed back unchanged but
+            // already carrying the target locale is not this fallback -- it is a genuine
+            // existing translation -- and keeps today's behaviour below.
+            if ($itemTrans === $item && $item->getLocale() !== $targetLocale) {
+                continue;
+            }
+
             self::addBackReference($itemTrans, $mappedBy, $newOwner);
 
             $newCollection->add($itemTrans);
