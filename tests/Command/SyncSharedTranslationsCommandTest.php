@@ -13,6 +13,9 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiBook;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiToy;
 use Tmi\TranslationBundle\Fixtures\Entity\ReadonlyShared\ReadonlyShared;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedDate\SharedDate;
@@ -111,6 +114,117 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
         self::assertStringContainsString('not a known translatable entity', $tester->getDisplay());
+    }
+
+    /**
+     * A real, loadable class that Doctrine has no mapping for at all --
+     * distinct from a nonexistent class name (testEntityOptionRejectsUnknownClass)
+     * and from a mapped superclass (testEntityOptionRejectsAMappedSuperclass):
+     * isTranslatableEntity() must reject it at the isTransient() check.
+     */
+    public function testEntityOptionRejectsARealClassThatIsNotDoctrineMapped(): void
+    {
+        $tester = $this->run_(['--entity' => \stdClass::class]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('not a known translatable entity', $tester->getDisplay());
+    }
+
+    /**
+     * A mapped superclass is not transient and passes isTransient() as
+     * "mapped", but it has no table of its own to sync -- isTranslatableEntity()
+     * must still reject it.
+     */
+    public function testEntityOptionRejectsAMappedSuperclass(): void
+    {
+        $tester = $this->run_(['--entity' => PrivateIdSuperclass::class]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('not a known translatable entity', $tester->getDisplay());
+    }
+
+    /**
+     * StiBook::$isbn is #[SharedAmongstTranslations] but declared only on the
+     * concrete subclass, not on the queried root -- StiRoot's own reflection
+     * walk never sees it. The command must still resolve it from each tuuid
+     * group's own hydrated (StiBook) instance.
+     */
+    public function testSyncsASharedFieldDeclaredOnlyOnAConcreteSubclass(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $deId = $this->persistPair(
+            new StiBook()->setIsbn('978-EN')->setTuuid($tuuid)->setLocale('en_US'),
+            new StiBook()->setIsbn('978-STALE')->setTuuid($tuuid)->setLocale('de_DE'),
+        );
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
+
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $reloaded = $this->entityManager()->find(StiBook::class, $deId);
+        self::assertInstanceOf(StiBook::class, $reloaded);
+        self::assertSame('978-EN', $reloaded->getIsbn());
+    }
+
+    /**
+     * --entity must accept a concrete subclass even though
+     * TranslatableEntityLocator::locate() now names only the hierarchy root.
+     */
+    public function testEntityOptionAcceptsAConcreteSubclassNotNamedByTheLocator(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $deId = $this->persistPair(
+            new StiBook()->setIsbn('978-EN')->setTuuid($tuuid)->setLocale('en_US'),
+            new StiBook()->setIsbn('978-STALE')->setTuuid($tuuid)->setLocale('de_DE'),
+        );
+
+        $tester = $this->run_(['--entity' => StiBook::class]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $reloaded = $this->entityManager()->find(StiBook::class, $deId);
+        self::assertInstanceOf(StiBook::class, $reloaded);
+        self::assertSame('978-EN', $reloaded->getIsbn());
+    }
+
+    /**
+     * StiToy declares no #[SharedAmongstTranslations] property at all. Mixed
+     * into the same hierarchy as StiBook (which does), its tuuid group must
+     * be left alone -- not crash, not falsely report drift -- while the
+     * book's isbn still gets synced.
+     */
+    public function testSkipsAConcreteSubclassWithNoSharedPropertyInAMixedHierarchy(): void
+    {
+        $bookTuuid = Tuuid::generate();
+        $toyTuuid  = Tuuid::generate();
+
+        $this->persistPair(
+            new StiBook()->setIsbn('978-EN')->setTuuid($bookTuuid)->setLocale('en_US'),
+            new StiBook()->setIsbn('978-STALE')->setTuuid($bookTuuid)->setLocale('de_DE'),
+        );
+
+        $toyDeId = $this->persistPair(
+            new StiToy()->setMaterial('Wood')->setTuuid($toyTuuid)->setLocale('en_US'),
+            new StiToy()->setMaterial('Plastic')->setTuuid($toyTuuid)->setLocale('de_DE'),
+        );
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
+
+        $this->entityManager()->clear();
+        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $toy = $this->entityManager()->find(StiToy::class, $toyDeId);
+        self::assertInstanceOf(StiToy::class, $toy);
+        self::assertSame('Plastic', $toy->getMaterial());
     }
 
     public function testPropagatesObjectValuedSharedField(): void

@@ -12,6 +12,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\CacheWarmer\TranslatableEntityValidationWarmer;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiBook;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiRoot;
 
 #[CoversClass(TranslatableEntityValidationWarmer::class)]
 final class TranslatableEntityValidationWarmerTest extends TestCase
@@ -229,6 +231,114 @@ final class TranslatableEntityValidationWarmerTest extends TestCase
         $this->expectExceptionMessage('unique constraint "uniq_slug" on fields ["slug"] does not include the locale column');
 
         $warmer->warmUp('/tmp/cache');
+    }
+
+    /**
+     * An inheritance hierarchy hydrates every concrete subclass's metadata
+     * with the FULL field set, own and inherited -- StiBook's metadata
+     * mirrors StiRoot's own "slug" field, marked inherited. Without that
+     * check the same bad mapping would be reported once per subclass.
+     */
+    public function testWarmUpDeduplicatesAnInheritedFieldsUniqueError(): void
+    {
+        $root = $this->createTranslatableMetadata(StiRoot::class);
+
+        $rootSlug                    = new FieldMapping(type: 'string', fieldName: 'slug', columnName: 'slug');
+        $rootSlug->unique            = true;
+        $root->fieldMappings['slug'] = $rootSlug;
+
+        $child = $this->createTranslatableMetadata(StiBook::class);
+
+        $inheritedSlug                = new FieldMapping(type: 'string', fieldName: 'slug', columnName: 'slug');
+        $inheritedSlug->unique        = true;
+        $inheritedSlug->inherited     = StiRoot::class;
+        $child->fieldMappings['slug'] = $inheritedSlug;
+
+        $warmer = $this->createWarmer([$root, $child]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('TMI Translation Bundle: Unique constraint validation failed with 1 error(s):');
+
+        $warmer->warmUp('/tmp/cache');
+    }
+
+    /**
+     * A field StiBook declares itself -- never marked inherited -- must still
+     * be checked on its own metadata even though it shares a hierarchy with
+     * StiRoot.
+     */
+    public function testWarmUpDoesNotSkipAFieldTheSubclassDeclaresItself(): void
+    {
+        $root  = $this->createTranslatableMetadata(StiRoot::class);
+        $child = $this->createTranslatableMetadata(StiBook::class);
+
+        $isbnField                    = new FieldMapping(type: 'string', fieldName: 'isbn', columnName: 'isbn');
+        $isbnField->unique            = true;
+        $child->fieldMappings['isbn'] = $isbnField;
+
+        $warmer = $this->createWarmer([$root, $child]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('field "isbn" has a single-column unique constraint');
+
+        $warmer->warmUp('/tmp/cache');
+    }
+
+    /**
+     * SINGLE_TABLE: StiBook's rows live in StiRoot's own physical table, so
+     * Doctrine mirrors the SAME table-level constraint onto both metadata
+     * objects. Checking it twice would report one bad mapping as two errors.
+     */
+    public function testWarmUpChecksATableLevelConstraintOncePerPhysicalTable(): void
+    {
+        $root                             = $this->createTranslatableMetadata(StiRoot::class);
+        $root->table['uniqueConstraints'] = ['uniq_slug' => ['fields' => ['slug']]];
+
+        $child                             = $this->createTranslatableMetadata(StiBook::class);
+        $child->table['uniqueConstraints'] = ['uniq_slug' => ['fields' => ['slug']]];
+
+        $warmer = $this->createWarmer([$root, $child]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('TMI Translation Bundle: Unique constraint validation failed with 1 error(s):');
+
+        $warmer->warmUp('/tmp/cache');
+    }
+
+    /**
+     * JOINED: StiBook owns a genuinely separate table from StiRoot, so its
+     * own table-level constraint is distinct and must still be reported even
+     * though the two classes share a hierarchy.
+     */
+    public function testWarmUpChecksTableLevelConstraintsSeparatelyForDistinctTables(): void
+    {
+        $root        = $this->createTranslatableMetadata(StiRoot::class);
+        $root->table = ['name' => 'sti_root', 'uniqueConstraints' => ['uniq_root_slug' => ['fields' => ['slug']]]];
+
+        $child        = $this->createTranslatableMetadata(StiBook::class);
+        $child->table = ['name' => 'sti_book', 'uniqueConstraints' => ['uniq_book_isbn' => ['fields' => ['isbn']]]];
+
+        $warmer = $this->createWarmer([$root, $child]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('TMI Translation Bundle: Unique constraint validation failed with 2 error(s):');
+
+        $warmer->warmUp('/tmp/cache');
+    }
+
+    public function testWarmUpSkipsAMappedSuperclass(): void
+    {
+        $superclass                     = $this->createTranslatableMetadata(StiRoot::class);
+        $superclass->isMappedSuperclass = true;
+
+        $uniqueField                       = new FieldMapping(type: 'string', fieldName: 'slug', columnName: 'slug');
+        $uniqueField->unique               = true;
+        $superclass->fieldMappings['slug'] = $uniqueField;
+
+        $warmer = $this->createWarmer([$superclass]);
+        $result = $warmer->warmUp('/tmp/cache');
+
+        self::assertSame([], $result);
     }
 
     public function testWarmUpHandlesEmptyConstraintFields(): void

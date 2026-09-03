@@ -30,14 +30,39 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
         $errors      = [];
         $allMetadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 
+        /** @var array<string, true> $checkedTables */
+        $checkedTables = [];
+
         foreach ($allMetadata as $metadata) {
+            // A mapped superclass has no table of its own — $metadata->table would
+            // be a guessed default, not a real column set to validate.
+            if ($metadata->isMappedSuperclass) {
+                continue;
+            }
+
             $reflection = new \ReflectionClass($metadata->getName());
 
             if (!$reflection->implementsInterface(TranslatableInterface::class)) {
                 continue;
             }
 
-            $this->validateUniqueConstraints($metadata, $errors);
+            $this->validateFieldUniqueConstraints($metadata, $errors);
+
+            // A SINGLE_TABLE subclass's rows live in its root's physical table, so
+            // its table-level unique constraints are the exact same declaration
+            // already validated for the root (or an earlier sibling) — checking
+            // again would just repeat the same error once per subclass. A JOINED
+            // subclass owns a genuinely separate table and is validated on its
+            // own pass below, same as an unrelated entity.
+            $tableName = $metadata->getTableName();
+
+            if (isset($checkedTables[$tableName])) {
+                continue;
+            }
+
+            $checkedTables[$tableName] = true;
+
+            $this->validateTableUniqueConstraints($metadata, $errors);
         }
 
         if ([] !== $errors) {
@@ -51,14 +76,22 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
      * @param ClassMetadata<object> $metadata
      * @param list<string> $errors
      */
-    private function validateUniqueConstraints(ClassMetadata $metadata, array &$errors): void
+    private function validateFieldUniqueConstraints(ClassMetadata $metadata, array &$errors): void
     {
         $className = $metadata->getName();
 
-        // Field-level unique: true check
         foreach ($metadata->fieldMappings as $fieldName => $fieldMapping) {
             // Skip system fields that are legitimately unique
             if (in_array($fieldName, ['id', 'tuuid', 'locale'], true)) {
+                continue;
+            }
+
+            // An inheritance hierarchy hydrates every concrete subclass's metadata
+            // with the FULL field set, own and inherited, so a field declared on
+            // an ancestor ENTITY (STI or JOINED — not a mapped superclass, whose
+            // fields Doctrine never marks "inherited") already went through this
+            // check against the class that actually declares it.
+            if ($metadata->isInheritedField($fieldName)) {
                 continue;
             }
 
@@ -76,8 +109,16 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
                 );
             }
         }
+    }
 
-        // Table-level unique constraints check
+    /**
+     * @param ClassMetadata<object> $metadata
+     * @param list<string> $errors
+     */
+    private function validateTableUniqueConstraints(ClassMetadata $metadata, array &$errors): void
+    {
+        $className = $metadata->getName();
+
         /** @var array<string, array{fields?: list<string>, columns?: list<string>, options?: array<string, mixed>}> $uniqueConstraints */
         $uniqueConstraints = $metadata->table['uniqueConstraints'] ?? [];
         foreach ($uniqueConstraints as $constraintName => $constraint) {

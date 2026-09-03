@@ -80,7 +80,11 @@ final class SyncSharedTranslationsCommand extends Command
         $only = $input->getOption('entity');
 
         if (null !== $only) {
-            if (!in_array($only, $classes, true)) {
+            // Checked against Doctrine's metadata, not membership in $classes:
+            // the locator now names only the root of each inheritance hierarchy
+            // (see TranslatableEntityLocator), so --entity must still accept a
+            // concrete subclass that is not itself one of $classes's entries.
+            if (!$this->isTranslatableEntity($only)) {
                 $io->error(sprintf('"%s" is not a known translatable entity.', $only));
 
                 return Command::FAILURE;
@@ -155,6 +159,35 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
+     * Whether --entity names a real, mapped, translatable entity — checked
+     * against Doctrine's metadata directly (mirroring what
+     * {@see TranslatableEntityLocator::locate()} itself tests for a class it
+     * accepts) instead of membership in the already-resolved $classes list,
+     * which only ever names hierarchy roots and would wrongly reject a
+     * concrete subclass.
+     *
+     * @phpstan-assert-if-true class-string $class
+     */
+    private function isTranslatableEntity(string $class): bool
+    {
+        if (!class_exists($class)) {
+            return false;
+        }
+
+        if ($this->entityManager->getMetadataFactory()->isTransient($class)) {
+            return false;
+        }
+
+        $metadata = $this->entityManager->getClassMetadata($class);
+
+        if ($metadata->isMappedSuperclass) {
+            return false;
+        }
+
+        return $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
+    }
+
+    /**
      * @param class-string  $class
      * @param list<string> &$readonlyDrift collects readonly values that differ but cannot be written
      *
@@ -164,21 +197,63 @@ final class SyncSharedTranslationsCommand extends Command
     {
         $io->section($class);
 
-        $sharedProperties = $this->sharedProperties($class);
+        /** @var array<class-string, list<SharedProperty>> $sharedPropertiesCache */
+        $sharedPropertiesCache = [];
 
-        if ([] === $sharedProperties) {
+        if (!$this->hierarchyHasSharedProperties($class, $sharedPropertiesCache)) {
             $io->writeln('No #[SharedAmongstTranslations] properties — skipped.');
 
             return 0;
         }
 
-        $updated = $this->syncStream($class, $sharedProperties, $apply, $readonlyDrift);
+        $updated = $this->syncStream($class, $sharedPropertiesCache, $apply, $readonlyDrift);
 
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
             : sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
 
         return $updated;
+    }
+
+    /**
+     * Whether $class — or, when it roots an inheritance hierarchy, any of its
+     * concrete subclasses — declares at least one #[SharedAmongstTranslations]
+     * property. A root's own reflection walk never sees a subclass-only field
+     * (@see sharedProperties()), so a hierarchy is only truly shared-free when
+     * none of its concrete classes are.
+     *
+     * @param class-string                                 $class
+     * @param array<class-string, list<SharedProperty>>    &$cache
+     */
+    private function hierarchyHasSharedProperties(string $class, array &$cache): bool
+    {
+        if ([] !== $this->sharedPropertiesFor($class, $cache)) {
+            return true;
+        }
+
+        foreach ($this->entityManager->getClassMetadata($class)->subClasses as $subclass) {
+            if ([] !== $this->sharedPropertiesFor($subclass, $cache)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * sharedProperties(), memoized per concrete class — syncStream() re-resolves
+     * the shared properties for every tuuid group from that group's own hydrated
+     * class (see its docblock), and a class recurs across many groups whenever a
+     * hierarchy's table holds more than a handful of rows.
+     *
+     * @param class-string                              $class
+     * @param array<class-string, list<SharedProperty>> &$cache
+     *
+     * @return list<SharedProperty>
+     */
+    private function sharedPropertiesFor(string $class, array &$cache): array
+    {
+        return $cache[$class] ??= $this->sharedProperties($class);
     }
 
     /**
@@ -204,11 +279,11 @@ final class SyncSharedTranslationsCommand extends Command
      * group has already been synced -- keeps the still-forming group's entities
      * attached until their own turn to be flushed.
      *
-     * @param class-string          $class
-     * @param list<SharedProperty>  $sharedProperties
-     * @param list<string>         &$readonlyDrift
+     * @param class-string                               $class
+     * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
+     * @param list<string>                              &$readonlyDrift
      */
-    private function syncStream(string $class, array $sharedProperties, bool $apply, array &$readonlyDrift): int
+    private function syncStream(string $class, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift): int
     {
         $query = $this->entityManager->createQueryBuilder()
             ->select('t')
@@ -231,7 +306,7 @@ final class SyncSharedTranslationsCommand extends Command
             $tuuid = (string) $entity->getTuuid();
 
             if (null !== $currentTuuid && $tuuid !== $currentTuuid) {
-                $updated += $this->syncGroup($group, $sharedProperties, $apply, $readonlyDrift);
+                $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift);
 
                 foreach ($group as $settledEntity) {
                     $settled[] = $settledEntity;
@@ -251,7 +326,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         if ([] !== $group) {
-            $updated += $this->syncGroup($group, $sharedProperties, $apply, $readonlyDrift);
+            $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift);
 
             foreach ($group as $settledEntity) {
                 $settled[] = $settledEntity;
@@ -283,14 +358,28 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * @param list<TranslatableInterface> $variants
-     * @param list<SharedProperty>        $sharedProperties
-     * @param list<string>               &$readonlyDrift
+     * Shared properties are resolved from the group's own source (baseline)
+     * instance, not from a class fixed for the whole streamed query: a
+     * SINGLE_TABLE or JOINED hierarchy queried through its root hydrates each
+     * group as its own concrete subclass, and a subclass may declare
+     * #[SharedAmongstTranslations] properties the root's reflection never sees
+     * (@see sharedProperties()). All variants of one tuuid are the same
+     * logical record, so they share one concrete class -- resolving once per
+     * group, from the source, already covers every sibling.
+     *
+     * @param list<TranslatableInterface>                $variants
+     * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
+     * @param list<string>                               &$readonlyDrift
      */
-    private function syncGroup(array $variants, array $sharedProperties, bool $apply, array &$readonlyDrift): int
+    private function syncGroup(array $variants, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift): int
     {
-        $source = $this->pickSource($variants);
-        $count  = 0;
+        $source           = $this->pickSource($variants);
+        $sharedProperties = $this->sharedPropertiesFor($source::class, $sharedPropertiesCache);
+        $count            = 0;
+
+        if ([] === $sharedProperties) {
+            return 0;
+        }
 
         foreach ($variants as $sibling) {
             if ($sibling === $source) {

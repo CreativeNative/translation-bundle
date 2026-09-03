@@ -10,6 +10,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiBook;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -73,6 +74,24 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
         self::assertStringContainsString('Duplicate', $tester->getDisplay());
+    }
+
+    /**
+     * Negative proof for the STI double-counting bug: before
+     * TranslatableEntityLocator returned only the root of an inheritance
+     * hierarchy, this single standalone row was visited once through the
+     * polymorphic StiRoot query AND again through a StiBook-specific query,
+     * reporting the same anomaly twice ("2 ... anomalies" instead of "1").
+     */
+    public function testCountsEachStiRowOnceAcrossASubclassHierarchy(): void
+    {
+        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('en_US'));
+        $this->entityManager()->flush();
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('1 translation linkage anomaly/anomalies detected.', $tester->getDisplay());
     }
 
     public function testReportsWhenNoTranslatableEntitiesExist(): void

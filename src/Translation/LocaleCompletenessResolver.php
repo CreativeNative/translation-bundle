@@ -30,6 +30,12 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * fields contribute their non-shared inner properties. Associations are not
  * inspected. "Filled" means not null and, for strings, not blank.
  *
+ * The checked-property set is resolved from each Tuuid group's own baseline
+ * instance, not from the class {@see resolveBatch()} was called with: a batch
+ * spanning an inheritance hierarchy mixes tuuids belonging to different
+ * concrete subclasses, each of which may declare its own translatable or
+ * shared properties on top of the root's.
+ *
  * @phpstan-type CheckedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
  */
 final class LocaleCompletenessResolver
@@ -88,20 +94,26 @@ final class LocaleCompletenessResolver
 
         foreach ($tuuids as $tuuid) {
             $key          = (string) $tuuid;
-            $result[$key] = $this->completenessOf($class, $tuuid, $variants[$key] ?? []);
+            $result[$key] = $this->completenessOf($tuuid, $variants[$key] ?? []);
         }
 
         return $result;
     }
 
     /**
-     * @param class-string                          $class
      * @param array<string, TranslatableInterface> $byLocale
      */
-    private function completenessOf(string $class, Tuuid $tuuid, array $byLocale): LocaleCompleteness
+    private function completenessOf(Tuuid $tuuid, array $byLocale): LocaleCompleteness
     {
         $baseline = $byLocale[$this->defaultLocale] ?? array_values($byLocale)[0] ?? null;
-        $required = null === $baseline ? [] : $this->filledProperties($class, $baseline);
+
+        // Resolved from the baseline's own concrete class, not the (possibly
+        // polymorphic root) class the batch was queried with: a batch spanning
+        // an inheritance hierarchy mixes tuuids belonging to different concrete
+        // subclasses, each with its own checked properties (checkedProperties()
+        // caches per class, so this costs a lookup, not a walk, once a class has
+        // been seen).
+        $required = null === $baseline ? [] : $this->filledProperties($baseline::class, $baseline);
 
         $statuses = [];
 

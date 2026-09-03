@@ -10,6 +10,9 @@ use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable as EmbeddedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiBook;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiRoot;
+use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiToy;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
@@ -177,6 +180,44 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
         self::assertTrue($result[(string) $complete]->isFullyTranslated());
         self::assertSame(['de_DE', 'it_IT'], $result[(string) $partial]->missingLocales());
         self::assertSame(['en_US', 'de_DE', 'it_IT'], $result[(string) $unknown]->missingLocales());
+    }
+
+    /**
+     * A batch mixing tuuids from different concrete subclasses of the same
+     * SINGLE_TABLE hierarchy: resolveBatch() is called with the (polymorphic)
+     * root class, so each tuuid's completeness must be judged against its own
+     * baseline's actual class -- StiBook's own $author, StiToy's own
+     * $material -- not against the root's reflection walk alone, which sees
+     * neither.
+     */
+    public function testBatchResolvesCompletenessPerConcreteSubclassInAMixedHierarchy(): void
+    {
+        $bookTuuid = Tuuid::generate();
+        $toyTuuid  = Tuuid::generate();
+
+        $this->entityManager()->persist(
+            new StiBook()->setAuthor('Author EN')->setTuuid($bookTuuid)->setLocale('en_US')->setName('Book EN'),
+        );
+        // author left blank on the German variant -> incomplete, but only if
+        // author is even recognised as a checked property for this tuuid.
+        $this->entityManager()->persist(
+            new StiBook()->setTuuid($bookTuuid)->setLocale('de_DE')->setName('Buch DE'),
+        );
+
+        $this->entityManager()->persist(
+            new StiToy()->setMaterial('Wood')->setTuuid($toyTuuid)->setLocale('en_US')->setName('Toy EN'),
+        );
+        $this->entityManager()->persist(
+            new StiToy()->setMaterial('Holz')->setTuuid($toyTuuid)->setLocale('de_DE')->setName('Spielzeug DE'),
+        );
+
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $result = $this->resolver()->resolveBatch(StiRoot::class, [$bookTuuid, $toyTuuid]);
+
+        self::assertSame(TranslationStatus::Incomplete, $result[(string) $bookTuuid]->statusOf('de_DE'));
+        self::assertSame(TranslationStatus::Complete, $result[(string) $toyTuuid]->statusOf('de_DE'));
     }
 
     public function testBatchWithNoTuuidsReturnsNothing(): void
