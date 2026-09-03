@@ -521,6 +521,166 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
     }
 
+    /**
+     * Only the writable $note has drifted (both instances share the same sku) --
+     * the drift table names it, with no row at all for the untouched $sku.
+     */
+    public function testDriftTableNamesAWritablePropertyThatDrifted(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new ReadonlyShared('SKU-SAME')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('canonical'),
+            new ReadonlyShared('SKU-SAME')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('stale'),
+        );
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertMatchesRegularExpression('/note\s+1\s+1\s+yes/', $display);
+        self::assertDoesNotMatchRegularExpression('/\bsku\b/', $display);
+    }
+
+    /**
+     * Only the readonly $sku has drifted (both instances share the same note) --
+     * the drift table marks it not writable, alongside the existing readonly listing.
+     */
+    public function testDriftTableMarksAReadonlyPropertyAsNotWritable(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new ReadonlyShared('SKU-EN')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('same'),
+            new ReadonlyShared('SKU-DE')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('same'),
+        );
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertMatchesRegularExpression('/sku\s+1\s+1\s+no/', $display);
+        self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
+        self::assertStringContainsString('ReadonlyShared::$sku', $tester->getDisplay());
+    }
+
+    /**
+     * Two independent tuuid groups both drift on $shared: the table counts two
+     * distinct tuuids and two rows.
+     */
+    public function testDriftTableCountsDistinctTuuidsAcrossGroups(): void
+    {
+        $tuuidA = Tuuid::generate();
+        $tuuidB = Tuuid::generate();
+
+        $aEn = new Scalar()->setTuuid($tuuidA)->setLocale('en_US')->setTitle('A EN')->setShared('A shared');
+        $aDe = new Scalar()->setTuuid($tuuidA)->setLocale('de_DE')->setTitle('A DE')->setShared('A stale');
+        $bEn = new Scalar()->setTuuid($tuuidB)->setLocale('en_US')->setTitle('B EN')->setShared('B shared');
+        $bDe = new Scalar()->setTuuid($tuuidB)->setLocale('de_DE')->setTitle('B DE')->setShared('B stale');
+
+        $this->entityManager()->persist($aEn);
+        $this->entityManager()->persist($aDe);
+        $this->entityManager()->persist($bEn);
+        $this->entityManager()->persist($bDe);
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $tester = $this->run_(['--check' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertMatchesRegularExpression('/shared\s+2\s+2\s+yes/', $display);
+    }
+
+    /**
+     * One tuuid group with three siblings, all diverging from the source: the
+     * table counts one distinct tuuid but three drifted rows -- tuuids and rows
+     * are not the same count.
+     */
+    public function testDriftTableCountsEachSiblingRowSeparatelyWithinOneGroup(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('canonical');
+        $de = new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('stale-de');
+        $fr = new Scalar()->setTuuid($tuuid)->setLocale('fr_FR')->setTitle('FR')->setShared('stale-fr');
+        $it = new Scalar()->setTuuid($tuuid)->setLocale('it_IT')->setTitle('IT')->setShared('stale-it');
+
+        $this->entityManager()->persist($en);
+        $this->entityManager()->persist($de);
+        $this->entityManager()->persist($fr);
+        $this->entityManager()->persist($it);
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $tester = $this->run_(['--check' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertMatchesRegularExpression('/shared\s+1\s+3\s+yes/', $display);
+    }
+
+    /**
+     * --check and --dry-run write nothing but still render the drift table --
+     * it is diagnostic output, not tied to --apply.
+     */
+    public function testDriftTableIsShownInCheckAndDryRunModes(): void
+    {
+        $deId = $this->seedPair('English shared', 'Stale german shared');
+
+        $checkDisplay = self::normalizeTable($this->run_(['--check' => true])->getDisplay());
+        self::assertMatchesRegularExpression('/shared\s+1\s+1\s+yes/', $checkDisplay);
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+
+        $dryRunDisplay = self::normalizeTable($this->run_(['--dry-run' => true])->getDisplay());
+        self::assertMatchesRegularExpression('/shared\s+1\s+1\s+yes/', $dryRunDisplay);
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+    }
+
+    /**
+     * The drift table also resolves embedded property paths -- "propertyShared.reference" --
+     * exactly as {@see SyncSharedTranslationsCommand::propertyPath()} names them elsewhere.
+     */
+    public function testDriftTableNamesAnEmbeddedPropertyPath(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $en->getPropertyShared()->setReference('REF-1')->setLabel('English label');
+
+        $de = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE');
+        $de->getPropertyShared()->setReference('REF-STALE')->setLabel('Deutsches Label');
+
+        $this->persistPair($en, $de);
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertMatchesRegularExpression('/propertyShared\.reference\s+1\s+1\s+yes/', $display);
+    }
+
+    /**
+     * "already in sync" prints no drift table at all -- the table only appears
+     * when something actually drifted.
+     */
+    public function testNoDriftTableWhenAlreadyInSync(): void
+    {
+        $this->seedPair('Same shared', 'Same shared');
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('already in sync', $tester->getDisplay());
+        self::assertStringNotContainsString('Property', $tester->getDisplay());
+        self::assertStringNotContainsString('Writable', $tester->getDisplay());
+    }
+
     public function testValuesEqualComparesDistinctDateTimeImmutableInstancesByValue(): void
     {
         $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
@@ -566,6 +726,17 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString('No translatable entities', $tester->getDisplay());
+    }
+
+    /**
+     * SymfonyStyle::table() wraps long cells across output lines when the terminal
+     * width is narrow (CommandTester defaults to a narrow width), and renders columns
+     * with padding rather than a "|" separator -- collapsing whitespace/newlines keeps
+     * the row assertions above readable and stable regardless of wrapping or padding.
+     */
+    private static function normalizeTable(string $display): string
+    {
+        return (string) preg_replace('/\s+/', ' ', $display);
     }
 
     /**

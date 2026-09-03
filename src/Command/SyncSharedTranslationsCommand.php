@@ -29,7 +29,13 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * shared value has drifted — writable or readonly — so CI can gate on
  * "no shared property has diverged".
  *
+ * Each class's report names every property that drifted — a table of property
+ * path, number of distinct tuuids affected, number of sibling rows affected,
+ * and whether the property is writable — so an operator can see which fields
+ * are diverging without re-running with --dry-run and reading source.
+ *
  * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
+ * @phpstan-type SharedDrift array{tuuids: array<string, true>, rows: int, readonly: bool}
  */
 #[AsCommand(
     name: 'tmi:translation:sync-shared',
@@ -206,11 +212,18 @@ final class SyncSharedTranslationsCommand extends Command
             return 0;
         }
 
-        $updated = $this->syncStream($class, $sharedPropertiesCache, $apply, $readonlyDrift);
+        /** @var array<string, SharedDrift> $drift */
+        $drift = [];
+
+        $updated = $this->syncStream($class, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
 
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
             : sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
+
+        if ([] !== $drift) {
+            $io->table(['Property', 'Tuuids', 'Rows', 'Writable'], self::driftRows($drift));
+        }
 
         return $updated;
     }
@@ -282,8 +295,9 @@ final class SyncSharedTranslationsCommand extends Command
      * @param class-string                               $class
      * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
      * @param list<string>                              &$readonlyDrift
+     * @param array<string, SharedDrift>                &$drift
      */
-    private function syncStream(string $class, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift): int
+    private function syncStream(string $class, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift, array &$drift): int
     {
         $query = $this->entityManager->createQueryBuilder()
             ->select('t')
@@ -306,7 +320,7 @@ final class SyncSharedTranslationsCommand extends Command
             $tuuid = (string) $entity->getTuuid();
 
             if (null !== $currentTuuid && $tuuid !== $currentTuuid) {
-                $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift);
+                $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
 
                 foreach ($group as $settledEntity) {
                     $settled[] = $settledEntity;
@@ -326,7 +340,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         if ([] !== $group) {
-            $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift);
+            $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
 
             foreach ($group as $settledEntity) {
                 $settled[] = $settledEntity;
@@ -370,8 +384,9 @@ final class SyncSharedTranslationsCommand extends Command
      * @param list<TranslatableInterface>                $variants
      * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
      * @param list<string>                               &$readonlyDrift
+     * @param array<string, SharedDrift>                 &$drift
      */
-    private function syncGroup(array $variants, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift): int
+    private function syncGroup(array $variants, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift, array &$drift): int
     {
         $source           = $this->pickSource($variants);
         $sharedProperties = $this->sharedPropertiesFor($source::class, $sharedPropertiesCache);
@@ -386,7 +401,7 @@ final class SyncSharedTranslationsCommand extends Command
                 continue;
             }
 
-            if ($this->syncSibling($source, $sibling, $sharedProperties, $apply, $readonlyDrift)) {
+            if ($this->syncSibling($source, $sibling, $sharedProperties, $apply, $readonlyDrift, $drift)) {
                 ++$count;
             }
         }
@@ -395,8 +410,9 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * @param list<SharedProperty> $sharedProperties
-     * @param list<string>        &$readonlyDrift
+     * @param list<SharedProperty>       $sharedProperties
+     * @param list<string>              &$readonlyDrift
+     * @param array<string, SharedDrift> &$drift
      */
     private function syncSibling(
         TranslatableInterface $source,
@@ -404,6 +420,7 @@ final class SyncSharedTranslationsCommand extends Command
         array $sharedProperties,
         bool $apply,
         array &$readonlyDrift,
+        array &$drift,
     ): bool {
         $changed = false;
 
@@ -434,10 +451,14 @@ final class SyncSharedTranslationsCommand extends Command
                     $sibling->getLocale() ?? 'none',
                 );
 
+                self::recordDrift($drift, $shared, $sibling, true);
+
                 continue;
             }
 
             $changed = true;
+
+            self::recordDrift($drift, $shared, $sibling, false);
 
             if ($apply) {
                 // Clone mutable objects so locale variants do not share a reference;
@@ -448,6 +469,49 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         return $changed;
+    }
+
+    /**
+     * Records one drifted (property, sibling row) pair into the per-class drift
+     * accumulator that {@see syncClass()} renders as a table -- keyed by property
+     * path so writable and readonly drift on the same property share one row, and
+     * counting distinct tuuids separately from row count so a property shared
+     * across many siblings of the same record is not overcounted.
+     *
+     * @param array<string, SharedDrift> &$drift
+     * @param SharedProperty               $shared
+     */
+    private static function recordDrift(array &$drift, array $shared, TranslatableInterface $sibling, bool $readonly): void
+    {
+        $path  = self::propertyPath($shared);
+        $entry = $drift[$path] ?? ['tuuids' => [], 'rows' => 0, 'readonly' => $readonly];
+
+        $entry['tuuids'][(string) $sibling->getTuuid()] = true;
+        ++$entry['rows'];
+        $entry['readonly'] = $readonly;
+
+        $drift[$path] = $entry;
+    }
+
+    /**
+     * @param array<string, SharedDrift> $drift
+     *
+     * @return list<list<string>>
+     */
+    private static function driftRows(array $drift): array
+    {
+        $rows = [];
+
+        foreach ($drift as $property => $entry) {
+            $rows[] = [$property, count($entry['tuuids']), $entry['rows'], $entry['readonly']];
+        }
+
+        usort($rows, static fn (array $a, array $b): int => $b[2] <=> $a[2]);
+
+        return array_map(
+            static fn (array $r): array => [$r[0], (string) $r[1], (string) $r[2], $r[3] ? 'no' : 'yes'],
+            $rows,
+        );
     }
 
     /**
