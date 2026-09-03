@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **627 tests, 5,077 assertions**, all green.
+  `failOnDeprecation`). As of this release: **639 tests, 5,110 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -26,7 +26,7 @@ Key components:
 - `EntityTranslator` -- central translation orchestrator; also the `preload()` entry point for batch imports (v4.0).
 - `Handlers` -- classes that manage translation of entities, embeddables, collections etc.
 - `PropertyAccessor` -- used to read/write object properties generically.
-- `TranslationArgs` -- container holding the context of a translation operation.
+- `TranslationContext` -- abstract base of the two typed containers holding the context of a translation operation, `EntityTranslationContext`/`PropertyTranslationContext` (v4.0; replaces the single `TranslationArgs` DTO).
 - `AttributeHelper` -- utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`; memoizes per class::property::attribute (v4.0).
 - `LocaleVariantFinder` (v4.0) -- the one place that queries across every locale variant of a Tuuid, filter-suspended.
 - `TranslatableRemover` (v4.0) -- removes a Tuuid's sibling locale variants together, or exactly one while leaving its siblings.
@@ -239,11 +239,9 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 
 ### Translation Handlers
 
-All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/TranslationHandlerInterface.php), which defines four core methods:
-- `supports(TranslationArgs $args): bool` — Determines if the handler can process the data.
-- `handleSharedAmongstTranslations(TranslationArgs $args): mixed` — Handles data marked as shared across translations.
-- `handleEmptyOnTranslate(TranslationArgs $args): mixed` — Handles empty translation cases.
-- `translate(TranslationArgs $args): mixed` — Performs the actual translation logic.
+All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/TranslationHandlerInterface.php), which defines two methods, both taking a typed [`TranslationContext`](src/Translation/Context/TranslationContext.php) (v4.0 — `EntityTranslationContext` or `PropertyTranslationContext`; replaces the four-method `TranslationArgs` contract):
+- `supports(TranslationContext $context): bool` — Determines if the handler can process the data.
+- `translate(TranslationContext $context): mixed` — Performs the actual translation logic. `EntityTranslator` resolves `#[SharedAmongstTranslations]`/`#[EmptyOnTranslate]` from the property's attributes *before* dispatch and stamps the answer onto the context (`$context->isShared()`/`isEmpty()`); a handler branches on those at the top of `translate()` for the cases the old `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` methods used to cover.
 
 ---
 
@@ -253,7 +251,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Dependencies:** `AttributeHelper`.
 - **Methods:**
     - `supports()` — Returns true if property is a primary key.
-    - `translate()`, `handleSharedAmongstTranslations()`, `handleEmptyOnTranslate()` — Always return `null`.
+    - `translate()` — Always returns `null`, regardless of `isShared()`/`isEmpty()`.
 - **Notes:** Ensures entity identity is immutable, excluded from translation logic.
 
 ---
@@ -264,9 +262,10 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Dependencies:** None.
 - **Methods:**
   - `supports()` — Returns true if value is scalar or `DateTime`.
-  - `translate()` — Returns original value.
-  - `handleSharedAmongstTranslations()` — Returns original value.
-  - `handleEmptyOnTranslate()` — Returns null for nullable fields, or type-safe defaults for non-nullable fields (string='', int=0, float=0.0, bool=false) via TypeDefaultResolver.
+  - `translate()`:
+    - `isShared()` — Returns original value (falls through, same as the default case below).
+    - `isEmpty()` — Returns `null` for nullable fields; non-nullable fields never reach the handler here — `EntityTranslator` resolves them to type-safe defaults (string='', int=0, float=0.0, bool=false) via `TypeDefaultResolver` before dispatch.
+    - Otherwise — Returns original value.
 - **Notes:** Leaf handler in the translation pipeline; no delegation required.
 
 ---
@@ -277,9 +276,10 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Dependencies:** `AttributeHelper`.
 - **Methods:**
   - `supports()` — Returns true if property is an embeddable.
-  - `translate()` — Returns a cloned embeddable.
-  - `handleSharedAmongstTranslations()` — Returns a cloned embeddable too (never the original instance), with property values left untouched so persisted data still matches across locale siblings.
-  - `handleEmptyOnTranslate()` — Returns null for nullable embeddables, or a new empty instance with type-safe property defaults for non-nullable embedded objects.
+  - `translate()`:
+    - `isShared()` — Returns a cloned embeddable (never the original instance), with property values left untouched so persisted data still matches across locale siblings.
+    - `isEmpty()` — Returns null when the outer property itself is `#[EmptyOnTranslate]`; otherwise clones the embeddable and clears each inner property carrying its own `#[EmptyOnTranslate]` (type-safe default for a non-nullable one).
+    - Otherwise — Returns a cloned embeddable, resolved property by property through the three-level cascade (property attribute → class attribute → class default).
 - **Notes:** Works on value objects embedded in entities, preserves immutability.
 
 ---
@@ -293,10 +293,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 70
 - **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `PropertyAccessorInterface`, `TranslatableEntityHandler`.
 - **Methods:**
-  - `supports()` — Returns true for `TranslatableInterface` entities with a ManyToOne association having `inversedBy`.
-  - `translate()` — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the entity's own property pipeline, generated-id reset, locale). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
-  - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
-  - `handleEmptyOnTranslate()` — Returns `null`.
+  - `supports()` — Returns true for an `EntityTranslationContext` with a ManyToOne association having `inversedBy`.
+  - `translate()`:
+    - `isShared()` — Throws exception; unsupported.
+    - `isEmpty()` — Returns `null`.
+    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the entity's own property pipeline, generated-id reset, locale). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
 - **Notes:** Never mutates the source; integrates with `TranslatableEntityHandler`/`EntityTranslator` for nested translations.
 
 ---
@@ -306,10 +307,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 60
 - **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
-    - `supports()` — Returns true when the value is a `Collection` and the property is a OneToMany having `mappedBy`.
-    - `translate()` — Iterates over child collection, translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`.
-    - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
-    - `handleEmptyOnTranslate()` — Returns an empty `ArrayCollection`.
+    - `supports()` — Returns true for a `PropertyTranslationContext` whose value is a `Collection` and whose property is a OneToMany having `mappedBy`.
+    - `translate()`:
+        - `isShared()` — Throws exception; unsupported.
+        - `isEmpty()` — Returns an empty `ArrayCollection`.
+        - Otherwise — Iterates over child collection, translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`.
 - **Notes:** Maintains bidirectional integrity, ensures clones are used, integrates with `EntityTranslator`.
 
 ---
@@ -319,10 +321,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 50
 - **Dependencies:** `EntityManagerInterface`, `PropertyAccessor`, `AttributeHelper`, `TranslatableEntityHandler`.
 - **Methods:**
-  - `supports()` — Returns true for `TranslatableInterface` entities with OneToOne having `mappedBy` or `inversedBy`.
-  - `translate()` — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the related entity's own property pipeline, generated-id reset, locale), then repairs the back-reference field to the parent already known to be under translation -- the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source parent in place.
-  - `handleSharedAmongstTranslations()` — Throws exception if shared; unsupported.
-  - `handleEmptyOnTranslate()` — Returns `null`.
+  - `supports()` — Returns true for an `EntityTranslationContext` with OneToOne having `mappedBy` or `inversedBy`.
+  - `translate()`:
+    - `isShared()` — Throws exception; unsupported.
+    - `isEmpty()` — Returns `null`.
+    - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (existing-variant lookup via the finder, the related entity's own property pipeline, generated-id reset, locale), then repairs the back-reference field to the parent already known to be under translation -- the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source parent in place.
 - **Notes:** Ensures bidirectional integrity between parent and child, never mutates the source, works with `TranslatableEntityHandler`/`EntityTranslator`.
 
 ---
@@ -332,10 +335,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 40
 - **Dependencies:** `AttributeHelper`, `EntityManagerInterface`, `EntityTranslatorInterface`.
 - **Methods:**
-    - `supports()` — Returns true when the value is a `Collection` and the property is a ManyToMany association having `mappedBy` or `inversedBy`.
-    - `translate()` — Builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries.
-    - `handleSharedAmongstTranslations()` — Throws exception if `#[SharedAmongstTranslations]` is present; otherwise delegates to `translate()`.
-    - `handleEmptyOnTranslate()` — Returns an empty `ArrayCollection`.
+    - `supports()` — Returns true for a `PropertyTranslationContext` whose value is a `Collection` and whose property is a ManyToMany association having `mappedBy` or `inversedBy`.
+    - `translate()`:
+        - `isShared()` — Throws exception if `#[SharedAmongstTranslations]` is present (the common case, since `EntityTranslator` only sets `isShared()` when it is); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
+        - `isEmpty()` — Best-effort clears the target collection on the translated parent, and returns an empty `ArrayCollection`.
+        - Otherwise — Builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries.
 - **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`.
 
 ---
@@ -345,13 +349,14 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 30
 - **Dependencies:** `AttributeHelper`, `EntityTranslatorInterface`, `EntityManagerInterface`.
 - **Methods:**
-  - `supports()` — Returns true if the value is a `Collection` and the property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
-  - `translate()` — Translates each item in the collection:
-    - `TranslatableInterface` items are translated for the target locale using `EntityTranslator`; every other item (plain entities such as tags or categories, the most common shape for a unidirectional ManyToMany — plus any item when no target locale is available) is added to the result **as-is**, not dropped.
-    - Collects them into a **new** `ArrayCollection`, preventing duplicates (same instance check for both translated and passed-through items).
-    - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
-  - `handleSharedAmongstTranslations()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported). Otherwise, delegates to `translate()`.
-  - `handleEmptyOnTranslate()` — Returns a new empty `ArrayCollection`.
+  - `supports()` — Returns true for a `PropertyTranslationContext` whose value is a `Collection` and whose property is a ManyToMany association **without** `mappedBy` or `inversedBy` (unidirectional).
+  - `translate()`:
+    - `isShared()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
+    - `isEmpty()` — Returns a new empty `ArrayCollection`.
+    - Otherwise — Translates each item in the collection:
+      - `TranslatableInterface` items are translated for the target locale using `EntityTranslator`; every other item (plain entities such as tags or categories, the most common shape for a unidirectional ManyToMany — plus any item when no target locale is available) is added to the result **as-is**, not dropped.
+      - Collects them into a **new** `ArrayCollection`, preventing duplicates (same instance check for both translated and passed-through items).
+      - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
 - **Notes:**
   - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
   - Maintains Doctrine collection integrity while cloning translated items.
@@ -365,10 +370,10 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Priority:** 20
 - **Dependencies:** `EntityManagerInterface`, `DoctrineObjectHandler`, `AttributeHelper`.
 - **Methods:**
-    - `supports()` — Returns true if entity implements `TranslatableInterface`.
-    - `translate()` — Checks database for existing translation by `tuuid` and target locale; clones and translates via `DoctrineObjectHandler` if not found. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
-    - `handleSharedAmongstTranslations()` — Delegates to `translate()`.
-    - `handleEmptyOnTranslate()` — Returns `null`.
+    - `supports()` — Returns true when the context is an `EntityTranslationContext`.
+    - `translate()`:
+        - `isEmpty()` — Returns `null`. (No `isShared()` branch here: the bidirectional handlers above never delegate to this one while shared — their own `translate()` branches on `isShared()` first and never reaches this call.)
+        - Otherwise — Checks database for existing translation by `tuuid` and target locale; clones and translates via `DoctrineObjectHandler` if not found. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
 - **Notes:** Integrates entity-level and property-level translation, ensures unique translations per locale. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations.
 
 ---
@@ -379,10 +384,11 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Dependencies:** `EntityManagerInterface`, `EntityTranslatorInterface`, optional `PropertyAccessorInterface`.
 - **Methods:**
     - `supports()` — Returns true if object/class is Doctrine-managed; handles proxies.
-    - `translate()` — Clones entity, calls `translateProperties()` for recursive translation.
+    - `translate()`:
+        - `isShared()` — Returns the original subject unchanged (`getSubject()`).
+        - `isEmpty()` — Returns `null`.
+        - Otherwise — Clones the subject (`setSubject()`), calls `translateProperties()` for recursive translation.
     - `translateProperties()` — Iterates properties, delegates to `EntityTranslator`, sets translated values via accessor or reflection.
-    - `handleSharedAmongstTranslations()` — Returns original entity unchanged.
-    - `handleEmptyOnTranslate()` — Returns `null`.
 - **Notes:** Core handler for property-level translation, ensures original entities are never mutated.
 
 ---
@@ -390,11 +396,12 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### Notes for Handlers
 - Handlers can be extended or replaced to implement custom translation logic.
 - `AttributeHelper` is used throughout to detect Doctrine mapping types (`OneToMany`, `ManyToOne`, `Embedded`, `Id`, `OneToOne`, etc.).
-- `TranslationArgs` encapsulates:
-    - `dataToBeTranslated`
+- `TranslationContext` (abstract base of `EntityTranslationContext`/`PropertyTranslationContext`, v4.0 — replaces `TranslationArgs`) encapsulates:
+    - the subject being translated: `getSubject()` (mixed, either shape) plus the typed accessor for the concrete class — `getEntity(): TranslatableInterface` or `getValue(): mixed`
     - `sourceLocale` / `targetLocale`
     - `translatedParent` (for bidirectional associations)
     - `property` (ReflectionProperty being translated)
+    - `isShared()` / `isEmpty()` — attribute facts `EntityTranslator` resolves before dispatch, replacing the two removed interface methods
 - `EntityTranslatorInterface` orchestrates recursive property translation, delegating to appropriate handlers.
 
 ---
@@ -654,23 +661,26 @@ class Product implements TranslatableInterface
 - The bundle uses Symfony’s `PropertyAccess` component (or a custom `PropertyAccessorInterface`) to generically get and set object properties.  
 - In `DoctrineObjectHandler::translateProperties()`, for each property:  
   - Read the current value (via accessor or reflection fallback).  
-  - Create a nested `TranslationArgs` for that property value.  
+  - Build a nested `EntityTranslationContext` (when the value is `TranslatableInterface`) or `PropertyTranslationContext` (otherwise) for that property value.
   - Delegate translation of the property value to the translator.  
   - Set the translated value back on the cloned object.
 
-### TranslationArgs  
-- Container class `TranslationArgs` holds:  
-  - `dataToBeTranslated` — the object or value being translated.  
-  - `sourceLocale`, `targetLocale`.  
-  - `translatedParent` (optional) — the parent object in nested translation contexts.  
-  - `property` (optional) — the `ReflectionProperty` being processed (for nested translation).  
+### TranslationContext (v4.0; replaces TranslationArgs)
+- Abstract base class `TranslationContext` holds:
+  - `sourceLocale`, `targetLocale`.
+  - `translatedParent` (optional) — the parent object in nested translation contexts.
+  - `property` (optional) — the `ReflectionProperty` being processed (for nested translation).
+  - `isShared()` / `isEmpty()` — attribute facts resolved before dispatch.
+  - `getSubject()` / `setSubject()` — abstract; each subclass proxies to its own payload.
+- `EntityTranslationContext` adds `getEntity(): TranslatableInterface` — the object or value being translated when it is a `TranslatableInterface` entity.
+- `PropertyTranslationContext` adds `getValue(): mixed` — the object or value being translated when it is a property's value (scalar, embeddable, `Collection`).
 - Provides context so handlers and translator know how to process nested values (property of object, collection element, etc).
 
 ### AttributeHelper  
 - Utility service to introspect attributes (PHP 8 attributes like `#[SharedAmongstTranslations]`, `#[EmptyOnTranslate]`, etc).  
 - Example usage: in `EmbeddedHandler::supports()`, check if property is embeddable:  
   ```php
-  $this->attributeHelper->isEmbedded($args->getProperty())
+  $this->attributeHelper->isEmbedded($context->getProperty())
   ```  
 - Also used to detect `SharedAmongstTranslations` (and potentially other custom logic) so that translation logic can branch accordingly.
 
@@ -764,7 +774,7 @@ private ?Category $category = null;
 ```
 
 **Why the attribute matters:**
-When EntityTranslator processes these properties, it checks for `#[SharedAmongstTranslations]` via AttributeHelper. If present, instead of calling `translate()`, it calls `handleSharedAmongstTranslations()`, which returns the original value unchanged. This ensures all language variants share the same price and category reference.
+When EntityTranslator processes these properties, it checks for `#[SharedAmongstTranslations]` via AttributeHelper. If present, it calls `translate($context->setShared(true))` — the handler's own `isShared()` branch returns the original value unchanged instead of resolving a new one. This ensures all language variants share the same price and category reference.
 
 ### Complete Translatable Product Entity
 
@@ -1184,16 +1194,16 @@ class Photo implements TranslatableInterface
 
 **Symptom:** A handler tagged `tmi_translation.translation_handler` is registered but its `translate()` is never called — the field is processed by a built-in handler instead.
 
-**Cause 1 — `supports()` never matches.** It must test the shape of `getDataToBeTranslated()`, which is the *property value*, not the entity that declares it. For a `OneToMany` / `ManyToMany` property that value is the `Collection`; guarding on `instanceof TranslatableInterface` makes `supports()` permanently false.
+**Cause 1 — `supports()` never matches.** It must test the shape of `$context->getValue()` (on a `PropertyTranslationContext`), which is the *property value*, not the entity that declares it. For a `OneToMany` / `ManyToMany` property that value is the `Collection`; guarding on `instanceof EntityTranslationContext` makes `supports()` permanently false.
 
 ```php
-// WRONG for a to-many property: the data is the Collection
-if (!$args->getDataToBeTranslated() instanceof TranslatableInterface) {
+// WRONG for a to-many property: the value is a Collection, on a PropertyTranslationContext
+if (!$context instanceof EntityTranslationContext) {
     return false;
 }
 
 // RIGHT
-if (!$args->getDataToBeTranslated() instanceof Collection) {
+if (!$context instanceof PropertyTranslationContext || !$context->getValue() instanceof Collection) {
     return false;
 }
 ```
@@ -1605,7 +1615,7 @@ call in between.
 ---
 
 ## Summary
-This bundle gives you a robust way to manage multilingual domain models in Symfony/Doctrine with precise control over shared vs locale‑specific fields. By leveraging the EntityTranslator, the set of handlers, the PropertyAccessor, TranslationArgs, and AttributeHelper, you create a consistent and maintainable translation architecture.
+This bundle gives you a robust way to manage multilingual domain models in Symfony/Doctrine with precise control over shared vs locale‑specific fields. By leveraging the EntityTranslator, the set of handlers, the PropertyAccessor, TranslationContext, and AttributeHelper, you create a consistent and maintainable translation architecture.
 
 Proper annotation (`#[SharedAmongstTranslations]`), common Tuuids, and correct use of the translator service are the keys to making this work smoothly.
 
@@ -1662,7 +1672,7 @@ Step-by-step guide for building custom translation handlers for field types not 
   - The dead `translations` JSON column and its four trait accessors (`getTranslations()` et al.) are gone.
   - `tuuid`/`locale` columns are `NOT NULL`, `locale` grows to length 16; `TuuidType` converts a database `NULL` to PHP `null` instead of inventing a fresh Tuuid.
   - Every bundle service is private (autowire by interface/class, not `container->get('tmi_translation....')`); the Twig global `locales` is renamed `tmi_locales`; `PreTranslateEvent`/`PostTranslateEvent` (dispatched by class) replace the `TranslateEvent::PRE_TRANSLATE`/`POST_TRANSLATE` string constants.
-  - A typed `EntityTranslationContext`/`PropertyTranslationContext` handler contract was prototyped on a spike branch; the port wasn't fully mechanical, so the existing `TranslationArgs` contract ships in 4.0 and the typed contract stays a candidate for a later release.
+  - `TranslationHandlerInterface` narrows from four methods to two: `supports(TranslationContext)`/`translate(TranslationContext)`. The single, mutable `TranslationArgs` DTO is replaced by two typed contexts sharing an abstract `TranslationContext` base — `EntityTranslationContext` (`getEntity(): TranslatableInterface`) and `PropertyTranslationContext` (`getValue(): mixed`) — plus `getSubject()`/`setSubject()` on the base for a handler reachable either way. `isShared()`/`isEmpty()` on the context (set by `EntityTranslator` from the property's attributes before dispatch) replace the two removed interface methods; a handler merges its old `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` bodies into `translate()`, gated on those two booleans. See `UPGRADING.md` § 6 for the full migration guide and a before/after custom handler.
   - `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` cache per class; `EntityTranslator::preload()` batches import lookups per class instead of per entity; `tests/Performance/QueryBudgetTest.php` asserts an exact query count for every operation in the Performance table above.
   - README, llms.txt, this file and the three `.agents/skills/` guides rewritten around the two arguments this section opens with — every performance and quality claim in them is backed by a named test or CI gate, not an estimate.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.

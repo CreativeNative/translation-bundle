@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -17,22 +17,12 @@ final readonly class PrimaryKeyHandler implements TranslationHandlerInterface
     ) {
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        return null !== $args->getProperty() && $this->attributeHelper->isId($args->getProperty());
+        return null !== $context->getProperty() && $this->attributeHelper->isId($context->getProperty());
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args): null
-    {
-        return null;
-    }
-
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
-    {
-        return null;
-    }
-
-    public function translate(TranslationArgs $args): null
+    public function translate(TranslationContext $context): null
     {
         return null;
     }

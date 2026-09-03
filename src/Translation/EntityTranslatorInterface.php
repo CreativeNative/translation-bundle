@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation;
 
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 
 interface EntityTranslatorInterface
 {
@@ -43,9 +43,10 @@ interface EntityTranslatorInterface
      * Exposed so handlers may recursively translate sub-objects through the
      * orchestrator's handler chain.
      *
-     * @param TranslationArgs $args contains the data to translate, source/target locales, and optional parent context
+     * @param TranslationContext $context an EntityTranslationContext or PropertyTranslationContext
+     *                                    carrying the data to translate, source/target locales, and optional parent context
      *
      * @return mixed translated entity (TranslatableInterface), embedded object, or scalar property value
      */
-    public function processTranslation(TranslationArgs $args): mixed;
+    public function processTranslation(TranslationContext $context): mixed;
 }

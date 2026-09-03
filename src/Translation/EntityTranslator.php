@@ -15,8 +15,9 @@ use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Event\PostTranslateEvent;
 use Tmi\TranslationBundle\Event\PreTranslateEvent;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -57,7 +58,7 @@ final class EntityTranslator implements EntityTranslatorInterface
 
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
-        $result = $this->processTranslation(new TranslationArgs($entity, $entity->getLocale(), $locale));
+        $result = $this->processTranslation(new EntityTranslationContext($entity, $entity->getLocale(), $locale));
         \assert($result instanceof TranslatableInterface);
 
         return $result;
@@ -137,14 +138,14 @@ final class EntityTranslator implements EntityTranslatorInterface
      *  - Properties with #[SharedAmongstTranslations] or #[EmptyOnTranslate]
      *  - Embedded properties that may contain shared or empty attributes internally
      *
-     * @param TranslationArgs $args contains the entity or property to translate, source/target locales, and parent entity
+     * @param TranslationContext $context contains the entity or property to translate, source/target locales, and parent entity
      *
      * @return mixed Translated entity, embedded, or property value according to attribute rules
      */
-    public function processTranslation(TranslationArgs $args): mixed
+    public function processTranslation(TranslationContext $context): mixed
     {
-        $entity = $args->getDataToBeTranslated();
-        $locale = $args->getTargetLocale() ?? $this->defaultLocale;
+        $subject = $context->getSubject();
+        $locale  = $context->getTargetLocale() ?? $this->defaultLocale;
 
         // Validate that the requested locale is allowed
         if (!in_array($locale, $this->locales, true)) {
@@ -152,7 +153,7 @@ final class EntityTranslator implements EntityTranslatorInterface
         }
 
         // Handle top-level entities that implement TranslatableInterface
-        if ($entity instanceof TranslatableInterface) {
+        if ($subject instanceof TranslatableInterface) {
             // Translating an entity into the locale it already carries is the identity
             // operation. Cloning it would be wrong on its own, and caching that clone under
             // (tuuid, locale) would hand it back to every later translate() for this pair --
@@ -160,17 +161,17 @@ final class EntityTranslator implements EntityTranslatorInterface
             // shape consumers are free to make (a no-op by construction). The info log below
             // sits after this check for the same reason: an identity call did no translation
             // work and should not be reported as if it had.
-            if ($entity->getLocale() === $locale) {
-                return $entity;
+            if ($subject->getLocale() === $locale) {
+                return $subject;
             }
 
             $this->logInfo('Starting translation of {class}', [
-                'class'         => $entity::class,
-                'source_locale' => $entity->getLocale(),
+                'class'         => $subject::class,
+                'source_locale' => $subject->getLocale(),
                 'target_locale' => $locale,
             ]);
 
-            $tuuidValue = $entity->getTuuid()->getValue();
+            $tuuidValue = $subject->getTuuid()->getValue();
 
             // Return a cached translation immediately when available -- but only while
             // the EntityManager still recognizes it. A hit surviving an EntityManager::
@@ -191,12 +192,12 @@ final class EntityTranslator implements EntityTranslatorInterface
 
             // Detect cycles to avoid infinite recursion
             if ($this->cache->isInProgress($tuuidValue, $locale)) {
-                return $entity;
+                return $subject;
             }
 
             // Resolve copySource per entity (entity-level override or global config)
-            if (null === $args->getCopySource()) {
-                $args->setCopySource($this->resolveCopySource($entity));
+            if (null === $context->getCopySource()) {
+                $context->setCopySource($this->resolveCopySource($subject));
             }
 
             // Mark as in-progress with auto-cleanup guarantee.
@@ -207,7 +208,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             // every later translate() silently return the untranslated entity.
             $this->cache->markInProgress($tuuidValue, $locale);
             try {
-                $this->preload([$entity], $locale);
+                $this->preload([$subject], $locale);
 
                 // Same identity check as above: preload() may have refreshed
                 // the entry, but a still-detached hit (its tuuid was skipped because the
@@ -217,13 +218,13 @@ final class EntityTranslator implements EntityTranslatorInterface
                     return $cached;
                 }
 
-                return $this->runHandlers($args, $entity, $locale);
+                return $this->runHandlers($context, $locale);
             } finally {
                 $this->cache->unmarkInProgress($tuuidValue, $locale);
             }
         }
 
-        return $this->runHandlers($args, $entity, $locale);
+        return $this->runHandlers($context, $locale);
     }
 
     /**
@@ -242,31 +243,33 @@ final class EntityTranslator implements EntityTranslatorInterface
     }
 
     /**
-     * Runs the handler chain for the given args, first match wins.
+     * Runs the handler chain for the given context, first match wins.
      *
      * @return mixed the handler result, or the untouched data when no handler supports it
      */
-    private function runHandlers(TranslationArgs $args, mixed $entity, string $locale): mixed
+    private function runHandlers(TranslationContext $context, string $locale): mixed
     {
+        $subject = $context->getSubject();
+
         foreach ($this->handlers as ['handler' => $handler]) {
-            if (!$handler->supports($args)) {
+            if (!$handler->supports($context)) {
                 continue;
             }
 
-            // Handle attribute logic if a specific property is set in TranslationArgs
-            $property = $args->getProperty();
+            // Handle attribute logic if a specific property is set on the context
+            $property = $context->getProperty();
 
             $this->logDebug('Handler selected for processing', [
                 'handler'   => $handler::class,
                 'property'  => $property?->name,
-                'data_type' => is_object($entity) ? $entity::class : gettype($entity),
+                'data_type' => is_object($subject) ? $subject::class : gettype($subject),
             ]);
 
             // Dispatch PreTranslateEvent for top-level entities. Passing no event
             // name dispatches it under its own class, which is what listeners
             // registered on PreTranslateEvent::class (or #[AsEventListener]) expect.
-            if ($entity instanceof TranslatableInterface) {
-                $this->eventDispatcher->dispatch(new PreTranslateEvent($entity, $locale));
+            if ($subject instanceof TranslatableInterface) {
+                $this->eventDispatcher->dispatch(new PreTranslateEvent($subject, $locale));
             }
 
             if ($property instanceof \ReflectionProperty) {
@@ -281,11 +284,11 @@ final class EntityTranslator implements EntityTranslatorInterface
                         'action'   => 'sharing value across translations',
                     ]);
 
-                    return $handler->handleSharedAmongstTranslations($args);
+                    return $handler->translate($context->setShared(true));
                 }
 
                 // 2. Handle copy_source: false -- type-safe defaults for all non-shared fields
-                if (false === $args->getCopySource()) {
+                if (false === $context->getCopySource()) {
                     // Embedded properties: delegate to handler for per-property resolution
                     if ($this->attributeHelper->isEmbedded($property)) {
                         if ($this->attributeHelper->isEmptyOnTranslate($property)) {
@@ -295,7 +298,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                             ]);
                         }
 
-                        return $handler->translate($args);
+                        return $handler->translate($context);
                     }
 
                     // Log redundancy hint if EmptyOnTranslate is present
@@ -315,7 +318,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                             $property->name,
                         ), []);
 
-                        return $handler->translate($args);
+                        return $handler->translate($context);
                     }
 
                     // Resolve type-safe default
@@ -334,7 +337,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                     // A collection is emptied by handing back a fresh empty one, which is
                     // what its handler does. There is no type-safe default to resolve for it,
                     // and asking for one would fail as "non-nullable object".
-                    if (!$entity instanceof Collection && !$this->attributeHelper->isNullable($property)) {
+                    if (!$subject instanceof Collection && !$this->attributeHelper->isNullable($property)) {
                         // Type-safe default instead of throwing
                         $default = $this->typeDefaultResolver->resolve($property);
 
@@ -353,7 +356,7 @@ final class EntityTranslator implements EntityTranslatorInterface
                         'action'   => 'clearing value for translation',
                     ]);
 
-                    return $handler->handleEmptyOnTranslate($args);
+                    return $handler->translate($context->setEmpty(true));
                 }
 
                 // Handle embeddable with unified per-property resolution
@@ -363,14 +366,14 @@ final class EntityTranslator implements EntityTranslatorInterface
                         'class'    => $property->class,
                     ]);
 
-                    return $handler->translate($args);
+                    return $handler->translate($context);
                 }
             }
 
-            $translated = $handler->translate($args);
+            $translated = $handler->translate($context);
 
-            if ($entity instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
-                $this->eventDispatcher->dispatch(new PostTranslateEvent($entity, $locale, $translated));
+            if ($subject instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
+                $this->eventDispatcher->dispatch(new PostTranslateEvent($subject, $locale, $translated));
 
                 $this->cache->set($translated->getTuuid()->getValue(), $translated->getLocale() ?? $locale, $translated);
 
@@ -383,7 +386,7 @@ final class EntityTranslator implements EntityTranslatorInterface
             return $translated;
         }
 
-        return $entity;
+        return $subject;
     }
 
     /**

@@ -16,8 +16,9 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
@@ -62,14 +63,32 @@ class UnitTestCase extends TestCase
         $this->translator = $this->getTranslator($this->logger);
     }
 
-    public function getTranslationArgs(\ReflectionProperty|null $prop = null, mixed $fallback = null): TranslationArgs
+    /**
+     * A PropertyTranslationContext for a non-entity value (scalar, embeddable, Collection),
+     * matching the shape DoctrineObjectHandler::translateProperties() builds for a property.
+     */
+    public function propertyContext(mixed $value, \ReflectionProperty|null $prop = null): PropertyTranslationContext
     {
-        $args = new TranslationArgs($fallback, 'en_US', 'de_DE');
+        $context = new PropertyTranslationContext($value, 'en_US', 'de_DE');
         if (null !== $prop) {
-            $args->setProperty($prop);
+            $context->setProperty($prop);
         }
 
-        return $args;
+        return $context;
+    }
+
+    /**
+     * An EntityTranslationContext for a TranslatableInterface entity, matching the shape
+     * EntityTranslator::translate() and the association handlers build.
+     */
+    public function entityContext(TranslatableInterface $entity, \ReflectionProperty|null $prop = null): EntityTranslationContext
+    {
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        if (null !== $prop) {
+            $context->setProperty($prop);
+        }
+
+        return $context;
     }
 
     protected function translator(): EntityTranslator

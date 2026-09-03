@@ -11,7 +11,8 @@ declare(strict_types=1);
 
 namespace App\Translation\Handler;
 
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
@@ -22,9 +23,9 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
  *
  * Behavior:
  * - supports(): Returns true when [describe condition]
- * - translate(): [Describe cloning/transformation behavior]
- * - handleSharedAmongstTranslations(): [Describe sharing behavior]
- * - handleEmptyOnTranslate(): [Describe empty behavior]
+ * - translate(), $context->isShared(): [Describe sharing behavior]
+ * - translate(), $context->isEmpty(): [Describe empty behavior]
+ * - translate(), otherwise: [Describe cloning/transformation behavior]
  *
  * Priority: [XX] - Must run [before/after] [HandlerName] because [reason]
  */
@@ -39,18 +40,27 @@ final readonly class [HANDLER_NAME]Handler implements TranslationHandlerInterfac
     }
 
     /**
-     * Determines if this handler can process the given data.
+     * Determines if this handler can process the given context.
      *
      * TODO: Implement your matching condition
      * Common patterns:
+     * - Narrow on PropertyTranslationContext (or EntityTranslationContext) first
      * - Check property type via reflection
      * - Check for specific attribute on property
-     * - Check if value is instance of specific class
+     * - Check if the value is instance of specific class
      * - Check Doctrine metadata
      */
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        $property = $args->getProperty();
+        // Most custom handlers match a property value, not an entity -- narrow on
+        // PropertyTranslationContext first. Use EntityTranslationContext instead if your
+        // handler matches whole TranslatableInterface entities (like the bundle's own
+        // TranslatableEntityHandler).
+        if (!$context instanceof PropertyTranslationContext) {
+            return false;
+        }
+
+        $property = $context->getProperty();
         if (null === $property) {
             return false;
         }
@@ -59,65 +69,49 @@ final readonly class [HANDLER_NAME]Handler implements TranslationHandlerInterfac
         // Example: Check if property has a specific attribute
         // return $property->getAttributes(YourAttribute::class) !== [];
 
-        // Example: Check if value is specific type
-        // $value = $args->getDataToBeTranslated();
-        // return $value instanceof YourValueObject;
+        // Example: Check if the value is a specific type
+        // return $context->getValue() instanceof YourValueObject;
 
         return false;
     }
 
     /**
-     * Handles translation when #[SharedAmongstTranslations] is present.
+     * Performs the translation for this context.
      *
-     * Options:
-     * 1. Return original value unchanged (share same instance)
-     * 2. Throw RuntimeException if sharing is not supported
-     * 3. Clone and share (for immutable value objects)
+     * $context->isShared() and $context->isEmpty() are pre-resolved by EntityTranslator
+     * from the property's #[SharedAmongstTranslations]/#[EmptyOnTranslate] attributes
+     * *before* this is called -- check them first, in that order, the same way
+     * EntityTranslator itself picks between them.
      */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
+    public function translate(TranslationContext $context): mixed
     {
-        // TODO: Choose your sharing strategy
+        \assert($context instanceof PropertyTranslationContext);
+        $value = $context->getValue();
 
-        // Option 1: Share same instance (most common for value objects)
-        return $args->getDataToBeTranslated();
+        if ($context->isShared()) {
+            // TODO: Choose your sharing strategy
 
-        // Option 2: Throw if sharing is not supported (for bidirectional relations)
-        // throw new \RuntimeException(
-        //     sprintf('SharedAmongstTranslations not supported for %s', $args->getProperty()?->getName())
-        // );
-    }
+            // Option 1: Share the same instance (most common for value objects)
+            return $value;
 
-    /**
-     * Handles translation when #[EmptyOnTranslate] is present.
-     *
-     * Options:
-     * 1. Return null (most common)
-     * 2. Return empty instance of the type
-     * 3. Return default value
-     */
-    public function handleEmptyOnTranslate(TranslationArgs $args): mixed
-    {
-        // TODO: Choose your empty strategy
+            // Option 2: Throw if sharing is not supported (for bidirectional relations)
+            // throw new \RuntimeException(
+            //     sprintf('SharedAmongstTranslations not supported for %s', $context->getProperty()?->getName())
+            // );
+        }
 
-        // Option 1: Return null (most common)
-        return null;
+        if ($context->isEmpty()) {
+            // TODO: Choose your empty strategy
 
-        // Option 2: Return empty instance
-        // return new YourValueObject();
+            // Option 1: Return null (most common)
+            return null;
 
-        // Option 3: Return empty collection
-        // return new ArrayCollection();
-    }
+            // Option 2: Return an empty instance
+            // return new YourValueObject();
 
-    /**
-     * Performs the actual translation/cloning of the value.
-     *
-     * This is called when neither SharedAmongstTranslations nor
-     * EmptyOnTranslate attributes are present on the property.
-     */
-    public function translate(TranslationArgs $args): mixed
-    {
-        $value = $args->getDataToBeTranslated();
+            // Option 3: Return an empty collection
+            // return new ArrayCollection();
+        }
 
         // TODO: Implement your translation logic
 
@@ -125,11 +119,11 @@ final readonly class [HANDLER_NAME]Handler implements TranslationHandlerInterfac
         // return clone $value;
 
         // Transform value (for locale-specific paths)
-        // return $this->transformForLocale($value, $args->getTargetLocale());
+        // return $this->transformForLocale($value, $context->getTargetLocale());
 
         // Deep clone with processing
         // $clone = clone $value;
-        // $this->processClone($clone, $args);
+        // $this->processClone($clone, $context);
         // return $clone;
 
         return $value;
@@ -159,31 +153,51 @@ services:
 | `PropertyAccessorInterface` | Read/write properties dynamically |
 | `EntityTranslatorInterface` | Recursively translate nested entities |
 
-## TranslationArgs Reference
+## TranslationContext Reference
+
+Members shared by both context shapes, declared on the abstract `TranslationContext` base:
 
 ```php
-$args->getDataToBeTranslated();  // mixed - The value being translated
-$args->getSourceLocale();        // string|null - Source locale code (e.g., 'en_US')
-$args->getTargetLocale();        // string|null - Target locale code (e.g., 'de_DE')
-$args->getTranslatedParent();    // mixed - Parent entity (for nested translation)
-$args->getProperty();            // ?ReflectionProperty - Property being processed
-$args->getCopySource();          // bool|null - Resolved copy_source for this entity
+$context->getSubject();          // mixed - the entity or value being translated, either shape
+$context->getSourceLocale();     // string|null - Source locale code (e.g., 'en_US')
+$context->getTargetLocale();     // string|null - Target locale code (e.g., 'de_DE')
+$context->getTranslatedParent(); // object|null - Parent entity (for nested translation)
+$context->getProperty();         // ?ReflectionProperty - Property being processed
+$context->getCopySource();       // bool|null - Resolved copy_source for this entity
+$context->isShared();            // bool - #[SharedAmongstTranslations] resolved by EntityTranslator
+$context->isEmpty();             // bool - #[EmptyOnTranslate] resolved by EntityTranslator
 ```
 
-Both locales and the parent are nullable, so narrow them before use — PHPStan runs at level max
-in this project and will reject an unchecked `string` assumption.
+Every getter above is nullable except `isShared()`/`isEmpty()` (default `false`) — narrow before
+use, PHPStan runs at level max in this project and will reject an unchecked `string` assumption.
 
-## What `getDataToBeTranslated()` holds
+Two concrete subclasses add a typed accessor for the subject:
+
+```php
+// EntityTranslationContext -- the subject is a TranslatableInterface entity
+$context->getEntity();  // TranslatableInterface
+
+// PropertyTranslationContext -- the subject is a property's value
+$context->getValue();   // mixed
+```
+
+`supports()` narrows with `instanceof EntityTranslationContext` / `instanceof
+PropertyTranslationContext` before reading either typed accessor; `getSubject()` on the base
+works either way when a handler is genuinely reachable with both shapes.
+
+## What the context's subject holds
 
 `supports()` must match the value's actual shape, not the entity that owns the property:
 
-| Property kind | Value passed to the handler |
-|---------------|-----------------------------|
-| Scalar / `DateTime` | the raw value |
-| Embeddable | the embeddable object |
-| `ManyToOne` / `OneToOne` | the related entity |
-| `OneToMany` / `ManyToMany` | the **`Collection`**, never the owning entity |
+| Property kind | Context shape | Subject |
+|---------------|----------------|---------|
+| Scalar / `DateTime` | `PropertyTranslationContext` | the raw value (`getValue()`) |
+| Embeddable | `PropertyTranslationContext` | the embeddable object (`getValue()`) |
+| `ManyToOne` / `OneToOne` | `EntityTranslationContext` | the related entity (`getEntity()`) |
+| `OneToMany` / `ManyToMany` | `PropertyTranslationContext` | the **`Collection`** (`getValue()`), never the owning entity |
 
-Guarding a to-many handler with `instanceof TranslatableInterface` makes `supports()` always
+Guarding a to-many handler with `instanceof EntityTranslationContext` makes `supports()` always
 false, and the handler silently never runs — this was a real bug in the bundle's own collection
-handlers until v3.0.0.
+handlers until v3.0.0 (then expressed as `instanceof TranslatableInterface` against the old
+`TranslationArgs` payload; the typed contexts in v4.0 make the same mistake a compile-time
+`instanceof` check instead of a runtime data-shape guess).

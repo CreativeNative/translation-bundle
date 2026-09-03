@@ -13,7 +13,6 @@ use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler;
@@ -47,26 +46,29 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
     public function testSupportsWithTranslatableInterface(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $context      = $this->entityContext($translatable);
 
-        self::assertTrue($this->handler->supports($args));
+        self::assertTrue($this->handler->supports($context));
     }
 
     public function testSupportsWithNonTranslatable(): void
     {
         $nonTranslatable = new \stdClass();
-        $args            = new TranslationArgs($nonTranslatable, 'en_US', 'de_DE');
+        $context         = $this->propertyContext($nonTranslatable);
 
-        self::assertFalse($this->handler->supports($args));
+        self::assertFalse($this->handler->supports($context));
     }
 
     /**
+     * The handler ignores the shared fact entirely -- a #[SharedAmongstTranslations]
+     * association still resolves via the normal get-or-create pipeline.
+     *
      * @throws \ReflectionException
      */
-    public function testHandleSharedAmongstTranslations(): void
+    public function testTranslateIgnoresSharedFlag(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $context      = $this->entityContext($translatable)->setShared(true);
         $tuuid        = new Tuuid(Uuid::v4()->toRfc4122());
 
         // Set up the mocks so that translate will return the translatable mock
@@ -78,16 +80,16 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([$translatable]));
 
-        $result = $this->handler->handleSharedAmongstTranslations($args);
+        $result = $this->handler->translate($context);
         self::assertSame($translatable, $result);
     }
 
-    public function testHandleEmptyOnTranslate(): void
+    public function testTranslateReturnsNullWhenEmpty(): void
     {
         $translatable = $this->createMock(TranslatableInterface::class);
-        $args         = new TranslationArgs($translatable, 'en_US', 'de_DE');
+        $context      = $this->entityContext($translatable)->setEmpty(true);
 
-        $result = $this->handler->handleEmptyOnTranslate($args);
+        $result = $this->handler->translate($context);
         self::assertThat($result, self::isNull());
     }
 
@@ -106,18 +108,14 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('getTuuid')
             ->willReturn($tuuid);
 
-        $translationArgs = new TranslationArgs(
-            $originalEntity,
-            'en_US',
-            'de_DE',
-        );
+        $context = $this->entityContext($originalEntity);
 
         // Stub the finder's query to return the existing translation
         $this->entityManager()->expects($this->once())
             ->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([$existingTranslation]));
 
-        $result = $this->handler->translate($translationArgs);
+        $result = $this->handler->translate($context);
 
         self::assertSame($existingTranslation, $result);
     }
@@ -133,11 +131,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->setTuuid($tuuid)
             ->setLocale('en_US');
 
-        $translationArgs = new TranslationArgs(
-            $originalEntity,
-            'en_US',
-            'de_DE',
-        );
+        $context = $this->entityContext($originalEntity);
 
         // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
@@ -145,16 +139,16 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->willReturn($this->queryBuilderReturning([]));
 
         // Call the method under test
-        $result = $this->handler->translate($translationArgs);
+        $result = $this->handler->translate($context);
 
         // Verify the result is a different object (cloned)
         self::assertNotSame($originalEntity, $result);
 
-        // Verify the locale was set correctly
-        self::assertSame('de_DE', $result->getLocale());
-
         // Verify it's still the same type of object
         self::assertInstanceOf($originalEntity::class, $result);
+
+        // Verify the locale was set correctly
+        self::assertSame('de_DE', $result->getLocale());
 
         // Verify the tuuid is preserved
         self::assertSame((string) $tuuid, (string) $result->getTuuid());
@@ -173,11 +167,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             ->method('getTuuid')
             ->willReturn($tuuid);
 
-        $translationArgs = new TranslationArgs(
-            $originalEntity,
-            'en_US',
-            'de_DE',
-        );
+        $context = $this->entityContext($originalEntity);
 
         // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
@@ -203,7 +193,7 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
             new AttributeHelper(),
         );
 
-        $exceptionHandler->translate($translationArgs);
+        $exceptionHandler->translate($context);
     }
 
     /**
@@ -221,18 +211,14 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $idProperty = new \ReflectionProperty(Scalar::class, 'id');
         $idProperty->setValue($originalEntity, 42);
 
-        $translationArgs = new TranslationArgs(
-            $originalEntity,
-            'en_US',
-            'de_DE',
-        );
+        $context = $this->entityContext($originalEntity);
 
         // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
             ->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([]));
 
-        $result = $this->handler->translate($translationArgs);
+        $result = $this->handler->translate($context);
 
         self::assertInstanceOf(Scalar::class, $result);
         self::assertNull($result->getId(), 'Generated ID must be reset to null on clone');
@@ -256,18 +242,14 @@ final class TranslatableEntityHandlerTest extends UnitTestCase
         $idProperty = new \ReflectionProperty(PrivateIdSuperclass::class, 'id');
         $idProperty->setValue($originalEntity, 42);
 
-        $translationArgs = new TranslationArgs(
-            $originalEntity,
-            'en_US',
-            'de_DE',
-        );
+        $context = $this->entityContext($originalEntity);
 
         // Stub the finder's query to find no existing translation
         $this->entityManager()->expects($this->once())
             ->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([]));
 
-        $result = $this->handler->translate($translationArgs);
+        $result = $this->handler->translate($context);
 
         self::assertInstanceOf(InheritedIdEntity::class, $result);
         self::assertNull($result->getId(), 'Generated id declared private on a mapped superclass must be reset to null on the clone');

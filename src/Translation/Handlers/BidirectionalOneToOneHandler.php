@@ -10,7 +10,8 @@ use Doctrine\ORM\Mapping\OneToOne;
 use Doctrine\ORM\Mapping\OwningSideMapping;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
@@ -28,15 +29,13 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     ) {
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        $entity = $args->getDataToBeTranslated();
-
-        if (!$entity instanceof TranslatableInterface) {
+        if (!$context instanceof EntityTranslationContext) {
             return false;
         }
 
-        $property = $args->getProperty();
+        $property = $context->getProperty();
         if (null === $property || !$this->attributeHelper->isOneToOne($property)) {
             return false;
         }
@@ -55,32 +54,30 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     /**
      * @throws \ErrorException
      */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
+    public function translate(TranslationContext $context): mixed
     {
-        $property = $args->getProperty();
-        if (null !== $property && $this->attributeHelper->isOneToOne($property)) {
-            $data    = $args->getDataToBeTranslated();
-            $message = '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
-                'amongst translations. Either remove the @SharedAmongstTranslation '.
-                'annotation or choose another association type.';
+        \assert($context instanceof EntityTranslationContext);
 
-            throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => $property->name]));
+        if ($context->isShared()) {
+            $property = $context->getProperty();
+            if (null !== $property && $this->attributeHelper->isOneToOne($property)) {
+                $message = '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
+                    'amongst translations. Either remove the @SharedAmongstTranslation '.
+                    'annotation or choose another association type.';
+
+                throw new \ErrorException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => $property->name]));
+            }
+
+            return $context->getEntity();
         }
 
-        return $args->getDataToBeTranslated();
-    }
+        if ($context->isEmpty()) {
+            return null;
+        }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
-    {
-        return null;
-    }
+        $data = $context->getEntity();
 
-    public function translate(TranslationArgs $args): mixed
-    {
-        $data = $args->getDataToBeTranslated();
-        assert($data instanceof TranslatableInterface);
-
-        $property = $args->getProperty();
+        $property = $context->getProperty();
         assert(null !== $property);
 
         // Delegate the clone itself to the entity pipeline: existing-variant lookup via the
@@ -89,7 +86,8 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         // `clone $data` here left all of that undone -- including the id, which PHP's clone
         // copies verbatim, so a flush re-inserted the source's row under a fresh identity
         // instead of ever reusing an existing translation.
-        $translated = $this->translatableEntityHandler->translate($args);
+        $translated = $this->translatableEntityHandler->translate($context);
+        \assert($translated instanceof TranslatableInterface);
 
         $fieldName       = $property->name;
         $associations    = $this->entityManager->getClassMetadata($translated::class)->getAssociationMappings();
@@ -119,8 +117,8 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         // the in-progress guard in EntityTranslator::processTranslation() caught the recursion
         // and handed back the untranslated source instead of infinitely recursing. Overwrite it
         // with the parent this handler already knows is being translated.
-        $translatedParent = $args->getTranslatedParent();
-        if (\is_string($parentFieldName) && \is_object($translatedParent)) {
+        $translatedParent = $context->getTranslatedParent();
+        if (\is_string($parentFieldName) && null !== $translatedParent) {
             $this->propertyAccessor->setValue($translated, $parentFieldName, $translatedParent);
         }
 

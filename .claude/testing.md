@@ -68,15 +68,26 @@ PHPUnit runs in strict mode — `failOnWarning`, `failOnNotice`, and `failOnRisk
 
 ### Handler Tests
 
-Test each handler's `supports()`, `translate()`, `handleSharedAmongstTranslations()`, and `handleEmptyOnTranslate()` methods:
+Test each handler's `supports()` and `translate()` — the latter for its `isShared()`, `isEmpty()`
+and ordinary (neither) branches. Tests extend `UnitTestCase` and build a typed context with its
+`propertyContext()` (non-entity value: scalar, embeddable, `Collection`) or `entityContext()`
+(`TranslatableInterface` entity) helper, matching whichever shape the handler under test expects:
 
 ```php
 public function testSupportsReturnsTrueForValidValue(): void
 {
     $handler = new ScalarHandler();
-    $args = $this->createTranslationArgs();
+    $context = $this->propertyContext('some value');
 
-    self::assertTrue($handler->supports($args));
+    self::assertTrue($handler->supports($context));
+}
+
+public function testTranslateReturnsNullWhenEmpty(): void
+{
+    $handler = new ScalarHandler();
+    $context = $this->propertyContext('some value')->setEmpty(true);
+
+    self::assertNull($handler->translate($context));
 }
 ```
 

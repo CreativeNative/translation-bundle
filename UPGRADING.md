@@ -25,6 +25,7 @@ with a migration path.
   - [3. The four `EntityTranslator` lifecycle hooks were removed](#3-the-four-entitytranslator-lifecycle-hooks-were-removed)
   - [4. Every bundle service is private; the Twig global is renamed; events are typed classes](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)
   - [5. `Psr6TranslationCache` is gone](#5-psr6translationcache-is-gone)
+  - [6. `TranslationHandlerInterface` is two methods on typed contexts](#6-translationhandlerinterface-is-two-methods-on-typed-contexts)
 - [Behavioural Changes (4.0)](#behavioural-changes-40)
   - [1. The direct ManyToOne/OneToOne form now translates the target entity](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity)
   - [2. Cross-locale lookups no longer bypass the locale filter](#2-cross-locale-lookups-no-longer-bypass-the-locale-filter)
@@ -202,6 +203,237 @@ instance).
 - If you instantiated `Psr6TranslationCache` directly (tests, a custom service definition),
   either drop it in favour of the default, or supply your own persistent
   `TranslationCacheInterface` implementation built on the identity contract above.
+
+---
+
+### 6. `TranslationHandlerInterface` is two methods on typed contexts
+
+**BREAKING:** every custom `TranslationHandlerInterface` implementation. The interface goes
+from four methods to two:
+
+**Before (v3.4):**
+```php
+interface TranslationHandlerInterface
+{
+    public function supports(TranslationArgs $args): bool;
+    public function translate(TranslationArgs $args): mixed;
+    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed;
+    public function handleEmptyOnTranslate(TranslationArgs $args): mixed;
+}
+```
+
+**After (v4.0):**
+```php
+interface TranslationHandlerInterface
+{
+    public function supports(TranslationContext $context): bool;
+    public function translate(TranslationContext $context): mixed;
+}
+```
+
+The single, mutable `TranslationArgs` DTO is replaced by two typed contexts, both extending an
+abstract `TranslationContext` base — `Tmi\TranslationBundle\Translation\Context\TranslationContext`,
+`EntityTranslationContext`, `PropertyTranslationContext`, all in that same namespace. Which one a
+handler receives says what shape of thing is being translated:
+
+- **`EntityTranslationContext`** — "translate this entity". Constructed with a
+  `TranslatableInterface $entity` (plus optional source/target locale). `getEntity():
+  TranslatableInterface` is the typed accessor. This is what `EntityTranslator::translate()`
+  builds for a top-level call, and what the association handlers (`TranslatableEntityHandler`,
+  `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`,
+  `BidirectionalOneToManyHandler`) build when they walk into a related entity.
+- **`PropertyTranslationContext`** — "translate this property value". Constructed with a
+  `mixed $value` (plus optional source/target locale). `getValue(): mixed` is the accessor —
+  unlike `getEntity()`, this one stays untyped, because a property's value can be a scalar, an
+  embeddable object, or a `Collection`. This is the shape `DoctrineObjectHandler::translateProperties()`
+  builds for every non-entity property, and the shape the `OneToMany`/`ManyToMany` handlers
+  receive (the *collection*, never the owning entity).
+
+Members common to both, declared on the abstract `TranslationContext` base:
+
+- **`getSubject(): mixed` / `setSubject(mixed): static`** — abstract on the base, implemented by
+  each subclass to proxy to `$entity` or `$value` respectively (`EntityTranslationContext::setSubject()`
+  asserts `TranslatableInterface`; `PropertyTranslationContext::setSubject()` accepts anything).
+  Use this when a handler is genuinely reachable with either context shape and needs one
+  implementation instead of branching by `instanceof` — `DoctrineObjectHandler` is the bundle's
+  own example: it clones whatever it is handed (`$context->setSubject($clone)`) and hands the
+  clone's properties to the translator, regardless of whether the clone came from an entity or a
+  property value.
+- **`getSourceLocale()` / `setSourceLocale(?string): static`**, **`getTargetLocale()` /
+  `setTargetLocale(?string): static`** — same nullable-string pair `TranslationArgs` had, resolved
+  lazily by `EntityTranslator` when still `null`.
+- **`getCopySource(): ?bool` / `setCopySource(?bool): static`** — `null` means "not yet resolved
+  for this entity"; `EntityTranslator` resolves it once per entity before dispatch, unchanged.
+- **`getProperty(): ?\ReflectionProperty` / `setProperty(?\ReflectionProperty): static`** — the
+  property this call was reached through. `null` for a top-level `EntityTranslationContext`; set
+  for the association case and for every `PropertyTranslationContext`.
+- **`getTranslatedParent(): ?object` / `setTranslatedParent(?object): static`** — the
+  already-translated owner this subject belongs to, for back-reference repair. Same
+  null-for-top-level rule as `getProperty()`.
+- **`isShared(): bool` / `setShared(bool): static`**, **`isEmpty(): bool` / `setEmpty(bool):
+  static`** — **new**, and the reason the interface lost two methods. `EntityTranslator` resolves
+  `#[SharedAmongstTranslations]` / `#[EmptyOnTranslate]` from the property's attributes *before*
+  dispatching to the handler chain, the same as it always has, and now stamps the answer onto the
+  context (`$context->setShared(true)` / `$context->setEmpty(true)`) instead of calling a second
+  or third method. Every getter above is inherited by both `EntityTranslationContext` and
+  `PropertyTranslationContext` unchanged; only `getSubject()`/`setSubject()` are abstract and
+  reimplemented per subclass, and only `getEntity()`/`getValue()` are unique to one side.
+
+Every direct call site changes in the same way: `EntityTranslatorInterface::processTranslation()`
+now takes a `TranslationContext` instead of a `TranslationArgs` — relevant if a handler
+recursively calls `$this->translator->processTranslation(...)` (or `->translate(...)`, whose
+signature is unchanged) to delegate a sub-value to the handler chain.
+
+**Migration Steps:**
+
+1. Change your handler's `use` of `Tmi\TranslationBundle\Translation\Args\TranslationArgs` (now
+   deleted) to `Tmi\TranslationBundle\Translation\Context\TranslationContext` (plus
+   `EntityTranslationContext` / `PropertyTranslationContext` if `supports()` narrows on one), and
+   retype both interface method signatures.
+2. Replace `$args->getDataToBeTranslated()` with whichever accessor matches what your handler
+   actually expects: `$context->getEntity()` (typed `TranslatableInterface`) if `supports()`
+   already guarantees an `EntityTranslationContext`, `$context->getValue()` (mixed) for a
+   `PropertyTranslationContext`, or `$context->getSubject()` (mixed, either shape) if your
+   handler — like `DoctrineObjectHandler` — is reachable both ways.
+3. Delete your `handleSharedAmongstTranslations()` and `handleEmptyOnTranslate()` methods,
+   merging each one's body into `translate()`, gated on `$context->isShared()` /
+   `$context->isEmpty()` at the top — the same branch order `EntityTranslator` used to pick which
+   method to call, now picked by the handler itself.
+4. If your handler recursively delegates a sub-value through
+   `$this->translator->processTranslation($subArgs)`, build a `PropertyTranslationContext` (or
+   `EntityTranslationContext`, if the sub-value is itself `TranslatableInterface`) instead of a
+   `TranslationArgs`, and use its fluent setters (`->setProperty()->setTranslatedParent()->setCopySource()`)
+   exactly as before — every setter still returns `static`.
+
+**Before/after, a complete custom handler** — a collection handler that hands a locale variant
+fresh, empty to-many collections for a configured `class => properties` map (a common pattern for
+associations that should never carry the source's children into a new locale):
+
+**Before (v3.4):**
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Translation\Handler;
+
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+
+final class EmptyOnVariantCollectionHandler implements TranslationHandlerInterface
+{
+    /** @var array<class-string, list<string>> */
+    private const array EMPTY_ON_VARIANT = [
+        \App\Entity\Article::class  => ['tags', 'comments'],
+        \App\Entity\Category::class => ['articles'],
+    ];
+
+    public function supports(TranslationArgs $args): bool
+    {
+        if (!$args->getDataToBeTranslated() instanceof Collection) {
+            return false;
+        }
+
+        $property = $args->getProperty();
+
+        return null !== $property
+            && \in_array($property->name, self::EMPTY_ON_VARIANT[$property->class] ?? [], true);
+    }
+
+    public function translate(TranslationArgs $args): ArrayCollection
+    {
+        return new ArrayCollection();
+    }
+
+    public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
+    {
+        return new ArrayCollection();
+    }
+
+    public function handleSharedAmongstTranslations(TranslationArgs $args): never
+    {
+        $property = $args->getProperty();
+
+        throw new \LogicException(sprintf(
+            'SharedAmongstTranslations is not supported on to-many association "%s::$%s".',
+            null !== $property ? $property->class : 'unknown',
+            null !== $property ? $property->name : 'unknown',
+        ));
+    }
+}
+```
+
+**After (v4.0):**
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Translation\Handler;
+
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
+use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
+
+final class EmptyOnVariantCollectionHandler implements TranslationHandlerInterface
+{
+    /** @var array<class-string, list<string>> */
+    private const array EMPTY_ON_VARIANT = [
+        \App\Entity\Article::class  => ['tags', 'comments'],
+        \App\Entity\Category::class => ['articles'],
+    ];
+
+    public function supports(TranslationContext $context): bool
+    {
+        if (!$context instanceof PropertyTranslationContext || !$context->getValue() instanceof Collection) {
+            return false;
+        }
+
+        $property = $context->getProperty();
+
+        return null !== $property
+            && \in_array($property->name, self::EMPTY_ON_VARIANT[$property->class] ?? [], true);
+    }
+
+    public function translate(TranslationContext $context): ArrayCollection
+    {
+        if ($context->isShared()) {
+            $property = $context->getProperty();
+
+            throw new \LogicException(sprintf(
+                'SharedAmongstTranslations is not supported on to-many association "%s::$%s".',
+                null !== $property ? $property->class : 'unknown',
+                null !== $property ? $property->name : 'unknown',
+            ));
+        }
+
+        // isEmpty() and the ordinary (non-shared, non-empty) path both want the same
+        // result here -- a locale variant always starts these collections empty.
+        return new ArrayCollection();
+    }
+}
+```
+
+Note what collapsed: `translate()` and `handleEmptyOnTranslate()` returned the identical
+`new ArrayCollection()` before, because this handler always empties the collection regardless of
+which of the three methods the framework called — that duplication is gone, and the one
+`isShared()` branch that used to throw unconditionally (`never` return type) now sits inside
+`translate()` next to the case it guards against.
+
+**Why:** the four-method shape asked every handler to implement `handleSharedAmongstTranslations()`
+/ `handleEmptyOnTranslate()` even when — as above — both bodies were one-liners duplicating logic
+`translate()` already had, or trivial pass-throughs (`PrimaryKeyHandler`'s three methods all
+returned `null`). Collapsing the two extra methods into pre-resolved `isShared()`/`isEmpty()`
+facts on the context removes that duplication and lets each handler's `translate()` read as a
+single decision tree instead of three separate entry points the framework picks between. Splitting
+the payload into two typed contexts additionally lets `supports()` narrow with `instanceof`
+instead of duck-typing a `mixed` payload, and let several `instanceof TranslatableInterface` /
+`is_object()` guards inside built-in handlers' `translate()` bodies disappear — the type system
+now guarantees what those guards used to check by hand.
 
 ---
 
@@ -384,7 +616,12 @@ last bullet):
     `beforeRemove()` hooks, either delete them (harmless — see [§ 3](#3-the-four-entitytranslator-lifecycle-hooks-were-removed))
     or move their logic to `PreTranslateEvent`/`PostTranslateEvent` or Doctrine's own
     lifecycle events.
-12. Run your test suite. Behavioural Changes 1-6 above are the ones most likely to surface as
+12. If you implement `TranslationHandlerInterface` (a custom handler), retype both methods to
+    `TranslationContext`, replace `getDataToBeTranslated()` with `getEntity()` / `getValue()` /
+    `getSubject()`, and merge `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` into
+    `translate()`, gated on `$context->isShared()`/`isEmpty()`
+    ([§ 6](#6-translationhandlerinterface-is-two-methods-on-typed-contexts)).
+13. Run your test suite. Behavioural Changes 1-6 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.
 

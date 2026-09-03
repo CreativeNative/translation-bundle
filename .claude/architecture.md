@@ -28,12 +28,19 @@ Translation uses a priority-based handler chain. Each handler implements `Transl
 ```php
 final class MyCustomHandler implements TranslationHandlerInterface
 {
-    public function supports(TranslationArgs $args): bool;
-    public function translate(TranslationArgs $args): mixed;
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed;
-    public function handleEmptyOnTranslate(TranslationArgs $args): mixed;
+    public function supports(TranslationContext $context): bool;
+    public function translate(TranslationContext $context): mixed;
 }
 ```
+
+`$context` is an `EntityTranslationContext` (subject: `getEntity(): TranslatableInterface`) or a
+`PropertyTranslationContext` (subject: `getValue(): mixed`), both extending the shared
+`TranslationContext` base (`getSubject()`, `getProperty()`, `getTranslatedParent()`,
+`isShared()`/`isEmpty()`, source/target locale, `copySource`). `isShared()`/`isEmpty()` are
+pre-resolved by `EntityTranslator` from the property's attributes before dispatch (v4.0) — a
+handler that used to implement `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()`
+branches on those two booleans at the top of `translate()` instead. See
+[UPGRADING.md § 6](../UPGRADING.md#6-translationhandlerinterface-is-two-methods-on-typed-contexts).
 
 ```yaml
 # config/services.yaml

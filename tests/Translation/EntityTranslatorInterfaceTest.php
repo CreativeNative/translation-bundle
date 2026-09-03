@@ -6,7 +6,7 @@ namespace Tmi\TranslationBundle\Test\Translation;
 
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 
 final class EntityTranslatorInterfaceTest extends TestCase
@@ -90,7 +90,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
 
         $type = $param->getType();
         self::assertInstanceOf(\ReflectionNamedType::class, $type);
-        self::assertSame(TranslationArgs::class, $type->getName());
+        self::assertSame(TranslationContext::class, $type->getName());
     }
 
     /**

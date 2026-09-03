@@ -11,7 +11,10 @@ use Doctrine\Persistence\Proxy;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
@@ -31,11 +34,11 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
     }
 
     /**
-     * True when $args->getDataToBeTranslated() is a Doctrine-managed class. *.
+     * True when $context->getSubject() is a Doctrine-managed class. *.
      */
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        $data = $args->getDataToBeTranslated();
+        $data = $context->getSubject();
 
         if (!\is_object($data)) {
             return false;
@@ -53,34 +56,39 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
         }
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-    {
-        return $args->getDataToBeTranslated();
-    }
-
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
-    {
-        return null;
-    }
-
     /**
      * Clone the object and translate its properties.
      *
+     * Shared/empty resolution for a plain Doctrine object (neither an entity's own
+     * translatable properties -- those go through TranslatableEntityHandler -- nor an
+     * embeddable) is identity: the source instance itself for #[SharedAmongstTranslations],
+     * null for #[EmptyOnTranslate]. Both facts are pre-resolved by EntityTranslator only
+     * for property-shaped calls, so an entity-shaped context (property unset) never sets
+     * either and always falls through to the clone-and-translate-properties path below.
+     *
      * @throws \ReflectionException
      */
-    public function translate(TranslationArgs $args): mixed
+    public function translate(TranslationContext $context): mixed
     {
-        $data = $args->getDataToBeTranslated();
+        if ($context->isShared()) {
+            return $context->getSubject();
+        }
+
+        if ($context->isEmpty()) {
+            return null;
+        }
+
+        $data = $context->getSubject();
         if (!\is_object($data)) {
             throw new \RuntimeException('DoctrineObjectHandler::translate expects an object.');
         }
 
         $clone = clone $data;
-        $args->setDataToBeTranslated($clone);
+        $context->setSubject($clone);
 
-        $this->translateProperties($args);
+        $this->translateProperties($context);
 
-        return $args->getDataToBeTranslated();
+        return $context->getSubject();
     }
 
     /**
@@ -88,11 +96,11 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
      *
      * @throws \ReflectionException
      */
-    public function translateProperties(TranslationArgs $args): void
+    public function translateProperties(TranslationContext $context): void
     {
-        $translation = $args->getDataToBeTranslated();
+        $translation = $context->getSubject();
         if (!\is_object($translation)) {
-            throw new \RuntimeException('translateProperties expects object in TranslationArgs.');
+            throw new \RuntimeException('translateProperties expects an object as the context subject.');
         }
 
         // allow injection for tests; otherwise create default accessor
@@ -134,17 +142,18 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
                 continue;
             }
 
-            $subArgs = new TranslationArgs(
-                $propValue,
-                $args->getSourceLocale(),
-                $args->getTargetLocale(),
-            );
-            $subArgs->setTranslatedParent($translation)
+            // A translatable association walks back into the entity pipeline (existing-
+            // variant lookup, id reset, back-reference repair); every other property
+            // shape (scalar, embeddable, Collection) is a plain property-value resolution.
+            $subContext = $propValue instanceof TranslatableInterface
+                ? new EntityTranslationContext($propValue, $context->getSourceLocale(), $context->getTargetLocale())
+                : new PropertyTranslationContext($propValue, $context->getSourceLocale(), $context->getTargetLocale());
+            $subContext->setTranslatedParent($translation)
                 ->setProperty($property)
-                ->setCopySource($args->getCopySource());
+                ->setCopySource($context->getCopySource());
 
             // Delegate translation of the property value to the global translator
-            $propertyTranslation = $this->translator->processTranslation($subArgs);
+            $propertyTranslation = $this->translator->processTranslation($subContext);
 
             // A readonly property is already initialised on the clone and PHP rejects every
             // write to it, even one that would store the identical value. Skipping the write

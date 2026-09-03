@@ -4,32 +4,32 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 
 /**
  * Handles scalar type translation.
  */
 final class ScalarHandler implements TranslationHandlerInterface
 {
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        $data = $args->getDataToBeTranslated();
+        $data = $context->getSubject();
 
         return !\is_object($data) || $data instanceof \DateTime;
     }
 
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
+    /**
+     * Shared keeps the source value; empty clears it to null -- a scalar has no
+     * meaningful non-null "empty" default of its own, and EntityTranslator already
+     * falls back to TypeDefaultResolver for a non-nullable scalar property before
+     * ever reaching here, so a scalar handler only sees isEmpty() on a nullable one.
+     */
+    public function translate(TranslationContext $context): mixed
     {
-        return $args->getDataToBeTranslated();
-    }
+        if ($context->isEmpty()) {
+            return null;
+        }
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
-    {
-        return null;
-    }
-
-    public function translate(TranslationArgs $args): mixed
-    {
-        return $args->getDataToBeTranslated();
+        return $context->getSubject();
     }
 }

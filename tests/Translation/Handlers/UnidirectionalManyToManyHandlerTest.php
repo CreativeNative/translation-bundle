@@ -17,7 +17,6 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBid
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -34,13 +33,12 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isManyToMany')->willReturn(false);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($parent);
+        $context = $this->propertyContext($parent->getSimpleChildren(), $prop);
+        $context->setTranslatedParent($parent);
 
         $handler = $this->createHandler();
 
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     /**
@@ -64,13 +62,12 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         // AttributeHelper reports it's ManyToMany (to reach the next check)
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($anon->plain, 'en', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($anon);
+        $context = $this->propertyContext($anon->plain, $prop);
+        $context->setTranslatedParent($anon);
 
         $handler = $this->createHandler();
 
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     /**
@@ -85,24 +82,25 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($entity);
+        // An entity itself is never a ManyToMany property's own value -- goes through
+        // as an EntityTranslationContext, which the Collection check already rejects.
+        $context = $this->entityContext($entity, $prop);
+        $context->setTranslatedParent($entity);
 
         $handler = $this->createHandler();
 
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     public function testTranslateThrowsWhenNoTranslatedParent(): void
     {
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE');
+        $context = $this->propertyContext(new ArrayCollection());
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('No translated parent provided');
 
-        $handler->translate($args);
+        $handler->translate($context);
     }
 
     public function testTranslateThrowsWhenNoPropertyGiven(): void
@@ -112,13 +110,13 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $parent = new class {
             public string|null $any = null;
         };
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
-            ->setTranslatedParent($parent);
+        $context = $this->propertyContext(new ArrayCollection());
+        $context->setTranslatedParent($parent);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('No property given for parent of class');
 
-        $handler->translate($args);
+        $handler->translate($context);
     }
 
     /**
@@ -138,14 +136,13 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection(), $prop);
+        $context->setTranslatedParent($parent);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('is not a valid association');
 
-        $handler->translate($args);
+        $handler->translate($context);
     }
 
     /**
@@ -172,14 +169,13 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection(), $prop);
+        $context->setTranslatedParent($parent);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('not the owning side');
 
-        $handler->translate($args);
+        $handler->translate($context);
     }
 
     /**
@@ -206,14 +202,13 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection(), 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection(), $prop);
+        $context->setTranslatedParent($parent);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('Field "missingField" not found in class');
 
-        $handler->translate($args);
+        $handler->translate($context);
     }
 
     /**
@@ -250,11 +245,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs($data, 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext($data, $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertCount(2, $result);
 
@@ -287,13 +281,12 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $propMock->method('getDeclaringClass')->willReturn(new \ReflectionClass($parent));
 
         // The data of a ManyToMany property is the collection, not the owning entity
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
-            ->setProperty($propMock)
-            ->setTranslatedParent($parent);
+        $context = $this->propertyContext($parent->getSimpleChildren(), $propMock);
+        $context->setTranslatedParent($parent);
 
         $handler = $this->createHandler();
 
-        self::assertTrue($handler->supports($args));
+        self::assertTrue($handler->supports($context));
     }
 
     /**
@@ -326,26 +319,21 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($parent);
+        $context = $this->propertyContext($parent->getSimpleChildren(), $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertCount(2, $result);
     }
 
-    public function testHandleSharedAmongstTranslationsReturnsOriginalWhenNoProperty(): void
+    public function testTranslateSharedReturnsOriginalWhenNoProperty(): void
     {
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(
-            dataToBeTranslated: new ArrayCollection(),
-            sourceLocale: 'en',
-            targetLocale: 'de_DE',
-        );
+        $context = $this->propertyContext(new ArrayCollection())->setShared(true);
 
-        $result = $handler->handleSharedAmongstTranslations($args);
+        $result = $handler->translate($context);
 
         self::assertInstanceOf(ArrayCollection::class, $result);
         self::assertCount(0, $result);
@@ -354,30 +342,27 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     /**
      * @throws \ReflectionException
      */
-    public function testHandleSharedAmongstTranslationsThrowsWhenSharedAttributePresent(): void
+    public function testTranslateSharedThrowsWhenSharedAttributePresent(): void
     {
         $handler = $this->createHandler();
 
         $entity = new TranslatableManyToManyBidirectionalParent();
         $prop   = new \ReflectionProperty($entity::class, 'sharedChildren');
 
-        $args = new TranslationArgs(
-            dataToBeTranslated: new ArrayCollection(),
-            sourceLocale: 'en',
-            targetLocale: 'de_DE',
-        );
-        $args->setProperty($prop)->setTranslatedParent($entity);
+        $context = $this->propertyContext(new ArrayCollection(), $prop);
+        $context->setTranslatedParent($entity);
+        $context->setShared(true);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations');
 
-        $handler->handleSharedAmongstTranslations($args);
+        $handler->translate($context);
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function testHandleSharedAmongstTranslationsFallsBackToTranslate(): void
+    public function testTranslateSharedFallsBackToNormalTranslate(): void
     {
         $handler = $this->createHandler();
 
@@ -401,11 +386,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isManyToMany')->willReturn(true);
 
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($parent);
+        $context = $this->propertyContext($parent->getSimpleChildren(), $prop);
+        $context->setTranslatedParent($parent);
+        $context->setShared(true);
 
-        $result = $handler->handleSharedAmongstTranslations($args);
+        $result = $handler->translate($context);
 
         self::assertCount(1, $result);
 
@@ -415,9 +400,9 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
     }
 
     /**
-     * Covers lines 137, 139, 140: the elseif (is_iterable($sourceData)) branch.
+     * Covers the elseif (is_iterable($sourceData)) branch.
      *
-     * Passes a plain PHP array (not a Collection) as dataToBeTranslated so the
+     * Passes a plain PHP array (not a Collection) as the context value so the
      * handler enters the iterable branch instead of the Collection branch.
      *
      * @throws \ReflectionException
@@ -446,11 +431,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $handler = $this->createHandler();
 
         // Pass a plain PHP array (iterable, but not a Collection) to hit the elseif branch
-        $args = new TranslationArgs([$child], 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext([$child], $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertCount(1, $result);
     }
@@ -486,11 +470,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $nonTranslatable = new \stdClass();
 
-        $args = new TranslationArgs(new ArrayCollection([$nonTranslatable]), 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection([$nonTranslatable]), $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // The stdClass is preserved as-is, not translated and not dropped.
         self::assertCount(1, $result);
@@ -530,11 +513,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $tag       = new \stdClass();
         $tag->name = 'category';
 
-        $args = new TranslationArgs(new ArrayCollection([$child, $tag]), 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection([$child, $tag]), $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // Both the translatable child (routed through EntityTranslator::translate())
         // and the non-translatable tag (passed through as-is) survive -- neither
@@ -574,11 +556,11 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $handler = $this->createHandler();
 
-        $args = new TranslationArgs(new ArrayCollection([$child]), 'en', null)
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext(new ArrayCollection([$child]), $prop);
+        $context->setTargetLocale(null);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertCount(1, $result);
         self::assertSame($child, $result->first());
@@ -615,11 +597,10 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $tag = new \stdClass();
 
         // The same instance appears twice in the source iterable.
-        $args = new TranslationArgs([$tag, $tag], 'en', 'de_DE')
-            ->setTranslatedParent($parent)
-            ->setProperty($prop);
+        $context = $this->propertyContext([$tag, $tag], $prop);
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertCount(1, $result);
         self::assertSame($tag, $result->first());

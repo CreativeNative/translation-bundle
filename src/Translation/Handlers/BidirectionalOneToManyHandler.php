@@ -10,14 +10,16 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\OneToMany;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Receives a collection (children). For each child:
- * If the child is translatable, ask the translator to process the child with a TranslationArgs that contains the mappedBy
+ * If the child is translatable, ask the translator to process the child with a context that carries the mappedBy
  * ReflectionProperty and the translated parent. This is where the inverse-side fix-up (set child's parent to the translated parent) must
  * happen -- the OneToMany handler is the owner of the collection; it must set the child's parent property to the new translated parent.
  * If the child is not translatable, keep it as-is in the returned collection.
@@ -35,15 +37,15 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     ) {
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
         // The value of a OneToMany property is the children Collection, never the entity
         // itself -- guarding on TranslatableInterface here made supports() always false.
-        if (!$args->getDataToBeTranslated() instanceof Collection) {
+        if (!$context instanceof PropertyTranslationContext || !$context->getValue() instanceof Collection) {
             return false;
         }
 
-        $property = $args->getProperty();
+        $property = $context->getProperty();
         if (null === $property || !$this->attributeHelper->isOneToMany($property)) {
             return false;
         }
@@ -60,41 +62,36 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
     /**
      * @throws \ErrorException
-     */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-    {
-        $data     = $args->getDataToBeTranslated();
-        $property = $args->getProperty();
-        $message  = '%class%::%prop% is a Bidirectional OneToMany, it cannot be shared '.
-            'amongst translations. Either remove the SharedAmongstTranslation '.
-            'attribute or choose another association type.';
-
-        throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
-    }
-
-    /**
-     * @return ArrayCollection<int, mixed>
-     */
-    public function handleEmptyOnTranslate(TranslationArgs $args): ArrayCollection
-    {
-        return new ArrayCollection();
-    }
-
-    /**
      * @throws \ReflectionException
      *
      * @return Collection<int, mixed>
      */
-    public function translate(TranslationArgs $args): Collection
+    public function translate(TranslationContext $context): Collection
     {
-        $children = $args->getDataToBeTranslated();
+        \assert($context instanceof PropertyTranslationContext);
+
+        if ($context->isShared()) {
+            $data     = $context->getValue();
+            $property = $context->getProperty();
+            $message  = '%class%::%prop% is a Bidirectional OneToMany, it cannot be shared '.
+                'amongst translations. Either remove the SharedAmongstTranslation '.
+                'attribute or choose another association type.';
+
+            throw new \ErrorException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
+        }
+
+        if ($context->isEmpty()) {
+            return new ArrayCollection();
+        }
+
+        $children = $context->getValue();
         assert($children instanceof Collection);
 
-        $translatedParent = $args->getTranslatedParent();
-        $property         = $args->getProperty();
+        $translatedParent = $context->getTranslatedParent();
+        $property         = $context->getProperty();
 
         // Guard: must have both property and translated parent
-        if (null === $translatedParent || null === $property || !\is_object($translatedParent)) {
+        if (null === $translatedParent || null === $property) {
             return $children; // nothing to translate -> return original
         }
 
@@ -116,11 +113,11 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
                 continue;
             }
 
-            $subArgs = new TranslationArgs($child, $args->getSourceLocale(), $args->getTargetLocale())
+            $subContext = new EntityTranslationContext($child, $context->getSourceLocale(), $context->getTargetLocale())
                 ->setTranslatedParent($translatedParent)
                 ->setProperty(ReflectionHelper::getProperty($child::class, $mappedBy));
 
-            $translatedChild = $this->translator->processTranslation($subArgs);
+            $translatedChild = $this->translator->processTranslation($subContext);
             $newCollection->add($translatedChild);
 
             // keep bidirectional consistency

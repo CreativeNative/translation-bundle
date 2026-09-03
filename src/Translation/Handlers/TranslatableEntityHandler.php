@@ -6,7 +6,8 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
@@ -19,33 +20,28 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
     ) {
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        return $args->getDataToBeTranslated() instanceof TranslatableInterface;
+        return $context instanceof EntityTranslationContext;
     }
 
     /**
      * @throws \ReflectionException
      */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): TranslatableInterface
+    public function translate(TranslationContext $context): TranslatableInterface|null
     {
-        return $this->translate($args);
-    }
+        \assert($context instanceof EntityTranslationContext);
 
-    public function handleEmptyOnTranslate(TranslationArgs $args): null
-    {
-        return null;
-    }
+        // Reached only for the direct (unidirectional) association form: the
+        // bidirectional handlers never delegate here while shared/empty, since their
+        // own translate() branches on those facts before ever calling this one.
+        if ($context->isEmpty()) {
+            return null;
+        }
 
-    /**
-     * @throws \ReflectionException
-     */
-    public function translate(TranslationArgs $args): TranslatableInterface
-    {
-        $data = $args->getDataToBeTranslated();
-        \assert($data instanceof TranslatableInterface);
+        $data = $context->getEntity();
 
-        $targetLocale = $args->getTargetLocale();
+        $targetLocale = $context->getTargetLocale();
         \assert(\is_string($targetLocale));
 
         // Search across every locale variant of the Tuuid, not just the ones visible
@@ -59,9 +55,9 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
         $clone = clone $data;
 
-        $subArgs = new TranslationArgs($clone, $clone->getLocale(), $targetLocale);
-        $subArgs->setCopySource($args->getCopySource());
-        $this->doctrineObjectHandler->translateProperties($subArgs);
+        $subContext = new EntityTranslationContext($clone, $clone->getLocale(), $targetLocale);
+        $subContext->setCopySource($context->getCopySource());
+        $this->doctrineObjectHandler->translateProperties($subContext);
 
         $this->resetGeneratedIds($clone);
         $clone->setLocale($targetLocale);

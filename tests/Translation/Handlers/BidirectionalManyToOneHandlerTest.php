@@ -11,11 +11,9 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
-use Tmi\TranslationBundle\Fixtures\Entity\Translatable\NonTranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -30,8 +28,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $entity  = new Scalar();
         $prop    = new \ReflectionProperty($entity, 'title');
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop);
 
         $this->attributeHelper()
             ->expects($this->once())
@@ -39,7 +36,24 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with($prop)
             ->willReturn(false);
 
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
+    }
+
+    /**
+     * @throws \ReflectionException
+     */
+    public function testSupportsReturnsFalseWhenNotEntityContext(): void
+    {
+        $handler = $this->createHandler();
+        $entity  = new Scalar();
+        $prop    = new \ReflectionProperty($entity, 'title');
+
+        // A ManyToOne property's value is always translated as an EntityTranslationContext
+        // (see DoctrineObjectHandler::translateProperties()) -- a PropertyTranslationContext
+        // never carries a TranslatableInterface value in practice.
+        $context = $this->propertyContext($entity, $prop);
+
+        self::assertFalse($handler->supports($context));
     }
 
     /**
@@ -69,8 +83,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($entity, 'withInverse');
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop);
 
         $this->attributeHelper()
             ->expects($this->once())
@@ -78,7 +91,7 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
             ->with($prop)
             ->willReturn(true);
 
-        self::assertTrue($handler->supports($args));
+        self::assertTrue($handler->supports($context));
     }
 
     /**
@@ -93,39 +106,37 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isManyToOne')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($entity);
+        $context = $this->entityContext($entity, $prop);
+        $context->setTranslatedParent($entity);
 
         $handler = $this->createHandler();
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     /** ------------------------- Shared / Empty Tests -------------------------.
      * @throws \ReflectionException
      */
-    public function testHandleSharedAmongstTranslationsThrows(): void
+    public function testTranslateThrowsWhenShared(): void
     {
         $handler = $this->createHandler();
         $entity  = new TranslatableOneToManyBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'sharedChildren');
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop)->setShared(true);
 
         self::expectException(\ErrorException::class);
         self::expectExceptionMessageMatches('/::sharedChildren is a Bidirectional ManyToOne/');
 
-        $handler->handleSharedAmongstTranslations($args);
+        $handler->translate($context);
     }
 
-    public function testHandleEmptyOnTranslateReturnsNull(): void
+    public function testTranslateReturnsNullWhenEmpty(): void
     {
         $handler = $this->createHandler();
         $entity  = new TranslatableOneToManyBidirectionalParent();
-        $args    = new TranslationArgs($entity);
+        $context = $this->entityContext($entity)->setEmpty(true);
 
-        $result = $handler->handleEmptyOnTranslate($args);
+        $result = $handler->translate($context);
         self::assertThat($result, self::isNull());
     }
 
@@ -169,12 +180,12 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([]));
 
-        $prop = new \ReflectionProperty($child, 'parentSimple');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
-        $args->setTranslatedParent($parent);
+        $prop    = new \ReflectionProperty($child, 'parentSimple');
+        $context = $this->entityContext($child, $prop);
+        $context->setTargetLocale('it_IT');
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result);
@@ -213,12 +224,12 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([$existingTranslation]));
 
-        $prop = new \ReflectionProperty($child, 'parentSimple');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
-        $args->setTranslatedParent($parent);
+        $prop    = new \ReflectionProperty($child, 'parentSimple');
+        $context = $this->entityContext($child, $prop);
+        $context->setTargetLocale('it_IT');
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // The existing variant is returned as-is -- not a fresh clone. A handler that
         // skipped the finder check here would mint a second (tuuid, locale) row on every
@@ -255,11 +266,11 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([]));
 
-        $prop = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
-        $args = new TranslationArgs($target, 'en_US', 'it_IT');
-        $args->setProperty($prop);
+        $prop    = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
+        $context = $this->entityContext($target, $prop);
+        $context->setTargetLocale('it_IT');
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertInstanceOf(TranslatableOneToManyBidirectionalParent::class, $result);
         self::assertNotSame($target, $result, 'The direct form must translate the target instead of returning the untranslated source');
@@ -286,62 +297,13 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([$existingTranslation]));
 
-        $prop = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
-        $args = new TranslationArgs($target, 'en_US', 'it_IT');
-        $args->setProperty($prop);
+        $prop    = new \ReflectionProperty(TranslatableManyToOneBidirectionalChild::class, 'parentSimple');
+        $context = $this->entityContext($target, $prop);
+        $context->setTargetLocale('it_IT');
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertSame($existingTranslation, $result);
-    }
-
-    public function testTranslateWithNonTranslatableEntity(): void
-    {
-        $handler = $this->createHandler();
-
-        $nonTranslatable = new class {
-            public string $foo = 'bar';
-        };
-
-        $args = new TranslationArgs($nonTranslatable, 'en_US', 'it_IT');
-
-        $result = $handler->translate($args);
-
-        self::assertSame($nonTranslatable, $result, 'Non-translatable entities should be returned as-is');
-    }
-
-    /**
-     * @throws \ReflectionException
-     */
-    public function testTranslateWithNonTranslatableRelatedEntity(): void
-    {
-        $handler = $this->createHandler();
-
-        // --- Step 1: Create parent entity ---
-        $parent = new TranslatableOneToManyBidirectionalParent();
-        $parent->setLocale('en_US');
-
-        // --- Step 2: Create non-translatable child ---
-        $child = new NonTranslatableManyToOneBidirectionalChild();
-        $child->setTitle('non-translatable');
-        $child->setParent($parent);
-
-        // --- Step 3: Set up TranslationArgs manually ---
-        $prop = new \ReflectionProperty($child, 'parent');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
-
-        // --- Step 4: Run translation ---
-        $result = $handler->translate($args);
-
-        // --- Step 5: Assertions ---
-        self::assertInstanceOf(NonTranslatableManyToOneBidirectionalChild::class, $result);
-
-        // Adjust object identity for non-translatable entities
-        self::assertSame($child->getParent(), $result->getParent(), 'Non-translatable parent should remain unchanged');
-
-        // NonTranslatableManyToOneBidirectionalChild does not implement TranslatableInterface
-        self::assertSame($child, $result);
     }
 
     public function testTranslateWithNullProperty(): void
@@ -352,12 +314,12 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $entity = new TranslatableOneToManyBidirectionalParent();
         $entity->setLocale('en_US');
 
-        // --- Step 2: Prepare TranslationArgs with null property ---
-        $args = new TranslationArgs($entity, 'en_US', 'it_IT');
-        $args->setProperty(null);
+        // --- Step 2: Context with no property set ---
+        $context = $this->entityContext($entity);
+        $context->setTargetLocale('it_IT');
 
         // --- Step 3: Translate ---
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // --- Step 4: Assertions ---
         self::assertSame($entity, $result, 'Original entity should be returned if property is null');
@@ -397,15 +359,15 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         $this->entityManager()->method('createQueryBuilder')
             ->willReturn($this->queryBuilderReturning([]));
 
-        // --- Step 4: Build TranslationArgs ---
-        $prop = new \ReflectionProperty($child, 'parentSimple');
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
+        // --- Step 4: Build context ---
+        $prop    = new \ReflectionProperty($child, 'parentSimple');
+        $context = $this->entityContext($child, $prop);
+        $context->setTargetLocale('it_IT');
 
         $this->translator()->addTranslationHandler($handler);
 
         // --- Step 6: Translate ---
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // --- Step 7: Assertions ---
         self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $result);

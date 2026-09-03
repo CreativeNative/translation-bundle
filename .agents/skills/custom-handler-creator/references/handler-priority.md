@@ -63,10 +63,11 @@ Examples:
 **Reasoning**: Must run AFTER PrimaryKeyHandler (100) to skip IDs, but BEFORE ScalarHandler (90) which would copy encrypted values unchanged.
 
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    // Match properties with #[Encrypted] attribute
-    return $args->getProperty()?->getAttributes(Encrypted::class) !== [];
+    // Match properties with #[Encrypted] attribute -- getProperty() lives on the
+    // shared TranslationContext base, so this works for either context shape.
+    return $context->getProperty()?->getAttributes(Encrypted::class) !== [];
 }
 ```
 
@@ -75,9 +76,11 @@ public function supports(TranslationArgs $args): bool
 **Reasoning**: Must run AFTER EmbeddedHandler (80) to not conflict with Doctrine embeddables, but BEFORE relationship handlers.
 
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    return $args->getDataToBeTranslated() instanceof Money;
+    // Money is a property value, never the entity itself -- narrow on
+    // PropertyTranslationContext first.
+    return $context instanceof PropertyTranslationContext && $context->getValue() instanceof Money;
 }
 ```
 
@@ -86,9 +89,9 @@ public function supports(TranslationArgs $args): bool
 **Reasoning**: String fields that need transformation, must run BEFORE ScalarHandler (90).
 
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    $property = $args->getProperty();
+    $property = $context->getProperty();
     return $property?->getName() === 'filePath'
         || str_ends_with($property?->getName() ?? '', 'Url');
 }
@@ -99,9 +102,9 @@ public function supports(TranslationArgs $args): bool
 **Reasoning**: Fields that must be recalculated, not copied. Must run BEFORE ScalarHandler (90).
 
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    return $args->getProperty()?->getAttributes(Computed::class) !== [];
+    return $context->getProperty()?->getAttributes(Computed::class) !== [];
 }
 ```
 

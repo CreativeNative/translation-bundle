@@ -2,6 +2,12 @@
 
 Real-world use cases for custom translation handlers.
 
+Every `supports()` below narrows on `PropertyTranslationContext` first — none of these seven
+field types is ever the entity itself, only a property's value — and every `translate()` checks
+`$context->isShared()` (and, where relevant, `$context->isEmpty()`) before falling through to the
+ordinary case, replacing what used to be separate `handleSharedAmongstTranslations()`/
+`handleEmptyOnTranslate()` methods.
+
 ## 1. Encrypted Fields
 
 **Field Type**: Strings encrypted at rest (e.g., personal data, API keys)
@@ -12,14 +18,16 @@ Real-world use cases for custom translation handlers.
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    return $args->getProperty()?->getAttributes(Encrypted::class) !== [];
+    return $context instanceof PropertyTranslationContext
+        && $context->getProperty()?->getAttributes(Encrypted::class) !== [];
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    $encrypted = $args->getDataToBeTranslated();
+    \assert($context instanceof PropertyTranslationContext);
+    $encrypted = $context->getValue();
     $plain = $this->encryptor->decrypt($encrypted);
     return $this->encryptor->encrypt($plain); // New salt/IV
 }
@@ -35,20 +43,17 @@ public function translate(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    return $args->getProperty()?->getAttributes(Computed::class) !== [];
+    return $context instanceof PropertyTranslationContext
+        && $context->getProperty()?->getAttributes(Computed::class) !== [];
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    // Return null to force recalculation after translation
+    // Return null to force recalculation after translation -- isEmpty() wants the
+    // same result, so there is no separate branch for it.
     return null;
-}
-
-public function handleEmptyOnTranslate(TranslationArgs $args): mixed
-{
-    return null; // Same behavior - recalculate
 }
 ```
 
@@ -62,24 +67,30 @@ public function handleEmptyOnTranslate(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    $value = $args->getDataToBeTranslated();
+    if (!$context instanceof PropertyTranslationContext) {
+        return false;
+    }
+
+    $value = $context->getValue();
+
     return $value instanceof Money
         || $value instanceof Coordinate
         || $value instanceof PhoneNumber;
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    // Value objects should be cloned
-    return clone $args->getDataToBeTranslated();
-}
+    \assert($context instanceof PropertyTranslationContext);
 
-public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-{
-    // Share same immutable instance
-    return $args->getDataToBeTranslated();
+    if ($context->isShared()) {
+        // Share the same immutable instance
+        return $context->getValue();
+    }
+
+    // Value objects should be cloned
+    return clone $context->getValue();
 }
 ```
 
@@ -93,16 +104,22 @@ public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    $value = $args->getDataToBeTranslated();
+    if (!$context instanceof PropertyTranslationContext) {
+        return false;
+    }
+
+    $value = $context->getValue();
+
     return $value instanceof \Brick\Math\BigDecimal
         || $value instanceof \Ramsey\Uuid\UuidInterface;
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    $value = $args->getDataToBeTranslated();
+    \assert($context instanceof PropertyTranslationContext);
+    $value = $context->getValue();
 
     // BigDecimal is immutable, safe to share
     if ($value instanceof \Brick\Math\BigDecimal) {
@@ -128,27 +145,27 @@ public function translate(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    $name = $args->getProperty()?->getName() ?? '';
+    if (!$context instanceof PropertyTranslationContext) {
+        return false;
+    }
+
+    $name = $context->getProperty()?->getName() ?? '';
+
     return str_contains($name, 'Cache') || str_contains($name, 'Cached');
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    // Invalidate cache by returning null or empty
-    return null;
-}
+    if ($context->isShared()) {
+        // Caches should NOT be shared across locales
+        throw new \RuntimeException('Cached properties cannot be shared across translations');
+    }
 
-public function handleEmptyOnTranslate(TranslationArgs $args): mixed
-{
+    // Invalidate cache by returning null -- isEmpty() and the ordinary (neither
+    // shared nor empty) case both want the same result here.
     return null;
-}
-
-public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-{
-    // Caches should NOT be shared across locales
-    throw new \RuntimeException('Cached properties cannot be shared across translations');
 }
 ```
 
@@ -162,19 +179,25 @@ public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    $name = $args->getProperty()?->getName() ?? '';
+    if (!$context instanceof PropertyTranslationContext) {
+        return false;
+    }
+
+    $name = $context->getProperty()?->getName() ?? '';
+
     return str_ends_with($name, 'Path')
         || str_ends_with($name, 'Url')
         || str_ends_with($name, 'Uri');
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    $path = $args->getDataToBeTranslated();
-    $source = $args->getSourceLocale();
-    $target = $args->getTargetLocale();
+    \assert($context instanceof PropertyTranslationContext);
+    $path = $context->getValue();
+    $source = $context->getSourceLocale();
+    $target = $context->getTargetLocale();
 
     // Transform locale segment in path
     return str_replace("/{$source}/", "/{$target}/", $path);
@@ -191,23 +214,23 @@ public function translate(TranslationArgs $args): mixed
 
 **Key Implementation Notes**:
 ```php
-public function supports(TranslationArgs $args): bool
+public function supports(TranslationContext $context): bool
 {
-    return $args->getDataToBeTranslated() instanceof Money;
+    return $context instanceof PropertyTranslationContext && $context->getValue() instanceof Money;
 }
 
-public function translate(TranslationArgs $args): mixed
+public function translate(TranslationContext $context): mixed
 {
-    $money = $args->getDataToBeTranslated();
+    \assert($context instanceof PropertyTranslationContext);
+    $money = $context->getValue();
+
+    if ($context->isShared()) {
+        // Money is typically shared (same price across locales)
+        return $money;
+    }
 
     // Clone money object (immutable, but good practice)
     return new Money($money->getAmount(), $money->getCurrency());
-}
-
-public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-{
-    // Money is typically shared (same price across locales)
-    return $args->getDataToBeTranslated();
 }
 ```
 
@@ -217,8 +240,8 @@ public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
 |----------|----------|------------------|----------------------|
 | Encrypted fields | 85 | `#[Encrypted]` attribute | Decrypt + re-encrypt |
 | Computed properties | 85 | `#[Computed]` attribute | Return null |
-| Value objects | 75 | `instanceof` check | Clone object |
-| Third-party objects | 75 | `instanceof` check | Clone or share |
-| Cached fields | 85 | Name contains "Cache" | Return null |
-| File paths/URLs | 85 | Name ends with "Path"/"Url" | Transform locale |
-| Money objects | 75 | `instanceof Money` | Clone or share |
+| Value objects | 75 | `instanceof` check | `isShared()`: share instance; otherwise: clone |
+| Third-party objects | 75 | `instanceof` check | Share (immutable) or clone, per type |
+| Cached fields | 85 | Name contains "Cache" | `isShared()`: throw; otherwise: return null |
+| File paths/URLs | 85 | Name ends with "Path"/"Url" | Transform locale segment |
+| Money objects | 75 | `instanceof Money` | `isShared()`: share instance; otherwise: clone |

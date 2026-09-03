@@ -11,9 +11,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
-use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[AllowMockObjectsWithoutExpectations]
 final class BidirectionalOneToOneHandlerTest extends UnitTestCase
@@ -22,10 +20,9 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     public function testSupportsReturnsFalseIfNoProperty(): void
     {
         $handler = $this->createHandler();
-        $args    = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
-        $args->setProperty(null);
+        $context = $this->entityContext(new TranslatableOneToOneBidirectionalParent());
 
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     /**
@@ -39,10 +36,9 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop);
 
-        self::assertTrue($handler->supports($args));
+        self::assertTrue($handler->supports($context));
     }
 
     /**
@@ -62,19 +58,18 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         // 3. Mock AttributeHelper to return true for isOneToOne
         $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
-        // 4. Create TranslationArgs
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($entity);
+        // 4. Build the context
+        $context = $this->entityContext($entity, $prop);
+        $context->setTranslatedParent($entity);
 
         // 5. Assert that supports() hits the empty attribute branch
-        self::assertFalse($handler->supports($args));
+        self::assertFalse($handler->supports($context));
     }
 
     /** ------------------------- Shared / Empty -------------------------.
      * @throws \ReflectionException
      */
-    public function testHandleSharedAmongstTranslationsThrows(): void
+    public function testTranslateThrowsWhenShared(): void
     {
         $handler = $this->createHandler();
         $entity  = new TranslatableOneToOneBidirectionalParent();
@@ -82,30 +77,28 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop)->setShared(true);
 
         self::expectException(\ErrorException::class);
         self::expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
 
-        $handler->handleSharedAmongstTranslations($args);
+        $handler->translate($context);
     }
 
-    public function testHandleEmptyOnTranslateReturnsNull(): void
+    public function testTranslateReturnsNullWhenEmpty(): void
     {
         $handler = $this->createHandler();
-        $args    = new TranslationArgs(new TranslatableOneToOneBidirectionalParent());
+        $context = $this->entityContext(new TranslatableOneToOneBidirectionalParent())->setEmpty(true);
 
-        $result = $handler->handleEmptyOnTranslate($args);
+        $result = $handler->translate($context);
 
         self::assertThat($result, self::isNull());
     }
 
     /**
      * @throws \ReflectionException
-     * @throws \ErrorException
      */
-    public function testHandleSharedAmongstTranslationsReturnsDataIfNotOneToOne(): void
+    public function testTranslateSharedReturnsDataIfNotOneToOne(): void
     {
         $handler = $this->createHandler();
         $entity  = new TranslatableOneToOneBidirectionalParent();
@@ -113,10 +106,9 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(false);
 
-        $args = new TranslationArgs($entity);
-        $args->setProperty($prop);
+        $context = $this->entityContext($entity, $prop)->setShared(true);
 
-        $result = $handler->handleSharedAmongstTranslations($args);
+        $result = $handler->translate($context);
 
         self::assertSame($entity, $result);
     }
@@ -159,11 +151,11 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($parent, 'simpleChild');
 
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
-        $args->setTranslatedParent($parent);
+        $context = $this->entityContext($child, $prop);
+        $context->setTargetLocale('it_IT');
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertInstanceOf(TranslatableOneToOneBidirectionalChild::class, $result);
         self::assertNotSame($child, $result);
@@ -206,11 +198,11 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 
         $prop = new \ReflectionProperty($parent, 'simpleChild');
 
-        $args = new TranslationArgs($child, 'en_US', 'it_IT');
-        $args->setProperty($prop);
-        $args->setTranslatedParent($parent);
+        $context = $this->entityContext($child, $prop);
+        $context->setTargetLocale('it_IT');
+        $context->setTranslatedParent($parent);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // The existing variant is returned as-is -- not a fresh clone. A handler that
         // skipped the finder check here would mint a second (tuuid, locale) row on every

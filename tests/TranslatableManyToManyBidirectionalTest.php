@@ -9,7 +9,7 @@ use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
 
 final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
@@ -111,11 +111,12 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         // give the handler explicit property info so it can clear the correct collection
         $prop = new \ReflectionProperty(TranslatableManyToManyBidirectionalParent::class, 'emptyChildren');
 
-        $args = new TranslationArgs($parent->getEmptyChildren(), 'en_US', self::TARGET_LOCALE)
+        $context = new PropertyTranslationContext($parent->getEmptyChildren(), 'en_US', self::TARGET_LOCALE)
             ->setTranslatedParent($parentTranslation)
-            ->setProperty($prop);
+            ->setProperty($prop)
+            ->setEmpty(true);
 
-        $clearedCollection = $this->handler->handleEmptyOnTranslate($args);
+        $clearedCollection = $this->handler->translate($context);
 
         self::assertInstanceOf(ArrayCollection::class, $clearedCollection);
         self::assertCount(0, $clearedCollection);

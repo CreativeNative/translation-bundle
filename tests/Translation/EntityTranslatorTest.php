@@ -19,7 +19,9 @@ use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Seeding\EmptySeeded;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
@@ -36,29 +38,29 @@ final class EntityTranslatorTest extends UnitTestCase
         $entity = new Scalar();
         $entity->setLocale('en_US');
 
-        $args = new TranslationArgs($entity, 'en_US', 'xx'); // "xx" is not in allowed locales
+        $context = new EntityTranslationContext($entity, 'en_US', 'xx'); // "xx" is not in allowed locales
 
         self::expectException(\LogicException::class);
         self::expectExceptionMessage('Locale "xx" is not allowed. Allowed locales:');
 
-        $this->translator()->processTranslation($args);
+        $this->translator()->processTranslation($context);
     }
 
     public function testReturnsFallbackWhenNoHandlerSupports(): void
     {
-        $args = $this->getTranslationArgs(null, 'fallback');
+        $context = $this->propertyContext('fallback');
         $this->translator()->addTranslationHandler($this->handlerNotSupporting());
         $this->translator()->addTranslationHandler($this->handlerNotSupporting());
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
         self::assertSame('fallback', $result);
     }
 
     public function testFirstSupportingHandlerWins(): void
     {
-        $args  = $this->getTranslationArgs(null, 'fallback');
-        $first = $this->createMock(TranslationHandlerInterface::class);
-        $first->expects($this->once())->method('supports')->with($args)->willReturn(true);
-        $first->expects($this->once())->method('translate')->with($args)->willReturn('first');
+        $context = $this->propertyContext('fallback');
+        $first   = $this->createMock(TranslationHandlerInterface::class);
+        $first->expects($this->once())->method('supports')->with($context)->willReturn(true);
+        $first->expects($this->once())->method('translate')->with($context)->willReturn('first');
         $second = $this->createMock(TranslationHandlerInterface::class);
         $second->expects($this->never())->method('supports');
 
@@ -66,7 +68,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $second->expects($this->never())->method('translate');
         $this->translator()->addTranslationHandler($first);
         $this->translator()->addTranslationHandler($second);
-        self::assertSame('first', $this->translator()->processTranslation($args));
+        self::assertSame('first', $this->translator()->processTranslation($context));
     }
 
     /**
@@ -78,17 +80,18 @@ final class EntityTranslatorTest extends UnitTestCase
             public string|null $title = null;
         };
         $prop = new \ReflectionProperty($propClass, 'title');
-        $args = $this->getTranslationArgs($prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
-        $handler = $this->handlerSupporting(
-            $args,
-            'unused',
-            null,
-            ['handleSharedAmongstTranslations' => 'shared-result'],
-        );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->with(
+            self::callback(static fn (TranslationContext $c): bool => $c->isShared() && !$c->isEmpty() && 'unused' === $c->getSubject()),
+        )->willReturn('shared-result');
         $this->translator()->addTranslationHandler($handler);
-        self::assertSame('shared-result', $this->translator()->processTranslation($args));
+
+        $context = $this->propertyContext('unused', $prop);
+        self::assertSame('shared-result', $this->translator()->processTranslation($context));
     }
 
     /**
@@ -100,13 +103,19 @@ final class EntityTranslatorTest extends UnitTestCase
             public string|null $body = null;
         };
         $prop = new \ReflectionProperty($propClass, 'body');
-        $args = $this->getTranslationArgs($prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(true);
-        $handler = $this->handlerSupporting($args, 'unused', null, ['handleEmptyOnTranslate' => 'emptied']);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->with(
+            self::callback(static fn (TranslationContext $c): bool => $c->isEmpty() && !$c->isShared()),
+        )->willReturn('emptied');
         $this->translator()->addTranslationHandler($handler);
-        self::assertSame('emptied', $this->translator()->processTranslation($args));
+
+        $context = $this->propertyContext('unused', $prop);
+        self::assertSame('emptied', $this->translator()->processTranslation($context));
     }
 
     /**
@@ -117,15 +126,15 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string $slug = 'some-slug';
         };
-        $prop = new \ReflectionProperty($propClass, 'slug');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'slug');
+        $context = $this->propertyContext('unused', $prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
-        $handler = $this->handlerSupporting($args, 'unused');
+        $handler = $this->handlerSupporting($context, 'unused');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame('', $result);
     }
@@ -138,15 +147,15 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public int $count = 5;
         };
-        $prop = new \ReflectionProperty($propClass, 'count');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'count');
+        $context = $this->propertyContext('unused', $prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
-        $handler = $this->handlerSupporting($args, 'unused');
+        $handler = $this->handlerSupporting($context, 'unused');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame(0, $result);
     }
@@ -159,15 +168,15 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public bool $active = true;
         };
-        $prop = new \ReflectionProperty($propClass, 'active');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'active');
+        $context = $this->propertyContext('unused', $prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
-        $handler = $this->handlerSupporting($args, 'unused');
+        $handler = $this->handlerSupporting($context, 'unused');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertFalse($result);
     }
@@ -180,30 +189,30 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public int|null $n = null;
         };
-        $prop = new \ReflectionProperty($propClass, 'n');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'n');
+        $context = $this->propertyContext('unused', $prop);
         $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
         $handler = $this->createMock(TranslationHandlerInterface::class);
-        $handler->expects($this->once())->method('supports')->with($args)->willReturn(true);
-        $handler->expects($this->once())->method('translate')->with($args)->willReturn('translated');
+        $handler->expects($this->once())->method('supports')->with($context)->willReturn(true);
+        $handler->expects($this->once())->method('translate')->with($context)->willReturn('translated');
         $this->translator()->addTranslationHandler($handler);
-        self::assertSame('translated', $this->translator()->processTranslation($args));
+        self::assertSame('translated', $this->translator()->processTranslation($context));
     }
 
     public function testAddTranslationHandlerOrderWithExplicitKey(): void
     {
-        $args  = $this->getTranslationArgs();
-        $first = $this->createMock(TranslationHandlerInterface::class);
-        $first->expects($this->once())->method('supports')->with($args)->willReturn(true);
-        $first->expects($this->once())->method('translate')->with($args)->willReturn('first');
+        $context = $this->propertyContext('fallback');
+        $first   = $this->createMock(TranslationHandlerInterface::class);
+        $first->expects($this->once())->method('supports')->with($context)->willReturn(true);
+        $first->expects($this->once())->method('translate')->with($context)->willReturn('first');
         $second = $this->createMock(TranslationHandlerInterface::class);
         $second->expects($this->never())->method('supports');
 
         // Insert with explicit key FIRST; then append another one.
         $this->translator()->addTranslationHandler($first, 0);
         $this->translator()->addTranslationHandler($second);
-        self::assertSame('first', $this->translator()->processTranslation($args));
+        self::assertSame('first', $this->translator()->processTranslation($context));
     }
 
     /**
@@ -242,8 +251,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->cache()->set((string) $tuuid, 'de_DE', $cached);
 
         // If cache exists, processTranslation should return cached item
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         self::assertSame($cached, $result);
     }
@@ -263,8 +272,8 @@ final class EntityTranslatorTest extends UnitTestCase
         // Inject into cache via cache service
         $this->cache()->set((string) $tuuid, 'de_DE', $translated);
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         self::assertSame($translated, $result);
     }
@@ -281,8 +290,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->cache()->markInProgress($tuuid->getValue(), 'de_DE');
 
         // if inProgress is set, processTranslation should return the original entity (cycle detection)
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         self::assertSame($entity, $result);
     }
@@ -294,18 +303,18 @@ final class EntityTranslatorTest extends UnitTestCase
         $entity->setLocale('en_US');
 
         // handler is called after warmup completes (with empty DB results from stubbed EM)
-        $args    = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->expects($this->once())->method('supports')->with(
-            self::isInstanceOf(TranslationArgs::class),
+            self::isInstanceOf(TranslationContext::class),
         )->willReturn(true);
         $handler->expects($this->once())->method('translate')->with(
-            self::isInstanceOf(TranslationArgs::class),
+            self::isInstanceOf(TranslationContext::class),
         )->willReturn($entity);
 
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertInstanceOf(Scalar::class, $result);
     }
@@ -345,14 +354,14 @@ final class EntityTranslatorTest extends UnitTestCase
             new LocaleVariantFinder($emStub),
         );
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
 
         // Verify the exception is re-thrown
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('DB error');
 
         try {
-            $translator->processTranslation($args);
+            $translator->processTranslation($context);
         } finally {
             // In-progress mark was cleaned up despite the exception
             self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
@@ -361,7 +370,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
     public function testHigherPriorityHandlerRunsFirstRegardlessOfRegistrationOrder(): void
     {
-        $args = $this->getTranslationArgs(null, 'fallback');
+        $context = $this->propertyContext('fallback');
 
         $low = $this->createMock(TranslationHandlerInterface::class);
         $low->method('supports')->willReturn(true);
@@ -375,12 +384,12 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->translator()->addTranslationHandler($low, 10);
         $this->translator()->addTranslationHandler($high, 75);
 
-        self::assertSame('high', $this->translator()->processTranslation($args));
+        self::assertSame('high', $this->translator()->processTranslation($context));
     }
 
     public function testHandlersSharingAPriorityKeepRegistrationOrder(): void
     {
-        $args = $this->getTranslationArgs(null, 'fallback');
+        $context = $this->propertyContext('fallback');
 
         $first = $this->createMock(TranslationHandlerInterface::class);
         $first->method('supports')->willReturn(true);
@@ -394,12 +403,12 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->translator()->addTranslationHandler($first, 50);
         $this->translator()->addTranslationHandler($second, 50);
 
-        self::assertSame('first', $this->translator()->processTranslation($args));
+        self::assertSame('first', $this->translator()->processTranslation($context));
     }
 
     public function testUnprioritisedHandlerRunsAfterAPrioritisedOne(): void
     {
-        $args = $this->getTranslationArgs(null, 'fallback');
+        $context = $this->propertyContext('fallback');
 
         $prioritised = $this->createMock(TranslationHandlerInterface::class);
         $prioritised->method('supports')->willReturn(true);
@@ -412,7 +421,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->translator()->addTranslationHandler($plain);
         $this->translator()->addTranslationHandler($prioritised, 5);
 
-        self::assertSame('prioritised', $this->translator()->processTranslation($args));
+        self::assertSame('prioritised', $this->translator()->processTranslation($context));
     }
 
     public function testProcessTranslationCleansUpInProgressWhenHandlerThrows(): void
@@ -430,7 +439,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->translator()->addTranslationHandler($throwing);
 
         try {
-            $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE'));
+            $this->translator()->processTranslation(new EntityTranslationContext($entity, 'en_US', 'de_DE'));
             self::fail('Expected RuntimeException');
         } catch (\RuntimeException $e) {
             self::assertSame('handler exploded', $e->getMessage());
@@ -492,7 +501,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $this->translator()->addTranslationHandler($this->handlerNotSupporting());
 
-        $result = $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $result = $this->translator()->processTranslation(new EntityTranslationContext($entity, 'en_US', 'de_DE'));
 
         self::assertSame($entity, $result);
         self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
@@ -514,7 +523,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         self::assertSame(
             'not-an-entity',
-            $this->translator()->processTranslation(new TranslationArgs($entity, 'en_US', 'de_DE')),
+            $this->translator()->processTranslation(new EntityTranslationContext($entity, 'en_US', 'de_DE')),
         );
         self::assertFalse($this->cache()->isInProgress($tuuid->getValue(), 'de_DE'));
     }
@@ -569,8 +578,8 @@ final class EntityTranslatorTest extends UnitTestCase
         // Mark as inProgress via cache service
         $this->cache()->markInProgress($sharedTuuid->getValue(), 'de_DE');
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         self::assertSame($cachedTranslation, $result);
 
@@ -723,11 +732,11 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
-        $handler->method('handleSharedAmongstTranslations')->willReturn('shared-result');
+        $handler->method('translate')->willReturn('shared-result');
         $this->translator()->addTranslationHandler($handler);
 
-        $args = $this->getTranslationArgs($prop, 'test-data');
-        $this->translator()->processTranslation($args);
+        $context = $this->propertyContext('test-data', $prop);
+        $this->translator()->processTranslation($context);
     }
 
     /**
@@ -756,11 +765,11 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
-        $handler->method('handleEmptyOnTranslate')->willReturn(null);
+        $handler->method('translate')->willReturn(null);
         $this->translator()->addTranslationHandler($handler);
 
-        $args = $this->getTranslationArgs($prop, 'test-data');
-        $this->translator()->processTranslation($args);
+        $context = $this->propertyContext('test-data', $prop);
+        $this->translator()->processTranslation($context);
     }
 
     /**
@@ -773,8 +782,8 @@ final class EntityTranslatorTest extends UnitTestCase
             #[EmptyOnTranslate]
             public string|null $conflicting = null;
         };
-        $prop = new \ReflectionProperty($propClass, 'conflicting');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'conflicting');
+        $context = $this->propertyContext('unused', $prop);
 
         // Configure mock to throw ValidationException when validateProperty is called
         $this->attributeHelper()->expects($this->once())
@@ -794,7 +803,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         self::expectException(ValidationException::class);
 
-        $this->translator()->processTranslation($args);
+        $this->translator()->processTranslation($context);
     }
 
     /**
@@ -805,8 +814,8 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string|null $normalProperty = null;
         };
-        $prop = new \ReflectionProperty($propClass, 'normalProperty');
-        $args = $this->getTranslationArgs($prop);
+        $prop    = new \ReflectionProperty($propClass, 'normalProperty');
+        $context = $this->propertyContext('unused', $prop);
 
         // Verify that logger is passed to validateProperty
         $this->attributeHelper()->expects($this->once())
@@ -821,13 +830,13 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn('result');
         $this->translator()->addTranslationHandler($handler);
 
-        $this->translator()->processTranslation($args);
+        $this->translator()->processTranslation($context);
     }
 
     public function testProcessTranslationSkipsValidationForNonReflectionProperty(): void
     {
         // When property is not a ReflectionProperty, validation should not be called
-        $args = $this->getTranslationArgs(null, 'fallback');
+        $context = $this->propertyContext('fallback');
 
         $this->attributeHelper()->expects($this->never())->method('validateProperty');
 
@@ -836,7 +845,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn('result');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame('result', $result);
     }
@@ -884,8 +893,8 @@ final class EntityTranslatorTest extends UnitTestCase
             $this->logger(),
         );
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $translator->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $translator->processTranslation($context);
 
         // The warmup query returned the translated entity, which was cached.
         // The cache hit path returns that entity immediately.
@@ -903,9 +912,9 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string $title = 'original';
         };
-        $prop = new \ReflectionProperty($propClass, 'title');
-        $args = new TranslationArgs('original', 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'title');
+        $context = $this->propertyContext('original', $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
@@ -916,7 +925,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->never())->method('translate');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame('', $result);
     }
@@ -929,18 +938,20 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string $shared = 'shared-value';
         };
-        $prop = new \ReflectionProperty($propClass, 'shared');
-        $args = new TranslationArgs('shared-value', 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'shared');
+        $context = $this->propertyContext('shared-value', $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(true);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
-        $handler->expects($this->once())->method('handleSharedAmongstTranslations')->willReturn('shared-value');
+        $handler->expects($this->once())->method('translate')->with(
+            self::callback(static fn (TranslationContext $c): bool => $c->isShared()),
+        )->willReturn('shared-value');
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame('shared-value', $result);
     }
@@ -953,9 +964,9 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string $title = 'original';
         };
-        $prop = new \ReflectionProperty($propClass, 'title');
-        $args = new TranslationArgs('original', 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'title');
+        $context = $this->propertyContext('original', $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
@@ -976,7 +987,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('supports')->willReturn(true);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame('', $result);
     }
@@ -994,9 +1005,9 @@ final class EntityTranslatorTest extends UnitTestCase
                 $this->created = new \DateTimeImmutable();
             }
         };
-        $prop = new \ReflectionProperty($propClass, 'created');
-        $args = new TranslationArgs($propClass->created, 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'created');
+        $context = $this->propertyContext($propClass->created, $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
@@ -1007,7 +1018,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->once())->method('translate')->willReturn($propClass->created);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame($propClass->created, $result);
     }
@@ -1025,9 +1036,9 @@ final class EntityTranslatorTest extends UnitTestCase
                 $this->address = new \stdClass();
             }
         };
-        $prop = new \ReflectionProperty($propClass, 'address');
-        $args = new TranslationArgs($propClass->address, 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'address');
+        $context = $this->propertyContext($propClass->address, $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(true);
@@ -1039,7 +1050,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->once())->method('translate')->willReturn($embeddedResult);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame($embeddedResult, $result);
     }
@@ -1057,9 +1068,9 @@ final class EntityTranslatorTest extends UnitTestCase
                 $this->address = new \stdClass();
             }
         };
-        $prop = new \ReflectionProperty($propClass, 'address');
-        $args = new TranslationArgs($propClass->address, 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'address');
+        $context = $this->propertyContext($propClass->address, $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(true);
@@ -1081,7 +1092,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->once())->method('translate')->willReturn($embeddedResult);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame($embeddedResult, $result);
     }
@@ -1094,9 +1105,9 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string|null $body = null;
         };
-        $prop = new \ReflectionProperty($propClass, 'body');
-        $args = new TranslationArgs('some text', 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(true);
+        $prop    = new \ReflectionProperty($propClass, 'body');
+        $context = $this->propertyContext('some text', $prop);
+        $context->setCopySource(true);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
@@ -1104,10 +1115,12 @@ final class EntityTranslatorTest extends UnitTestCase
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
-        $handler->expects($this->once())->method('handleEmptyOnTranslate')->willReturn(null);
+        $handler->expects($this->once())->method('translate')->with(
+            self::callback(static fn (TranslationContext $c): bool => $c->isEmpty()),
+        )->willReturn(null);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertNull($result);
     }
@@ -1128,12 +1141,12 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn($entity);
         $this->translator()->addTranslationHandler($handler);
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         // The entity-level attribute should override the global copySource (false)
-        // and set args.copySource to true
-        self::assertTrue($args->getCopySource());
+        // and set the context's copySource to true
+        self::assertTrue($context->getCopySource());
     }
 
     public function testResolveCopySourceUsesGlobalWhenNoAttribute(): void
@@ -1151,11 +1164,11 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn($entity);
         $this->translator()->addTranslationHandler($handler);
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         // Global copySource is false (from test setup)
-        self::assertFalse($args->getCopySource());
+        self::assertFalse($context->getCopySource());
     }
 
     public function testResolveCopySourceUsesGlobalWhenAttributeHasNullCopySource(): void
@@ -1174,11 +1187,11 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn($entity);
         $this->translator()->addTranslationHandler($handler);
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->translator()->processTranslation($args);
+        $context = new EntityTranslationContext($entity, 'en_US', 'de_DE');
+        $result  = $this->translator()->processTranslation($context);
 
         // Global copySource is false
-        self::assertFalse($args->getCopySource());
+        self::assertFalse($context->getCopySource());
     }
 
     /**
@@ -1225,10 +1238,10 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('translate')->willReturn($proxy);
         $translator->addTranslationHandler($handler);
 
-        $args = new TranslationArgs($proxy, 'en_US', 'de_DE');
-        $translator->processTranslation($args);
+        $context = new EntityTranslationContext($proxy, 'en_US', 'de_DE');
+        $translator->processTranslation($context);
 
-        self::assertFalse($args->getCopySource(), "EmptySeeded's #[Translatable(copySource: false)] must survive the proxy, not fall back to the global copy_source: true");
+        self::assertFalse($context->getCopySource(), "EmptySeeded's #[Translatable(copySource: false)] must survive the proxy, not fall back to the global copy_source: true");
     }
 
     /**
@@ -1244,9 +1257,9 @@ final class EntityTranslatorTest extends UnitTestCase
                 $this->created = new \DateTimeImmutable();
             }
         };
-        $prop = new \ReflectionProperty($propClass, 'created');
-        $args = new TranslationArgs($propClass->created, 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'created');
+        $context = $this->propertyContext($propClass->created, $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
@@ -1268,7 +1281,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->once())->method('translate')->willReturn($propClass->created);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertSame($propClass->created, $result);
     }
@@ -1281,9 +1294,9 @@ final class EntityTranslatorTest extends UnitTestCase
         $propClass = new class {
             public string|null $title = 'original';
         };
-        $prop = new \ReflectionProperty($propClass, 'title');
-        $args = new TranslationArgs('original', 'en_US', 'de_DE');
-        $args->setProperty($prop)->setCopySource(false);
+        $prop    = new \ReflectionProperty($propClass, 'title');
+        $context = $this->propertyContext('original', $prop);
+        $context->setCopySource(false);
 
         $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
@@ -1293,7 +1306,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->method('supports')->willReturn(true);
         $this->translator()->addTranslationHandler($handler);
 
-        $result = $this->translator()->processTranslation($args);
+        $result = $this->translator()->processTranslation($context);
 
         self::assertNull($result);
     }
@@ -1395,37 +1408,21 @@ final class EntityTranslatorTest extends UnitTestCase
         return [$translator, $em];
     }
 
-    /**
-     * @param array<string, mixed> $methodToReturnMap Method names as keys, return values as values
-     */
     private function handlerSupporting(
-        TranslationArgs $expectedArgs,
+        PropertyTranslationContext $expectedContext,
         mixed $return,
         callable|null $assert = null,
-        array $methodToReturnMap = [],
     ): TranslationHandlerInterface {
         $handler = $this->createMock(TranslationHandlerInterface::class);
 
-        $handler->method('supports')->with(
-            self::callback(static fn (TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
-                && $args->getSourceLocale()                                                    === $expectedArgs->getSourceLocale()
-                && $args->getTargetLocale()                                                    === $expectedArgs->getTargetLocale()
-                && $args->getProperty()                                                        === $expectedArgs->getProperty()
-                && $args->getTranslatedParent()                                                === $expectedArgs->getTranslatedParent()),
-        )->willReturn(true);
+        $matches = static fn (TranslationContext $context): bool => $context->getSubject() === $expectedContext->getSubject()
+            && $context->getSourceLocale()                                                 === $expectedContext->getSourceLocale()
+            && $context->getTargetLocale()                                                 === $expectedContext->getTargetLocale()
+            && $context->getProperty()                                                     === $expectedContext->getProperty()
+            && $context->getTranslatedParent()                                             === $expectedContext->getTranslatedParent();
 
-        // Default translate() behavior
-        $handler->method('translate')->willReturn($return);
-        foreach ($methodToReturnMap as $method => $value) {
-            self::assertNotEmpty($method);
-            $handler->expects($this->once())->method($method)->with(
-                self::callback(static fn (TranslationArgs $args) => $args->getDataToBeTranslated() === $expectedArgs->getDataToBeTranslated()
-                    && $args->getSourceLocale()                                                    === $expectedArgs->getSourceLocale()
-                    && $args->getTargetLocale()                                                    === $expectedArgs->getTargetLocale()
-                    && $args->getProperty()                                                        === $expectedArgs->getProperty()
-                    && $args->getTranslatedParent()                                                === $expectedArgs->getTranslatedParent()),
-            )->willReturn($value);
-        }
+        $handler->method('supports')->with(self::callback($matches))->willReturn(true);
+        $handler->method('translate')->with(self::callback($matches))->willReturn($return);
 
         if (null !== $assert) {
             ($assert)($handler);
@@ -1439,8 +1436,6 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(false);
         $handler->expects($this->never())->method('translate');
-        $handler->expects($this->never())->method('handleSharedAmongstTranslations');
-        $handler->expects($this->never())->method('handleEmptyOnTranslate');
 
         return $handler;
     }

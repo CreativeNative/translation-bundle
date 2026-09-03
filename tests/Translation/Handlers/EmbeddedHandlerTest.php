@@ -16,7 +16,6 @@ use Tmi\TranslationBundle\Fixtures\Entity\Embedded\ConflictClassEmbeddable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmptyClassEmbeddable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\SharedClassEmbeddable;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
@@ -65,24 +64,23 @@ final class EmbeddedHandlerTest extends UnitTestCase
             public string|null $embedded = null;
         };
 
-        $prop = new \ReflectionProperty($obj::class, 'embedded');
-        $args = new TranslationArgs(null, 'en_US', 'de_DE')
-            ->setProperty($prop)
-            ->setTranslatedParent($obj);
+        $prop    = new \ReflectionProperty($obj::class, 'embedded');
+        $context = $this->propertyContext(null, $prop);
+        $context->setTranslatedParent($obj);
 
-        self::assertTrue($this->embeddedHandler->supports($args));
+        self::assertTrue($this->embeddedHandler->supports($context));
     }
 
-    public function testHandleSharedAmongstTranslationsReturnsCloneWithMatchingValues(): void
+    public function testTranslateReturnsCloneWithMatchingValuesWhenShared(): void
     {
         $data = new class {
             public string $foo = 'bar';
         };
 
-        $args   = new TranslationArgs($data, 'en_US', 'de_DE');
-        $result = $this->embeddedHandler->handleSharedAmongstTranslations($args);
+        $context = $this->propertyContext($data)->setShared(true);
+        $result  = $this->embeddedHandler->translate($context);
 
-        self::assertNotSame($data, $result, 'handleSharedAmongstTranslations must clone, not return the source instance');
+        self::assertNotSame($data, $result, 'a shared resolution must clone, not return the source instance');
         self::assertEquals($data, $result, 'the clone must keep the same property values as the source');
     }
 
@@ -101,8 +99,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCity('Test City');
         $address->setCountry('Test Country');
 
-        $args   = new TranslationArgs($address, 'en_US', 'de_DE');
-        $result = $handler->translate($args);
+        $context = $this->propertyContext($address);
+        $result  = $handler->translate($context);
 
         // Result is a clone, not same instance
         self::assertNotSame($address, $result);
@@ -131,8 +129,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable->setSharedByDefault('shared value');
         $embeddable->setOverriddenToEmpty('override value');
 
-        $args   = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $result = $handler->translate($args);
+        $context = $this->propertyContext($embeddable);
+        $result  = $handler->translate($context);
 
         self::assertNotSame($embeddable, $result);
         self::assertInstanceOf(SharedClassEmbeddable::class, $result);
@@ -153,8 +151,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable->setEmptyByDefault('empty value');
         $embeddable->setOverriddenToShared('shared value');
 
-        $args   = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $result = $handler->translate($args);
+        $context = $this->propertyContext($embeddable);
+        $result  = $handler->translate($context);
 
         self::assertNotSame($embeddable, $result);
         self::assertInstanceOf(EmptyClassEmbeddable::class, $result);
@@ -174,10 +172,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable = new ConflictClassEmbeddable();
         $embeddable->setConflicted('value');
 
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+        $context = $this->propertyContext($embeddable);
 
         try {
-            $handler->translate($args);
+            $handler->translate($context);
             self::fail('Expected ValidationException was not thrown');
         } catch (\Throwable $e) {
             self::assertInstanceOf(ValidationException::class, $e);
@@ -206,8 +204,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCity('City');
         $address->setCountry('Country');
 
-        $args   = new TranslationArgs($address, 'en_US', 'de_DE');
-        $result = $handler->translate($args);
+        $context = $this->propertyContext($address);
+        $result  = $handler->translate($context);
 
         // Result is a clone
         self::assertNotSame($address, $result);
@@ -221,23 +219,16 @@ final class EmbeddedHandlerTest extends UnitTestCase
     }
 
     // ---------------------------------------------------------------
-    // Logging tests
-    // ---------------------------------------------------------------
-
-    // ---------------------------------------------------------------
-    // handleEmptyOnTranslate per-property loop tests
+    // isEmpty() per-property loop tests
     // ---------------------------------------------------------------
 
     /**
-     * Covers lines 79-94: the per-property loop in handleEmptyOnTranslate().
-     *
-     * When the parent property does NOT have #[EmptyOnTranslate], the early return
-     * at line 76 is skipped and the handler iterates each inner property:
-     * - shared properties are retained (continue at line 85)
-     * - empty properties are cleared (lines 88-90)
-     * - the result is the clone if any property was changed (line 94)
+     * Covers the per-property loop when the parent property does NOT itself carry
+     * #[EmptyOnTranslate]: the early return is skipped and the handler iterates each
+     * inner property -- shared properties are retained, empty properties are cleared,
+     * and the result is the clone if any property was changed.
      */
-    public function testHandleEmptyOnTranslatePerPropertyResolution(): void
+    public function testTranslateEmptyPerPropertyResolution(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -255,22 +246,21 @@ final class EmbeddedHandlerTest extends UnitTestCase
         };
         $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
 
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
-        $args->setProperty($dummyRef);
+        $context = $this->propertyContext($address, $dummyRef)->setEmpty(true);
 
-        $result = $handler->handleEmptyOnTranslate($args);
+        $result = $handler->translate($context);
 
         // Result should be a clone (not the original) because $street and $noSetter have #[EmptyOnTranslate]
         self::assertNotSame($address, $result);
         self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
 
-        // $country (#[SharedAmongstTranslations]) -> retained (continue at line 85)
+        // $country (#[SharedAmongstTranslations]) -> retained
         self::assertSame('Test Country', $result->getCountry());
 
-        // $street (#[EmptyOnTranslate]) -> cleared via setter (line 89)
+        // $street (#[EmptyOnTranslate]) -> cleared via setter
         self::assertNull($result->getStreet());
 
-        // $noSetter (#[EmptyOnTranslate]) -> cleared via reflection fallback (line 89)
+        // $noSetter (#[EmptyOnTranslate]) -> cleared via reflection fallback
         self::assertNull($result->getNoSetter());
 
         // $postalCode and $city (no attribute) -> unchanged in clone (not cleared, not shared)
@@ -279,10 +269,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
     }
 
     /**
-     * Covers line 94 return path: when no inner property has #[EmptyOnTranslate],
-     * $changed remains false and the original embeddable is returned (not the clone).
+     * When no inner property has #[EmptyOnTranslate], $changed remains false and the
+     * original embeddable is returned (not the clone).
      */
-    public function testHandleEmptyOnTranslateReturnsOriginalWhenNoPropertyChanged(): void
+    public function testTranslateEmptyReturnsOriginalWhenNoPropertyChanged(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -300,29 +290,27 @@ final class EmbeddedHandlerTest extends UnitTestCase
         };
         $dummyRef = new \ReflectionProperty($dummy::class, 'prop');
 
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
-        $args->setProperty($dummyRef);
+        $context = $this->propertyContext($address, $dummyRef)->setEmpty(true);
 
-        $result = $handler->handleEmptyOnTranslate($args);
+        $result = $handler->translate($context);
 
         // No properties were changed -> returns original (not clone)
         self::assertSame($address, $result);
     }
 
     // ---------------------------------------------------------------
-    // handleSharedAmongstTranslations: always a clone, values preserved
+    // isShared(): always a clone, values preserved
     // ---------------------------------------------------------------
 
     /**
      * SharedClassEmbeddable has #[SharedAmongstTranslations] at the class level.
      *
-     * translate() and handleSharedAmongstTranslations() must agree on identity
-     * semantics: both always return a clone, never the source instance. Only
-     * translate()'s per-property cascade differs; handleSharedAmongstTranslations()
-     * leaves every property value untouched so persisted data stays identical
-     * across locale siblings.
+     * The shared and normal-cascade resolutions must agree on identity semantics:
+     * both always return a clone, never the source instance. Only the normal
+     * cascade differs; the shared resolution leaves every property value untouched
+     * so persisted data stays identical across locale siblings.
      */
-    public function testHandleSharedAmongstTranslationsReturnsCloneWhenClassLevelShared(): void
+    public function testTranslateReturnsCloneWhenClassLevelSharedAndShared(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -331,18 +319,18 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable->setSharedByDefault('Test Value');
 
         // No parent property set.
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
+        $context = $this->propertyContext($embeddable)->setShared(true);
 
-        $result = $handler->handleSharedAmongstTranslations($args);
+        $result = $handler->translate($context);
 
-        // Always a clone -- never the source instance (matches translate()'s contract).
+        // Always a clone -- never the source instance (matches the normal cascade's contract).
         self::assertNotSame($embeddable, $result);
         self::assertInstanceOf(SharedClassEmbeddable::class, $result);
         // The shared property's value is preserved in the clone.
         self::assertSame('Test Value', $result->getSharedByDefault());
     }
 
-    public function testHandleSharedAmongstTranslationsReturnsCloneWhenInnerPropertyIsShared(): void
+    public function testTranslateReturnsCloneWhenInnerPropertyIsSharedAndShared(): void
     {
         $realHelper = new AttributeHelper();
         $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
@@ -352,15 +340,15 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCountry('Test Country');
 
         // No parent property set.
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
+        $context = $this->propertyContext($address)->setShared(true);
 
-        $result = $handler->handleSharedAmongstTranslations($args);
+        $result = $handler->translate($context);
 
-        // Always a clone -- never the source instance (matches translate()'s contract).
+        // Always a clone -- never the source instance (matches the normal cascade's contract).
         self::assertNotSame($address, $result);
         self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
         // Both the shared and non-shared property values are preserved in the clone
-        // (unlike translate(), handleSharedAmongstTranslations() does not reset anything).
+        // (unlike the normal cascade, the shared resolution does not reset anything).
         self::assertSame('Test Country', $result->getCountry());
         self::assertSame('Test Street', $result->getStreet());
     }
@@ -390,8 +378,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 self::anything(),
             );
 
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $handler->translate($args);
+        $context = $this->propertyContext($embeddable);
+        $handler->translate($context);
     }
 
     public function testTranslateLogsPropertyOverrideAtDebugLevel(): void
@@ -415,8 +403,8 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 $logMessages[] = $message;
             });
 
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $handler->translate($args);
+        $context = $this->propertyContext($embeddable);
+        $handler->translate($context);
 
         // Check that at least one log message contains "property override"
         $hasOverrideLog = false;
@@ -446,10 +434,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCity('City');
         $address->setCountry('Country');
 
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($address);
+        $context->setCopySource(false);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertNotSame($address, $result);
         self::assertInstanceOf(Address::class, $result);
@@ -472,10 +460,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $address->setCity('Test City');
         $address->setCountry('Test Country');
 
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($address);
+        $context->setCopySource(false);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertNotSame($address, $result);
         self::assertInstanceOf(AddressWithEmptyAndSharedProperty::class, $result);
@@ -511,10 +499,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 $logMessages[] = $message;
             });
 
-        $args = new TranslationArgs($address, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($address);
+        $context->setCopySource(false);
 
-        $handler->translate($args);
+        $handler->translate($context);
 
         // Check that at least one log message contains "EmptyOnTranslate has no effect"
         $hasRedundancyLog = false;
@@ -531,9 +519,6 @@ final class EmbeddedHandlerTest extends UnitTestCase
 
     public function testClearPropertyUsesTypeDefaultForNonNullable(): void
     {
-        $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
-
         // Use an embeddable with a non-nullable string property that has EmptyOnTranslate
         $embeddable = new class {
             public string $nonNullable = 'original';
@@ -543,16 +528,6 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 return $this->nonNullable;
             }
         };
-
-        // Create args with copySource=true (so clearProperty is called via 'empty' resolution)
-        // We need to use the mocked handler for this since we need to control attributes
-        $mockHelper = $this->attributeHelper();
-        $mockHelper->method('classHasSharedAmongstTranslations')->willReturn(false);
-        $mockHelper->method('classHasEmptyOnTranslate')->willReturn(true);
-        $mockHelper->method('isSharedAmongstTranslations')->willReturn(false);
-        $mockHelper->method('isEmptyOnTranslate')->willReturn(false);
-
-        $mockHandler = new EmbeddedHandler($mockHelper, new TypeDefaultResolver());
 
         // Simulate: class-level EmptyOnTranslate -> resolvePropertyAttribute returns 'empty'
         // Since classEmpty=true and no property-level attribute, resolved = 'empty'
@@ -565,10 +540,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $mockHelper2->method('validateEmbeddableClass');
 
         $handlerForTest = new EmbeddedHandler($mockHelper2, new TypeDefaultResolver());
-        $args           = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $args->setCopySource(true);
+        $context        = $this->propertyContext($embeddable);
+        $context->setCopySource(true);
 
-        $result = $handlerForTest->translate($args);
+        $result = $handlerForTest->translate($context);
 
         // Non-nullable string property should get '' (type default) instead of null
         self::assertIsObject($result);
@@ -607,10 +582,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
                 $logMessages[] = $message;
             });
 
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($embeddable);
+        $context->setCopySource(false);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // Non-nullable object should keep cloned value as safety fallback
         self::assertIsObject($result);
@@ -639,10 +614,10 @@ final class EmbeddedHandlerTest extends UnitTestCase
         $embeddable->setSharedByDefault('shared value');
         $embeddable->setOverriddenToEmpty('override value');
 
-        $args = new TranslationArgs($embeddable, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($embeddable);
+        $context->setCopySource(false);
 
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         self::assertNotSame($embeddable, $result);
         self::assertInstanceOf(SharedClassEmbeddable::class, $result);

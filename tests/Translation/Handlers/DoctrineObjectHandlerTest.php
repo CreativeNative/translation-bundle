@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Translation\Handlers\DoctrineObjectHandler;
 
@@ -35,9 +35,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
     public function testSupportsReturnsFalseWhenDataIsNotObject(): void
     {
-        $args = new TranslationArgs('a string', 'en_US', 'de_DE');
+        $context = $this->propertyContext('a string');
 
-        self::assertFalse($this->handler->supports($args));
+        self::assertFalse($this->handler->supports($context));
     }
 
     public function testSupportsThrowsRuntimeExceptionWhenMetadataFactoryFails(): void
@@ -50,8 +50,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('DoctrineObjectHandler::supports: failed to determine metadata');
 
-        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
-        $this->handler->supports($args);
+        $context = $this->propertyContext(new \stdClass());
+        $this->handler->supports($context);
     }
 
     /**
@@ -62,8 +62,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('DoctrineObjectHandler::translate expects an object');
 
-        $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
-        $this->handler->translate($args);
+        $context = $this->propertyContext('not-an-object');
+        $this->handler->translate($context);
     }
 
     /**
@@ -72,10 +72,25 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     public function testTranslatePropertiesThrowsWhenDataIsNotObject(): void
     {
         self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage('translateProperties expects object in TranslationArgs');
+        self::expectExceptionMessage('translateProperties expects an object as the context subject');
 
-        $args = new TranslationArgs('not-an-object', 'en_US', 'de_DE');
-        $this->handler->translateProperties($args);
+        $context = $this->propertyContext('not-an-object');
+        $this->handler->translateProperties($context);
+    }
+
+    public function testTranslateReturnsIdentityWhenShared(): void
+    {
+        $obj     = new \stdClass();
+        $context = $this->propertyContext($obj)->setShared(true);
+
+        self::assertSame($obj, $this->handler->translate($context));
+    }
+
+    public function testTranslateReturnsNullWhenEmpty(): void
+    {
+        $context = $this->propertyContext(new \stdClass())->setEmpty(true);
+
+        self::assertThat($this->handler->translate($context), self::isNull());
     }
 
     /**
@@ -107,10 +122,10 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
+        $context = $this->propertyContext($entity);
 
         // Execute translate() which internally calls translateProperties()
-        $result = $handler->translate($args);
+        $result = $handler->translate($context);
 
         // the clone should have been returned with original value preserved
         self::assertNotSame($entity, $result);
@@ -138,8 +153,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->handler->translate($args);
+        $context = $this->propertyContext($entity);
+        $result  = $this->handler->translate($context);
 
         self::assertNotSame($entity, $result);
         self::assertInstanceOf($entity::class, $result);
@@ -172,7 +187,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $result = $this->handler->translate($this->propertyContext($entity));
 
         self::assertInstanceOf($entity::class, $result);
         self::assertNotSame($entity->items, $result->items);
@@ -205,19 +220,10 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $result = $this->handler->translate($this->propertyContext($entity));
 
         self::assertInstanceOf($entity::class, $result);
         self::assertSame($entity->items, $result->items);
-    }
-
-    public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
-    {
-        $obj  = new \stdClass();
-        $args = new TranslationArgs($obj, 'en_US', 'de_DE');
-        self::assertSame($obj, $this->handler->handleSharedAmongstTranslations($args));
-        $emptyResult = $this->handler->handleEmptyOnTranslate($args);
-        self::assertThat($emptyResult, self::isNull());
     }
 
     public function testSupportsReturnsFalseWhenMetadataFactoryMarksTransient(): void
@@ -227,9 +233,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
+        $context = $this->propertyContext(new \stdClass());
 
-        self::assertFalse($this->handler->supports($args));
+        self::assertFalse($this->handler->supports($context));
     }
 
     public function testSupportsReturnsTrueWhenManaged(): void
@@ -239,9 +245,9 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
 
         $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
 
-        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
+        $context = $this->propertyContext(new \stdClass());
 
-        self::assertTrue($this->handler->supports($args));
+        self::assertTrue($this->handler->supports($context));
     }
 
     /**
@@ -249,32 +255,32 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
      */
     public function testTranslatePropertiesPropagatesCopySourceTrue(): void
     {
-        // Use a mock translator to capture sub-args
+        // Use a mock translator to capture sub-contexts
         $mockTranslator  = $this->createMock(EntityTranslatorInterface::class);
         $handlerWithMock = new DoctrineObjectHandler(
             $this->entityManager(),
             $mockTranslator,
         );
 
-        $capturedArgs = [];
+        $capturedContexts = [];
         $mockTranslator->method('processTranslation')
-            ->willReturnCallback(function (TranslationArgs $subArgs) use (&$capturedArgs): mixed {
-                $capturedArgs[] = $subArgs;
+            ->willReturnCallback(function (TranslationContext $subContext) use (&$capturedContexts): mixed {
+                $capturedContexts[] = $subContext;
 
-                return $subArgs->getDataToBeTranslated();
+                return $subContext->getSubject();
             });
 
         $entity = new class {
             public string $title = 'original';
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $args->setCopySource(true);
+        $context = $this->propertyContext($entity);
+        $context->setCopySource(true);
 
-        $handlerWithMock->translateProperties($args);
+        $handlerWithMock->translateProperties($context);
 
-        self::assertNotEmpty($capturedArgs);
-        self::assertTrue($capturedArgs[0]->getCopySource());
+        self::assertNotEmpty($capturedContexts);
+        self::assertTrue($capturedContexts[0]->getCopySource());
     }
 
     /**
@@ -282,32 +288,32 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
      */
     public function testTranslatePropertiesPropagatesCopySourceFalse(): void
     {
-        // Use a mock translator to capture sub-args
+        // Use a mock translator to capture sub-contexts
         $mockTranslator  = $this->createMock(EntityTranslatorInterface::class);
         $handlerWithMock = new DoctrineObjectHandler(
             $this->entityManager(),
             $mockTranslator,
         );
 
-        $capturedArgs = [];
+        $capturedContexts = [];
         $mockTranslator->method('processTranslation')
-            ->willReturnCallback(function (TranslationArgs $subArgs) use (&$capturedArgs): mixed {
-                $capturedArgs[] = $subArgs;
+            ->willReturnCallback(function (TranslationContext $subContext) use (&$capturedContexts): mixed {
+                $capturedContexts[] = $subContext;
 
-                return $subArgs->getDataToBeTranslated();
+                return $subContext->getSubject();
             });
 
         $entity = new class {
             public string $title = 'original';
         };
 
-        $args = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $args->setCopySource(false);
+        $context = $this->propertyContext($entity);
+        $context->setCopySource(false);
 
-        $handlerWithMock->translateProperties($args);
+        $handlerWithMock->translateProperties($context);
 
-        self::assertNotEmpty($capturedArgs);
-        self::assertFalse($capturedArgs[0]->getCopySource());
+        self::assertNotEmpty($capturedContexts);
+        self::assertFalse($capturedContexts[0]->getCopySource());
     }
 
     /**
@@ -332,7 +338,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $result = $this->handler->translate($this->propertyContext($entity));
 
         self::assertNotSame($entity, $result);
         self::assertInstanceOf($entity::class, $result);
@@ -349,8 +355,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
     {
         $mockTranslator = $this->createMock(EntityTranslatorInterface::class);
         $mockTranslator->method('processTranslation')->willReturnCallback(
-            static function (TranslationArgs $subArgs): mixed {
-                $value = $subArgs->getDataToBeTranslated();
+            static function (TranslationContext $subContext): mixed {
+                $value = $subContext->getSubject();
 
                 return is_object($value) ? clone $value : $value;
             },
@@ -367,7 +373,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $handler->translateProperties(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $handler->translateProperties($this->propertyContext($entity));
 
         self::assertEquals(new \DateTimeImmutable('2026-01-01 00:00:00'), $entity->createdAt);
     }
@@ -394,7 +400,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         self::expectException(\LogicException::class);
         self::expectExceptionMessage('is readonly and cannot be reassigned while translating');
 
-        $handler->translateProperties(new TranslationArgs($entity, 'en_US', 'de_DE'));
+        $handler->translateProperties($this->propertyContext($entity));
     }
 
     /**
@@ -420,8 +426,8 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        $args   = new TranslationArgs($entity, 'en_US', 'de_DE');
-        $result = $this->handler->translate($args);
+        $context = $this->propertyContext($entity);
+        $result  = $this->handler->translate($context);
 
         // translate() must return a clone, not the same instance
         self::assertNotSame($entity, $result);

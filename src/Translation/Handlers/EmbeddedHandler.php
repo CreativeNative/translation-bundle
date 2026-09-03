@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Psr\Log\LoggerInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -38,77 +38,68 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         $this->logger = $logger;
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
-        return null !== $args->getProperty() && $this->attributeHelper->isEmbedded($args->getProperty());
-    }
-
-    /**
-     * Handle #[SharedAmongstTranslations] for embeddable.
-     *
-     * Always returns a clone, never the original instance — sharing one embeddable
-     * object across locale variants is its own Doctrine footgun: a mutation made
-     * through one locale variant would bleed into every sibling still holding that
-     * same instance, before anything is even flushed. The clone's property values
-     * are left untouched (unlike {@see translate()}, which resets non-shared inner
-     * properties), so the persisted data stays identical across siblings — only the
-     * in-memory object identity differs, matching {@see translate()}'s contract.
-     */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): mixed
-    {
-        $embeddable = $args->getDataToBeTranslated();
-        assert(\is_object($embeddable));
-
-        return clone $embeddable;
-    }
-
-    /**
-     * Handle #[EmptyOnTranslate] for embeddable.
-     *
-     * @throws \ReflectionException
-     */
-    public function handleEmptyOnTranslate(TranslationArgs $args): mixed
-    {
-        $embeddable = $args->getDataToBeTranslated();
-        assert(\is_object($embeddable));
-
-        $parentProperty = $args->getProperty();
-        if (null !== $parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
-            return null;
-        }
-
-        $clone      = clone $embeddable;
-        $reflection = new \ReflectionClass($clone);
-        $changed    = false;
-
-        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
-            if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
-                continue;
-            }
-
-            if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
-                $this->clearProperty($clone, $prop);
-                $changed = true;
-            }
-        }
-
-        return $changed ? $clone : $embeddable;
+        return null !== $context->getProperty() && $this->attributeHelper->isEmbedded($context->getProperty());
     }
 
     /**
      * Unified per-property resolution for embedded objects.
      *
-     * Clones the embedded object and resolves each property through the three-level cascade:
+     * $context->isShared() always returns a clone, never the original instance --
+     * sharing one embeddable object across locale variants is its own Doctrine
+     * footgun: a mutation made through one locale variant would bleed into every
+     * sibling still holding that same instance, before anything is even flushed. The
+     * clone's property values are left untouched (unlike the normal cascade below,
+     * which resets non-shared inner properties), so the persisted data stays
+     * identical across siblings -- only the in-memory object identity differs.
+     *
+     * $context->isEmpty() clears every inner property carrying its own
+     * #[EmptyOnTranslate], unless the outer property itself already resolved to
+     * "empty" -- in which case EntityTranslator's caller drops the whole value and
+     * this per-inner-property cascade never has anything left to contribute.
+     *
+     * Otherwise, clones the embedded object and resolves each property through the
+     * three-level cascade:
      * 1. Property-level attribute (most specific)
      * 2. Class-level attribute (default for all properties)
      * 3. No attribute: reset to class default value
      *
      * @throws \ReflectionException
      */
-    public function translate(TranslationArgs $args): mixed
+    public function translate(TranslationContext $context): mixed
     {
-        $embeddable = $args->getDataToBeTranslated();
+        $embeddable = $context->getSubject();
         assert(\is_object($embeddable));
+
+        if ($context->isShared()) {
+            return clone $embeddable;
+        }
+
+        if ($context->isEmpty()) {
+            $parentProperty = $context->getProperty();
+            if (null !== $parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
+                return null;
+            }
+
+            $clone      = clone $embeddable;
+            $reflection = new \ReflectionClass($clone);
+            $changed    = false;
+
+            foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
+                if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
+                    continue;
+                }
+
+                if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
+                    $this->clearProperty($clone, $prop);
+                    $changed = true;
+                }
+            }
+
+            return $changed ? $clone : $embeddable;
+        }
+
         $reflection = new \ReflectionClass($embeddable);
 
         // Validate the embeddable class (cached after first call)
@@ -143,7 +134,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
             }
 
             // copy_source: false -- all non-shared properties get type-safe defaults
-            if (false === $args->getCopySource()) {
+            if (false === $context->getCopySource()) {
                 if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
                     $this->logDebug('EmptyOnTranslate has no effect on embedded property when copy_source is false', [
                         'property' => $prop->getName(),

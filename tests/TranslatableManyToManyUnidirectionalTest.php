@@ -10,7 +10,7 @@ use Doctrine\ORM\OptimisticLockException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalParent;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\UnidirectionalManyToManyHandler;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
@@ -38,11 +38,11 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         $prop   = new \ReflectionProperty($parent::class, 'simpleChildren');
 
         // The data of a ManyToMany property is the collection, not the owning entity
-        $args = new TranslationArgs($parent->getSimpleChildren(), 'en_US', 'de_DE')
+        $context = new PropertyTranslationContext($parent->getSimpleChildren(), 'en_US', 'de_DE')
             ->setProperty($prop)
             ->setTranslatedParent($parent);
 
-        self::assertTrue($this->handler->supports($args));
+        self::assertTrue($this->handler->supports($context));
     }
 
     /**
@@ -95,13 +95,13 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         // IMPORTANT: the handler works on the translated parent – pass $parentTranslation here
         $property = new \ReflectionProperty($parentTranslation::class, 'simpleChildren');
 
-        // Build args: translate from 'en' -> 'de_DE', provide translated parent (the translated instance)
-        $args = new TranslationArgs($children, 'en_US', 'de_DE')
+        // Build the context: translate from 'en' -> 'de_DE', provide translated parent (the translated instance)
+        $context = new PropertyTranslationContext($children, 'en_US', 'de_DE')
             ->setProperty($property)
             ->setTranslatedParent($parentTranslation);
 
         // Call the handler and assert results
-        $result = $this->handler->translate($args);
+        $result = $this->handler->translate($context);
 
         self::assertCount(2, $result, 'Translated collection should contain 2 items');
 
@@ -120,10 +120,11 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
         $parent   = new TranslatableManyToManyUnidirectionalParent();
         $children = $parent->getEmptyChildren();
 
-        $args = new TranslationArgs($children, 'en_US', 'de_DE');
-        $args->setTranslatedParent($parent);
+        $context = new PropertyTranslationContext($children, 'en_US', 'de_DE');
+        $context->setTranslatedParent($parent);
+        $context->setEmpty(true);
 
-        $result = $this->handler->handleEmptyOnTranslate($args);
+        $result = $this->handler->translate($context);
 
         self::assertCount(0, $result);
     }

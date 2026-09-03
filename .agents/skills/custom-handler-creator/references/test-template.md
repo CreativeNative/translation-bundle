@@ -16,7 +16,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass([HANDLER_NAME]Handler::class)]
@@ -38,7 +40,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $value = /* TODO: Create instance of your field type */;
         $property = new \ReflectionProperty(TestEntity::class, '[fieldName]');
 
-        $args = $this->createTranslationArgs($value, $property);
+        $context = $this->propertyContext($value, $property);
 
         // TODO: Configure mock expectations
         // $this->attributeHelper
@@ -47,7 +49,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         //     ->willReturn(true);
 
         // Act
-        $result = $this->handler->supports($args);
+        $result = $this->handler->supports($context);
 
         // Assert
         $this->assertTrue($result);
@@ -60,10 +62,10 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $value = 'regular string value';
         $property = new \ReflectionProperty(TestEntity::class, 'name');
 
-        $args = $this->createTranslationArgs($value, $property);
+        $context = $this->propertyContext($value, $property);
 
         // Act
-        $result = $this->handler->supports($args);
+        $result = $this->handler->supports($context);
 
         // Assert
         $this->assertFalse($result);
@@ -76,10 +78,10 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $originalValue = /* TODO: Create original value */;
         $property = new \ReflectionProperty(TestEntity::class, '[fieldName]');
 
-        $args = $this->createTranslationArgs($originalValue, $property);
+        $context = $this->propertyContext($originalValue, $property);
 
         // Act
-        $result = $this->handler->translate($args);
+        $result = $this->handler->translate($context);
 
         // Assert
         // TODO: Add assertions for your translation behavior
@@ -95,10 +97,12 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $originalValue = /* TODO: Create original value */;
         $property = new \ReflectionProperty(TestEntity::class, '[fieldName]');
 
-        $args = $this->createTranslationArgs($originalValue, $property);
+        // isShared() is a fact EntityTranslator resolves and stamps onto the context
+        // before calling translate() -- set it directly to exercise that branch in isolation.
+        $context = $this->propertyContext($originalValue, $property)->setShared(true);
 
         // Act
-        $result = $this->handler->handleSharedAmongstTranslations($args);
+        $result = $this->handler->translate($context);
 
         // Assert
         // For shared behavior (same instance):
@@ -106,7 +110,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
 
         // OR for handlers that throw on shared:
         // $this->expectException(\RuntimeException::class);
-        // $this->handler->handleSharedAmongstTranslations($args);
+        // $this->handler->translate($context);
     }
 
     #[Test]
@@ -116,32 +120,60 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $originalValue = /* TODO: Create original value */;
         $property = new \ReflectionProperty(TestEntity::class, '[fieldName]');
 
-        $args = $this->createTranslationArgs($originalValue, $property);
+        $context = $this->propertyContext($originalValue, $property)->setEmpty(true);
 
         // Act
-        $result = $this->handler->handleEmptyOnTranslate($args);
+        $result = $this->handler->translate($context);
 
         // Assert
         $this->assertNull($result);
 
-        // OR for handlers that return empty instance:
+        // OR for handlers that return an empty instance:
         // $this->assertInstanceOf(YourType::class, $result);
         // $this->assertTrue($result->isEmpty());
     }
 
-    private function createTranslationArgs(
-        mixed $data,
-        ?\ReflectionProperty $property = null,
+    /**
+     * A PropertyTranslationContext for a non-entity value (scalar, embeddable, Collection) --
+     * the shape DoctrineObjectHandler::translateProperties() builds for a property. Mirrors
+     * Tmi\TranslationBundle\Test\Translation\UnitTestCase::propertyContext() from the bundle's
+     * own test suite (dev-only, not part of the published package -- copied here rather than
+     * imported). A handler test living inside the bundle's own repository can extend
+     * UnitTestCase directly and use its propertyContext()/entityContext() helpers instead of
+     * duplicating them.
+     */
+    private function propertyContext(
+        mixed $value,
+        \ReflectionProperty|null $property = null,
         string $sourceLocale = 'en',
         string $targetLocale = 'fr',
-    ): TranslationArgs {
-        return new TranslationArgs(
-            dataToBeTranslated: $data,
-            sourceLocale: $sourceLocale,
-            targetLocale: $targetLocale,
-            translatedParent: null,
-            property: $property,
-        );
+    ): PropertyTranslationContext {
+        $context = new PropertyTranslationContext($value, $sourceLocale, $targetLocale);
+        if (null !== $property) {
+            $context->setProperty($property);
+        }
+
+        return $context;
+    }
+
+    /**
+     * An EntityTranslationContext for a TranslatableInterface entity -- the shape
+     * EntityTranslator::translate() and the association handlers build. Only needed when your
+     * handler's supports() narrows on EntityTranslationContext instead of
+     * PropertyTranslationContext.
+     */
+    private function entityContext(
+        TranslatableInterface $entity,
+        \ReflectionProperty|null $property = null,
+        string $sourceLocale = 'en',
+        string $targetLocale = 'fr',
+    ): EntityTranslationContext {
+        $context = new EntityTranslationContext($entity, $sourceLocale, $targetLocale);
+        if (null !== $property) {
+            $context->setProperty($property);
+        }
+
+        return $context;
     }
 }
 
@@ -162,9 +194,9 @@ class TestEntity
 public function it_clones_value_object_on_translate(): void
 {
     $original = new Money(100, 'EUR');
-    $args = $this->createTranslationArgs($original, $property);
+    $context = $this->propertyContext($original, $property);
 
-    $result = $this->handler->translate($args);
+    $result = $this->handler->translate($context);
 
     $this->assertInstanceOf(Money::class, $result);
     $this->assertNotSame($original, $result);
@@ -179,7 +211,7 @@ public function it_clones_value_object_on_translate(): void
 public function it_decrypts_and_re_encrypts_on_translate(): void
 {
     $encryptedValue = 'encrypted:abc123';
-    $args = $this->createTranslationArgs($encryptedValue, $property);
+    $context = $this->propertyContext($encryptedValue, $property);
 
     $this->encryptor->expects($this->once())
         ->method('decrypt')
@@ -189,7 +221,7 @@ public function it_decrypts_and_re_encrypts_on_translate(): void
         ->method('encrypt')
         ->willReturn('encrypted:def456');
 
-    $result = $this->handler->translate($args);
+    $result = $this->handler->translate($context);
 
     $this->assertEquals('encrypted:def456', $result);
 }
@@ -203,10 +235,10 @@ public function it_recalculates_computed_value_for_target_locale(): void
 {
     $entity = new Product();
     $entity->setName('Widget');
-    $args = $this->createTranslationArgs($entity->getSlug(), $property);
-    $args = $args->withTargetLocale('fr');
+    $context = $this->propertyContext($entity->getSlug(), $property)
+        ->setTargetLocale('fr');
 
-    $result = $this->handler->translate($args);
+    $result = $this->handler->translate($context);
 
     // Computed value should be recalculated, not copied
     $this->assertNull($result); // or new computed value

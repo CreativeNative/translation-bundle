@@ -13,7 +13,8 @@ use Doctrine\ORM\Mapping\MappingException;
 use Doctrine\ORM\Mapping\OwningSideMapping;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
+use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
+use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -37,15 +38,15 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
             : (static fn (\ReflectionProperty $p, object $o): mixed => $p->getValue($o));
     }
 
-    public function supports(TranslationArgs $args): bool
+    public function supports(TranslationContext $context): bool
     {
         // The value of a ManyToMany property is the Collection, never the entity itself --
         // guarding on TranslatableInterface here made supports() always false.
-        if (!$args->getDataToBeTranslated() instanceof Collection) {
+        if (!$context instanceof PropertyTranslationContext || !$context->getValue() instanceof Collection) {
             return false;
         }
 
-        $property = $args->getProperty();
+        $property = $context->getProperty();
         if (null === $property || !$this->attributeHelper->isManyToMany($property)) {
             return false;
         }
@@ -62,65 +63,69 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
-     * SharedAmongstTranslations is not supported for bidirectional ManyToMany collections.
+     * $context->isShared(): SharedAmongstTranslations is not supported for bidirectional
+     * ManyToMany collections -- throws, unless the property turns out not to actually
+     * carry the attribute (defensive; the translator only sets isShared() when it does).
      *
-     * If no property is provided in the args, return the collection unchanged (caller may handle fallbacks).
+     * $context->isEmpty(): clears the target collection on the translated parent
+     * (best-effort) and returns a fresh empty collection.
      *
-     * @throws \ReflectionException|MappingException
+     * Otherwise: translates each item through the full entity pipeline.
      *
-     * @return Collection<int, mixed>
-     */
-    public function handleSharedAmongstTranslations(TranslationArgs $args): Collection
-    {
-        $collection = $args->getDataToBeTranslated();
-        if (!$collection instanceof Collection) {
-            throw new \RuntimeException('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
-        }
-
-        $prop = $args->getProperty();
-        if (null === $prop) {
-            return $collection;
-        }
-
-        // Check for SharedAmongstTranslations attribute
-        $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-        if (count($sharedAttrs) > 0) {
-            $owner      = $args->getTranslatedParent();
-            $ownerClass = \is_object($owner) ? $owner::class : $prop->getDeclaringClass()->getName();
-
-            throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
-        }
-
-        // If we reach here, no shared attribute exists - proceed with normal translation
-        return $this->translate($args);
-    }
-
-    /**
-     * Clear the target collection on the translated parent (EmptyOnTranslate behaviour).
+     * @throws \ReflectionException
+     * @throws MappingException
      *
      * @return Collection<int, mixed>
      */
-    public function handleEmptyOnTranslate(TranslationArgs $args): Collection
+    public function translate(TranslationContext $context): Collection
     {
-        $collection = $args->getDataToBeTranslated();
+        \assert($context instanceof PropertyTranslationContext);
+        $collection = $context->getValue();
 
-        if (!$collection instanceof Collection) {
+        if ($context->isShared()) {
+            if (!$collection instanceof Collection) {
+                throw new \RuntimeException('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
+            }
+
+            $prop = $context->getProperty();
+            if (null === $prop) {
+                return $collection;
+            }
+
+            // Check for SharedAmongstTranslations attribute
+            $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
+            if (count($sharedAttrs) > 0) {
+                $owner      = $context->getTranslatedParent();
+                $ownerClass = null !== $owner ? $owner::class : $prop->getDeclaringClass()->getName();
+
+                throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
+            }
+
+            // If we reach here, no shared attribute exists - proceed with normal translation
+            return $this->translateCollection($context);
+        }
+
+        if ($context->isEmpty()) {
+            if (!$collection instanceof Collection) {
+                return new ArrayCollection();
+            }
+
+            $newOwner = $context->getTranslatedParent();
+
+            $prop = $context->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
+
+            if (null !== $newOwner && null !== $prop) {
+                try {
+                    $prop->setValue($newOwner, new ArrayCollection());
+                } catch (\Throwable) {
+                    // best-effort: swallow exceptions - handler must not break translation pipeline
+                }
+            }
+
             return new ArrayCollection();
         }
 
-        $newOwner = $args->getTranslatedParent();
-
-        $prop = $args->getProperty() ?? (\is_object($newOwner) ? $this->discoverProperty($newOwner, $collection) : null);
-
-        if (\is_object($newOwner) && null !== $prop) {
-            try {
-                $prop->setValue($newOwner, new ArrayCollection());
-            } catch (\Throwable) {
-                // best-effort: swallow exceptions - handler must not break translation pipeline
-            }
-        }
-
-        return new ArrayCollection();
+        return $this->translateCollection($context);
     }
 
     /**
@@ -129,17 +134,17 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
      *
      * @return Collection<int, mixed>
      */
-    public function translate(TranslationArgs $args): Collection
+    private function translateCollection(PropertyTranslationContext $context): Collection
     {
-        $collection = $args->getDataToBeTranslated();
+        $collection = $context->getValue();
         if (!$collection instanceof Collection) {
             throw new \RuntimeException('CollectionHandler::translate expects a Collection.');
         }
 
-        $newOwner = $args->getTranslatedParent();
-        $prop     = $args->getProperty() ?? (\is_object($newOwner) ? $this->discoverProperty($newOwner, $collection) : null);
+        $newOwner = $context->getTranslatedParent();
+        $prop     = $context->getProperty() ?? (null !== $newOwner ? $this->discoverProperty($newOwner, $collection) : null);
 
-        if (!\is_object($newOwner) || null === $prop) {
+        if (null === $newOwner || null === $prop) {
             return new ArrayCollection($collection->toArray());
         }
 
@@ -149,7 +154,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         }
 
         $newCollection = new ArrayCollection();
-        $targetLocale  = $args->getTargetLocale();
+        $targetLocale  = $context->getTargetLocale();
 
         foreach ($collection as $item) {
             if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {

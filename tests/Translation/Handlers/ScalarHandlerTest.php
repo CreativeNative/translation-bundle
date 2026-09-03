@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
-use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\ScalarHandler;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -18,40 +17,36 @@ final class ScalarHandlerTest extends UnitTestCase
     {
         $handler = new ScalarHandler();
 
-        $args = new TranslationArgs('hello', 'en_US', 'de_DE');
-        self::assertTrue($handler->supports($args));
-
-        $args = new TranslationArgs(new \DateTime(), 'en_US', 'de_DE');
-        self::assertTrue($handler->supports($args));
-
-        $args = new TranslationArgs(new \stdClass(), 'en_US', 'de_DE');
-        self::assertFalse($handler->supports($args));
+        self::assertTrue($handler->supports($this->propertyContext('hello')));
+        self::assertTrue($handler->supports($this->propertyContext(new \DateTime())));
+        self::assertFalse($handler->supports($this->propertyContext(new \stdClass())));
     }
 
     public function testTranslateReturnsSameValue(): void
     {
         $handler = new ScalarHandler();
 
-        $args   = new TranslationArgs('test-value', 'en_US', 'de_DE');
-        $result = $handler->translate($args);
+        $result = $handler->translate($this->propertyContext('test-value'));
 
         self::assertSame('test-value', $result);
     }
 
-    public function testHandleSharedAmongstTranslationsReturnsSameValue(): void
+    public function testTranslateReturnsSameValueWhenShared(): void
     {
         $handler = new ScalarHandler();
-        $args    = new TranslationArgs('shared-value', 'en_US', 'de_DE');
-        $result  = $handler->handleSharedAmongstTranslations($args);
+
+        $context = $this->propertyContext('shared-value')->setShared(true);
+        $result  = $handler->translate($context);
 
         self::assertSame('shared-value', $result);
     }
 
-    public function testHandleEmptyOnTranslateReturnsNull(): void
+    public function testTranslateReturnsNullWhenEmpty(): void
     {
         $handler = new ScalarHandler();
-        $args    = new TranslationArgs('some-value', 'en_US', 'de_DE');
-        $result  = $handler->handleEmptyOnTranslate($args);
+
+        $context = $this->propertyContext('some-value')->setEmpty(true);
+        $result  = $handler->translate($context);
 
         self::assertThat($result, self::isNull());
     }
