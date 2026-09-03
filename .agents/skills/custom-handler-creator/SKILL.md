@@ -91,9 +91,9 @@ For complete handler chain architecture, priority order, and decision tree, see 
 - Custom handlers can inject `TypeDefaultResolver` to resolve type-safe defaults for the `translate()` `isEmpty()` branch
 - Custom handlers can inject `TranslationCacheInterface` to check/store translations
 
-### v4.0: Two Reusable Building Blocks Instead of Hand-Rolling
+### v4.0: Three Reusable Building Blocks Instead of Hand-Rolling
 
-If the custom handler needs either of these, delegate — don't reimplement:
+If the custom handler needs any of these, delegate — don't reimplement:
 
 - **Translating a nested `TranslatableInterface` value.** Inject
   `Tmi\TranslationBundle\Translation\EntityTranslatorInterface` and call
@@ -114,6 +114,12 @@ If the custom handler needs either of these, delegate — don't reimplement:
   property) instead of a hand-rolled loop. Both also resolve a Doctrine proxy to its real
   class first — reflecting the proxy subclass directly finds neither the parent's private
   properties nor any PHP attribute the real class declares.
+- **Translating a collection of `TranslatableInterface` items.** Hand the whole collection to
+  `EntityTranslatorInterface::preload($collection, $targetLocale)` once, before the loop that
+  translates each item — never inside it. `preload()` groups translatable items by class,
+  issues one `LocaleVariantFinder` query per class, ignores non-translatable items and cached
+  hits, and remembers misses, so K items of one class cost one lookup instead of K. The
+  bundled `BidirectionalOneToManyHandler` and both ManyToMany handlers do exactly this (v4.0).
 
 ## Quick Reference: TranslationHandlerInterface
 

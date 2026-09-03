@@ -628,7 +628,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $context = $this->propertyContext('not-a-collection');
 
         self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage('CollectionHandler::translate expects a Collection.');
+        self::expectExceptionMessage('BidirectionalManyToManyHandler::translate() expects a Collection.');
         $this->handler->translate($context);
     }
 
@@ -751,7 +751,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $context = $this->propertyContext('not-a-collection')->setShared(true);
 
         self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
+        self::expectExceptionMessage('BidirectionalManyToManyHandler::translate() expects a Collection.');
         $this->handler->translate($context);
     }
 

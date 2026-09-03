@@ -84,7 +84,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
         if ($context->isShared()) {
             if (!$collection instanceof Collection) {
-                throw new \RuntimeException('CollectionHandler::handleSharedAmongstTranslations expects a Collection.');
+                throw new \RuntimeException('BidirectionalManyToManyHandler::translate() expects a Collection.');
             }
 
             $prop = $context->getProperty();
@@ -143,7 +143,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     {
         $collection = $context->getValue();
         if (!$collection instanceof Collection) {
-            throw new \RuntimeException('CollectionHandler::translate expects a Collection.');
+            throw new \RuntimeException('BidirectionalManyToManyHandler::translate() expects a Collection.');
         }
 
         $newOwner = $context->getTranslatedParent();
