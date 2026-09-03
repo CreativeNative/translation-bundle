@@ -6,7 +6,7 @@
 
 - [README](https://github.com/CreativeNative/translation-bundle/blob/master/README.md): Installation, configuration, and quick start guide
 - [Developer & AI Guide](https://github.com/CreativeNative/translation-bundle/blob/master/llms.md): Comprehensive glossary, handler chain decision tree, troubleshooting guide, and minimal working example
-- [Upgrade Guide](https://github.com/CreativeNative/translation-bundle/blob/master/UPGRADING.md): Migration guide from v1.x to v2.0 with before/after code examples
+- [Upgrade Guide](https://github.com/CreativeNative/translation-bundle/blob/master/UPGRADING.md): Migration guide covering every major version from v1.x through v4.0, with before/after code examples and per-platform schema migration snippets
 
 ## AI Skills
 
@@ -20,6 +20,7 @@
 - [TranslatableTrait](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Model/TranslatableTrait.php): Default implementation providing locale and tuuid management
 - [EntityTranslatorInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/EntityTranslatorInterface.php): Translation orchestrator service contract
 - [TranslationHandlerInterface](https://github.com/CreativeNative/translation-bundle/blob/master/src/Translation/Handlers/TranslationHandlerInterface.php): Handler chain protocol for field translation
+- [TmiTranslationExtension (Twig)](https://github.com/CreativeNative/translation-bundle/blob/master/src/Twig/TmiTranslationExtension.php): Registers the `translatable` Twig test and the `tmi_locales` global (renamed from `locales` in v4.0)
 
 ## Attributes
 
@@ -49,8 +50,10 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 
 ## Events and Filters
 
-- [TranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/TranslateEvent.php): Pre/post translation event for customization hooks
-- [LocaleFilter](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Filter/LocaleFilter.php): Automatic query filtering by current locale
+- [TranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/TranslateEvent.php): Shared base class for the two events below; never dispatched directly
+- [PreTranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/PreTranslateEvent.php): Dispatched before a handler builds the new variant — subscribe with `PreTranslateEvent::class`, not a string event name (v4.0)
+- [PostTranslateEvent](https://github.com/CreativeNative/translation-bundle/blob/master/src/Event/PostTranslateEvent.php): Dispatched after the new variant is constructed and before it is persisted — the supported seeding hook; subscribe with `PostTranslateEvent::class` (v4.0)
+- [LocaleFilter](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Filter/LocaleFilter.php): Automatic query filtering by current locale; `LocaleFilter::NAME` is the single source of truth for the filter name
 
 ## v2.0 Services
 
@@ -75,8 +78,8 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - [TranslatableEntityRepository](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Repository/TranslatableEntityRepository.php): Ready-made repository base class — extend it instead of hand-rolling locale-variant lookups
 - [TranslatableIndexListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/TranslatableIndexListener.php): Injects a composite `(tuuid, locale)` index into every translatable entity; `unique_locale_variants: true` promotes it to a UNIQUE constraint
 - [OrphanTranslationException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/OrphanTranslationException.php): Thrown (when `strict_orphan_check` is on) for entities flushed in a non-default locale without a shared Tuuid
-- `tmi:translation:doctor`: Console command — scans for standalone/incomplete translations and duplicate `(tuuid, locale)` pairs; exits non-zero for CI gating
-- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--check` for CI drift gates, `--entity` options)
+- `tmi:translation:doctor`: Console command — scans for standalone/incomplete/duplicate translations and, as of v4.0, `null-tuuid` rows (a literal database NULL, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan to one entity (v4.0); exits non-zero for CI gating
+- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--check` for CI drift gates, `--entity` options); as of v4.0, every run prints a table naming each drifted property, how many Tuuid groups and rows it touched, and whether it was writable
 
 ## v3.0 Symfony 8 & Translation Correctness
 
@@ -90,6 +93,25 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - The in-progress cycle-detection flag is always cleared, even when a handler throws; `Psr6TranslationCache` gives it a 60s TTL
 - `TypeDefaultResolver` throws for every non-nullable type without a zero-value (adds `iterable`, `object`, intersection types); `null` is only returned for types that accept it
 - `tmi:translation:sync-shared` detects embeddable-level sharing and reports readonly drift with a non-zero exit
+
+## v4.0 Removal Semantics, Filter-Safe Lookups & Performance
+
+- [LocaleVariantFinder](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/LocaleVariantFinder.php): The one place that queries across every locale variant of a Tuuid, suspending `LocaleFilter` for the query and restoring it afterwards — `findAllLocaleVariants[Batch]()`, `findLocaleVariant()`, `findLocaleVariantsBatch()`, `withoutLocaleFilter()`; `TranslatableRepositoryTrait` and `LocaleCompletenessResolver` delegate to it
+- [TranslatableRemover](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/TranslatableRemover.php): `removeAllLocaleVariants()` removes every locale variant sharing a Tuuid, `removeSingleLocaleVariant()` removes exactly one and exempts it from the opt-in cascade below — always via `EntityManager::remove()` per variant, never a bulk DQL DELETE, so ORM cascades/`orphanRemoval`/lifecycle callbacks fire correctly
+- [LocaleVariantRemovalListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/LocaleVariantRemovalListener.php): Opt-in `preRemove` listener — gated on `cascade_remove_locale_variants` — that makes a plain `$em->remove($entity)` cascade to sibling locale variants via `TranslatableRemover::cascadeFromPreRemove()`
+- `EntityTranslatorInterface::preload(iterable $entities, string $locale): void`: Batch-loads each entity's `$locale` variant ahead of time, one query per class instead of one per entity — additive interface method, call once before looping `getOrTranslate()` over an import batch
+- Cross-locale lookups (`preload()`'s internal warmup, `TranslatableEntityHandler`'s existing-variant check) now go through `LocaleVariantFinder` — under an active `LocaleFilter`, they used to mint a duplicate row on every `translate()` call instead of reusing the existing one
+- The translation cache is identity-safe across `EntityManager::clear()` — a detached cache hit is treated as a miss instead of being re-inserted as a duplicate row by `persist()`; `InMemoryTranslationCache` implements `ResetInterface` (tagged `kernel.reset`) for long-running workers
+- `Psr6TranslationCache` is removed (v4.0) — `TranslationCacheInterface` aliases only to `InMemoryTranslationCache` now; the interface itself is unchanged and still open to custom implementations
+- `TranslatableEntityLocator` names only each inheritance hierarchy's root (not every subclass); `doctor`/`sync-shared`/`TranslatableEntityValidationWarmer` resolve each hydrated row's own concrete class for its property list, so a subclass-only field is still seen and a hierarchy's rows are counted once
+- The direct `ManyToOne`/`OneToOne` form (a field on the *owning* class, not a back-reference) now translates its target entity (get-or-create) instead of silently returning the untranslated source
+- `strict_discovery` (config, default `false`): turns a `0 translatable entities discovered` compile-time result from a logged warning into a `LogicException`; `AttributeValidationPass` also publishes `tmi_translation.discovered_translatable_classes` (sorted `list<class-string>`) as a container parameter
+- `cascade_remove_locale_variants` (config, default `false`): see `LocaleVariantRemovalListener` above
+- The `tuuid` DBAL type self-registers via `prepend()` — no manual `doctrine.dbal.types` entry needed; `TuuidType::convertToPHPValue(null)` now returns `null` instead of inventing a fresh Tuuid; the `tuuid`/`locale` columns are `NOT NULL` (`locale` grows to length 16); the dead `translations` JSON column and its four trait accessors are removed
+- The four `EntityTranslator` lifecycle hooks (`afterLoad`/`beforePersist`/`beforeUpdate`/`beforeRemove`) are removed — every call was the identity operation, always; every bundle service is now private (autowire by interface/class); the Twig global `locales` is renamed `tmi_locales`
+- `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` memoize per (proxy-unwrapped) class — the `translate()` hot path no longer re-walks a class's attributes/property hierarchy on every property, every call
+- [Performance](https://github.com/CreativeNative/translation-bundle/blob/master/README.md#-performance): every query-cost number the README states is enforced by an exact assertion in [`tests/Performance/QueryBudgetTest.php`](https://github.com/CreativeNative/translation-bundle/blob/master/tests/Performance/QueryBudgetTest.php) — e.g. `find()` under the active locale filter = 1 query, `translate()` into an existing variant = 1 query and 0 inserts
+- Coverage: 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge), not a one-time snapshot; PHPStan runs at level max with the strict-rules/doctrine/symfony/phpunit extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/`failOnDeprecation`)
 
 ## Optional
 

@@ -1,3 +1,395 @@
+# UPGRADE FROM 3.4 to 4.0
+
+Version 4.0 is a set of deliberate, targeted breaks on top of the existing storage model and
+handler-chain architecture — not a rewrite. **Unchanged:** the same-table-per-locale storage
+model, the handler chain and its priority-ordered dispatch, `#[SharedAmongstTranslations]` /
+`#[EmptyOnTranslate]` semantics, every console command's name and most of its options, and
+`TranslatableTrait`'s public API except the one dead column removed in § 1. What changed is a
+handful of things that were either dead weight (`translations`, the four lifecycle hooks), a
+correctness gap that could not be fixed without a signature change (nullable Tuuid/locale
+columns, the locale filter silently ignored by cross-locale lookups), or a deliberate
+narrowing of the public surface (private services). Each is its own numbered section below,
+with a migration path.
+
+## Table of Contents
+
+> Heading names below are suffixed "(4.0)" only to keep them from colliding with the
+> identically-titled sections further down this same file (2.x→3.0 and 1.x→2.0 each have their
+> own "Breaking Changes" / "Behavioural Changes" / "Upgrade Checklist") — GitHub's anchor
+> generator would otherwise silently renumber those older sections' own anchors out from under
+> their own tables of contents.
+
+- [Breaking Changes (4.0)](#breaking-changes-40)
+  - [1. The `translations` JSON column is gone](#1-the-translations-json-column-is-gone)
+  - [2. `tuuid` and `locale` columns are now `NOT NULL`; `locale` grows to 16 characters](#2-tuuid-and-locale-columns-are-now-not-null-locale-grows-to-16-characters)
+  - [3. The four `EntityTranslator` lifecycle hooks were removed](#3-the-four-entitytranslator-lifecycle-hooks-were-removed)
+  - [4. Every bundle service is private; the Twig global is renamed; events are typed classes](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)
+  - [5. `Psr6TranslationCache` is gone](#5-psr6translationcache-is-gone)
+- [Behavioural Changes (4.0)](#behavioural-changes-40)
+  - [1. The direct ManyToOne/OneToOne form now translates the target entity](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity)
+  - [2. Cross-locale lookups no longer bypass the locale filter](#2-cross-locale-lookups-no-longer-bypass-the-locale-filter)
+  - [3. The translation cache is identity-safe across `EntityManager::clear()`](#3-the-translation-cache-is-identity-safe-across-entitymanagerclear)
+  - [4. Inheritance hierarchies are counted once per concrete class](#4-inheritance-hierarchies-are-counted-once-per-concrete-class)
+  - [5. `copy_source` resolution is proxy-safe; `EmptyOnTranslate` collections are never shared](#5-copy_source-resolution-is-proxy-safe-emptyontranslate-collections-are-never-shared)
+  - [6. `tmi:translation:sync-shared` names the properties that drifted](#6-tmitranslationsync-shared-names-the-properties-that-drifted)
+- [New in 4.0](#new-in-40)
+- [Upgrade Checklist (4.0)](#upgrade-checklist-40)
+
+---
+
+## Breaking Changes (4.0)
+
+### 1. The `translations` JSON column is gone
+
+**BREAKING (schema + trait):** `TranslatableTrait`'s `$translations` column and its four
+accessors — `setTranslations()`, `getTranslations()`, `setTranslation()`, `getTranslation()`
+— are gone, along with `TranslatableInterface::getTranslations()`. `'translations'` is also
+dropped from the two `SYSTEM_PROPERTIES` allowlists (`tmi:translation:sync-shared`,
+`LocaleCompletenessResolver`) that used to exclude it from shared-value sync and completeness
+checks.
+
+**Why:** the column was write-only dead weight — nothing in the bundle ever read it. It
+predates the Tuuid-based translation model and had no reader or writer left anywhere in
+`src/`.
+
+**Migration Steps:**
+1. `DROP COLUMN translations` on every translatable table (`doctrine:migrations:diff`
+   generates this once the trait no longer maps the column — combine it with § 2's migration
+   below if convenient).
+2. A custom `TranslatableInterface` implementation that declared `getTranslations()` directly
+   (not via the trait) keeps working — removing a method from an interface does not break
+   implementors. Delete it at your convenience.
+
+---
+
+### 2. `tuuid` and `locale` columns are now `NOT NULL`; `locale` grows to 16 characters
+
+**BREAKING (schema):** `TranslatableTrait`'s `tuuid` column (`length: 36`) and `locale`
+column go from nullable to `NOT NULL`; `locale` also grows from `length: 5` to `length: 16`,
+to fit longer BCP-47 tags (`sr_Latn_RS`). The PHP property types stay `Tuuid|null` /
+`string|null` — a freshly `new`-ed, not-yet-persisted entity legitimately has neither yet, and
+`TranslatableEventSubscriber::prePersist()` still assigns both before insert, unchanged.
+`getTuuid(): Tuuid` and `getLocale(): ?string` keep their existing signatures.
+
+`TuuidType::convertToPHPValue()` / `convertToDatabaseValue()` also change: a database `NULL`
+now converts to PHP `null` — DBAL's own null-in/null-out convention — instead of **inventing a
+fresh, unrelated Tuuid**, which is what it did through v3.4. This is not a relaxation:
+Doctrine's `AbstractHydrator::gatherRowData()` calls `convertToPHPValue()` for every selected
+column of every hydrated row, including a translatable relation reached through a `LEFT JOIN`
+with no match, where the joined columns are all `NULL` by construction — throwing there would
+crash every such fetch-join query outright.
+
+**Why:** a NULL `tuuid` or `locale` is always a data bug — a row written outside the entity
+layer — and the old `TuuidType` behavior actively hid that bug behind an invented, unrelated
+identity instead of surfacing it. `NOT NULL` plus the new [`tmi:translation:doctor` `null-tuuid`
+check](README.md#diagnostics) close the gap.
+
+**Migration Steps:**
+1. Before upgrading, sweep every translatable table for existing NULL rows:
+   ```sql
+   SELECT COUNT(*) FROM product WHERE tuuid IS NULL OR locale IS NULL;
+   ```
+   Resolve or delete any rows you find. A NULL row left in place still round-trips under v4's
+   application code (`getTuuid()` mints an in-memory Tuuid on a `null` property, unchanged
+   trait behaviour) — but it will violate the `NOT NULL` constraint the moment you run the
+   schema migration below, and `tmi:translation:doctor`'s new `null-tuuid` check will keep
+   reporting it as broken linkage until the underlying row is actually fixed.
+2. Migrate the columns (combine with § 1's `DROP COLUMN translations` in the same migration
+   if convenient):
+
+   **MySQL / MariaDB:**
+   ```sql
+   ALTER TABLE product
+       MODIFY tuuid CHAR(36) NOT NULL,
+       MODIFY locale VARCHAR(16) NOT NULL;
+   ```
+
+   **PostgreSQL:**
+   ```sql
+   ALTER TABLE product
+       ALTER COLUMN tuuid SET NOT NULL,
+       ALTER COLUMN locale TYPE VARCHAR(16),
+       ALTER COLUMN locale SET NOT NULL;
+   ```
+
+   **SQLite** cannot alter a column's type or nullability in place — rebuild the table
+   (`doctrine:migrations:diff` generates the rebuild for you).
+3. Run the NULL sweep — and the migration — **before** deploying v4's application code
+   against a table that still has NULL rows. The write path is safe either way (it never
+   writes a NULL `tuuid`/`locale`), but you want the schema migration to be the thing that
+   catches leftover NULL rows, not a silent, unfixed `null-tuuid` report every doctor run
+   after.
+
+---
+
+### 3. The four `EntityTranslator` lifecycle hooks were removed
+
+**BREAKING:** `EntityTranslatorInterface::afterLoad()` / `beforePersist()` / `beforeUpdate()`
+/ `beforeRemove()` are gone, and `TranslatableEventSubscriber` no longer calls them.
+
+**Why:** `TranslatableEventSubscriber::prePersist()` / `postLoad()` already normalise an
+entity's own locale before any hook ran, so every hook call was
+`translate($entity, $entity->getLocale())` — the identity operation — on every single flush,
+always. They translated nothing, ever, "not usually, always."
+
+**Migration Steps:**
+- A decorator or custom `EntityTranslatorInterface` implementation that declares these four
+  methods keeps working — removing a method from an interface does not break implementors.
+  Delete them at your convenience.
+- If you called one of these hooks directly rather than relying on the Doctrine listener,
+  replace it with an explicit `translate()` / `translateAndPersist()` / `getOrTranslate()`
+  call, or hook into Doctrine's own lifecycle events, or `PreTranslateEvent` /
+  `PostTranslateEvent` (§ 4).
+- Non-breaking side effect worth knowing about: `EntityTranslator::translate()` no longer logs
+  an info message for an identity call (`translate($e, $e->getLocale())`) — it did,
+  unconditionally, before. If you scraped that log line for anything, it is gone.
+
+---
+
+### 4. Every bundle service is private; the Twig global is renamed; events are typed classes
+
+**BREAKING (three independent changes, one release):**
+
+**a. Every service this bundle registers is now private.** `$container->get('tmi_translation.…')`
+no longer works outside a test container. Autowire against the matching interface or class
+instead — `EntityTranslatorInterface`, `Tmi\TranslationBundle\Doctrine\LocaleVariantFinder`,
+`Tmi\TranslationBundle\Doctrine\TranslatableRemover`, `LocaleCompletenessResolver`, and so on.
+Commands, the Twig extension, the cache warmer and every listener/subscriber were always
+reached through their tag, never through `container->get()`, so nothing about how those work
+changes.
+
+**b. The Twig global `locales` is renamed to `tmi_locales`** — less likely to collide with an
+application's own global of the same name.
+
+**c. `EntityTranslator` now dispatches `PreTranslateEvent` / `PostTranslateEvent`** — new
+classes, both extending the shared `TranslateEvent` base — by class, instead of `TranslateEvent`
+plus the `TranslateEvent::PRE_TRANSLATE` / `POST_TRANSLATE` string constants, which are
+removed.
+
+**Migration Steps:**
+- Replace `$container->get('tmi_translation.translation.entity_translator')` (or any other
+  `tmi_translation.…` service id) with constructor injection of the matching interface/class.
+- Replace `{{ locales }}` with `{{ tmi_locales }}` in your Twig templates.
+- Replace a listener wired as `on: tmi_translation.post_translate` (or subscribing to the
+  removed `TranslateEvent::POST_TRANSLATE` / `PRE_TRANSLATE` string constants) with
+  `#[AsEventListener(event: PostTranslateEvent::class)]` (or `PreTranslateEvent::class`), or
+  `$dispatcher->addListener(PostTranslateEvent::class, ...)`.
+
+---
+
+### 5. `Psr6TranslationCache` is gone
+
+**BREAKING:** the bundled PSR-6 cache adapter — `Psr6TranslationCache` — no longer exists.
+`TranslationCacheInterface` still aliases to `InMemoryTranslationCache`, which is now the
+*only* built-in implementation.
+
+**Why:** within one request both implementations were equivalent — `preload()` (formerly
+`warmupTranslations()`) already batches per class into one indexed query, and a PSR-6 hit
+reloaded through `find()` against the already-warm identity map anyway. Cross-request, a
+PSR-6 hit cost a cache-backend round-trip *plus* a `find()` against the cold identity map (a
+primary-key query) — against exactly one indexed `(tuuid, locale)` query on an in-memory miss.
+The only thing lost by removing it is cross-process reuse in bulk workers — a throughput
+concern, not a correctness one — and `TranslationCacheInterface` stays open for anyone who
+wants to build that back with a persistent, identity-safe implementation of their own (see its
+docblock for the identity contract any implementation must honour: reload through the
+`EntityManager` with the locale filter suspended, never hand back a serialized/detached
+instance).
+
+**Migration Steps:**
+- If your application overrode the `TranslationCacheInterface` alias to point at
+  `Psr6TranslationCache`, remove that override — the interface now has only one built-in
+  target, `InMemoryTranslationCache`.
+- If you instantiated `Psr6TranslationCache` directly (tests, a custom service definition),
+  either drop it in favour of the default, or supply your own persistent
+  `TranslationCacheInterface` implementation built on the identity contract above.
+
+---
+
+## Behavioural Changes (4.0)
+
+None of these require a code change to keep compiling. They change what the bundle *does*, so
+verify anything in your application that depends on the old behaviour — several fix a data bug
+serious enough that you may want to audit existing data.
+
+### 1. The direct ManyToOne/OneToOne form now translates the target entity
+
+**This is the change most likely to affect you.**
+
+A plain `#[ORM\ManyToOne(inversedBy: ...)]` (or `#[ORM\OneToOne]`) field pointing at another
+translatable entity — declared on the *owning* side, not reached as a back-reference from a
+`OneToMany`/`ManyToOne` pair — used to silently return the **untranslated source** through
+v3.4: `Product::$category` stayed pointed at the English `Category` row no matter what locale
+`Product` was translated into.
+
+**After v4:** the target is translated to the matching locale (get-or-create, the same
+existing-variant lookup and clone pipeline a top-level `translate()` call uses) and the
+translated `Product` points at it.
+
+**What to check:**
+- If a shared reference across all locales was actually what you wanted (one `Category` row,
+  every `Product` locale pointing at it regardless of language), mark the association
+  `#[SharedAmongstTranslations]` instead of relying on the old pass-through bug.
+- If you do want the target translated, give the association `cascade: ['persist']` (or
+  persist the translated target explicitly) — a newly created target variant needs to be
+  saved like any other new entity.
+- Association direction matters here: this only affects the *direct* form (the field lives on
+  the class that declares the association). The *back-reference* form — reached through a
+  bidirectional `OneToMany`'s children — already repaired its parent reference correctly
+  before v4 and is unaffected.
+
+### 2. Cross-locale lookups no longer bypass the locale filter
+
+Two lookups that search for "does a variant of this Tuuid already exist in the target locale"
+— `EntityTranslator`'s internal warmup (now `preload()`) and
+`TranslatableEntityHandler::translate()`'s existing-variant check — used to query through the
+entity's own repository/query builder. Under an **active** `tmi_translation_locale_filter`
+pinned to the source locale, Doctrine's `SQLFilter` silently rewrote that query, combining the
+explicit "target locale" condition with the filter's own "source locale" condition into a
+contradiction that could never match — so `translate()` under an active filter minted a
+**duplicate row** on every call instead of reusing the one already there.
+
+**After v4:** both lookups go through `LocaleVariantFinder`, which suspends the filter for the
+query and restores it afterwards. If your application always disables the locale filter before
+calling `translate()`, this changes nothing observable for you; if it translates entities
+while the filter is active (a request handler, a locale-scoped import), duplicate rows that
+used to appear silently no longer will.
+
+### 3. The translation cache is identity-safe across `EntityManager::clear()`
+
+A cache hit that survived an `EntityManager::clear()` call (import batches, long-running
+workers) used to still be treated as reusable, even though the `UnitOfWork` no longer tracked
+it. `getOrTranslate()` then called `persist()` on that stale, detached instance — and
+Doctrine's `persist()` assumes `STATE_NEW` for anything the `UnitOfWork` does not track,
+**re-inserting the detached instance as a brand-new row** instead of reusing the existing one.
+No exception, just a silent duplicate.
+
+**After v4:** a cache hit is checked against the entity's real `UnitOfWork` state; a detached
+hit is treated as a miss and falls through to a fresh lookup, which reloads (or reuses) a
+managed instance and overwrites the stale cache entry. If your import/batch code calls
+`clear()` between translations of the same Tuuid, this is now correct without any code change
+on your part.
+
+### 4. Inheritance hierarchies are counted once per concrete class
+
+`tmi:translation:doctor`, `tmi:translation:sync-shared` and `TranslatableEntityValidationWarmer`
+used to enumerate every concrete subclass of a `SINGLE_TABLE`/`JOINED` hierarchy *in addition
+to* its root — even though querying the root is already polymorphic and returns every
+subclass's rows. A hierarchy of *N* subclasses was walked *N+1* times: `doctor` double
+(or more) counted the same physical rows as separate anomalies, and `sync-shared` /
+`TranslatableEntityValidationWarmer` repeated the same work once per subclass on top of the
+root.
+
+**After v4:** only the hierarchy root is enumerated, and each hydrated row's *own* concrete
+class is used to resolve which properties are shared/checked/validated on it — so a field
+declared only on a subclass is still seen correctly. If you were dividing an old `doctor`
+anomaly count by the number of subclasses as a workaround, stop — the count is now accurate on
+its own. `sync-shared --entity` also now validates against Doctrine's metadata directly, so a
+concrete subclass name is accepted where it used to be wrongly rejected.
+
+### 5. `copy_source` resolution is proxy-safe; `EmptyOnTranslate` collections are never shared
+
+Two related clone-pipeline bugs:
+
+- Resolving a per-entity `#[Translatable(copySource: ...)]` override used to reflect the
+  entity directly, which finds nothing when the entity arrives as a lazily-loaded Doctrine
+  proxy subclass (PHP attributes are never inherited by a generated subclass) — the override
+  silently fell back to the global `copy_source` setting instead of the entity's own.
+- An empty `Collection` property skipped by `#[EmptyOnTranslate]`'s handler used to leave the
+  clone's property pointing at the **exact same** `Collection` instance as the source's — an
+  `add()` on the "translated" entity's collection silently mutated the source's collection
+  too.
+
+**After v4:** proxy-loaded entities resolve their own `#[Translatable]` override correctly, and
+an emptied collection on a clone is always a fresh, independent `ArrayCollection`. Also fixed
+in the same change: a `mappedBy` back-reference property declared on a mapped superclass
+*above* the entity (not on the entity's own class) now resolves through the same hierarchy
+walk the rest of the bundle already used elsewhere, instead of throwing.
+
+### 6. `tmi:translation:sync-shared` names the properties that drifted
+
+The command used to report only an aggregate count ("N translation(s) need updating") plus a
+separate readonly-drift listing — an operator could not tell *which* shared properties were
+diverging without re-running with `--dry-run` and reading the entity source.
+
+**After v4:** every run prints a table — `Property | Tuuids | Rows | Writable` — naming each
+drifted property, how many Tuuid groups and rows it touched, and whether it was writable,
+right after the existing count line. Exit codes, sums, and streaming/detach behaviour are
+unchanged; if you parse this command's output, the new table is additional output after what
+was already there.
+
+---
+
+## New in 4.0
+
+Additive, non-breaking (unless you implement `EntityTranslatorInterface` yourself — see the
+last bullet):
+
+- **`TranslatableRemover`** (`Tmi\TranslationBundle\Doctrine\TranslatableRemover`, alias
+  `tmi_translation.doctrine.translatable_remover`) — removes every locale variant sharing a
+  Tuuid, or exactly one variant while leaving its siblings, always through
+  `EntityManager::remove()` per variant so ORM cascades/`orphanRemoval`/lifecycle callbacks
+  fire correctly. See [Removing a translatable entity](README.md#removing-a-translatable-entity).
+- **`cascade_remove_locale_variants`** (config, default `false`) — opt in to make a plain
+  `$em->remove($entity)` on any translatable entity cascade to its sibling locale variants
+  automatically, via a `preRemove` listener.
+- **`strict_discovery`** (config, default `false`) — turn a `0 translatable entities
+  discovered` result at compile time from a logged warning into a hard `LogicException`, once
+  you know your project always has at least one.
+- **Zero-config `TuuidType`** — the `tuuid` DBAL type registers itself; the manual
+  `doctrine.dbal.types` entry earlier versions' docs asked for is no longer necessary (a
+  manual entry, if you still have one, is harmless and simply wins through normal config merge
+  order).
+- **`tmi:translation:doctor --entity=<FQCN>`** and the **`null-tuuid`** anomaly class — restrict
+  a doctor scan to one entity, and catch rows whose `tuuid` column is a literal database
+  `NULL` (only reachable via a write that bypasses the entity layer, now that the column is
+  `NOT NULL` — see § 2).
+- **`EntityTranslatorInterface::preload(iterable $entities, string $locale): void`** — batch-
+  loads each entity's `$locale` variant ahead of time, one query per class instead of one per
+  entity; call it once before looping `getOrTranslate()` over an import batch. This is an
+  **additive interface method**: if you implement `EntityTranslatorInterface` directly
+  (rather than decorating or extending `EntityTranslator`), you must add it to keep
+  implementing the interface. See [Performance](README.md#-performance) for the numbers this
+  enables.
+
+---
+
+## Upgrade Checklist (4.0)
+
+1. Run the NULL-row sweep from [§ 2](#2-tuuid-and-locale-columns-are-now-not-null-locale-grows-to-16-characters)
+   against your **current** (v3.4 or earlier) schema, and resolve or delete anything it finds.
+2. Run `composer update tmi/translation-bundle` to pull in 4.0.
+3. Write and run the schema migration: `DROP COLUMN translations` (§ 1) and the `NOT NULL` /
+   length changes on `tuuid`/`locale` (§ 2), combined into one migration if convenient
+   (`doctrine:migrations:diff` generates it once the entity mapping no longer describes the
+   old shape).
+4. Search your codebase for `$container->get('tmi_translation.…')` and replace it with
+   constructor injection ([§ 4a](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)).
+5. Search your Twig templates for `{{ locales }}` and replace it with `{{ tmi_locales }}`
+   ([§ 4b](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)).
+6. Search for listeners on `TranslateEvent::PRE_TRANSLATE` / `POST_TRANSLATE`, or on
+   `tmi_translation.pre_translate` / `post_translate`, and move them to
+   `PreTranslateEvent::class` / `PostTranslateEvent::class`
+   ([§ 4c](#4-every-bundle-service-is-private-the-twig-global-is-renamed-events-are-typed-classes)).
+7. If you overrode `TranslationCacheInterface` to `Psr6TranslationCache`, or instantiated it
+   directly, remove that wiring ([§ 5](#5-psr6translationcache-is-gone)).
+8. Search your entities for a direct `ManyToOne`/`OneToOne` to another translatable entity and
+   decide, per association, whether you want it translated (add `cascade: ['persist']`) or
+   shared (`#[SharedAmongstTranslations]`) — [Behavioural Change 1](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity).
+9. Search for hand-rolled locale-variant deletion (a loop over `findBy(['tuuid' => ...])`, or
+   a single `$em->remove()` you expected to remove every locale) and replace it with
+   `TranslatableRemover` — see [New in 4.0](#new-in-40).
+10. If you implement `EntityTranslatorInterface` directly, add `preload()`
+    ([New in 4.0](#new-in-40)).
+11. If you implemented the removed `afterLoad()`/`beforePersist()`/`beforeUpdate()`/
+    `beforeRemove()` hooks, either delete them (harmless — see [§ 3](#3-the-four-entitytranslator-lifecycle-hooks-were-removed))
+    or move their logic to `PreTranslateEvent`/`PostTranslateEvent` or Doctrine's own
+    lifecycle events.
+12. Run your test suite. Behavioural Changes 1-6 above are the ones most likely to surface as
+    test failures rather than compile errors — a green suite on v3.4 is not evidence your
+    expectations matched the (buggy) old behaviour.
+
+---
+
 # UPGRADE FROM 3.3 to 3.4
 
 ## `TranslationCacheInterface::has()` was removed
