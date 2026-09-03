@@ -107,8 +107,30 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         // If enabled, let autowiring handle it via services.yaml
     }
 
+    /**
+     * Registers the `tuuid` DBAL type declaratively, so a consumer app needs no
+     * manual `doctrine.dbal.types` entry. `dbal.types` is an "excluded key" in
+     * doctrine-bundle's config tree — prepending here is safe in both the short
+     * and the `connections:` form, and a consumer's own manual entry for the
+     * same name still wins over this one through normal config merge order.
+     *
+     * `Type::addType()` in {@see load()} stays alongside this: it is what a
+     * process that never boots the full container (a cache warmer worker, for
+     * instance) still relies on.
+     */
     public function prepend(ContainerBuilder $container): void
     {
+        if (!$container->hasExtension('doctrine')) {
+            return;
+        }
+
+        $container->prependExtensionConfig('doctrine', [
+            'dbal' => [
+                'types' => [
+                    TuuidType::NAME => TuuidType::class,
+                ],
+            ],
+        ]);
     }
 
     /**

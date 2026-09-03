@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\DependencyInjection;
 
+use Doctrine\Bundle\DoctrineBundle\DependencyInjection\DoctrineExtension;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
@@ -47,13 +48,28 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         self::assertTrue($containerBuilder->has(LocaleFilterConfigurator::class));
     }
 
-    public function testPrependDoesNothing(): void
+    public function testPrependRegistersTuuidTypeWhenDoctrineExtensionIsPresent(): void
     {
-        $containerBuilder = $this->createContainerBuilderFromKernel();
-        $extension        = new TmiTranslationExtension();
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->registerExtension(new DoctrineExtension());
+
+        $extension = new TmiTranslationExtension();
         $extension->prepend($containerBuilder);
 
-        self::assertSame(ContainerBuilder::class, $containerBuilder::class);
+        self::assertSame(
+            [['dbal' => ['types' => ['tuuid' => TuuidType::class]]]],
+            $containerBuilder->getExtensionConfig('doctrine'),
+        );
+    }
+
+    public function testPrependDoesNothingWhenDoctrineExtensionIsAbsent(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+
+        $extension = new TmiTranslationExtension();
+        $extension->prepend($containerBuilder);
+
+        self::assertSame([], $containerBuilder->getExtensionConfig('doctrine'));
     }
 
     /**

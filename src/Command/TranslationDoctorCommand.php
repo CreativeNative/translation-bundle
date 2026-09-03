@@ -8,19 +8,25 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 
 /**
  * Scans every translatable entity table for broken Tuuid linkage.
  *
- * Reports three anomaly classes and exits non-zero when any are found, so it
+ * Reports four anomaly classes and exits non-zero when any are found, so it
  * can run as a post-migration / CI integrity gate:
  *
- *  1. standalone — a Tuuid carried by a single locale row (no sibling);
- *  2. incomplete — a Tuuid with fewer locale rows than configured locales;
- *  3. duplicate  — more than one row sharing the same (tuuid, locale) pair.
+ *  1. standalone  — a Tuuid carried by a single locale row (no sibling);
+ *  2. incomplete  — a Tuuid with fewer locale rows than configured locales;
+ *  3. duplicate   — more than one row sharing the same (tuuid, locale) pair;
+ *  4. null-tuuid  — a row whose tuuid column is NULL, e.g. from a raw insert
+ *     that bypassed the entity layer. Excluded from the query behind classes
+ *     1-3 (see inspectNullTuuid()) so it is never folded into them under an
+ *     invented Tuuid, and reported separately by id instead.
  */
 #[AsCommand(
     name: 'tmi:translation:doctor',
@@ -41,12 +47,33 @@ final class TranslationDoctorCommand extends Command
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the scan to a single entity class.');
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $io->title('TMI Translation Doctor');
 
         $classes = $this->locator->locate();
+
+        /** @var string|null $only */
+        $only = $input->getOption('entity');
+
+        if (null !== $only) {
+            // Checked against Doctrine's metadata, not membership in $classes:
+            // the locator names only the root of each inheritance hierarchy
+            // (see TranslatableEntityLocator), so --entity must still accept a
+            // concrete subclass that is not itself one of $classes's entries.
+            if (!$this->isTranslatableEntity($only)) {
+                $io->error(sprintf('"%s" is not a known translatable entity.', $only));
+
+                return Command::FAILURE;
+            }
+            $classes = [$only];
+        }
 
         if ([] === $classes) {
             $io->warning('No translatable entities found.');
@@ -101,6 +128,7 @@ final class TranslationDoctorCommand extends Command
         $rows = $this->entityManager->createQueryBuilder()
             ->select('t.tuuid AS tuuid', 't.locale AS locale', sprintf('COUNT(t.%s) AS cnt', $idField))
             ->from($class, 't')
+            ->where('t.tuuid IS NOT NULL')
             ->groupBy('t.tuuid')
             ->addGroupBy('t.locale')
             ->getQuery()
@@ -138,7 +166,9 @@ final class TranslationDoctorCommand extends Command
             }
         }
 
-        $total = count($standalone) + count($incomplete) + count($duplicates);
+        $nullTuuid = $this->inspectNullTuuid($class, $idField);
+
+        $total = count($standalone) + count($incomplete) + count($duplicates) + count($nullTuuid);
 
         if (0 === $total) {
             $io->writeln('<info>OK</info> — no anomalies.');
@@ -173,13 +203,78 @@ final class TranslationDoctorCommand extends Command
             );
         }
 
+        if ([] !== $nullTuuid) {
+            $io->writeln(sprintf('<comment>NULL-tuuid rows (%d):</comment>', count($nullTuuid)));
+            $io->table(['Id', 'Locale'], $nullTuuid);
+        }
+
         return $total;
+    }
+
+    /**
+     * Rows whose tuuid column is a literal database NULL — the grouped query
+     * above deliberately excludes them (its `IS NOT NULL`) instead of folding
+     * them into that grouping, because hydrating `t.tuuid` for a NULL value
+     * calls TuuidType::convertToPHPValue(), which invents a fresh Tuuid rather
+     * than returning null, turning a broken row into an untraceable false
+     * "standalone" instead of a reportable one. Selecting only the id and
+     * locale here avoids that same hydration for the very column this check
+     * exists to flag as missing.
+     *
+     * @param class-string $class
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    private function inspectNullTuuid(string $class, string $idField): array
+    {
+        /** @var list<array{id: mixed, locale: mixed}> $rows */
+        $rows = $this->entityManager->createQueryBuilder()
+            ->select(sprintf('t.%s AS id', $idField), 't.locale AS locale')
+            ->from($class, 't')
+            ->where('t.tuuid IS NULL')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(
+            static fn (array $row): array => [self::asString($row['id']), self::asString($row['locale'])],
+            $rows,
+        );
+    }
+
+    /**
+     * Whether --entity names a real, mapped, translatable entity — checked
+     * against Doctrine's metadata directly (mirroring what
+     * {@see TranslatableEntityLocator::locate()} itself tests for a class it
+     * accepts) instead of membership in the already-resolved $classes list,
+     * which only ever names hierarchy roots and would wrongly reject a
+     * concrete subclass.
+     *
+     * @phpstan-assert-if-true class-string $class
+     */
+    private function isTranslatableEntity(string $class): bool
+    {
+        if (!class_exists($class)) {
+            return false;
+        }
+
+        if ($this->entityManager->getMetadataFactory()->isTransient($class)) {
+            return false;
+        }
+
+        $metadata = $this->entityManager->getClassMetadata($class);
+
+        if ($metadata->isMappedSuperclass) {
+            return false;
+        }
+
+        return $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
     }
 
     private static function asString(mixed $value): string
     {
-        // tuuid hydrates as a Tuuid value object, locale as a nullable string.
-        assert(null === $value || is_string($value) || $value instanceof \Stringable);
+        // tuuid hydrates as a Tuuid value object, locale as a nullable string,
+        // an id as an int or a string depending on the entity's identifier type.
+        assert(null === $value || is_scalar($value) || $value instanceof \Stringable);
 
         return (string) $value;
     }
