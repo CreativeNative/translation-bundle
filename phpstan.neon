@@ -28,3 +28,15 @@ parameters:
     ignoreErrors:
         - message: '#Dynamic call to static method PHPUnit\\Framework\\Assert::[a-zA-Z0-9_]+\(\)#'
           path: tests/
+        # TranslatableTrait deliberately keeps `Tuuid|null`/`string|null` PHP
+        # types on its NOT NULL "tuuid"/"locale" columns (v4.0.0 WP12,
+        # Variante A): a freshly `new`-ed, not-yet-persisted entity
+        # legitimately has neither yet, and TranslatableEventSubscriber
+        # always assigns both before insert. phpstan-doctrine's
+        # EntityColumnRule (allowNullablePropertyForRequiredField: false,
+        # the vendor default) flags that nullable/NOT NULL mismatch on every
+        # concrete class that uses the trait -- one error per class, all
+        # attributed to this file.
+        - message: '#^Property .*::\$(tuuid|locale) type mapping mismatch: property can contain .+ but database expects .+\.$#'
+          identifier: doctrine.columnType
+          path: src/Doctrine/Model/TranslatableTrait.php

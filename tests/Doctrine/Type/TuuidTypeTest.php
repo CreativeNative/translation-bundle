@@ -8,7 +8,6 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
@@ -40,6 +39,7 @@ final class TuuidTypeTest extends TestCase
         $uuid     = Tuuid::generate();
         $phpValue = $this->type->convertToPHPValue($uuid->getValue(), $this->platform);
 
+        self::assertNotNull($phpValue);
         self::assertSame($uuid->getValue(), $phpValue->getValue());
         self::assertSame($uuid->getValue(), (string) $phpValue);
     }
@@ -58,16 +58,15 @@ final class TuuidTypeTest extends TestCase
     }
 
     /**
-     * Null input generates a new Tuuid.
+     * A database NULL converts to PHP null -- DBAL convention, not an
+     * invented Tuuid: AbstractHydrator calls this for every column of every
+     * hydrated row, including a LEFT JOIN's unmatched (all-NULL) columns.
      *
      * @throws ConversionException
      */
     public function testConvertToPHPValueFromNull(): void
     {
-        $phpValue = $this->type->convertToPHPValue(null, $this->platform);
-
-        self::assertNotEmpty($phpValue->getValue());
-        self::assertTrue(Uuid::isValid((string) $phpValue));
+        self::assertNull($this->type->convertToPHPValue(null, $this->platform));
     }
 
     /**
@@ -108,16 +107,14 @@ final class TuuidTypeTest extends TestCase
     }
 
     /**
-     * Null input generates a new database value.
+     * A PHP null converts to a database NULL -- straight passthrough, no
+     * invented value.
      *
      * @throws ConversionException
      */
     public function testConvertToDatabaseValueFromNull(): void
     {
-        $dbValue = $this->type->convertToDatabaseValue(null, $this->platform);
-
-        self::assertNotEmpty($dbValue);
-        self::assertTrue(Uuid::isValid($dbValue));
+        self::assertNull($this->type->convertToDatabaseValue(null, $this->platform));
     }
 
     /**

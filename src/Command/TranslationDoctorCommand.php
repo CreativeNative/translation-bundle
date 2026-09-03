@@ -24,9 +24,11 @@ use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
  *  2. incomplete  — a Tuuid with fewer locale rows than configured locales;
  *  3. duplicate   — more than one row sharing the same (tuuid, locale) pair;
  *  4. null-tuuid  — a row whose tuuid column is NULL, e.g. from a raw insert
- *     that bypassed the entity layer. Excluded from the query behind classes
- *     1-3 (see inspectNullTuuid()) so it is never folded into them under an
- *     invented Tuuid, and reported separately by id instead.
+ *     that bypassed the entity layer (the column is NOT NULL as of v4, so a
+ *     normal persist() can no longer produce one). Excluded from the query
+ *     behind classes 1-3 (see inspectNullTuuid()) so distinct NULL rows are
+ *     never folded into one fake shared group, and reported separately by
+ *     id instead.
  */
 #[AsCommand(
     name: 'tmi:translation:doctor',
@@ -215,11 +217,12 @@ final class TranslationDoctorCommand extends Command
      * Rows whose tuuid column is a literal database NULL — the grouped query
      * above deliberately excludes them (its `IS NOT NULL`) instead of folding
      * them into that grouping, because hydrating `t.tuuid` for a NULL value
-     * calls TuuidType::convertToPHPValue(), which invents a fresh Tuuid rather
-     * than returning null, turning a broken row into an untraceable false
-     * "standalone" instead of a reportable one. Selecting only the id and
-     * locale here avoids that same hydration for the very column this check
-     * exists to flag as missing.
+     * calls TuuidType::convertToPHPValue(), which now returns null rather
+     * than throwing (see TuuidType). Every NULL-tuuid row would then hydrate
+     * under the same empty-string group key, collapsing unrelated broken
+     * rows into one fake shared "tuuid" instead of reporting each. Selecting
+     * only the id and locale here avoids that hydration for the very column
+     * this check exists to flag as missing.
      *
      * @param class-string $class
      *

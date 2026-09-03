@@ -44,7 +44,25 @@ final class TranslatableTraitTest extends IntegrationTestCase
         self::assertSame(Column::class, $attributes[0]->getName());
 
         self::assertSame(TuuidType::NAME, $columnAttr->type, 'The "tuuid" column must use type="tuuid".');
-        self::assertTrue($columnAttr->nullable, 'The "tuuid" column must be nullable.');
+        self::assertSame(36, $columnAttr->length, 'The "tuuid" column must stay 36 characters long.');
+        self::assertFalse($columnAttr->nullable, 'The "tuuid" column must be NOT NULL: every persisted row carries a Tuuid.');
+    }
+
+    /**
+     * Check the column mapping of the "locale" property.
+     */
+    public function testLocaleColumnMapping(): void
+    {
+        $reflection = new \ReflectionClass(Scalar::class);
+        $property   = $reflection->getProperty('locale');
+        $attributes = $property->getAttributes(Column::class);
+
+        self::assertNotEmpty($attributes, 'No #[ORM\Column] attribute found on "locale".');
+
+        $columnAttr = $attributes[0]->newInstance();
+
+        self::assertSame(16, $columnAttr->length, 'The "locale" column must be 16 characters long.');
+        self::assertFalse($columnAttr->nullable, 'The "locale" column must be NOT NULL: every persisted row carries a locale.');
     }
 
     /**

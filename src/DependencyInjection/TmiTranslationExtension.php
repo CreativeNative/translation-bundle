@@ -18,6 +18,13 @@ use Tmi\TranslationBundle\Translation\EntityTranslator;
 
 final class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
+    // Matches the "locale" column's own length (TranslatableTrait) and the
+    // shape of a locale tag (language, optionally underscore-joined
+    // subtags) -- kept here rather than in Configuration because locales
+    // come from framework.enabled_locales, not a tmi_translation config key.
+    private const string LOCALE_PATTERN    = '/^[a-z]{2,3}(_[A-Za-z0-9]{2,8})*$/';
+    private const int LOCALE_COLUMN_LENGTH = 16;
+
     /**
      * @param array<mixed> $configs
      *
@@ -53,6 +60,15 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
 
         if ([] === $enabledLocales) {
             throw new \LogicException('The tmi/translation-bundle requires framework.enabled_locales to be configured. Add "enabled_locales" to your framework configuration.');
+        }
+
+        // Fail fast at compile time: a locale that does not fit the
+        // "locale" column's shape would otherwise only surface as a
+        // truncation or a NOT NULL/length constraint failure at INSERT time.
+        foreach ($enabledLocales as $locale) {
+            if (1 !== preg_match(self::LOCALE_PATTERN, $locale) || \strlen($locale) > self::LOCALE_COLUMN_LENGTH) {
+                throw new \LogicException(\sprintf('The locale "%s" in framework.enabled_locales is not a valid locale, or is longer than the %d characters the "locale" column can hold.', $locale, self::LOCALE_COLUMN_LENGTH));
+            }
         }
 
         // Resolve default_locale — processConfiguration() does not resolve %param% references

@@ -11,11 +11,19 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 trait TranslatableTrait
 {
-    #[ORM\Column(type: 'tuuid', length: 36, nullable: true)]
+    // Both columns are NOT NULL: every persisted row must carry a Tuuid and a
+    // locale (TranslatableEventSubscriber::prePersist() assigns both before
+    // insert). The PHP properties stay nullable regardless -- a freshly
+    // `new`-ed, not-yet-persisted entity legitimately has neither yet, and
+    // Doctrine hydrates only ever-non-null values back out of a NOT NULL
+    // column. TuuidType and TranslationDoctorCommand's "null-tuuid" check
+    // are what actually surfaces a NULL that reached the database anyway
+    // (a raw insert bypassing the entity layer).
+    #[ORM\Column(type: 'tuuid', length: 36, nullable: false)]
     #[SharedAmongstTranslations]
     private Tuuid|null $tuuid = null;
 
-    #[ORM\Column(type: Types::STRING, length: 5, nullable: true)]
+    #[ORM\Column(type: Types::STRING, length: 16, nullable: false)]
     private string|null $locale = null;
 
     final public function generateTuuid(): void

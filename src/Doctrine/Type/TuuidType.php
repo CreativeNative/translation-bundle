@@ -14,10 +14,26 @@ final class TuuidType extends GuidType
 {
     public const string NAME = 'tuuid';
 
-    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): Tuuid
+    /**
+     * A database NULL converts to PHP null, never an exception and never an
+     * invented Tuuid. This is DBAL convention, not a relaxation: Doctrine's
+     * AbstractHydrator::gatherRowData() calls convertToPHPValue() for every
+     * selected column of every hydrated row, including the columns of a
+     * translatable relation fetched through a LEFT JOIN that found no match
+     * -- where they are all NULL by construction. Throwing there would crash
+     * any such fetch-join query outright. A literal NULL that reaches this
+     * column on a genuinely persisted row is now also impossible in the
+     * normal write path (the "tuuid" column is NOT NULL, see
+     * TranslatableTrait, and TranslatableEventSubscriber::prePersist()
+     * always assigns one first) -- it can only happen through a write that
+     * bypasses the entity layer (a raw insert, a pre-v4 migration), and
+     * TranslationDoctorCommand's "null-tuuid" check exists to catch exactly
+     * that.
+     */
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): Tuuid|null
     {
         if (null === $value) {
-            return Tuuid::generate();
+            return null;
         }
 
         if ($value instanceof Tuuid) {
@@ -31,10 +47,10 @@ final class TuuidType extends GuidType
         throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid (PHPValue)', get_debug_type($value)));
     }
 
-    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): string
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): string|null
     {
         if (null === $value) {
-            return Tuuid::generate()->getValue();
+            return null;
         }
 
         if ($value instanceof Tuuid) {

@@ -114,21 +114,22 @@ final class TuuidIntegrationTest extends IntegrationTestCase
     }
 
     /**
+     * A database NULL round-trips to PHP null and back -- DBAL convention,
+     * not an invented Tuuid (see TuuidType::convertToPHPValue()).
+     *
      * @throws ConversionException
      * @throws Exception
      * @throws TypesException
      */
-    public function testTuuidNullConversionGeneratesNew(): void
+    public function testTuuidNullConversionPassesThrough(): void
     {
         $type = Type::getType(TuuidType::NAME);
 
         $phpValue = $type->convertToPHPValue(null, $this->em->getConnection()->getDatabasePlatform());
-        self::assertInstanceOf(Tuuid::class, $phpValue);
-        self::assertTrue(Uuid::isValid($phpValue->__toString()));
+        self::assertNull($phpValue);
 
         $dbValue = $type->convertToDatabaseValue(null, $this->em->getConnection()->getDatabasePlatform());
-        self::assertIsString($dbValue);
-        self::assertTrue(Uuid::isValid($dbValue));
+        self::assertNull($dbValue);
     }
 
     /**

@@ -255,6 +255,35 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension->load([['default_locale' => 'en_US']], $containerBuilder);
     }
 
+    public function testLoadThrowsWhenAnEnabledLocaleDoesNotMatchTheLocalePattern(): void
+    {
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', ['en_US', 'not a locale']);
+        $containerBuilder->setParameter('kernel.default_locale', 'en_US');
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The locale "not a locale" in framework.enabled_locales is not a valid locale');
+
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+    }
+
+    public function testLoadThrowsWhenAnEnabledLocaleExceedsTheColumnLength(): void
+    {
+        $tooLong          = 'en_US_this_is_way_too_long';
+        $containerBuilder = new ContainerBuilder();
+        $containerBuilder->setParameter('kernel.enabled_locales', [$tooLong]);
+        $containerBuilder->setParameter('kernel.default_locale', $tooLong);
+
+        $extension = new TmiTranslationExtension();
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(sprintf('The locale "%s" in framework.enabled_locales is not a valid locale, or is longer than the 16 characters the "locale" column can hold.', $tooLong));
+
+        $extension->load([['default_locale' => $tooLong]], $containerBuilder);
+    }
+
     public function testLoadThrowsWhenDefaultLocaleNotInEnabledLocales(): void
     {
         $containerBuilder = new ContainerBuilder();
