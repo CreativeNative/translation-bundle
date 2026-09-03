@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\Proxy;
@@ -116,6 +117,20 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
             }
 
             if ($propValue instanceof Collection && $propValue->isEmpty()) {
+                // clone $data is shallow: without this, the clone's Collection property
+                // still points at the exact same object as the source's. Left alone, an
+                // add() on the clone's (supposedly empty) collection would silently
+                // mutate the source's too. A readonly property is already initialised
+                // and PHP rejects every write to it -- there the shared reference is
+                // unavoidable, so it is left alone rather than thrown on.
+                if (!$property->isReadOnly()) {
+                    try {
+                        $accessor->setValue($translation, $property->name, new ArrayCollection());
+                    } catch (NoSuchPropertyException) {
+                        $property->setValue($translation, new ArrayCollection());
+                    }
+                }
+
                 continue;
             }
 

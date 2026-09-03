@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping\OneToManyAssociationMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
+use Tmi\TranslationBundle\Fixtures\Reflection\OneToMany\InheritedBackReferenceChild;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler;
@@ -153,6 +154,51 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
             self::assertInstanceOf(TranslatableManyToOneBidirectionalChild::class, $child);
             self::assertSame($parent, $child->getParentSimple());
         }
+    }
+
+    /**
+     * #18 negative proof: the back-reference field named by `mappedBy` is declared
+     * PRIVATE one level above the child's own class. `new \ReflectionProperty(
+     * $child::class, $mappedBy)` only ever looks at $child itself and throws
+     * "Property ... does not exist" there -- ReflectionHelper::getProperty() walks
+     * the hierarchy the same way getHierarchyProperties() already does.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateResolvesMappedByPropertyDeclaredOnAMappedSuperclass(): void
+    {
+        $handler = $this->createHandler();
+
+        $parent = new TranslatableOneToManyBidirectionalParent();
+        $child  = new InheritedBackReferenceChild();
+
+        $collection = new ArrayCollection([$child]);
+
+        $metadata = new ClassMetadata(TranslatableOneToManyBidirectionalParent::class);
+        $mapping  = new OneToManyAssociationMapping(
+            fieldName: 'simpleChildren',
+            sourceEntity: TranslatableOneToManyBidirectionalParent::class,
+            targetEntity: InheritedBackReferenceChild::class,
+        );
+        $mapping->mappedBy             = 'parent';
+        $metadata->associationMappings = [
+            'simpleChildren' => $mapping,
+        ];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(TranslatableOneToManyBidirectionalParent::class)
+            ->willReturn($metadata);
+
+        $args = new TranslationArgs($collection, 'en', 'it_IT');
+        $args->setProperty(new \ReflectionProperty($parent, 'simpleChildren'));
+        $args->setTranslatedParent($parent);
+
+        $result = $handler->translate($args);
+
+        self::assertCount(1, $result);
+        $translatedChild = $result->first();
+        self::assertInstanceOf(InheritedBackReferenceChild::class, $translatedChild);
+        self::assertSame($parent, $translatedChild->getParent());
     }
 
     /**

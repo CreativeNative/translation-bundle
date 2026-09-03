@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Translation;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\UnitOfWork;
+use Doctrine\Persistence\Proxy;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -400,10 +401,19 @@ final class EntityTranslator implements EntityTranslatorInterface
 
     /**
      * Resolves copySource for an entity: per-entity attribute overrides global config.
+     *
+     * A lazily-loaded association can arrive here as a classic Doctrine proxy
+     * subclass -- reflecting it directly finds nothing, because PHP attributes are
+     * never inherited by a generated subclass, and #[Translatable] lives on the
+     * real class. Same proxy-unwrapping pattern DoctrineObjectHandler::supports()
+     * already uses for the same reason.
      */
     private function resolveCopySource(object $entity): bool
     {
-        $attribute = $this->attributeHelper->getTranslatableAttribute(new \ReflectionClass($entity));
+        $parentClass = $entity instanceof Proxy ? get_parent_class($entity) : false;
+        $className   = \is_string($parentClass) ? $parentClass : $entity::class;
+
+        $attribute = $this->attributeHelper->getTranslatableAttribute(new \ReflectionClass($className));
         if (null !== $attribute && null !== $attribute->copySource) {
             return $attribute->copySource;
         }

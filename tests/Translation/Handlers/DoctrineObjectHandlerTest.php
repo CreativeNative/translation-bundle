@@ -148,6 +148,69 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
         self::assertTrue($result->emptyCollection->isEmpty());
     }
 
+    /**
+     * #17 negative proof: `clone $data` is shallow -- without a fresh collection on
+     * the clone, the property still points at the exact same (empty) Collection
+     * object as the source's. Mutating the clone's collection would silently
+     * mutate the source's too, since they are literally the same object.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateGivesEmptyCollectionPropertyAFreshInstance(): void
+    {
+        $metaFactory = $this->createMock(ClassMetadataFactory::class);
+        $metaFactory->method('isTransient')->willReturn(false);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
+
+        $entity = new class {
+            /** @var Collection<int, mixed> */
+            public Collection $items;
+
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+
+        self::assertInstanceOf($entity::class, $result);
+        self::assertNotSame($entity->items, $result->items);
+
+        $result->items->add('added-on-the-clone');
+
+        self::assertTrue($entity->items->isEmpty(), 'mutating the clone must not leak back into the source collection');
+    }
+
+    /**
+     * A readonly Collection property is already initialised on the clone and PHP
+     * rejects every write to it -- the #17 fix must skip writing there instead of
+     * throwing, same as every other readonly property further down.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateSkipsFreshCollectionForReadonlyEmptyCollectionProperty(): void
+    {
+        $metaFactory = $this->createMock(ClassMetadataFactory::class);
+        $metaFactory->method('isTransient')->willReturn(false);
+        $this->entityManager()->method('getMetadataFactory')->willReturn($metaFactory);
+
+        $entity = new class {
+            /** @var Collection<int, mixed> */
+            public readonly Collection $items;
+
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $result = $this->handler->translate(new TranslationArgs($entity, 'en_US', 'de_DE'));
+
+        self::assertInstanceOf($entity::class, $result);
+        self::assertSame($entity->items, $result->items);
+    }
+
     public function testHandleSharedAndEmptyOnTranslateReturnDefaults(): void
     {
         $obj  = new \stdClass();

@@ -18,6 +18,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBid
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningParent;
+use Tmi\TranslationBundle\Fixtures\Reflection\ManyToMany\InheritedBackReferenceChild;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
@@ -512,6 +513,55 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $translatedChild = $result->first();
         self::assertInstanceOf(TranslatableManyToManyOwningChild::class, $translatedChild);
         self::assertTrue($translatedChild->getOwningParents()->contains($parent));
+    }
+
+    /**
+     * #18 negative proof: the back-reference collection named by `mappedBy` is
+     * declared PRIVATE one level above the item's own class. `new
+     * \ReflectionProperty($item::class, $mappedBy)` only ever looks at $item
+     * itself and throws "Property ... does not exist" there --
+     * ReflectionHelper::getProperty() walks the hierarchy the same way
+     * getHierarchyProperties() already does. Exercises both call sites at once:
+     * the detach/restore in translate() and addBackReference().
+     *
+     * @throws \ReflectionException|MappingException
+     */
+    public function testTranslateResolvesMappedByPropertyDeclaredOnAMappedSuperclass(): void
+    {
+        $unmapped = new class {
+            /** @var Collection<int, mixed> */
+            public Collection $items;
+
+            public function __construct()
+            {
+                $this->items = new ArrayCollection();
+            }
+        };
+
+        $parent = new TranslatableManyToManyOwningParent()->setLocale('en_US');
+        $item   = new InheritedBackReferenceChild();
+        $item->setLocale('en_US');
+        $collection = new ArrayCollection([$item]);
+        $prop       = new \ReflectionProperty($unmapped::class, 'items');
+
+        $mapping           = new ManyToManyInverseSideMapping('items', $parent::class, InheritedBackReferenceChild::class);
+        $mapping->mappedBy = 'parents';
+
+        $meta = $this->createMock(ClassMetadata::class);
+        $meta->method('getAssociationMapping')->with('items')->willReturn($mapping);
+        $this->entityManager()->method('getClassMetadata')->willReturn($meta);
+
+        $args = new TranslationArgs($collection, 'en_US', 'de_DE')
+            ->setTranslatedParent($parent)
+            ->setProperty($prop);
+
+        $result = $this->handler->translate($args);
+
+        self::assertCount(1, $result);
+
+        $translatedChild = $result->first();
+        self::assertInstanceOf(InheritedBackReferenceChild::class, $translatedChild);
+        self::assertTrue($translatedChild->getParents()->contains($parent));
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Translation;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\Proxy;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,10 +18,12 @@ use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\Seeding\EmptySeeded;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
+use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -1207,6 +1210,56 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // Global copySource is false
         self::assertFalse($args->getCopySource());
+    }
+
+    /**
+     * #16 negative proof: a lazily-loaded association can arrive as a proxy
+     * subclass generated one level below the real entity -- and PHP never
+     * inherits attributes into a generated subclass, so #[Translatable] declared
+     * on EmptySeeded is invisible on the proxy's own class. The old
+     * `new \ReflectionClass($entity)` reflected that subclass directly, found no
+     * attribute, and silently fell back to the global copy_source (true here) --
+     * translating a copySource:false entity as though it were true. Uses a real
+     * AttributeHelper (not the mock every other test in this file uses) so the
+     * class actually being reflected is what decides the outcome.
+     *
+     * @throws \ReflectionException
+     */
+    public function testResolveCopySourceUnwrapsAProxyToSeeTheRealClasssAttribute(): void
+    {
+        $proxy = new class extends EmptySeeded implements Proxy {
+            public function __load(): void
+            {
+            }
+
+            public function __isInitialized(): bool
+            {
+                return true;
+            }
+        };
+        $proxy->setLocale('en_US');
+
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
+            true, // global copy_source -- must lose to EmptySeeded's own copySource: false
+            $this->eventDispatcher(),
+            new AttributeHelper(),
+            new TypeDefaultResolver(),
+            $this->entityManager(),
+            $this->cache(),
+            $this->localeVariantFinder(),
+        );
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->method('translate')->willReturn($proxy);
+        $translator->addTranslationHandler($handler);
+
+        $args = new TranslationArgs($proxy, 'en_US', 'de_DE');
+        $translator->processTranslation($args);
+
+        self::assertFalse($args->getCopySource(), "EmptySeeded's #[Translatable(copySource: false)] must survive the proxy, not fall back to the global copy_source: true");
     }
 
     /**

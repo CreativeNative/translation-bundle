@@ -40,4 +40,33 @@ final class ReflectionHelper
 
         return array_values($properties);
     }
+
+    /**
+     * A single named property, found by walking the hierarchy the same way
+     * getHierarchyProperties() does.
+     *
+     * `new \ReflectionProperty($class, $name)` only ever looks at $class itself: a
+     * private property declared on a mapped superclass above it throws
+     * ReflectionException there, even though the property genuinely exists on
+     * every instance of $class. Every single-property lookup by class-and-name
+     * in the bundle goes through this helper instead.
+     *
+     * @param \ReflectionClass<covariant object>|class-string $class
+     *
+     * @throws \ReflectionException when $name exists on neither $class nor any parent
+     */
+    public static function getProperty(\ReflectionClass|string $class, string $name): \ReflectionProperty
+    {
+        $reflect = $class instanceof \ReflectionClass ? $class : new \ReflectionClass($class);
+
+        $current = $reflect;
+        do {
+            if ($current->hasProperty($name)) {
+                return $current->getProperty($name);
+            }
+            $current = $current->getParentClass();
+        } while (false !== $current);
+
+        throw new \ReflectionException(sprintf('Property "%s" does not exist on class "%s" or any of its parent classes.', $name, $reflect->getName()));
+    }
 }

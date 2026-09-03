@@ -13,6 +13,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Translation\Args\TranslationArgs;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Receives a collection (children). For each child:
@@ -117,14 +118,14 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
 
             $subArgs = new TranslationArgs($child, $args->getSourceLocale(), $args->getTargetLocale())
                 ->setTranslatedParent($translatedParent)
-                ->setProperty(new \ReflectionProperty($child::class, $mappedBy));
+                ->setProperty(ReflectionHelper::getProperty($child::class, $mappedBy));
 
             $translatedChild = $this->translator->processTranslation($subArgs);
             $newCollection->add($translatedChild);
 
             // keep bidirectional consistency
             if (\is_object($translatedChild)) {
-                $childProperty = new \ReflectionProperty($translatedChild::class, $mappedBy);
+                $childProperty = ReflectionHelper::getProperty($translatedChild::class, $mappedBy);
                 $childProperty->setValue($translatedChild, $translatedParent);
             }
         }

@@ -161,7 +161,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
             // the recursion from walking back into $newOwner's own collection (which would
             // rewrite the SOURCE parent), and it leaves the clone with an empty collection of
             // its own. The source item gets its collection back either way.
-            $rp            = new \ReflectionProperty($item::class, $mappedBy);
+            $rp            = ReflectionHelper::getProperty($item::class, $mappedBy);
             $sourceBackRef = $rp->getValue($item);
             $rp->setValue($item, new ArrayCollection());
 
@@ -187,7 +187,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
      */
     private static function addBackReference(object $item, string $field, object $newOwner): void
     {
-        $property = new \ReflectionProperty($item::class, $field);
+        $property = ReflectionHelper::getProperty($item::class, $field);
         $backRef  = $property->getValue($item);
 
         if (!$backRef instanceof Collection) {
