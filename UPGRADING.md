@@ -27,7 +27,7 @@ with a migration path.
   - [5. `Psr6TranslationCache` is gone](#5-psr6translationcache-is-gone)
   - [6. `TranslationHandlerInterface` is two methods on typed contexts](#6-translationhandlerinterface-is-two-methods-on-typed-contexts)
 - [Behavioural Changes (4.0)](#behavioural-changes-40)
-  - [1. The direct ManyToOne/OneToOne form now translates the target entity](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity)
+  - [1. The direct ManyToOne/OneToOne form now translates the target entity](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity)
   - [2. Cross-locale lookups no longer bypass the locale filter](#2-cross-locale-lookups-no-longer-bypass-the-locale-filter)
   - [3. The translation cache is identity-safe across `EntityManager::clear()`](#3-the-translation-cache-is-identity-safe-across-entitymanagerclear)
   - [4. Inheritance hierarchies are counted once per concrete class](#4-inheritance-hierarchies-are-counted-once-per-concrete-class)
@@ -508,20 +508,26 @@ on your part.
 
 ### 4. Inheritance hierarchies are counted once per concrete class
 
-`tmi:translation:doctor`, `tmi:translation:sync-shared` and `TranslatableEntityValidationWarmer`
-used to enumerate every concrete subclass of a `SINGLE_TABLE`/`JOINED` hierarchy *in addition
-to* its root — even though querying the root is already polymorphic and returns every
-subclass's rows. A hierarchy of *N* subclasses was walked *N+1* times: `doctor` double
-(or more) counted the same physical rows as separate anomalies, and `sync-shared` /
-`TranslatableEntityValidationWarmer` repeated the same work once per subclass on top of the
-root.
+`tmi:translation:doctor` and `tmi:translation:sync-shared` used to enumerate every concrete
+subclass of a `SINGLE_TABLE`/`JOINED` hierarchy *in addition to* its root — even though querying
+the root is already polymorphic and returns every subclass's rows. A hierarchy of *N* subclasses
+was walked *N+1* times, and `doctor` double (or more) counted the same physical rows as separate
+anomalies.
 
-**After v4:** only the hierarchy root is enumerated, and each hydrated row's *own* concrete
-class is used to resolve which properties are shared/checked/validated on it — so a field
-declared only on a subclass is still seen correctly. If you were dividing an old `doctor`
-anomaly count by the number of subclasses as a workaround, stop — the count is now accurate on
-its own. `sync-shared --entity` also now validates against Doctrine's metadata directly, so a
-concrete subclass name is accepted where it used to be wrongly rejected.
+**After v4:** both commands go through `TranslatableEntityLocator`, which returns only the
+hierarchy root, and each hydrated row's *own* concrete class is used to resolve which properties
+are shared/checked on it — so a field declared only on a subclass is still seen correctly. If you
+were dividing an old `doctor` anomaly count by the number of subclasses as a workaround, stop —
+the count is now accurate on its own. `sync-shared --entity` also now validates against
+Doctrine's metadata directly, so a concrete subclass name is accepted where it used to be wrongly
+rejected.
+
+`TranslatableEntityValidationWarmer` was never double-counting in the same way and is unaffected
+by this change: it runs once per `cache:warmup`, over *every* class `getMetadataFactory()->
+getAllMetadata()` returns (not per hydrated row — no rows are loaded at warmup), and already
+avoided repeat work via `ClassMetadata::isInheritedField()` per field plus a set of already-
+checked table names, so a unique constraint declared only on a subclass is still checked even
+though the warmer never enumerates rows the way `doctor`/`sync-shared` do.
 
 ### 5. `copy_source` resolution is proxy-safe; `EmptyOnTranslate` collections are never shared
 
@@ -594,7 +600,7 @@ higher up the same call — this has always been the recursion guard, unchanged.
 is what the three collection handlers (`BidirectionalOneToManyHandler`,
 `BidirectionalManyToManyHandler`, `UnidirectionalManyToManyHandler`) did with that fallback
 instance once WP6 made the direct `ManyToOne`/`OneToOne` form run the full entity pipeline
-(see [§ 1](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity)): they added
+(see [§ 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity)): they added
 it to the translated owner's collection like any other translated item, and — for the two
 bidirectional handlers — repointed its own back-reference field at the translated owner. The
 most ordinary shape it reaches in: translating a child with a bidirectional `ManyToOne` parent
@@ -723,7 +729,7 @@ last bullet):
    directly, remove that wiring ([§ 5](#5-psr6translationcache-is-gone)).
 8. Search your entities for a direct `ManyToOne`/`OneToOne` to another translatable entity and
    decide, per association, whether you want it translated (add `cascade: ['persist']`) or
-   shared (`#[SharedAmongstTranslations]`) — [Behavioural Change 1](#1-the-direct-manytoonoonetoone-form-now-translates-the-target-entity).
+   shared (`#[SharedAmongstTranslations]`) — [Behavioural Change 1](#1-the-direct-manytooneonetoone-form-now-translates-the-target-entity).
 9. Search for hand-rolled locale-variant deletion (a loop over `findBy(['tuuid' => ...])`, or
    a single `$em->remove()` you expected to remove every locale) and replace it with
    `TranslatableRemover` — see [New in 4.0](#new-in-40).

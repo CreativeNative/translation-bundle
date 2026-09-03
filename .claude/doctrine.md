@@ -102,7 +102,10 @@ this disable/try/finally/enable dance — it is exactly this pattern, already co
 `TranslatableEventSubscriber` handles Doctrine lifecycle events:
 
 - Sets `tuuid` on persist if not set
-- Validates locale is configured
+- Defaults an empty locale to `default_locale` in `prePersist()` and `postLoad()` — it does not
+  validate the locale against the enabled locales; that check lives in
+  `EntityTranslator::processTranslation()`, which throws `LogicException` ("Locale ... is not
+  allowed") for one outside `%kernel.enabled_locales%`
 - Maintains translation metadata
 - Flags **orphaned translations** — an entity persisted in a non-default locale without a
   shared `Tuuid`, settled at flush time: a same-flush translation adopting the `Tuuid` clears
@@ -168,14 +171,16 @@ stay online.
 | ManyToOne | BidirectionalManyToOneHandler | Translates to matching locale |
 | OneToMany | BidirectionalOneToManyHandler | Clones collection with translations |
 | OneToOne | BidirectionalOneToOneHandler | Translates owned side |
-| ManyToMany | BidirectionalManyToManyHandler | Clones with translations |
+| ManyToMany (bidirectional) | BidirectionalManyToManyHandler | Clones with translations |
+| ManyToMany (unidirectional) | UnidirectionalManyToManyHandler | Priority 30; matches a `ManyToMany` with neither `mappedBy` nor `inversedBy` |
 | Embedded | EmbeddedHandler | Deep clones embedded objects |
 
 ## Known Limitations
 
-1. **Association collections + SharedAmongstTranslations**: Rejected on `OneToMany` and
-   `ManyToMany` (both directions) — one collection shared between locale variants makes the
-   owning side ambiguous. Share the related entity's own scalar columns instead.
+1. **Translatable associations + SharedAmongstTranslations**: Rejected on `OneToMany`,
+   `ManyToMany` (both directions), and a bidirectional `ManyToOne`/`OneToOne` — sharing would
+   leave the relation's ownership ambiguous across locale variants. Share the related entity's
+   own scalar columns instead.
 2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
    validation at `cache:warmup` — use a composite `field + locale` constraint.
 3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to

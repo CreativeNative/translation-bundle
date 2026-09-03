@@ -108,13 +108,19 @@ private Collection $photos;
 
 **If found:**
 - **Severity:** ERROR
-- **Error:** `RuntimeException` thrown by bidirectional handlers
+- **Error:** `RuntimeException` — all five association handlers reject the attribute:
+  `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and
+  `BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`), plus
+  `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either
+  direction)
 - **Symptom:** Translation fails completely when processing this field
 - **Fix options:**
   1. Remove `#[SharedAmongstTranslations]` (each locale gets own relation)
-  2. For a **to-one** relation, removing `inversedBy`/`mappedBy` makes it unidirectional and
-     sharing becomes legal again. This does **not** work for `ManyToMany`:
-     `UnidirectionalManyToManyHandler` rejects the attribute too, in either direction.
+  2. For a **to-one** relation (`ManyToOne`/`OneToOne`), removing `inversedBy`/`mappedBy` makes
+     it unidirectional and sharing becomes legal again. This does **not** work for `OneToMany`
+     (a `mappedBy` is intrinsic to how the bundle recognizes the relation) or for `ManyToMany`:
+     `UnidirectionalManyToManyHandler` rejects the attribute too, in either direction — a
+     `ManyToMany` can never be shared.
   3. Share the related entity's own scalar columns instead of the association
 - **llms.md:** See "SharedAmongstTranslations on Bidirectional Relation" troubleshooting entry
 

@@ -41,7 +41,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 * **Row-per-locale.** Every locale variant is a full row: *N* configured locales means up to *N*× the rows for a translatable entity, and that cost is paid per entity regardless of how many locales are actually filled in. If most of your content stays in one or two locales and only a handful of fields ever need translating, a dedicated translation-table design may cost fewer rows than this bundle's trade-off of no joins for full-row duplication.
 * **Unique constraints need the locale column.** A single-column `unique: true` on a translatable field triggers a validation error at `cache:warmup` — the same value legitimately repeats once per locale. Use a composite constraint (`field + locale`) instead — see [Quick Fix for unique fields](#quick-fix-for-unique-fields).
-* **`SharedAmongstTranslations` is not available on association collections** (`OneToMany`, `ManyToMany`). One collection shared between locale variants makes the owning side of the relation ambiguous, so the handlers reject it with a `RuntimeException`. Share the related entity's scalar columns instead. Associations themselves — including `ManyToMany` in both directions — are translated normally.
+* **`SharedAmongstTranslations` is not available on translatable associations** — `OneToMany`, `ManyToMany` (either direction), and a bidirectional `ManyToOne`/`OneToOne` (one declared with `inversedBy`/`mappedBy`) all reject it with a `RuntimeException`: sharing would leave the relation's ownership ambiguous across locale variants. Share the related entity's scalar columns instead. Associations themselves — including `ManyToMany` in both directions — are translated normally.
 * Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support).
 
 ## 📦 Installation
@@ -163,7 +163,8 @@ publishing one language at a time). When divergence must not happen, gate CI wit
 `tmi:translation:sync-shared --check` (exits non-zero on drift) and repair with
 `tmi:translation:sync-shared`.
 
-***Note***: this attribute cannot be used on association **collections** (`OneToMany`, `ManyToMany`) —
+***Note***: this attribute cannot be used on `OneToMany` or `ManyToMany` associations (either
+direction), or on a bidirectional `ManyToOne`/`OneToOne` — one declared with `inversedBy`/`mappedBy` —
 the handlers throw a `RuntimeException`. Share the related entity's own columns instead.
 
 ```php
@@ -364,10 +365,11 @@ $batch = $repository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
 
 Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales.
 
-`TranslatableRepositoryTrait` is a thin wrapper around `Tmi\TranslationBundle\Doctrine\LocaleVariantFinder`
-— inject the finder directly wherever a repository isn't the natural fit (a service, a console
-command). Alongside the two methods above it, it also offers single-locale lookups:
-`findLocaleVariant(class, tuuid, locale)` and `findLocaleVariantsBatch(class, tuuids, locale)`.
+`TranslatableRepositoryTrait` offers exactly the two methods above and nothing else — a thin
+wrapper around `Tmi\TranslationBundle\Doctrine\LocaleVariantFinder`. The finder itself carries two
+more, single-locale lookups that have no trait equivalent: `findLocaleVariant(class, tuuid, locale)`
+and `findLocaleVariantsBatch(class, tuuids, locale)`. Inject `LocaleVariantFinder` directly wherever
+a repository isn't the natural fit (a service, a console command) or you need those two methods.
 
 ### Removing a translatable entity
 

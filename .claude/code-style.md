@@ -62,7 +62,7 @@ Use constructor injection with autowiring:
 ```php
 public function __construct(
     private readonly EntityManagerInterface $entityManager,
-    #[Autowire(param: 'tmi_translation.locales')]
+    #[Autowire(param: 'kernel.enabled_locales')]
     private readonly array $locales,
 )
 ```

@@ -194,7 +194,7 @@ Wait for user confirmation (yes/y/apply/confirm).
 
 **How relationship translation works:**
 - **OneToMany**: Translates the children collection, pointing each child's inverse property back at the translated parent (`BidirectionalOneToManyHandler`)
-- **ManyToOne**: Creates a new relation pointing to the translated target OR the same shared entity (`BidirectionalManyToOneHandler`)
+- **ManyToOne**: Creates a new relation pointing to the translated target, get-or-create (v4.0); a bidirectional one (`inversedBy` set) cannot be shared (`BidirectionalManyToOneHandler`)
 - **OneToOne**: Clones the related entity and fixes up the back-reference, in either direction — `mappedBy` or `inversedBy` (`BidirectionalOneToOneHandler`)
 - **ManyToMany**: Builds a **new** collection of translated items, in either direction, leaving the source entity's collection untouched (`BidirectionalManyToManyHandler`, or `UnidirectionalManyToManyHandler` when the mapping has neither `mappedBy` nor `inversedBy`)
 
@@ -202,10 +202,14 @@ Wait for user confirmation (yes/y/apply/confirm).
 collection or relation between locale variants makes the owning side ambiguous.
 
 A plain `#[ORM\ManyToOne(inversedBy: ...)]`/`#[ORM\OneToOne]` field declared on the *owning*
-class (not reached as a back-reference) now translates its target too, get-or-create (v4.0)
-— if the intent is one shared target across every locale instead, mark the association
-`#[SharedAmongstTranslations]` and skip this paragraph entirely for that field. If it should
-translate, give it `cascade: ['persist']` so a newly created target variant gets saved.
+class (not reached as a back-reference) now translates its target too, get-or-create (v4.0). If
+the intent is one shared target across every locale instead, remove `inversedBy`/`mappedBy` to
+make the association unidirectional, then mark it `#[SharedAmongstTranslations]` — the
+bidirectional shape shown above rejects the attribute with a `RuntimeException`. This escape
+hatch does not exist for `ManyToMany`: `UnidirectionalManyToManyHandler` rejects the attribute
+too, in either direction; share the related entity's own scalar columns instead. If the
+association should translate rather than share, give it `cascade: ['persist']` so a newly
+created target variant gets saved.
 
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
 

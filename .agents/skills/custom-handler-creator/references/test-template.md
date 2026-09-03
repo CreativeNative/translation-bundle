@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace App\Tests\Translation\Handler;
 
 use App\Translation\Handler\[HANDLER_NAME]Handler;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -21,7 +22,12 @@ use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
+// PHPUnit strict mode fails a test as "risky" if a mock is created but never given an
+// expectation. This template's $attributeHelper is a MockObject (not a createStub()) because
+// the commented-out TODO below shows configuring ->expects() on it per test -- add expectations
+// as you fill in each test, or drop this attribute once every test that uses it does.
 #[CoversClass([HANDLER_NAME]Handler::class)]
+#[AllowMockObjectsWithoutExpectations]
 final class [HANDLER_NAME]HandlerTest extends TestCase
 {
     private [HANDLER_NAME]Handler $handler;
@@ -52,7 +58,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $result = $this->handler->supports($context);
 
         // Assert
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 
     #[Test]
@@ -68,7 +74,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $result = $this->handler->supports($context);
 
         // Assert
-        $this->assertFalse($result);
+        self::assertFalse($result);
     }
 
     #[Test]
@@ -85,9 +91,9 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
 
         // Assert
         // TODO: Add assertions for your translation behavior
-        // $this->assertInstanceOf(YourType::class, $result);
-        // $this->assertNotSame($originalValue, $result); // Verify clone
-        // $this->assertEquals($expectedValue, $result->getValue());
+        // self::assertInstanceOf(YourType::class, $result);
+        // self::assertNotSame($originalValue, $result); // Verify clone
+        // self::assertEquals($expectedValue, $result->getValue());
     }
 
     #[Test]
@@ -106,7 +112,7 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
 
         // Assert
         // For shared behavior (same instance):
-        $this->assertSame($originalValue, $result);
+        self::assertSame($originalValue, $result);
 
         // OR for handlers that throw on shared:
         // $this->expectException(\RuntimeException::class);
@@ -126,11 +132,11 @@ final class [HANDLER_NAME]HandlerTest extends TestCase
         $result = $this->handler->translate($context);
 
         // Assert
-        $this->assertNull($result);
+        self::assertNull($result);
 
         // OR for handlers that return an empty instance:
-        // $this->assertInstanceOf(YourType::class, $result);
-        // $this->assertTrue($result->isEmpty());
+        // self::assertInstanceOf(YourType::class, $result);
+        // self::assertTrue($result->isEmpty());
     }
 
     /**
@@ -198,9 +204,9 @@ public function it_clones_value_object_on_translate(): void
 
     $result = $this->handler->translate($context);
 
-    $this->assertInstanceOf(Money::class, $result);
-    $this->assertNotSame($original, $result);
-    $this->assertEquals(100, $result->getAmount());
+    self::assertInstanceOf(Money::class, $result);
+    self::assertNotSame($original, $result);
+    self::assertEquals(100, $result->getAmount());
 }
 ```
 
@@ -223,7 +229,7 @@ public function it_decrypts_and_re_encrypts_on_translate(): void
 
     $result = $this->handler->translate($context);
 
-    $this->assertEquals('encrypted:def456', $result);
+    self::assertEquals('encrypted:def456', $result);
 }
 ```
 
@@ -241,7 +247,7 @@ public function it_recalculates_computed_value_for_target_locale(): void
     $result = $this->handler->translate($context);
 
     // Computed value should be recalculated, not copied
-    $this->assertNull($result); // or new computed value
+    self::assertNull($result); // or new computed value
 }
 ```
 

@@ -101,7 +101,7 @@ private ?string $cachedSlug = null;
 
 ### Tuuid (Translation UUID)
 - Immutable value object using UUIDv7
-- Stored as `VARCHAR(36)` via custom `TuuidType`
+- Stored as `CHAR(36)` via custom `TuuidType` (extends Doctrine's `GuidType`)
 - Groups all language variants of an entity
 
 ## Events
@@ -197,14 +197,18 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 
 ```
 src/
-├── Command/                 # Diagnostic / maintenance console commands
-├── DependencyInjection/     # Bundle configuration
-├── Doctrine/                # ORM integration (models, types, filters, listeners)
-├── Translation/             # Core translation logic
+├── CacheWarmer/          # TranslatableEntityValidationWarmer (cache:warmup validation pass)
+├── Command/              # Diagnostic / maintenance console commands
+├── DependencyInjection/  # Bundle configuration
+├── Doctrine/             # ORM integration (models, types, filters, listeners)
+├── Event/                # Translation events
+├── EventSubscriber/      # LocaleFilterConfigurator (toggles the locale filter per request)
+├── Exception/            # Bundle exceptions
+├── Resources/            # config/services.yaml (service definitions)
+├── Translation/          # Core translation logic
 │   ├── EntityTranslator.php # Main orchestrator
-│   └── Handlers/            # Handler chain
-├── Event/                   # Translation events
-├── Exception/               # Bundle exceptions
-├── Utils/                   # Helpers (AttributeHelper)
-└── ValueObject/             # Tuuid value object
+│   └── Handlers/         # Handler chain
+├── Twig/                 # TmiTranslationExtension (the tmi_locales global)
+├── Utils/                # Helpers (AttributeHelper)
+└── ValueObject/          # Tuuid, LocaleCompleteness and TranslationStatus
 ```
