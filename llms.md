@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **730 tests, 6,707 assertions**, all green.
+  `failOnDeprecation`). As of this release: **730 tests, 6,723 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1417,7 +1417,9 @@ translatable property filled on the baseline is filled on it too — optional pr
 empty on the baseline never count against translations. Translatable property = mapped
 column minus identifier, system columns (tuuid/locale) and
 `#[SharedAmongstTranslations]`; embedded fields contribute their non-shared inner
-properties; associations are not inspected. "Filled" = not null, and for strings not blank.
+properties; associations are not inspected. Since 4.1.1 "shared" is decided by
+`SharedValueSynchronizer::sharedProperties()` — the same discovery `sync-shared` and the
+flush-time propagation use — so the three never disagree. "Filled" = not null, and for strings not blank.
 The locale filter is suspended for the lookup and restored afterwards.
 
 `LocaleCompleteness` API: `statusOf($locale)`, `hasVariant($locale)`, `statuses()`,
@@ -1922,5 +1924,6 @@ Step-by-step guide for building custom translation handlers for field types not 
   - `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` cache per class; `EntityTranslator::preload()` batches import lookups per class instead of per entity; `tests/Performance/QueryBudgetTest.php` asserts an exact query count for every operation in the Performance table above.
   - README, llms.txt, this file and the three `.agents/skills/` guides rewritten around the two arguments this section opens with — every performance and quality claim in them is backed by a named test or CI gate, not an estimate.
 - v4.1.0: Additive release, no schema change, no removed API, no changed default. `#[SharedAmongstTranslations]` gains its second half: **`propagate_shared_on_flush`** (config, default `false`, announced as the 5.0 default) makes `SharedValuePropagationListener` copy a shared change made on *any* locale variant onto every sibling — including a variant scheduled for insertion in the same flush — inside the same `flush()`, field-level, via `recomputeSingleEntityChangeSet()`, with a per-(entity, path) ping-pong guard and a `SharedValueConflictException` (never last-wins) when two variants carry different new values for one shared property. The copy logic is the new public **`SharedValueSynchronizer`** (`syncFrom()` with the edited row as source, `siblingsOf()`, `sync()`/`compare()` → `SharedValueSyncReport`, memoized `sharedProperties()`, `valuesEqual()`); `tmi:translation:sync-shared` is a thin client of it and therefore also covers to-one associations to a non-translatable target (`--check` may newly report drift there), and gains `--tuuid=<uuid> --source-locale=<locale>` — the targeted repair of one record from the row you name. New read side: **`SharedDriftScanner::scan()`** streams one `SharedDrift` per drifted sibling row and property (locations, never values) on top of the new **`LocaleVariantFinder::streamGroupedByTuuid()`**, the streaming core the command shares. `AttributeHelper` gets a class-name alias; the class-level attribute form is documented as embeddable-only. Quality gate at the tag: see README § Verified quality.
+- v4.1.1: Maintenance, no behaviour change. `LocaleCompletenessResolver` derives its "not translatable content" exclusions from `SharedValueSynchronizer::sharedProperties()` instead of its own copy of the embedded-sharing discovery (constructor: `SharedValueSynchronizer` replaces `AttributeHelper`); `AttributeHelper::isEmbeddableShared()`'s docblock names its real caller.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 

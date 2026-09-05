@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
-use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 use Tmi\TranslationBundle\ValueObject\LocaleCompleteness;
 use Tmi\TranslationBundle\ValueObject\TranslationStatus;
@@ -51,7 +51,7 @@ final class LocaleCompletenessResolver
      */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly AttributeHelper $attributeHelper,
+        private readonly SharedValueSynchronizer $synchronizer,
         #[Autowire(param: 'tmi_translation.default_locale')]
         private readonly string $defaultLocale,
         #[Autowire(param: 'kernel.enabled_locales')]
@@ -185,8 +185,10 @@ final class LocaleCompletenessResolver
     /**
      * Mapped, non-system, non-identifier, non-shared properties — the columns
      * that hold locale-specific content. Embedded fields are expanded into
-     * their non-shared inner properties, mirroring how EmbeddedHandler and
-     * SyncSharedTranslationsCommand resolve sharing.
+     * their non-shared inner properties. What counts as shared is the
+     * complement of {@see SharedValueSynchronizer::sharedProperties()} — the
+     * one discovery behind `tmi:translation:sync-shared`, the flush-time
+     * propagation and this resolver, so the three can never disagree.
      *
      * @param class-string $class
      *
@@ -200,19 +202,20 @@ final class LocaleCompletenessResolver
 
         $metadata   = $this->entityManager->getClassMetadata($class);
         $reflection = $metadata->getReflectionClass();
+        $shared     = $this->sharedPaths($class);
         $checked    = [];
 
         foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
             $name = $property->getName();
 
-            if (in_array($name, self::SYSTEM_PROPERTIES, true)) {
+            if (in_array($name, self::SYSTEM_PROPERTIES, true) || isset($shared[$name])) {
                 continue;
             }
 
             $embedded = $metadata->embeddedClasses[$name] ?? null;
 
             if (null !== $embedded) {
-                foreach ($this->translatableEmbeddedProperties($property, $embedded->class) as $entry) {
+                foreach ($this->translatableEmbeddedProperties($property, $embedded->class, $shared) as $entry) {
                     $checked[] = $entry;
                 }
 
@@ -223,10 +226,6 @@ final class LocaleCompletenessResolver
                 continue;
             }
 
-            if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
-                continue;
-            }
-
             $checked[] = ['owner' => null, 'property' => $property];
         }
 
@@ -234,31 +233,47 @@ final class LocaleCompletenessResolver
     }
 
     /**
-     * Expands one embedded field into its locale-specific inner properties —
-     * the complement of what SyncSharedTranslationsCommand treats as shared.
+     * Every shared path of $class as a lookup set: the property path of each
+     * shared entry (`field`, `embedded.field`, or `embedded` for a whole shared
+     * embeddable) plus its change-set paths (`embedded.field` for every column
+     * of a whole shared embeddable).
      *
-     * @param class-string $embeddableClass
+     * @param class-string $class
+     *
+     * @return array<string, true>
+     */
+    private function sharedPaths(string $class): array
+    {
+        $paths = [];
+
+        foreach ($this->synchronizer->sharedProperties($class) as $shared) {
+            $paths[$shared['path']] = true;
+
+            foreach ($shared['changeSetPaths'] as $path) {
+                $paths[$path] = true;
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Expands one embedded field into its locale-specific inner properties —
+     * every inner property whose `embedded.field` path is not shared. A whole
+     * shared embeddable never reaches this method: its own path is in $shared
+     * and {@see checkedProperties()} skips it outright.
+     *
+     * @param class-string        $embeddableClass
+     * @param array<string, true> $shared
      *
      * @return list<CheckedProperty>
      */
-    private function translatableEmbeddedProperties(\ReflectionProperty $property, string $embeddableClass): array
+    private function translatableEmbeddedProperties(\ReflectionProperty $property, string $embeddableClass, array $shared): array
     {
-        // The whole embeddable is copied from the source — nothing to translate.
-        if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
-            return [];
-        }
+        $checked = [];
 
-        $embeddable  = new \ReflectionClass($embeddableClass);
-        $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($embeddable);
-        $checked     = [];
-
-        foreach (ReflectionHelper::getHierarchyProperties($embeddable) as $inner) {
-            if ($this->attributeHelper->isSharedAmongstTranslations($inner)) {
-                continue;
-            }
-
-            // A class-level attribute shares every property that does not override it.
-            if ($classShared && !$this->attributeHelper->isEmptyOnTranslate($inner)) {
+        foreach (ReflectionHelper::getHierarchyProperties(new \ReflectionClass($embeddableClass)) as $inner) {
+            if (isset($shared[$property->getName().'.'.$inner->getName()])) {
                 continue;
             }
 

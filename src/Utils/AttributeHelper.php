@@ -148,10 +148,11 @@ class AttributeHelper
      * - on the embeddable class itself, or
      * - on any property inside the embeddable.
      *
-     * Used by SyncSharedTranslationsCommand (back-fill time) to decide which embedded
-     * values must stay in sync with the default-locale row; this must agree with how
-     * EmbeddedHandler resolves sharing at translate time (three-level cascade in
-     * EmbeddedHandler::resolvePropertyAttribute()).
+     * Used by SharedValueSynchronizer -- the one discovery behind
+     * tmi:translation:sync-shared, the flush-time propagation and
+     * LocaleCompletenessResolver -- to decide which embedded values are shared across
+     * locale variants; this must agree with how EmbeddedHandler resolves sharing at
+     * translate time (three-level cascade in EmbeddedHandler::resolvePropertyAttribute()).
      *
      * @param \ReflectionClass<object> $embeddable
      */

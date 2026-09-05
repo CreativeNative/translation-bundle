@@ -8,6 +8,7 @@ use Doctrine\ORM\UnitOfWork;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
@@ -359,12 +360,13 @@ final class QueryBudgetTest extends IntegrationTestCase
         $this->entityManager()->flush();
         $this->entityManager()->clear();
 
+        $finder   = new LocaleVariantFinder($this->entityManager());
         $resolver = new LocaleCompletenessResolver(
             $this->entityManager(),
-            $this->attributeHelper(),
+            new SharedValueSynchronizer($this->entityManager(), $finder, $this->attributeHelper()),
             'en_US',
             ['en_US', 'de_DE', 'it_IT'],
-            new LocaleVariantFinder($this->entityManager()),
+            $finder,
         );
 
         $this->counter()->reset();

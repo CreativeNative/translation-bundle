@@ -152,7 +152,8 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `Translation/LocaleCompletenessResolver` — per enabled locale: does a variant exist, is
   its translatable content complete? Baseline-relative: a variant is complete when every
   translatable (non-shared, non-system, non-id) property filled on the default-locale row
-  is filled on it too. `resolveBatch()` answers many Tuuids with one query.
+  is filled on it too. `resolveBatch()` answers many Tuuids with one query. "Shared" comes
+  from `SharedValueSynchronizer::sharedProperties()` (4.1.1) — no discovery of its own.
 - `ValueObject/LocaleCompleteness` + `ValueObject/TranslationStatus` (enum
   `Missing`/`Incomplete`/`Complete`) — the returned value objects.
 

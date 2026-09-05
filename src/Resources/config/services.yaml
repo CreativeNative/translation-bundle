@@ -125,7 +125,7 @@ services:
     Tmi\TranslationBundle\Translation\LocaleCompletenessResolver:
         arguments:
             $entityManager: '@doctrine.orm.entity_manager'
-            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $synchronizer: '@Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer'
             $defaultLocale: '%tmi_translation.default_locale%'
             $locales: '%kernel.enabled_locales%'
             $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'

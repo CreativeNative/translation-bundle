@@ -11,6 +11,7 @@ its own fan-out code to keep a shared value equal across the locale rows of one 
 - [Behavioural Changes (4.1)](#behavioural-changes-41)
   - [1. `tmi:translation:sync-shared` also covers shared to-one associations to a non-translatable target](#1-tmitranslationsync-shared-also-covers-shared-to-one-associations-to-a-non-translatable-target)
   - [2. `SyncSharedTranslationsCommand` is constructed with the synchronizer](#2-syncsharedtranslationscommand-is-constructed-with-the-synchronizer)
+  - [3. (4.1.1) `LocaleCompletenessResolver` is constructed with the synchronizer](#3-411-localecompletenessresolver-is-constructed-with-the-synchronizer)
 - [Upgrade Checklist (4.1)](#upgrade-checklist-41)
 
 ---
@@ -97,6 +98,16 @@ now `(EntityManagerInterface, TranslatableEntityLocator, LocaleVariantFinder,
 SharedValueSynchronizer, SharedDriftScanner)` — the `AttributeHelper` and `$defaultLocale`
 arguments are gone (the scanner carries the default locale). The service definition is
 updated; nothing changes for `bin/console`.
+
+### 3. (4.1.1) `LocaleCompletenessResolver` is constructed with the synchronizer
+
+4.1.1 removes the last private copy of the "what is shared" discovery: the completeness
+resolver now takes `SharedValueSynchronizer` in place of `AttributeHelper` as its second
+constructor argument and derives the properties it must *not* inspect from
+`sharedProperties()`. Behaviour is unchanged (same exclusions: shared columns, whole shared
+embeddables, shared inner properties including class-level sharing minus `#[EmptyOnTranslate]`
+overrides). Only relevant if you instantiate the resolver yourself; the service definition is
+updated.
 
 ---
 

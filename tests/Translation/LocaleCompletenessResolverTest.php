@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Translation;
 
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Fixtures\Entity\CanNotBeNull;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable as EmbeddedTranslatable;
@@ -355,12 +356,14 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
 
     private function resolver(): LocaleCompletenessResolver
     {
+        $finder = new LocaleVariantFinder($this->entityManager());
+
         return new LocaleCompletenessResolver(
             $this->entityManager(),
-            $this->attributeHelper(),
+            new SharedValueSynchronizer($this->entityManager(), $finder, $this->attributeHelper()),
             'en_US',
             ['en_US', 'de_DE', 'it_IT'],
-            new LocaleVariantFinder($this->entityManager()),
+            $finder,
         );
     }
 }
