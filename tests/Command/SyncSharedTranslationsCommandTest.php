@@ -9,7 +9,10 @@ use Doctrine\ORM\Mapping\ClassMetadataFactory;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Embedded\EmbeddedSharedTranslatable;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\InheritedIdEntity;
@@ -643,7 +646,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 
     /**
      * The drift table also resolves embedded property paths -- "propertyShared.reference" --
-     * exactly as {@see SyncSharedTranslationsCommand::propertyPath()} names them elsewhere.
+     * exactly as {@see SharedValueSynchronizer} names them in its reports.
      */
     public function testDriftTableNamesAnEmbeddedPropertyPath(): void
     {
@@ -681,29 +684,161 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringNotContainsString('Writable', $tester->getDisplay());
     }
 
-    public function testValuesEqualComparesDistinctDateTimeImmutableInstancesByValue(): void
-    {
-        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
-        $b = new \DateTimeImmutable('2024-01-01 13:00:00', new \DateTimeZone('Europe/Berlin'));
+    // ------------------------------------------------------------------
+    // --tuuid / --source-locale: the targeted single-record repair (v4.1)
+    // ------------------------------------------------------------------
 
-        self::assertNotSame($a, $b);
-        self::assertTrue($this->valuesEqual($a, $b));
+    public function testSourceLocaleWithoutTuuidIsRejected(): void
+    {
+        $this->seedPair('English shared', 'Stale german shared');
+
+        $tester = $this->run_(['--source-locale' => 'de_DE']);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('only accepted together with --tuuid', $tester->getDisplay());
     }
 
-    public function testValuesEqualReturnsFalseForDifferentDateTimeImmutableTimestamps(): void
+    public function testTuuidOptionRejectsAnInvalidTuuid(): void
     {
-        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
-        $b = new \DateTimeImmutable('2024-01-01 12:00:01', new \DateTimeZone('UTC'));
+        $tester = $this->run_(['--tuuid' => 'not-a-uuid']);
 
-        self::assertFalse($this->valuesEqual($a, $b));
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('not a valid Tuuid', $tester->getDisplay());
     }
 
-    public function testValuesEqualFallsThroughToSerializeWhenOnlyOneSideIsDateTime(): void
+    public function testTuuidOptionReportsAnUnknownTuuid(): void
     {
-        $a = new \DateTimeImmutable('2024-01-01 12:00:00', new \DateTimeZone('UTC'));
-        $b = new \stdClass();
+        $tester = $this->run_(['--tuuid' => (string) Tuuid::generate()]);
 
-        self::assertFalse($this->valuesEqual($a, $b));
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('No locale variant of tuuid', $tester->getDisplay());
+        self::assertStringContainsString('any translatable entity', $tester->getDisplay());
+    }
+
+    public function testTuuidOptionRepairsOnlyThatRecordFromItsDefaultLocaleRow(): void
+    {
+        $tuuidA = Tuuid::generate();
+        $tuuidB = Tuuid::generate();
+
+        $aDeId = $this->persistPair(
+            new Scalar()->setTuuid($tuuidA)->setLocale('en_US')->setTitle('A EN')->setShared('A shared'),
+            new Scalar()->setTuuid($tuuidA)->setLocale('de_DE')->setTitle('A DE')->setShared('A stale'),
+        );
+        $bDeId = $this->persistPair(
+            new Scalar()->setTuuid($tuuidB)->setLocale('en_US')->setTitle('B EN')->setShared('B shared'),
+            new Scalar()->setTuuid($tuuidB)->setLocale('de_DE')->setTitle('B DE')->setShared('B stale'),
+        );
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuidA]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('tuuid '.$tuuidA, $tester->getDisplay());
+        self::assertStringContainsString('Source: locale en_US', $tester->getDisplay());
+        self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
+        self::assertSame('A shared', $this->reloadShared($aDeId));
+        self::assertSame('B stale', $this->reloadShared($bDeId), 'Another record must not be touched.');
+    }
+
+    /**
+     * The production shape this option exists for: the record was edited on a
+     * NON-default locale, so the default-locale row holds the stale values and
+     * the whole-table write mode would overwrite the edit.
+     */
+    public function testTuuidWithSourceLocaleRepairsTheOtherRowsFromTheNamedRow(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('price on request');
+        $de = new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('price on request');
+        $it = new Scalar()->setTuuid($tuuid)->setLocale('it_IT')->setTitle('IT')->setShared('120000');
+
+        $this->entityManager()->persist($en);
+        $this->entityManager()->persist($de);
+        $this->entityManager()->persist($it);
+        $this->entityManager()->flush();
+        $ids = [$en->getId(), $de->getId(), $it->getId()];
+        $this->entityManager()->clear();
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuid, '--source-locale' => 'it_IT']);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Source: locale it_IT', $tester->getDisplay());
+        self::assertStringContainsString('2 translation(s) updated', $tester->getDisplay());
+
+        foreach ($ids as $id) {
+            self::assertNotNull($id);
+            self::assertSame('120000', $this->reloadShared($id));
+        }
+    }
+
+    public function testTuuidWithAMissingSourceLocaleIsRejected(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $deId = $this->persistPair(
+            new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('English shared'),
+            new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('Stale german shared'),
+        );
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuid, '--source-locale' => 'fr_FR']);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertStringContainsString('has no "fr_FR" variant', $display);
+        self::assertStringContainsString('available locales: de_DE, en_US', $display);
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+    }
+
+    public function testTuuidWithCheckOrDryRunWritesNothing(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $deId = $this->persistPair(
+            new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('English shared'),
+            new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('Stale german shared'),
+        );
+
+        $check = $this->run_(['--tuuid' => (string) $tuuid, '--check' => true]);
+        self::assertSame(Command::FAILURE, $check->getStatusCode());
+        self::assertStringContainsString('differ from their source', $check->getDisplay());
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+
+        $dryRun = $this->run_(['--tuuid' => (string) $tuuid, '--dry-run' => true]);
+        self::assertSame(Command::SUCCESS, $dryRun->getStatusCode());
+        self::assertStringContainsString('1 translation(s) would be updated', $dryRun->getDisplay());
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+    }
+
+    public function testTuuidWithEntityRestrictsTheSearchToThatClass(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('English shared'),
+            new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('Stale german shared'),
+        );
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuid, '--entity' => SharedDate::class]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('found in '.SharedDate::class, self::normalizeTable($tester->getDisplay()));
+    }
+
+    public function testTuuidReportsReadonlyDriftLikeAWholeTableRun(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new ReadonlyShared('SKU-EN')->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setNote('same'),
+            new ReadonlyShared('SKU-DE')->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setNote('same'),
+        );
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuid]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('readonly shared value(s)', $tester->getDisplay());
+        self::assertStringContainsString('ReadonlyShared::$sku', $tester->getDisplay());
     }
 
     public function testReportsWhenNoTranslatableEntitiesExist(): void
@@ -714,11 +849,15 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $entityManager = self::createStub(EntityManagerInterface::class);
         $entityManager->method('getMetadataFactory')->willReturn($factory);
 
+        $finder       = new LocaleVariantFinder($entityManager);
+        $synchronizer = new SharedValueSynchronizer($entityManager, $finder, new AttributeHelper());
+
         $command = new SyncSharedTranslationsCommand(
             $entityManager,
             new TranslatableEntityLocator($entityManager),
-            new AttributeHelper(),
-            'en_US',
+            $finder,
+            $synchronizer,
+            new SharedDriftScanner($entityManager, $finder, $synchronizer, 'en_US'),
         );
 
         $tester = new CommandTester($command);
@@ -808,30 +947,21 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     }
 
     /**
-     * SyncSharedTranslationsCommand::valuesEqual() is private static -- reflection is the
-     * narrowest way to unit-test its DateTimeInterface fast path directly, instead of only
-     * exercising it indirectly through a full sync run.
-     */
-    private function valuesEqual(mixed $a, mixed $b): bool
-    {
-        $method = new \ReflectionMethod(SyncSharedTranslationsCommand::class, 'valuesEqual');
-
-        $result = $method->invoke(null, $a, $b);
-        self::assertIsBool($result);
-
-        return $result;
-    }
-
-    /**
      * @param array<string, bool|string> $input
      */
     private function run_(array $input = []): CommandTester
     {
+        $synchronizer = self::getContainer()->get('test.shared_value_synchronizer');
+        self::assertInstanceOf(SharedValueSynchronizer::class, $synchronizer);
+
+        $finder = new LocaleVariantFinder($this->entityManager());
+
         $command = new SyncSharedTranslationsCommand(
             $this->entityManager(),
             new TranslatableEntityLocator($this->entityManager()),
-            $this->attributeHelper(),
-            'en_US',
+            $finder,
+            $synchronizer,
+            new SharedDriftScanner($this->entityManager(), $finder, $synchronizer, 'en_US'),
         );
 
         $tester = new CommandTester($command);

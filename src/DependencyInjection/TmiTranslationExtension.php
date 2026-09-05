@@ -12,6 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
+use Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
@@ -43,7 +44,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         }
 
         $configuration = new Configuration();
-        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool, copy_source: bool, strict_orphan_check: bool|null, unique_locale_variants: bool, cascade_remove_locale_variants: bool, strict_discovery: bool} $config */
+        /** @var array{default_locale: string, disabled_firewalls: list<string>, enable_logging: bool, copy_source: bool, strict_orphan_check: bool|null, unique_locale_variants: bool, cascade_remove_locale_variants: bool, propagate_shared_on_flush: bool, strict_discovery: bool} $config */
         $config = $this->processConfiguration($configuration, $configs);
 
         // Resolve strict_orphan_check — null means "auto": enabled in debug environments.
@@ -114,7 +115,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         // Logging is opt-in: without enable_logging, strip the logger from every
         // service that services.yaml would otherwise wire it into.
         if (!$config['enable_logging']) {
-            foreach ([EntityTranslator::class, TranslatableEventSubscriber::class] as $serviceWithLogger) {
+            foreach ([EntityTranslator::class, TranslatableEventSubscriber::class, SharedValuePropagationListener::class] as $serviceWithLogger) {
                 if ($container->has($serviceWithLogger)) {
                     $container->getDefinition($serviceWithLogger)->setArgument('$logger', null);
                 }

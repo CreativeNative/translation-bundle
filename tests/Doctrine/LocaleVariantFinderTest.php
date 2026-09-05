@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Doctrine;
 
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -187,6 +188,73 @@ final class LocaleVariantFinderTest extends IntegrationTestCase
         );
 
         self::assertFalse($duringCall);
+        self::assertFalse($filters->isEnabled(LocaleFilter::NAME));
+    }
+
+    /**
+     * Two Tuuid groups persisted interleaved -- B, A, B, A -- must still come
+     * out as two complete groups: the grouping comes from ORDER BY tuuid, not
+     * from rows happening to arrive pre-grouped.
+     */
+    public function testStreamGroupedByTuuidYieldsCompleteGroupsRegardlessOfInsertionOrder(): void
+    {
+        $tuuidA = Tuuid::generate();
+        $tuuidB = Tuuid::generate();
+
+        $em = $this->entityManager();
+        $em->persist(new Scalar()->setTuuid($tuuidB)->setLocale('en_US')->setTitle('B EN'));
+        $em->persist(new Scalar()->setTuuid($tuuidA)->setLocale('en_US')->setTitle('A EN'));
+        $em->persist(new Scalar()->setTuuid($tuuidB)->setLocale('de_DE')->setTitle('B DE'));
+        $em->persist(new Scalar()->setTuuid($tuuidA)->setLocale('de_DE')->setTitle('A DE'));
+        $em->flush();
+        $em->clear();
+
+        $groups = [];
+        foreach ($this->finder->streamGroupedByTuuid(Scalar::class) as $group) {
+            $tuuids = array_values(array_unique(array_map(static fn (TranslatableInterface $s): string => (string) $s->getTuuid(), $group)));
+            self::assertCount(1, $tuuids, 'Every yielded group holds exactly one Tuuid.');
+            self::assertCount(2, $group);
+            self::assertTrue($em->contains($group[0]), 'Yielded entities are managed.');
+
+            $groups[] = $tuuids[0];
+        }
+
+        self::assertEqualsCanonicalizing([(string) $tuuidA, (string) $tuuidB], $groups);
+    }
+
+    public function testStreamGroupedByTuuidSuspendsTheFilterWhileIteratingAndRestoresItAfterwards(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $em = $this->entityManager();
+        $em->persist(new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN'));
+        $em->persist(new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE'));
+        $em->flush();
+        $em->clear();
+
+        $filters = $em->getFilters();
+        self::assertTrue($filters->isEnabled(LocaleFilter::NAME));
+        $filter = $filters->getFilter(LocaleFilter::NAME);
+        self::assertInstanceOf(LocaleFilter::class, $filter);
+        $filter->setLocale('en_US');
+
+        $seen = 0;
+        foreach ($this->finder->streamGroupedByTuuid(Scalar::class) as $group) {
+            self::assertFalse($filters->isEnabled(LocaleFilter::NAME), 'The filter is suspended for the whole iteration.');
+            self::assertCount(2, $group, 'Both locales are streamed although the filter would restrict to en_US.');
+            ++$seen;
+        }
+
+        self::assertSame(1, $seen);
+        self::assertTrue($filters->isEnabled(LocaleFilter::NAME), 'The filter is restored once the stream completes.');
+    }
+
+    public function testStreamGroupedByTuuidLeavesADisabledFilterDisabledAndYieldsNothingForAnEmptyTable(): void
+    {
+        $filters = $this->entityManager()->getFilters();
+        $filters->disable(LocaleFilter::NAME);
+
+        self::assertSame([], iterator_to_array($this->finder->streamGroupedByTuuid(Scalar::class), false));
         self::assertFalse($filters->isEnabled(LocaleFilter::NAME));
     }
 

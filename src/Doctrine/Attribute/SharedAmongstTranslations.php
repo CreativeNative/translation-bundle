@@ -9,11 +9,21 @@ namespace Tmi\TranslationBundle\Doctrine\Attribute;
  * created via translate(), and marks the property for retroactive
  * reconciliation through the `tmi:translation:sync-shared` command.
  *
- * This is copy-on-translate, NOT an enforced invariant: once a variant
- * exists, writing the property on one locale diverges it silently. That is
- * deliberate — consumers may legitimately vary such values per locale (e.g.
- * publishing one language at a time). When divergence must be caught, gate
- * CI on `tmi:translation:sync-shared --check`, which exits non-zero on drift.
+ * By default this is copy-on-translate, NOT an enforced invariant: once a
+ * variant exists, writing the property on one locale diverges it silently.
+ * That is deliberate — consumers may legitimately vary such values per locale
+ * (e.g. publishing one language at a time). When divergence must be caught,
+ * gate CI on `tmi:translation:sync-shared --check`, which exits non-zero on
+ * drift. When it must not happen at all, enable `propagate_shared_on_flush`
+ * (v4.1): {@see \Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener}
+ * then copies a change made on ANY locale variant onto every sibling inside the
+ * same flush(), and {@see \Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer}
+ * is the same copy as a public service for application code.
+ *
+ * The class-level form (TARGET_CLASS) is honoured on EMBEDDABLES only: there it
+ * shares every inner property that does not override it with #[EmptyOnTranslate].
+ * On an entity class it is inert -- translate(), sync-shared and the flush-time
+ * propagation all read the attribute per property; mark the properties instead.
  *
  * Intentionally inert on a class that does not implement TranslatableInterface:
  * nothing in the bundle reads this attribute outside the translate() pipeline

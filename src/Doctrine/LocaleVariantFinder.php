@@ -117,6 +117,77 @@ final readonly class LocaleVariantFinder
     }
 
     /**
+     * Streams a whole translatable table (or inheritance hierarchy, when
+     * `$class` is its root) grouped by Tuuid: each yielded list holds every
+     * locale variant of one Tuuid, MANAGED, and the stream is ordered by Tuuid
+     * so a group is complete the moment the next Tuuid appears. Peak memory is
+     * a small, table-size-independent multiple of the locale count — provided
+     * the consumer detaches each group once it is done with it (or flushes and
+     * detaches in batches, as `tmi:translation:sync-shared` does).
+     *
+     * Two rules for consumers, both consequences of `toIterable()` having
+     * already hydrated the NEXT group's first row (the "lookahead") by the time
+     * a group is yielded: never `EntityManager::clear()` mid-iteration (it
+     * would detach that lookahead, and a later write to it would silently never
+     * reach the database — detach the yielded group's entities individually
+     * instead), and iterate to completion where possible: the locale filter is
+     * suspended for the duration of the iteration and restored when the
+     * generator finishes or is destroyed.
+     *
+     * Shared by {@see SharedDriftScanner} (read-only drift report) and
+     * `tmi:translation:sync-shared` (back-fill), so both walk a table the same way.
+     *
+     * @param class-string $class
+     *
+     * @return \Generator<int, non-empty-list<TranslatableInterface>>
+     */
+    public function streamGroupedByTuuid(string $class): \Generator
+    {
+        $filters    = $this->entityManager->getFilters();
+        $wasEnabled = $filters->has(LocaleFilter::NAME) && $filters->isEnabled(LocaleFilter::NAME);
+
+        if ($wasEnabled) {
+            $filters->disable(LocaleFilter::NAME);
+        }
+
+        try {
+            $query = $this->entityManager->createQueryBuilder()
+                ->select('t')
+                ->from($class, 't')
+                ->orderBy('t.tuuid')
+                ->getQuery();
+
+            $currentTuuid = null;
+
+            /** @var list<TranslatableInterface> $group */
+            $group = [];
+
+            foreach ($query->toIterable() as $entity) {
+                assert($entity instanceof TranslatableInterface);
+
+                $tuuid = (string) $entity->getTuuid();
+
+                if (null !== $currentTuuid && $tuuid !== $currentTuuid) {
+                    yield $group;
+
+                    $group = [];
+                }
+
+                $currentTuuid = $tuuid;
+                $group[]      = $entity;
+            }
+
+            if ([] !== $group) {
+                yield $group;
+            }
+        } finally {
+            if ($wasEnabled) {
+                $filters->enable(LocaleFilter::NAME);
+            }
+        }
+    }
+
+    /**
      * Runs `$query` with the locale filter disabled, restoring it to exactly
      * the state it was in before — enabled or not — even if `$query` throws.
      *

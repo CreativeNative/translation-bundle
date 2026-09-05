@@ -11,30 +11,51 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Uid\Uuid;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
-use Tmi\TranslationBundle\Utils\AttributeHelper;
-use Tmi\TranslationBundle\Utils\ReflectionHelper;
+use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
  * Retroactively propagates #[SharedAmongstTranslations] values across all
  * locale variants of each Tuuid.
  *
  * Shared values are copied source → translation only at translate() time, so
- * data created in one locale and translated later — or edited after the fact —
- * keeps the shared value on the source row alone. This command back-fills the
- * siblings from the canonical (default-locale) row.
+ * data created in one locale and translated later — or edited after the fact
+ * without `propagate_shared_on_flush` — keeps the shared value on the source
+ * row alone. This command back-fills the siblings from the canonical
+ * (default-locale) row.
+ *
+ * What counts as shared, and how a value is copied, is decided by
+ * {@see SharedValueSynchronizer} — the same discovery the opt-in flush-time
+ * propagation uses, so the two never disagree: mapped columns, embeddables in
+ * all three places sharing can be declared, and (since v4.1) single-valued
+ * associations to a non-translatable target. Tables are walked with
+ * {@see LocaleVariantFinder::streamGroupedByTuuid()} and the source row is
+ * chosen by {@see SharedDriftScanner::pickSource()}, both shared with the
+ * read-only {@see SharedDriftScanner}. This command only adds the batched
+ * flush/detach cycle of the write mode and the reporting around it.
  *
  * With --check the command writes nothing and exits non-zero as soon as any
  * shared value has drifted — writable or readonly — so CI can gate on
  * "no shared property has diverged".
+ *
+ * With --tuuid the run is restricted to ONE record — every locale variant of
+ * that Tuuid — and --source-locale names the row to copy FROM instead of the
+ * default-locale row: the targeted repair for a record that was edited in a
+ * non-default locale, where the whole-table write mode would overwrite the
+ * edited row with the stale default-locale values. --source-locale is only
+ * accepted together with --tuuid: a source locale is a per-record decision,
+ * never a global one.
  *
  * Each class's report names every property that drifted — a table of property
  * path, number of distinct tuuids affected, number of sibling rows affected,
  * and whether the property is writable — so an operator can see which fields
  * are diverging without re-running with --dry-run and reading source.
  *
- * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
  * @phpstan-type SharedDrift array{tuuids: array<string, true>, rows: int, readonly: bool}
  */
 #[AsCommand(
@@ -43,11 +64,6 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
 )]
 final class SyncSharedTranslationsCommand extends Command
 {
-    private const string LOCALE_FILTER = 'tmi_translation_locale_filter';
-
-    /** @var list<string> */
-    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
-
     /**
      * Tuuid groups processed between EntityManager flush/clear cycles while streaming
      * a class. Bounds peak memory to O(batch size × locale count) instead of O(table),
@@ -58,8 +74,9 @@ final class SyncSharedTranslationsCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
-        private readonly AttributeHelper $attributeHelper,
-        private readonly string $defaultLocale,
+        private readonly LocaleVariantFinder $finder,
+        private readonly SharedValueSynchronizer $synchronizer,
+        private readonly SharedDriftScanner $scanner,
     ) {
         parent::__construct();
     }
@@ -69,7 +86,9 @@ final class SyncSharedTranslationsCommand extends Command
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Report changes without writing them.')
             ->addOption('check', null, InputOption::VALUE_NONE, 'Write nothing and exit non-zero when any shared value has drifted — for CI gates.')
-            ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the sync to a single entity class.');
+            ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the sync to a single entity class.')
+            ->addOption('tuuid', null, InputOption::VALUE_REQUIRED, 'Restrict the sync to one record: every locale variant of this Tuuid (searched in every translatable class, or only in --entity).')
+            ->addOption('source-locale', null, InputOption::VALUE_REQUIRED, 'With --tuuid: copy FROM this locale\'s row instead of the default-locale row — the targeted repair for a record edited in a non-default locale.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -78,7 +97,18 @@ final class SyncSharedTranslationsCommand extends Command
         $check  = true           === $input->getOption('check');
         $dryRun = $check || true === $input->getOption('dry-run');
 
+        /** @var string|null $tuuidOption */
+        $tuuidOption = $input->getOption('tuuid');
+        /** @var string|null $sourceLocale */
+        $sourceLocale = $input->getOption('source-locale');
+
         $io->title('TMI Translation — Sync Shared Values'.($check ? ' (check)' : ($dryRun ? ' (dry run)' : '')));
+
+        if (null !== $sourceLocale && null === $tuuidOption) {
+            $io->error('--source-locale is only accepted together with --tuuid: which row is the source is a per-record decision, never a global one.');
+
+            return Command::FAILURE;
+        }
 
         $classes = $this->locator->locate();
 
@@ -104,30 +134,36 @@ final class SyncSharedTranslationsCommand extends Command
             return Command::SUCCESS;
         }
 
-        $filters    = $this->entityManager->getFilters();
-        $wasEnabled = $filters->has(self::LOCALE_FILTER) && $filters->isEnabled(self::LOCALE_FILTER);
-
-        if ($wasEnabled) {
-            $filters->disable(self::LOCALE_FILTER);
-        }
-
-        $totalUpdated = 0;
-
         /** @var list<string> $readonlyDrift */
         $readonlyDrift = [];
 
-        try {
+        if (null !== $tuuidOption) {
+            $totalUpdated = $this->syncOneRecord($io, $classes, $tuuidOption, $sourceLocale, !$dryRun, $readonlyDrift);
+
+            if (null === $totalUpdated) {
+                return Command::FAILURE;
+            }
+        } else {
+            $totalUpdated = 0;
+
             foreach ($classes as $class) {
                 // syncClass() streams the class and flushes/clears its own batches, so
                 // no additional flush is needed here once the loop completes.
                 $totalUpdated += $this->syncClass($io, $class, !$dryRun, $readonlyDrift);
             }
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable(self::LOCALE_FILTER);
-            }
         }
 
+        return $this->summarize($io, $totalUpdated, $readonlyDrift, $check, $dryRun);
+    }
+
+    /**
+     * The closing summary and exit code, identical for a whole-table run and a
+     * --tuuid run.
+     *
+     * @param list<string> $readonlyDrift
+     */
+    private function summarize(SymfonyStyle $io, int $totalUpdated, array $readonlyDrift, bool $check, bool $dryRun): int
+    {
         if ([] !== $readonlyDrift) {
             $io->warning(sprintf(
                 '%d readonly shared value(s) differ from the source and were left untouched.',
@@ -194,6 +230,77 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
+     * The --tuuid path: one record, every locale variant, an explicit or the
+     * canonical source row. Returns the number of siblings that changed, or
+     * null after an error (already reported to $io).
+     *
+     * @param list<class-string> $classes
+     * @param list<string>      &$readonlyDrift
+     */
+    private function syncOneRecord(SymfonyStyle $io, array $classes, string $tuuidOption, string|null $sourceLocale, bool $apply, array &$readonlyDrift): int|null
+    {
+        if (!Uuid::isValid($tuuidOption)) {
+            $io->error(sprintf('"%s" is not a valid Tuuid.', $tuuidOption));
+
+            return null;
+        }
+
+        $tuuid    = new Tuuid($tuuidOption);
+        $found    = null;
+        $variants = [];
+
+        foreach ($classes as $class) {
+            $variants = $this->finder->findAllLocaleVariants($class, $tuuid);
+
+            if ([] !== $variants) {
+                $found = $class;
+
+                break;
+            }
+        }
+
+        if (null === $found) {
+            $io->error(sprintf('No locale variant of tuuid %s found in %s.', $tuuid, 1 === count($classes) ? $classes[0] : 'any translatable entity'));
+
+            return null;
+        }
+
+        /** @var non-empty-list<TranslatableInterface> $group */
+        $group = array_values($variants);
+
+        if (null === $sourceLocale) {
+            $source = $this->scanner->pickSource($group);
+        } else {
+            $source = $variants[$sourceLocale] ?? null;
+
+            if (null === $source) {
+                $locales = array_keys($variants);
+                sort($locales);
+
+                $io->error(sprintf('Tuuid %s has no "%s" variant — available locales: %s.', $tuuid, $sourceLocale, implode(', ', $locales)));
+
+                return null;
+            }
+        }
+
+        $io->section(sprintf('%s — tuuid %s', $found, $tuuid));
+        $io->writeln(sprintf('Source: locale <info>%s</info>', $source->getLocale() ?? 'none'));
+
+        /** @var array<string, SharedDrift> $drift */
+        $drift = [];
+
+        $updated = $this->syncGroup($group, $source, $apply, $readonlyDrift, $drift);
+
+        if ($apply) {
+            $this->entityManager->flush();
+        }
+
+        $this->reportClass($io, $updated, $drift);
+
+        return $updated;
+    }
+
+    /**
      * @param class-string  $class
      * @param list<string> &$readonlyDrift collects readonly values that differ but cannot be written
      *
@@ -203,10 +310,7 @@ final class SyncSharedTranslationsCommand extends Command
     {
         $io->section($class);
 
-        /** @var array<class-string, list<SharedProperty>> $sharedPropertiesCache */
-        $sharedPropertiesCache = [];
-
-        if (!$this->hierarchyHasSharedProperties($class, $sharedPropertiesCache)) {
+        if (!$this->hierarchyHasSharedProperties($class)) {
             $io->writeln('No #[SharedAmongstTranslations] properties — skipped.');
 
             return 0;
@@ -215,8 +319,18 @@ final class SyncSharedTranslationsCommand extends Command
         /** @var array<string, SharedDrift> $drift */
         $drift = [];
 
-        $updated = $this->syncStream($class, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
+        $updated = $this->syncStream($class, $apply, $readonlyDrift, $drift);
 
+        $this->reportClass($io, $updated, $drift);
+
+        return $updated;
+    }
+
+    /**
+     * @param array<string, SharedDrift> $drift
+     */
+    private function reportClass(SymfonyStyle $io, int $updated, array $drift): void
+    {
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
             : sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
@@ -224,28 +338,25 @@ final class SyncSharedTranslationsCommand extends Command
         if ([] !== $drift) {
             $io->table(['Property', 'Tuuids', 'Rows', 'Writable'], self::driftRows($drift));
         }
-
-        return $updated;
     }
 
     /**
      * Whether $class — or, when it roots an inheritance hierarchy, any of its
      * concrete subclasses — declares at least one #[SharedAmongstTranslations]
-     * property. A root's own reflection walk never sees a subclass-only field
-     * (@see sharedProperties()), so a hierarchy is only truly shared-free when
-     * none of its concrete classes are.
+     * property. A root's own reflection walk never sees a subclass-only field,
+     * so a hierarchy is only truly shared-free when none of its concrete
+     * classes are. The synchronizer memoizes the answer per class.
      *
-     * @param class-string                                 $class
-     * @param array<class-string, list<SharedProperty>>    &$cache
+     * @param class-string $class
      */
-    private function hierarchyHasSharedProperties(string $class, array &$cache): bool
+    private function hierarchyHasSharedProperties(string $class): bool
     {
-        if ([] !== $this->sharedPropertiesFor($class, $cache)) {
+        if ([] !== $this->synchronizer->sharedProperties($class)) {
             return true;
         }
 
         foreach ($this->entityManager->getClassMetadata($class)->subClasses as $subclass) {
-            if ([] !== $this->sharedPropertiesFor($subclass, $cache)) {
+            if ([] !== $this->synchronizer->sharedProperties($subclass)) {
                 return true;
             }
         }
@@ -254,27 +365,9 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * sharedProperties(), memoized per concrete class — syncStream() re-resolves
-     * the shared properties for every tuuid group from that group's own hydrated
-     * class (see its docblock), and a class recurs across many groups whenever a
-     * hierarchy's table holds more than a handful of rows.
-     *
-     * @param class-string                              $class
-     * @param array<class-string, list<SharedProperty>> &$cache
-     *
-     * @return list<SharedProperty>
-     */
-    private function sharedPropertiesFor(string $class, array &$cache): array
-    {
-        return $cache[$class] ??= $this->sharedProperties($class);
-    }
-
-    /**
-     * Streams $class ordered by tuuid instead of loading the whole table with findAll():
-     * sibling locale variants of the same tuuid land next to each other in the result
-     * set, so each group can be synced and released before most of the table is even
-     * hydrated. Peak memory stays a small, table-size-independent multiple of the
-     * locale count instead of growing with the table.
+     * Walks $class with {@see LocaleVariantFinder::streamGroupedByTuuid()} and
+     * syncs each Tuuid group as it completes, so peak memory stays a small,
+     * table-size-independent multiple of the locale count.
      *
      * In --apply mode the EntityManager is flushed and the just-completed groups are
      * detached every self::SYNC_BATCH_SIZE groups (plus once more for the trailing
@@ -282,68 +375,38 @@ final class SyncSharedTranslationsCommand extends Command
      * nothing was written.
      *
      * Detaching is deliberately per-entity (self::flushBatch()'s $settled list), not a
-     * blanket EntityManager::clear(): toIterable() has already hydrated the *next*
-     * group's first row (the "lookahead" entity, used above to detect the tuuid
-     * change) by the time a batch boundary is decided, and that entity has not been
-     * synced yet -- it is still sitting in the freshly reset $group. clear() would
-     * detach it too, and a property write to a detached entity is invisible to every
-     * later flush(), so whichever group happens to land on a batch boundary would
-     * silently lose its update. Restricting detachment to $settled -- entities whose
-     * group has already been synced -- keeps the still-forming group's entities
-     * attached until their own turn to be flushed.
+     * blanket EntityManager::clear(): the stream has already hydrated the *next*
+     * group's first row (the "lookahead" entity) by the time a group is yielded, and
+     * that entity has not been synced yet. clear() would detach it too, and a property
+     * write to a detached entity is invisible to every later flush(), so whichever
+     * group happens to land on a batch boundary would silently lose its update.
+     * Restricting detachment to $settled -- entities whose group has already been
+     * synced -- keeps the still-forming group's entities attached until their own
+     * turn to be flushed.
      *
-     * @param class-string                               $class
-     * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
-     * @param list<string>                              &$readonlyDrift
-     * @param array<string, SharedDrift>                &$drift
+     * @param class-string               $class
+     * @param list<string>              &$readonlyDrift
+     * @param array<string, SharedDrift> &$drift
      */
-    private function syncStream(string $class, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift, array &$drift): int
+    private function syncStream(string $class, bool $apply, array &$readonlyDrift, array &$drift): int
     {
-        $query = $this->entityManager->createQueryBuilder()
-            ->select('t')
-            ->from($class, 't')
-            ->orderBy('t.tuuid')
-            ->getQuery();
-
         $updated       = 0;
         $groupsInBatch = 0;
-        $currentTuuid  = null;
 
-        /** @var list<TranslatableInterface> $group */
-        $group = [];
         /** @var list<TranslatableInterface> $settled */
         $settled = [];
 
-        foreach ($query->toIterable() as $entity) {
-            assert($entity instanceof TranslatableInterface);
-
-            $tuuid = (string) $entity->getTuuid();
-
-            if (null !== $currentTuuid && $tuuid !== $currentTuuid) {
-                $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
-
-                foreach ($group as $settledEntity) {
-                    $settled[] = $settledEntity;
-                }
-
-                $group = [];
-
-                if (++$groupsInBatch >= self::SYNC_BATCH_SIZE) {
-                    $this->flushBatch($apply, $settled);
-                    $settled       = [];
-                    $groupsInBatch = 0;
-                }
-            }
-
-            $currentTuuid = $tuuid;
-            $group[]      = $entity;
-        }
-
-        if ([] !== $group) {
-            $updated += $this->syncGroup($group, $sharedPropertiesCache, $apply, $readonlyDrift, $drift);
+        foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
+            $updated += $this->syncGroup($group, $this->scanner->pickSource($group), $apply, $readonlyDrift, $drift);
 
             foreach ($group as $settledEntity) {
                 $settled[] = $settledEntity;
+            }
+
+            if (++$groupsInBatch >= self::SYNC_BATCH_SIZE) {
+                $this->flushBatch($apply, $settled);
+                $settled       = [];
+                $groupsInBatch = 0;
             }
         }
 
@@ -372,36 +435,29 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * Shared properties are resolved from the group's own source (baseline)
-     * instance, not from a class fixed for the whole streamed query: a
-     * SINGLE_TABLE or JOINED hierarchy queried through its root hydrates each
-     * group as its own concrete subclass, and a subclass may declare
-     * #[SharedAmongstTranslations] properties the root's reflection never sees
-     * (@see sharedProperties()). All variants of one tuuid are the same
-     * logical record, so they share one concrete class -- resolving once per
-     * group, from the source, already covers every sibling.
+     * Syncs every sibling of one tuuid group against $source. The synchronizer
+     * resolves the shared properties from the source's OWN concrete class, not
+     * from a class fixed for the whole streamed query: a SINGLE_TABLE or JOINED
+     * hierarchy queried through its root hydrates each group as its own
+     * concrete subclass, and a subclass may declare
+     * #[SharedAmongstTranslations] properties the root's reflection never sees.
+     * All variants of one tuuid are the same logical record, so they share one
+     * concrete class -- resolving from the source already covers every sibling.
      *
-     * @param list<TranslatableInterface>                $variants
-     * @param array<class-string, list<SharedProperty>> &$sharedPropertiesCache
-     * @param list<string>                               &$readonlyDrift
-     * @param array<string, SharedDrift>                 &$drift
+     * @param list<TranslatableInterface> $variants
+     * @param list<string>               &$readonlyDrift
+     * @param array<string, SharedDrift>  &$drift
      */
-    private function syncGroup(array $variants, array &$sharedPropertiesCache, bool $apply, array &$readonlyDrift, array &$drift): int
+    private function syncGroup(array $variants, TranslatableInterface $source, bool $apply, array &$readonlyDrift, array &$drift): int
     {
-        $source           = $this->pickSource($variants);
-        $sharedProperties = $this->sharedPropertiesFor($source::class, $sharedPropertiesCache);
-        $count            = 0;
-
-        if ([] === $sharedProperties) {
-            return 0;
-        }
+        $count = 0;
 
         foreach ($variants as $sibling) {
             if ($sibling === $source) {
                 continue;
             }
 
-            if ($this->syncSibling($source, $sibling, $sharedProperties, $apply, $readonlyDrift, $drift)) {
+            if ($this->syncSibling($source, $sibling, $apply, $readonlyDrift, $drift)) {
                 ++$count;
             }
         }
@@ -410,80 +466,50 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * @param list<SharedProperty>       $sharedProperties
      * @param list<string>              &$readonlyDrift
      * @param array<string, SharedDrift> &$drift
      */
     private function syncSibling(
         TranslatableInterface $source,
         TranslatableInterface $sibling,
-        array $sharedProperties,
         bool $apply,
         array &$readonlyDrift,
         array &$drift,
     ): bool {
-        $changed = false;
+        $report = $apply
+            ? $this->synchronizer->sync($source, $sibling)
+            : $this->synchronizer->compare($source, $sibling);
 
-        foreach ($sharedProperties as $shared) {
-            $property = $shared['property'];
+        foreach ($report->readonlyDrift() as $path) {
+            $readonlyDrift[] = sprintf(
+                '%s::$%s (tuuid %s, locale %s)',
+                $sibling::class,
+                $path,
+                (string) $sibling->getTuuid(),
+                $sibling->getLocale() ?? 'none',
+            );
 
-            // Shared properties are mapped columns, so Doctrine has hydrated them on both
-            // the source and the sibling. For embedded fields the values live on the
-            // embeddable instance rather than the entity itself.
-            $sourceOwner  = self::valueOwner($source, $shared);
-            $siblingOwner = self::valueOwner($sibling, $shared);
-
-            $value   = $property->getValue($sourceOwner);
-            $current = $property->getValue($siblingOwner);
-
-            if (self::valuesEqual($current, $value)) {
-                continue;
-            }
-
-            // readonly + shared is a legal combination, but an already-hydrated readonly
-            // property cannot be written -- reporting the drift beats crashing mid-run.
-            if ($property->isReadOnly()) {
-                $readonlyDrift[] = sprintf(
-                    '%s::$%s (tuuid %s, locale %s)',
-                    $sibling::class,
-                    self::propertyPath($shared),
-                    (string) $sibling->getTuuid(),
-                    $sibling->getLocale() ?? 'none',
-                );
-
-                self::recordDrift($drift, $shared, $sibling, true);
-
-                continue;
-            }
-
-            $changed = true;
-
-            self::recordDrift($drift, $shared, $sibling, false);
-
-            if ($apply) {
-                // Clone mutable objects so locale variants do not share a reference;
-                // enums are immutable singletons and must not be cloned.
-                $copy = is_object($value) && !$value instanceof \UnitEnum ? clone $value : $value;
-                $property->setValue($siblingOwner, $copy);
-            }
+            self::recordDrift($drift, $path, $sibling, true);
         }
 
-        return $changed;
+        foreach ($report->changed() as $path) {
+            self::recordDrift($drift, $path, $sibling, false);
+        }
+
+        return $report->hasChanges();
     }
 
     /**
      * Records one drifted (property, sibling row) pair into the per-class drift
-     * accumulator that {@see syncClass()} renders as a table -- keyed by property
+     * accumulator that {@see reportClass()} renders as a table -- keyed by property
      * path so writable and readonly drift on the same property share one row, and
      * counting distinct tuuids separately from row count so a property shared
      * across many siblings of the same record is not overcounted.
      *
      * @param array<string, SharedDrift> &$drift
-     * @param SharedProperty               $shared
      */
-    private static function recordDrift(array &$drift, array $shared, TranslatableInterface $sibling, bool $readonly): void
+    private static function recordDrift(array &$drift, string $path, TranslatableInterface $sibling, bool $readonly): void
     {
-        $path  = self::propertyPath($shared);
         $entry = $drift[$path] ?? ['tuuids' => [], 'rows' => 0, 'readonly' => $readonly];
 
         $entry['tuuids'][(string) $sibling->getTuuid()] = true;
@@ -512,168 +538,5 @@ final class SyncSharedTranslationsCommand extends Command
             static fn (array $r): array => [$r[0], (string) $r[1], (string) $r[2], $r[3] ? 'no' : 'yes'],
             $rows,
         );
-    }
-
-    /**
-     * The object actually holding the value: the entity itself, or the embeddable instance
-     * for an embedded field. Doctrine always hydrates embeddables on a loaded entity.
-     *
-     * @param SharedProperty $shared
-     */
-    private static function valueOwner(TranslatableInterface $entity, array $shared): object
-    {
-        $owner = $shared['owner'];
-
-        if (null === $owner) {
-            return $entity;
-        }
-
-        $embeddable = $owner->getValue($entity);
-        assert(is_object($embeddable));
-
-        return $embeddable;
-    }
-
-    /**
-     * @param SharedProperty $shared
-     */
-    private static function propertyPath(array $shared): string
-    {
-        $owner = $shared['owner'];
-
-        return null === $owner
-            ? $shared['property']->getName()
-            : $owner->getName().'.'.$shared['property']->getName();
-    }
-
-    /**
-     * Value equality that satisfies strict comparison rules — identical
-     * scalars/instances, or objects of the same class with equal state.
-     */
-    private static function valuesEqual(mixed $a, mixed $b): bool
-    {
-        if ($a === $b) {
-            return true;
-        }
-
-        // DateTimeInterface objects compare by the instant they represent (timezone-aware)
-        // under both "==" and "<=>" -- no need to serialize() either side. "<=>" is used
-        // because project strict rules forbid "==".
-        if ($a instanceof \DateTimeInterface && $b instanceof \DateTimeInterface) {
-            return ($a <=> $b) === 0;
-        }
-
-        if (is_object($a) && is_object($b)) {
-            return $a::class === $b::class && serialize($a) === serialize($b);
-        }
-
-        return false;
-    }
-
-    /**
-     * @param list<TranslatableInterface> $variants
-     */
-    private function pickSource(array $variants): TranslatableInterface
-    {
-        foreach ($variants as $variant) {
-            if ($variant->getLocale() === $this->defaultLocale) {
-                return $variant;
-            }
-        }
-
-        return $variants[0];
-    }
-
-    /**
-     * Mapped-column properties carrying #[SharedAmongstTranslations], excluding
-     * system columns. Associations are skipped — the bundle forbids shared
-     * associations — and only mapped columns are considered so the values are
-     * guaranteed to be hydrated on every locale variant.
-     *
-     * Embedded fields are expanded separately: they are not mapped fields on the entity,
-     * and sharing can be declared on the embeddable class or on its inner properties.
-     *
-     * @param class-string $class
-     *
-     * @return list<SharedProperty>
-     */
-    private function sharedProperties(string $class): array
-    {
-        $metadata   = $this->entityManager->getClassMetadata($class);
-        $reflection = $metadata->getReflectionClass();
-        $shared     = [];
-
-        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
-            $name = $property->getName();
-
-            if (in_array($name, self::SYSTEM_PROPERTIES, true)) {
-                continue;
-            }
-
-            $embedded = $metadata->embeddedClasses[$name] ?? null;
-
-            if (null !== $embedded) {
-                foreach ($this->sharedEmbeddedProperties($property, $embedded->class) as $entry) {
-                    $shared[] = $entry;
-                }
-
-                continue;
-            }
-
-            if (!$metadata->hasField($name)) {
-                continue;
-            }
-
-            if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
-                $shared[] = ['owner' => null, 'property' => $property];
-            }
-        }
-
-        return $shared;
-    }
-
-    /**
-     * Expands one embedded field into the values that must stay in sync, mirroring what
-     * EmbeddedHandler does at translate time:
-     * - #[SharedAmongstTranslations] on the entity property shares the whole embeddable
-     *   (EmbeddedHandler::translate() with the context's isShared() fact set returns a
-     *   clone with the source's property values, not the source instance itself);
-     * - otherwise each inner property is resolved on its own, where a class-level attribute
-     *   acts as the default for every property that does not override it.
-     *
-     * @param class-string $embeddableClass
-     *
-     * @return list<SharedProperty>
-     */
-    private function sharedEmbeddedProperties(\ReflectionProperty $property, string $embeddableClass): array
-    {
-        $embeddable = new \ReflectionClass($embeddableClass);
-
-        if (!$this->attributeHelper->isEmbeddableShared($embeddable, $property)) {
-            return [];
-        }
-
-        if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
-            return [['owner' => null, 'property' => $property]];
-        }
-
-        $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($embeddable);
-        $shared      = [];
-
-        foreach (ReflectionHelper::getHierarchyProperties($embeddable) as $inner) {
-            if ($this->attributeHelper->isSharedAmongstTranslations($inner)) {
-                $shared[] = ['owner' => $property, 'property' => $inner];
-
-                continue;
-            }
-
-            // A class-level attribute applies to every property the property level does not
-            // claim for itself.
-            if ($classShared && !$this->attributeHelper->isEmptyOnTranslate($inner)) {
-                $shared[] = ['owner' => $property, 'property' => $inner];
-            }
-        }
-
-        return $shared;
     }
 }

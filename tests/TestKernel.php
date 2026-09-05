@@ -16,6 +16,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Test\Support\QueryCounter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
@@ -126,6 +127,13 @@ final class TestKernel extends BaseKernel
         // BidirectionalManyToManyHandlerTest and the WP22 integration tests).
         $container->services()
             ->alias('test.translation_cache', TranslationCacheInterface::class)
+            ->public();
+
+        // Same again for SharedValueSynchronizer (v4.1): private in services.yaml,
+        // reached in a real application by a consumer's own autowired fan-out;
+        // the propagation and command tests fetch it through this alias.
+        $container->services()
+            ->alias('test.shared_value_synchronizer', SharedValueSynchronizer::class)
             ->public();
 
         // Query-budget test infrastructure: a PSR-3 logger counting the debug

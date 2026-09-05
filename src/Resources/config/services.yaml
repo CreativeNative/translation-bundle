@@ -21,6 +21,11 @@ services:
     tmi_translation.utils.attribute_helper:
         class: Tmi\TranslationBundle\Utils\AttributeHelper
 
+    # Class-name alias (v4.1) so a consumer service can type-hint AttributeHelper
+    # and be autowired, instead of naming the snake-case id in an #[Autowire].
+    Tmi\TranslationBundle\Utils\AttributeHelper:
+        alias: tmi_translation.utils.attribute_helper
+
     # ----------------------------
     # Cache Service
     # ----------------------------
@@ -86,6 +91,33 @@ services:
 
     tmi_translation.doctrine.translatable_remover:
         alias: Tmi\TranslationBundle\Doctrine\TranslatableRemover
+
+    # ----------------------------
+    # Shared-Value Synchronizer (v4.1)
+    # ----------------------------
+    # The one discovery + copy of #[SharedAmongstTranslations] values, with the
+    # EDITED row as source. Used by the opt-in flush listener below and by
+    # tmi:translation:sync-shared; public API for consumer fan-outs.
+    Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+
+    tmi_translation.doctrine.shared_value_synchronizer:
+        alias: Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer
+
+    # Read-only drift report over a whole table (the read side of
+    # sync-shared --check as a service, for an application's own drift watch).
+    Tmi\TranslationBundle\Doctrine\SharedDriftScanner:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+            $synchronizer: '@Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer'
+            $defaultLocale: '%tmi_translation.default_locale%'
+
+    tmi_translation.doctrine.shared_drift_scanner:
+        alias: Tmi\TranslationBundle\Doctrine\SharedDriftScanner
 
     # ----------------------------
     # Per-Locale Completeness
@@ -215,6 +247,16 @@ services:
         tags: [ { name: doctrine.event_listener, event: preRemove } ]
 
     # ----------------------------
+    # Doctrine Listener — opt-in flush-time propagation of shared values (v4.1)
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener:
+        arguments:
+            $synchronizer: '@Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer'
+            $enabled: '%tmi_translation.propagate_shared_on_flush%'
+            $logger: '@?logger'
+        tags: [ { name: doctrine.event_listener, event: onFlush } ]
+
+    # ----------------------------
     # Diagnostic / Maintenance Commands
     # ----------------------------
     Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator:
@@ -232,6 +274,7 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.entity_manager'
             $locator: '@Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator'
-            $attributeHelper: '@tmi_translation.utils.attribute_helper'
-            $defaultLocale: '%tmi_translation.default_locale%'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+            $synchronizer: '@Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer'
+            $scanner: '@Tmi\TranslationBundle\Doctrine\SharedDriftScanner'
         tags: [ { name: console.command } ]
