@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **654 tests, 5,555 assertions**, all green.
+  `failOnDeprecation`). As of this release: **730 tests, 6,707 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -192,8 +192,8 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 #### 2. Shared Fields (#[SharedAmongstTranslations])
 - Fields or embeddables whose value is copied from the source when a translation is created.
 - Scalar and association fields reference the same object instance at translate time. Embeddables are the exception: `EmbeddedHandler` always returns a clone (never the source instance) — the clone's property values match the source, so persisted data is identical, but each locale still holds its own embeddable object.
-- **Copy-on-translate, not an enforced invariant**: editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale). `tmi:translation:sync-shared` reconciles; `--check` gates CI on drift.
-- If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance).
+- **Copy-on-translate by default, flush-time invariant on request**: with `propagate_shared_on_flush: false` (the 4.x default) editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale); `tmi:translation:sync-shared` reconciles and `--check` gates CI on drift. With `propagate_shared_on_flush: true` (v4.1) a change on *any* variant is copied onto every sibling inside the same `flush()` by `SharedValuePropagationListener` — see "Shared-Value Propagation (v4.1)" below.
+- If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance). The class-level form is honoured on **embeddables only**: on an entity class the attribute is inert — `translate()`, `sync-shared` and the flush-time propagation read it per property.
 - If the attribute is on properties within an embeddable, only those properties' values are shared; others may still be cloned/reset.
 - Intentionally inert on a class that does not implement `TranslatableInterface`: nothing reads the attribute outside the translate() pipeline, so a trait shared between translatable and non-translatable classes (e.g. a `GeoLocatableTrait` mixed into both) can carry it on a property with no effect on the classes that merely reuse the trait.
 
@@ -234,7 +234,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Internally delegates to appropriate handler(s) depending on object type (entity vs embeddable vs collection).
 - Ensures metadata (locale property, Tuuid) is set correctly.
 - Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached, and nothing is logged. `TranslatableEventSubscriber`'s own `prePersist`/`postLoad` normalise an entity's locale before `translate()` is ever consulted, so `translate($entity, $entity->getLocale())` is the call shape every flush makes -- not usually, always. (v3.x had four `EntityTranslator` lifecycle hooks -- `afterLoad`/`beforePersist`/`beforeUpdate`/`beforeRemove` -- that existed to intercept exactly this identity call; v4.0 removed them because every single invocation, on every flush, was a no-op.)
-- Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]` + `tmi:translation:sync-shared`'s job, not `translate()`'s.
+- Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]`'s job — via `propagate_shared_on_flush` (v4.1) or `tmi:translation:sync-shared` — not `translate()`'s.
 - `#[EmptyOnTranslate]` on a **collection** property is emptied by its handler (a fresh empty collection). Only non-collection, non-nullable properties fall back to `TypeDefaultResolver`.
 
 ### Translation Handlers
@@ -1507,13 +1507,18 @@ php bin/console tmi:translation:doctor --entity="App\Entity\Product"
 
 ### `tmi:translation:sync-shared`
 
-Back-fills `#[SharedAmongstTranslations]` **column** values: copies them from the
-default-locale row to every sibling. This fixes the ordering caveat — shared values only
-propagate to translations created *after* the value was set, so data translated later keeps
-stale siblings. Options: `--dry-run` (preview), `--check` (write nothing, exit non-zero when
-any shared value has drifted — a CI gate for "no shared property has diverged"),
-`--entity=<FQCN>` (restrict to one class).
-Shared *associations* are out of scope (and unsupported by the bundle).
+Back-fills `#[SharedAmongstTranslations]` values: copies them from the default-locale row to
+every sibling. This fixes the ordering caveat — shared values only propagate to translations
+created *after* the value was set, so data translated later keeps stale siblings. Options:
+`--dry-run` (preview), `--check` (write nothing, exit non-zero when any shared value has
+drifted — a CI gate for "no shared property has diverged"), `--entity=<FQCN>` (restrict to one
+class), and — v4.1 — `--tuuid=<uuid>` (restrict to ONE record) with `--source-locale=<locale>`
+(copy from that row instead of the default-locale row: the targeted repair for a record edited in
+a non-default locale; refused without `--tuuid`). As of v4.1 the command is a thin client of
+`SharedValueSynchronizer`, `SharedDriftScanner::pickSource()` and
+`LocaleVariantFinder::streamGroupedByTuuid()` (see "Shared-Value Propagation (v4.1)"), so its
+discovery also covers to-one associations to a **non**-translatable target; a shared collection,
+or an association to a translatable target, is rejected at translate time and never synced.
 
 Embedded fields are detected in all three places sharing can be declared — on the entity
 property (whole embeddable), on the embeddable class (every inner property that does not
@@ -1594,6 +1599,135 @@ stateless value objects:
   so the cascade listener — if enabled — leaves that variant's siblings alone.
 
 Both are set before the removal work and cleared in a `finally`.
+
+---
+
+## Shared-Value Propagation (v4.1)
+
+`#[SharedAmongstTranslations]` copies a value onto a variant **once**, when `translate()` creates
+it. Version 4.1 adds the other half — keeping the value equal afterwards — as one service and
+one opt-in listener.
+
+### [SharedValueSynchronizer](src/Doctrine/SharedValueSynchronizer.php)
+
+The one discovery + copy of shared values, **with the edited row as source** (the `sync-shared`
+back-fill has no edit to go by and takes the default-locale row instead). Alias
+`tmi_translation.doctrine.shared_value_synchronizer`.
+
+```php
+public function syncFrom(TranslatableInterface $source, array|null $onlyProperties = null): array; // list<TranslatableInterface>: the siblings that changed, managed, NOT flushed
+public function siblingsOf(TranslatableInterface $source): array;                                  // every other locale variant of the Tuuid, locale filter suspended
+public function sync(TranslatableInterface $source, TranslatableInterface $sibling, array|null $onlyProperties = null): SharedValueSyncReport;    // writes
+public function compare(TranslatableInterface $source, TranslatableInterface $sibling, array|null $onlyProperties = null): SharedValueSyncReport; // reports only
+public function sharedProperties(string $class): array; // memoized discovery, proxy class resolved to its entity class
+public static function valuesEqual(mixed $a, mixed $b): bool;
+```
+
+- **Discovery** (`sharedProperties()`): mapped columns carrying the attribute; embeddables in all
+  three places sharing can be declared (on the entity property → the whole embeddable, one entry;
+  on the embeddable class → every inner property not overridden with `#[EmptyOnTranslate]`; on an
+  inner property → that one); **to-one associations to a non-translatable target** (shared as the
+  identical instance). Never a collection, never an association to a translatable target — both are
+  rejected at translate time. Each entry carries the property path `sync-shared` prints
+  (`field`, `embedded.field`, `embedded`) and the UnitOfWork change-set keys it maps to (a whole
+  shared embeddable is one key per mapped inner column: `embedded.street`, `embedded.city`, …).
+- **Copy rules**: scalars assigned; value objects **cloned** (two rows never share one mutable
+  instance); enums assigned, never cloned; associations the identical instance; a readonly
+  property that differs is reported in `SharedValueSyncReport::readonlyDrift()`, never written;
+  an uninitialized typed property on the source is skipped, on the sibling it reads as null.
+- `$onlyProperties` accepts either path shape; naming one column of a whole shared embeddable
+  selects the embeddable.
+- `tmi:translation:sync-shared` is a thin client of this service (same discovery, so the
+  command's `--check` and the flush-time propagation can never disagree); the command adds the
+  streaming, the default-locale source and the reporting.
+
+### [SharedValuePropagationListener](src/Doctrine/EventListener/SharedValuePropagationListener.php) — `propagate_shared_on_flush`
+
+```yaml
+# config/packages/tmi_translation.yaml
+tmi_translation:
+    propagate_shared_on_flush: true   # default false in 4.x; announced as the 5.0 default
+```
+
+An `onFlush` listener, always registered, the flag decides at runtime (same shape as
+`LocaleVariantRemovalListener`). With the flag on, after any edit of a translatable entity every
+`#[SharedAmongstTranslations]` property carries the same value on every locale variant of that
+Tuuid **at the end of the same `flush()`**, regardless of which code performed the edit. Inside
+Doctrine's `onFlush` rules — no `flush()`, no `persist()`, only change-set recomputation:
+
+1. Iterate over a **snapshot** of the scheduled updates (propagating schedules siblings, which
+   would grow the live set mid-loop).
+2. Intersect each translatable update's change set with the class's shared change-set paths.
+   Paths the listener itself wrote onto that entity earlier in the flush are excluded — the
+   ping-pong guard, tracked per **(entity, path)** so two variants that edit two *different*
+   shared properties in one flush both propagate.
+3. Siblings = the other variants in the database (`SharedValueSynchronizer::siblingsOf()`) **plus**
+   any variant of the same Tuuid scheduled for **insertion** in this flush (created with
+   `translate()` earlier in the request, carrying clone-time values, invisible to a query).
+4. **Conflict rule**: a sibling itself scheduled for update with a *different* new value for the
+   same shared path throws `SharedValueConflictException` (class, path, Tuuid, both locales, both
+   values) before anything is written — never last-wins. Only update-scheduled siblings can
+   conflict; an inserted variant's change set is its whole row, so the updated source wins there.
+5. Every sibling that received a value goes through `UnitOfWork::recomputeSingleEntityChangeSet()`
+   — it merges into an existing change set (a sibling scheduled with an unrelated change keeps
+   it), creates and schedules one for a managed sibling that had none, and merges into an
+   insertion's change set too.
+
+Field-level, not row-level: an unshared edit triggers no sibling lookup and no sibling `UPDATE`
+(asserted with the query counter: 1 statement). Three locales, one shared edit = 1 `SELECT` +
+3 `UPDATE`s, one pass. With `enable_logging: true`, one `debug` line per propagating entity
+(`class`, `tuuid`, `locale`, `properties`, `siblings`).
+
+**Before enabling it:** run `tmi:translation:sync-shared --check` to zero, and remove the
+attribute from every property the application diverges per locale on purpose — with the flag on,
+the next edit would otherwise "repair" that divergence, exactly as the write mode of
+`sync-shared` always would have. `false` keeps v4.0.0 behaviour byte for byte (regression-locked
+by test).
+
+### [SharedDriftScanner](src/Doctrine/SharedDriftScanner.php) — the read side as a service
+
+```php
+public function scan(string $class): \Generator;            // Generator<int, SharedDrift>, nothing written
+public function pickSource(array $variants): TranslatableInterface; // the default-locale row, else the first row
+```
+
+`scan($class)` walks the table (or the hierarchy, given its root) with
+`LocaleVariantFinder::streamGroupedByTuuid()`, compares every sibling against the group's source
+row with `SharedValueSynchronizer::compare()`, yields one
+[`SharedDrift`](src/ValueObject/SharedDrift.php) per (sibling row, property path) —
+`entityClass()`, `tuuid()`, `propertyPath()`, `sourceLocale()`, `locale()`, `isReadonly()`;
+locations, never values — and detaches each group once reported, so memory stays bounded by the
+locale count. Alias `tmi_translation.doctrine.shared_drift_scanner`. Built for an application's
+own scheduled drift watch against a production database (log when clean, alert on drift) without
+parsing `sync-shared --check` output. Do not `EntityManager::clear()` mid-iteration.
+
+### `LocaleVariantFinder::streamGroupedByTuuid()`
+
+```php
+public function streamGroupedByTuuid(string $class): \Generator; // Generator<int, non-empty-list<TranslatableInterface>>
+```
+
+The shared streaming core of the scanner and `tmi:translation:sync-shared`: one indexed query
+ordered by Tuuid, `toIterable()`, one yielded list per Tuuid group, all managed, the locale
+filter suspended for the iteration and restored when the generator completes. The consumer
+detaches each group itself (or flushes and detaches in batches) and never `clear()`s
+mid-iteration — the next group's first row is already hydrated when a group is yielded.
+
+### Targeted repair: `tmi:translation:sync-shared --tuuid --source-locale`
+
+```bash
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT --dry-run
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT
+```
+
+`--tuuid` restricts the run to one record — every locale variant of that Tuuid, searched in every
+translatable class or only in `--entity`; `--source-locale` names the row to copy **from** instead
+of the default-locale row. This is the repair a record needs after it was edited in a non-default
+locale: the whole-table write mode would copy the stale default-locale values *over* the edit.
+`--source-locale` without `--tuuid` is refused (a source locale is a per-record decision, never a
+global one); a missing variant for the named locale is refused with the available locales listed;
+`--dry-run`/`--check` apply; output (`Source: locale …`, drift table, readonly listing) and exit
+codes follow the whole-table run.
 
 ---
 
@@ -1787,5 +1921,6 @@ Step-by-step guide for building custom translation handlers for field types not 
   - `TranslationHandlerInterface` narrows from four methods to two: `supports(TranslationContext)`/`translate(TranslationContext)`. The single, mutable `TranslationArgs` DTO is replaced by two typed contexts sharing an abstract `TranslationContext` base — `EntityTranslationContext` (`getEntity(): TranslatableInterface`) and `PropertyTranslationContext` (`getValue(): mixed`) — plus `getSubject()`/`setSubject()` on the base for a handler reachable either way. `isShared()`/`isEmpty()` on the context (set by `EntityTranslator` from the property's attributes before dispatch) replace the two removed interface methods; a handler merges its old `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` bodies into `translate()`, gated on those two booleans. See `UPGRADING.md` § 6 for the full migration guide and a before/after custom handler.
   - `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` cache per class; `EntityTranslator::preload()` batches import lookups per class instead of per entity; `tests/Performance/QueryBudgetTest.php` asserts an exact query count for every operation in the Performance table above.
   - README, llms.txt, this file and the three `.agents/skills/` guides rewritten around the two arguments this section opens with — every performance and quality claim in them is backed by a named test or CI gate, not an estimate.
+- v4.1.0: Additive release, no schema change, no removed API, no changed default. `#[SharedAmongstTranslations]` gains its second half: **`propagate_shared_on_flush`** (config, default `false`, announced as the 5.0 default) makes `SharedValuePropagationListener` copy a shared change made on *any* locale variant onto every sibling — including a variant scheduled for insertion in the same flush — inside the same `flush()`, field-level, via `recomputeSingleEntityChangeSet()`, with a per-(entity, path) ping-pong guard and a `SharedValueConflictException` (never last-wins) when two variants carry different new values for one shared property. The copy logic is the new public **`SharedValueSynchronizer`** (`syncFrom()` with the edited row as source, `siblingsOf()`, `sync()`/`compare()` → `SharedValueSyncReport`, memoized `sharedProperties()`, `valuesEqual()`); `tmi:translation:sync-shared` is a thin client of it and therefore also covers to-one associations to a non-translatable target (`--check` may newly report drift there), and gains `--tuuid=<uuid> --source-locale=<locale>` — the targeted repair of one record from the row you name. New read side: **`SharedDriftScanner::scan()`** streams one `SharedDrift` per drifted sibling row and property (locations, never values) on top of the new **`LocaleVariantFinder::streamGroupedByTuuid()`**, the streaming core the command shares. `AttributeHelper` gets a class-name alias; the class-level attribute form is documented as embeddable-only. Quality gate at the tag: see README § Verified quality.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
 

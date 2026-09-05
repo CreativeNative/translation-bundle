@@ -489,12 +489,34 @@ php bin/console tmi:translation:sync-shared             # apply
 php bin/console tmi:translation:sync-shared --check     # CI gate: exit non-zero on drift
 ```
 
-The command copies every `#[SharedAmongstTranslations]` **column** value from the
-default-locale row to its siblings, including embedded fields whose sharing is declared on
-the embeddable class or on an inner property. `readonly` shared properties cannot be written
-after hydration: the command lists them and exits non-zero instead of writing, so a non-zero
-exit with a "readonly shared value(s)" warning means those rows need manual or DB-level
-correction. **Severity:** WARNING.
+The command copies every `#[SharedAmongstTranslations]` value from the default-locale row to
+its siblings — mapped columns, embedded fields whose sharing is declared on the embeddable
+class or on an inner property, and (v4.1) to-one associations to a non-translatable target.
+`readonly` shared properties cannot be written after hydration: the command lists them and
+exits non-zero instead of writing, so a non-zero exit with a "readonly shared value(s)"
+warning means those rows need manual or DB-level correction. **Severity:** WARNING.
+
+**Repair a record edited in a NON-default locale (v4.1):** the whole-table write mode copies the
+default-locale row and would overwrite the edit. Name the record and the row instead:
+
+```bash
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT --dry-run
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT
+```
+
+For a scheduled watch on production, `SharedDriftScanner::scan($class)` (alias
+`tmi_translation.doctrine.shared_drift_scanner`) streams the same drift as `--check`, one
+`SharedDrift` per row and property, without console-output parsing.
+
+**Prevent recurrence (v4.1):** if the drift came from an edit made on one locale row after the
+translations existed (a form bound to the admin's UI-locale row, an import), enable
+`tmi_translation.propagate_shared_on_flush: true` — a shared change on *any* variant is then
+copied onto every sibling inside the same `flush()`, and two variants flushed with different
+new values for one shared property throw `SharedValueConflictException` instead of one
+silently winning. Precondition: `--check` reports zero drift and no deliberately per-locale
+field still carries the attribute. Application code that needs the copy without the flag calls
+`SharedValueSynchronizer::syncFrom($editedRow)` (alias
+`tmi_translation.doctrine.shared_value_synchronizer`).
 
 ### Check 6.3: Orphan check configuration
 

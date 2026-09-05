@@ -111,6 +111,14 @@ Show smart suggestions based on field names:
 
 Ask: "Which fields should be SharedAmongstTranslations? (comma-separated, or 'none')"
 
+Then say what the attribute does and does not do: it copies the value **when a translation is
+created**. A later edit on one locale row stays on that row **unless** the application enables
+`propagate_shared_on_flush: true` (v4.1), which copies a shared change made on *any* locale
+variant onto every sibling inside the same `flush()`. Recommend the flag whenever every shared
+field is genuinely shared — and warn that a field the application deliberately varies per
+locale (a per-language `visible` flag) must **not** carry the attribute at all, because the
+propagation (like `tmi:translation:sync-shared`) would overwrite that divergence.
+
 ### 2.3: EmptyOnTranslate Guidance (Optional)
 
 **Examples-first approach:**

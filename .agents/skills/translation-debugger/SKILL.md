@@ -115,7 +115,8 @@ Run `tmi:translation:doctor` (Layer 6) — likely a standalone Tuuid created by 
 `EntityTranslator::translate()`. See diagnostics Check 6.1.
 
 ### "Shared field differs between locales"
-Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. See diagnostics Check 6.2.
+Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. To stop it recurring,
+enable `propagate_shared_on_flush: true` (v4.1). See diagnostics Check 6.2.
 
 ### "OrphanTranslationException on flush"
 An entity is being flushed in a non-default locale without a shared Tuuid — no other

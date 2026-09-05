@@ -79,8 +79,11 @@ last, in registration order; handlers sharing a priority keep their registration
 
 ### `#[SharedAmongstTranslations]`
 Field value is copied from the source when a translation is created (copy-on-translate).
-There is **no update-time propagation** — later edits diverge silently, by design.
-Reconcile with `tmi:translation:sync-shared`; gate CI on drift with `--check`.
+By default there is **no update-time propagation** — later edits diverge silently, by design;
+reconcile with `tmi:translation:sync-shared` and gate CI on drift with `--check`. With
+`propagate_shared_on_flush: true` (v4.1, opt-in, the announced 5.0 default) a later edit on
+*any* locale variant reaches every sibling inside the same `flush()` — see
+[Shared-Value Propagation](#shared-value-propagation-v41).
 
 ```php
 #[SharedAmongstTranslations]
@@ -153,12 +156,49 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `ValueObject/LocaleCompleteness` + `ValueObject/TranslationStatus` (enum
   `Missing`/`Incomplete`/`Complete`) — the returned value objects.
 
+## Shared-Value Propagation (v4.1)
+
+- `Doctrine/SharedValueSynchronizer` — the one discovery + copy of `#[SharedAmongstTranslations]`
+  values with the **edited row as source**: `syncFrom()` (every sibling, returns the changed
+  ones managed and unflushed), `siblingsOf()`, `sync()`/`compare()` (one sibling, with/without
+  writing → `ValueObject/SharedValueSyncReport`: `changed()`, `readonlyDrift()`), memoized
+  `sharedProperties(class)` — mapped columns, embeddables in all three declaration places, to-one
+  associations to a non-translatable target; never a collection or an association to a
+  translatable target. Every entry carries the printed property path and the UnitOfWork
+  change-set keys it maps to (a whole shared embeddable = one key per inner column).
+  `SyncSharedTranslationsCommand` is a thin client of it (streaming + default-locale source +
+  reporting only), so command and listener never disagree on what is shared.
+- `Doctrine/EventListener/SharedValuePropagationListener` — `onFlush`, always registered,
+  `propagate_shared_on_flush` gates it at runtime. Snapshot of scheduled updates → intersect
+  each translatable's change set with the shared paths (minus paths the listener itself wrote
+  onto that entity: per-(entity, path) ping-pong guard) → siblings from the database **plus**
+  same-Tuuid entities scheduled for insertion → conflict check (`SharedValueConflictException`
+  when an update-scheduled sibling carries a *different* new value for the same path; an
+  insertion never conflicts, the updated source wins) → `sync()` each sibling →
+  `UnitOfWork::recomputeSingleEntityChangeSet()` on every sibling that changed (merges into an
+  existing change set, schedules a managed sibling that had none, merges into an insertion).
+  No `flush()`, no `persist()` inside `onFlush`. One `debug` line per propagating entity with
+  `enable_logging`.
+- `Doctrine/LocaleVariantFinder::streamGroupedByTuuid()` — streams a whole table grouped by
+  Tuuid (managed, locale filter suspended for the iteration, restored in the generator's
+  `finally`); the shared core of the scanner and the command. Consumers detach each group
+  themselves and never `clear()` mid-iteration (the next group's first row is already hydrated).
+- `Doctrine/SharedDriftScanner` — read-only `scan(class)` → `\Generator<ValueObject/SharedDrift>`
+  (entity class, Tuuid, path, source locale, drifted locale, readonly flag; locations, never
+  values), one per drifted sibling row and property, detaching each group as it goes;
+  `pickSource()` = the command's canonical-row rule (default-locale row, else the first).
+- `tmi:translation:sync-shared --tuuid=<uuid> [--source-locale=<locale>]` — one record, every
+  locale variant, copied from the named row instead of the default-locale row; `--source-locale`
+  is refused without `--tuuid`.
+- Class-level `#[SharedAmongstTranslations]` is honoured on embeddables only; on an entity class
+  it is inert (documented in 4.1, unchanged behaviour).
+
 ## Console Commands
 
 | Command | Purpose |
 |---------|---------|
 | `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (v4.0: a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
-| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` column values across existing locale variants; `--dry-run`, `--check` (CI gate), `--entity`; prints a `Property \| Tuuids \| Rows \| Writable` drift table (v4.0) |
+| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and (v4.1) to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (v4.1, one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table (v4.0) |
 
 ## Performance (v4.0)
 

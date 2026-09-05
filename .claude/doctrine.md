@@ -151,6 +151,29 @@ gates it at runtime) calling `TranslatableRemover::cascadeFromPreRemove()`. With
 `removeSingleLocaleVariant()` is the escape hatch for removing one variant while its siblings
 stay online.
 
+## Shared-Value Propagation (v4.1)
+
+`SharedValueSynchronizer` copies `#[SharedAmongstTranslations]` values from one locale variant
+onto its siblings with the **edited row as source** — `syncFrom($editedRow)` returns the
+siblings that changed, managed and not flushed, so the caller's `flush()` writes them in the
+same transaction. Discovery covers mapped columns, embeddables (attribute on the entity property,
+on the embeddable class, or on an inner property) and to-one associations to a non-translatable
+target; never a collection or an association to a translatable target.
+
+```yaml
+# config/packages/tmi_translation.yaml
+tmi_translation:
+    propagate_shared_on_flush: true   # default false in 4.x, announced 5.0 default
+```
+
+With the flag on, `SharedValuePropagationListener` (`onFlush`, always registered) makes the
+attribute a flush-time invariant: a shared property edited on *any* variant reaches every other
+variant of the Tuuid — including one scheduled for insertion in the same flush — before the
+statements run, field by field, via `recomputeSingleEntityChangeSet()`. Two variants flushed
+with *different* new values for the same shared property throw `SharedValueConflictException`
+and nothing is written. Enable it only after `tmi:translation:sync-shared --check` reports zero
+drift and the attribute is gone from every property the application diverges on purpose.
+
 ## Diagnostic Commands
 
 - `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage:
@@ -160,9 +183,13 @@ stay online.
   restricts the scan to one entity, checked against Doctrine's metadata so a concrete
   subclass is accepted; exits non-zero.
 - `php bin/console tmi:translation:sync-shared` — propagates `#[SharedAmongstTranslations]`
-  column values from the default-locale row to all sibling locale variants (`--dry-run`,
-  `--check` for a CI drift gate, `--entity=<FQCN>`); prints a `Property | Tuuids | Rows |
-  Writable` table naming every drifted property (v4.0).
+  values from the default-locale row to all sibling locale variants — columns, embeddables and
+  (v4.1) to-one associations to a non-translatable target, the same discovery as the flush-time
+  propagation (`--dry-run`, `--check` for a CI drift gate, `--entity=<FQCN>`, and v4.1's
+  `--tuuid=<uuid> --source-locale=<locale>` to repair one record from the row you name); prints
+  a `Property | Tuuids | Rows | Writable` table naming every drifted property (v4.0). The read
+  side is also a service: `SharedDriftScanner::scan($class)` streams one `SharedDrift` per
+  drifted sibling row and property, on top of `LocaleVariantFinder::streamGroupedByTuuid()`.
 
 ## Relationship Handling
 

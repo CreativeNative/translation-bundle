@@ -1,3 +1,129 @@
+# UPGRADE FROM 4.0 to 4.1
+
+Version 4.1 is additive: no schema change, no removed API, no changed default. It turns the
+promise in the name `#[SharedAmongstTranslations]` into an **opt-in flush-time invariant** and
+exposes the copy logic behind it as a public service, so a consuming application no longer needs
+its own fan-out code to keep a shared value equal across the locale rows of one record.
+
+## Table of Contents
+
+- [New in 4.1](#new-in-41)
+- [Behavioural Changes (4.1)](#behavioural-changes-41)
+  - [1. `tmi:translation:sync-shared` also covers shared to-one associations to a non-translatable target](#1-tmitranslationsync-shared-also-covers-shared-to-one-associations-to-a-non-translatable-target)
+  - [2. `SyncSharedTranslationsCommand` is constructed with the synchronizer](#2-syncsharedtranslationscommand-is-constructed-with-the-synchronizer)
+- [Upgrade Checklist (4.1)](#upgrade-checklist-41)
+
+---
+
+## New in 4.1
+
+- **`propagate_shared_on_flush`** (config, default `false`) — when enabled, a change to a
+  `#[SharedAmongstTranslations]` property on *any* locale variant is copied onto every other
+  variant of the same Tuuid inside the same `flush()`, whatever code performed the edit (a form
+  bound to the admin's UI-locale row, an import, a command). It is field-level: only the shared
+  properties that actually changed are copied, an unshared edit triggers no sibling lookup at
+  all, and a sibling already scheduled with an unrelated change keeps that change. A variant
+  created with `translate()` earlier in the same request — scheduled for insertion, invisible to
+  a query — receives the update too, so it is inserted from the updated source. Two variants
+  scheduled in one flush with **different** new values for the same shared property throw
+  `SharedValueConflictException` (a `RuntimeException`) before anything is written — never
+  last-wins. Copy semantics are the bundle's existing ones: value objects are cloned, enums are
+  assigned, a to-one association to a non-translatable target is the identical instance, a
+  readonly property is never written. With `enable_logging: true` one `debug` line is logged per
+  propagating entity. **`true` is announced as the 5.0 default**, because the attribute's name
+  promises this behaviour; 4.x keeps it opt-in so a consumer can first strip the attribute from
+  every property it diverges per locale on purpose (see the checklist below).
+- **`SharedValueSynchronizer`** (`Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer`, alias
+  `tmi_translation.doctrine.shared_value_synchronizer`) — the one discovery and copy of shared
+  values, with the **edited row as source** (unlike `sync-shared`, whose back-fill takes the
+  default-locale row). `syncFrom(TranslatableInterface $source, ?array $onlyProperties = null):
+  list<TranslatableInterface>` copies onto every sibling and returns the ones that changed,
+  managed and not flushed; `siblingsOf()` returns every other locale variant (locale filter
+  suspended); `sync()`/`compare()` reconcile one sibling with or without writing and return a
+  `SharedValueSyncReport` (`changed()`, `readonlyDrift()`, `hasChanges()`);
+  `sharedProperties(class-string)` exposes the memoized discovery — mapped columns, embeddables in
+  all three declaration places, to-one associations to non-translatable targets; never a
+  collection, never an association to a translatable target. `valuesEqual()` is public static.
+  `tmi:translation:sync-shared` is a thin client of it now, so the command and the flush-time
+  propagation can never disagree about what "shared" means.
+- **`SharedValuePropagationListener`** (`onFlush`) — always registered, `propagate_shared_on_flush`
+  decides at runtime whether it does anything (same shape as `LocaleVariantRemovalListener`).
+- **`SharedValueConflictException`** (`Tmi\TranslationBundle\Exception\SharedValueConflictException`,
+  extends `\RuntimeException`) — names class, property path, Tuuid, both locales and both values.
+- **`tmi:translation:sync-shared --tuuid=<uuid> [--source-locale=<locale>]`** — the targeted
+  repair of ONE record: every locale variant of that Tuuid (searched in every translatable
+  class, or only in `--entity`), copied from the row `--source-locale` names instead of the
+  default-locale row. This is what a record edited in a non-default locale needs — the
+  whole-table write mode would overwrite the edited row with the stale default-locale values.
+  `--source-locale` is only accepted together with `--tuuid` (a source locale is a per-record
+  decision, never a global one); `--dry-run`/`--check` apply; output and exit codes follow the
+  whole-table run.
+- **`SharedDriftScanner`** (`Tmi\TranslationBundle\Doctrine\SharedDriftScanner`, alias
+  `tmi_translation.doctrine.shared_drift_scanner`) — the read side of `sync-shared --check` as
+  a service: `scan(class-string $class): \Generator<SharedDrift>` streams one
+  `SharedDrift` (entity class, Tuuid, property path, source locale, drifted locale, readonly
+  flag — locations, never values) per drifted sibling row and property, detaching each Tuuid
+  group as it goes; `pickSource()` is the command's canonical-row rule (default-locale row,
+  else the first row). For an application's own scheduled drift watch against production.
+- **`LocaleVariantFinder::streamGroupedByTuuid(class-string $class): \Generator<non-empty-list<TranslatableInterface>>`**
+  — streams a whole table grouped by Tuuid with the locale filter suspended for the
+  iteration; the shared core of the scanner and the command. Consumers detach each group
+  themselves and never `clear()` mid-iteration (the next group's first row is already hydrated).
+- **`AttributeHelper` class alias** — `Tmi\TranslationBundle\Utils\AttributeHelper` can now be
+  type-hinted and autowired; the snake-case id `tmi_translation.utils.attribute_helper` stays.
+- **Documented limitation** — `#[SharedAmongstTranslations]` on a *class* is honoured on
+  embeddables only; on an entity class it has always been inert (`translate()`, `sync-shared`
+  and the propagation read the attribute per property). Nothing changed in code; the docs now
+  say so.
+
+---
+
+## Behavioural Changes (4.1)
+
+### 1. `tmi:translation:sync-shared` also covers shared to-one associations to a non-translatable target
+
+The command's discovery is `SharedValueSynchronizer::sharedProperties()` now. Besides mapped
+columns and embeddables it therefore includes a `#[SharedAmongstTranslations]` `ManyToOne`/
+`OneToOne` whose target is **not** translatable (an owner, a geo tier, a media reference) — the
+shape the bundle has always shared as the identical instance at translate time but left out of
+the back-fill. Output format and exit codes are unchanged. `--check` **may newly report drift**
+on such a property; treat each finding as usual — genuinely shared → repair (the write mode
+copies the default-locale row's reference), intentionally per-locale → remove the attribute.
+
+### 2. `SyncSharedTranslationsCommand` is constructed with the synchronizer
+
+Only relevant if you instantiate the command yourself (a test, a decorator): the constructor is
+now `(EntityManagerInterface, TranslatableEntityLocator, LocaleVariantFinder,
+SharedValueSynchronizer, SharedDriftScanner)` — the `AttributeHelper` and `$defaultLocale`
+arguments are gone (the scanner carries the default locale). The service definition is
+updated; nothing changes for `bin/console`.
+
+---
+
+## Upgrade Checklist (4.1)
+
+1. `composer update tmi/translation-bundle`.
+2. Run `tmi:translation:sync-shared --check`. If it is newly red on an association
+   ([Behavioural Change 1](#1-tmitranslationsync-shared-also-covers-shared-to-one-associations-to-a-non-translatable-target)),
+   decide per property: repair, or remove the attribute.
+3. Remove `#[SharedAmongstTranslations]` from every property your application diverges per
+   locale **on purpose** (a per-language `visible`/`isDraft`) — with the flag on, the propagation
+   would otherwise "repair" that divergence on the next edit, exactly as the write mode of
+   `sync-shared` always would have.
+4. Set `propagate_shared_on_flush: true` once `--check` reports zero drift.
+5. Delete application-side fan-out code. Where it also did per-row work on the siblings (a
+   per-locale status flag), loop over `SharedValueSynchronizer::siblingsOf()` or
+   `LocaleVariantFinder::findAllLocaleVariants()` instead and drop the value copying.
+6. Edit a shared value on **one** variant per flush. Where two forms can legitimately collide,
+   catch `SharedValueConflictException` and surface it.
+7. If you construct `SyncSharedTranslationsCommand` directly, pass the finder, the synchronizer
+   and the scanner ([Behavioural Change 2](#2-syncsharedtranslationscommand-is-constructed-with-the-synchronizer)).
+8. A record that already drifted because it was edited in a non-default locale: repair it with
+   `sync-shared --tuuid=<uuid> --source-locale=<the edited locale>` instead of hand-written SQL,
+   `--dry-run` first.
+
+---
+
 # UPGRADE FROM 3.4 to 4.0
 
 Version 4.0 is a set of deliberate, targeted breaks on top of the existing storage model and

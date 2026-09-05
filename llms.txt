@@ -24,7 +24,7 @@
 
 ## Attributes
 
-- [SharedAmongstTranslations](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/SharedAmongstTranslations.php): Mark fields whose value is copied from the source when a translation is created (copy-on-translate; reconcile later edits via tmi:translation:sync-shared)
+- [SharedAmongstTranslations](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/SharedAmongstTranslations.php): Mark fields whose value is copied from the source when a translation is created (copy-on-translate); later edits reach the siblings with `propagate_shared_on_flush: true` (v4.1, inside the same flush) or via tmi:translation:sync-shared
 - [EmptyOnTranslate](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/Attribute/EmptyOnTranslate.php): Mark fields to be cleared when creating new translations
 
 ## Handler Reference
@@ -79,7 +79,7 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - [TranslatableIndexListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/TranslatableIndexListener.php): Injects a composite `(tuuid, locale)` index into every translatable entity; `unique_locale_variants: true` promotes it to a UNIQUE constraint
 - [OrphanTranslationException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/OrphanTranslationException.php): Thrown (when `strict_orphan_check` is on) for entities flushed in a non-default locale without a shared Tuuid
 - `tmi:translation:doctor`: Console command — scans for standalone/incomplete/duplicate translations and, as of v4.0, `null-tuuid` rows (a literal database NULL, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan to one entity (v4.0); exits non-zero for CI gating
-- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` column values across existing locale variants (`--dry-run`, `--check` for CI drift gates, `--entity` options); as of v4.0, every run prints a table naming each drifted property, how many Tuuid groups and rows it touched, and whether it was writable
+- `tmi:translation:sync-shared`: Console command — back-fills `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row (`--dry-run`, `--check` for CI drift gates, `--entity` options); as of v4.0, every run prints a table naming each drifted property, how many Tuuid groups and rows it touched, and whether it was writable; as of v4.1 its discovery is `SharedValueSynchronizer`'s and also covers to-one associations to a non-translatable target, and `--tuuid=<uuid> --source-locale=<locale>` repairs one record from the row you name
 
 ## v3.0 Symfony 8 & Translation Correctness
 
@@ -115,6 +115,20 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 - `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` memoize per (proxy-unwrapped) class — the `translate()` hot path no longer re-walks a class's attributes/property hierarchy on every property, every call
 - [Performance](https://github.com/CreativeNative/translation-bundle/blob/master/README.md#-performance): every query-cost number the README states is enforced by an exact assertion in [`tests/Performance/QueryBudgetTest.php`](https://github.com/CreativeNative/translation-bundle/blob/master/tests/Performance/QueryBudgetTest.php) — e.g. `find()` under the active locale filter = 1 query, `translate()` into an existing variant = 1 query and 0 inserts
 - Coverage: 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge), not a one-time snapshot; PHPStan runs at level max with the strict-rules/doctrine/symfony/phpunit extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/`failOnDeprecation`)
+
+## v4.1 Shared-Value Propagation on Flush
+
+- [SharedValueSynchronizer](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/SharedValueSynchronizer.php): The one discovery + copy of `#[SharedAmongstTranslations]` values with the **edited row as source** — `syncFrom()` (every sibling, returns the changed ones managed and unflushed), `siblingsOf()`, `sync()`/`compare()` (one sibling, with/without writing), memoized `sharedProperties()`, `valuesEqual()`; alias `tmi_translation.doctrine.shared_value_synchronizer`; covers mapped columns, embeddables in all three declaration places and to-one associations to a non-translatable target, never a collection
+- [SharedValuePropagationListener](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/EventListener/SharedValuePropagationListener.php): Opt-in `onFlush` listener — gated on `propagate_shared_on_flush` — that copies a shared change made on *any* locale variant onto every sibling (including a variant scheduled for insertion in the same flush) inside the same `flush()`, field-level, via `recomputeSingleEntityChangeSet()`, with a per-(entity, path) ping-pong guard; one `debug` line per propagating entity with `enable_logging`
+- [SharedValueConflictException](https://github.com/CreativeNative/translation-bundle/blob/master/src/Exception/SharedValueConflictException.php): `RuntimeException` thrown by the propagation when two variants of one Tuuid are flushed with *different* new values for the same shared property — never last-wins, nothing is written
+- [SharedValueSyncReport](https://github.com/CreativeNative/translation-bundle/blob/master/src/ValueObject/SharedValueSyncReport.php): Result of `sync()`/`compare()` — `changed()` (written or would-be-written property paths), `readonlyDrift()`, `hasChanges()`
+- `propagate_shared_on_flush` (config, default `false`; announced as the 5.0 default): enable once `tmi:translation:sync-shared --check` reports zero drift and no deliberately per-locale field carries the attribute any more
+- [SharedDriftScanner](https://github.com/CreativeNative/translation-bundle/blob/master/src/Doctrine/SharedDriftScanner.php): The read side of `sync-shared --check` as a service — `scan(class)` streams one [SharedDrift](https://github.com/CreativeNative/translation-bundle/blob/master/src/ValueObject/SharedDrift.php) (entity class, Tuuid, property path, source locale, drifted locale, readonly flag) per drifted sibling row and property, detaching each Tuuid group as it goes; `pickSource()` is the command's canonical-row rule; alias `tmi_translation.doctrine.shared_drift_scanner`
+- `LocaleVariantFinder::streamGroupedByTuuid(class)`: streams a whole table grouped by Tuuid (managed, locale filter suspended for the iteration) — the shared core of the scanner and the command; detach each group yourself, never `clear()` mid-iteration
+- `tmi:translation:sync-shared --tuuid=<uuid> [--source-locale=<locale>]`: repair ONE record from the row you name instead of the default-locale row — for a record edited in a non-default locale; `--source-locale` is refused without `--tuuid`
+- `Tmi\TranslationBundle\Utils\AttributeHelper` is now also a class-name alias of `tmi_translation.utils.attribute_helper`, so it can be type-hinted and autowired
+- Documented limitation: `#[SharedAmongstTranslations]` at class level is honoured on embeddables only; on an entity class it is inert (always was)
+- `tmi:translation:sync-shared` uses the synchronizer's discovery: unchanged output and exit codes, but `--check` may newly report drift on a shared to-one association to a non-translatable target (see [UPGRADING.md § Behavioural Changes (4.1)](https://github.com/CreativeNative/translation-bundle/blob/master/UPGRADING.md#behavioural-changes-41))
 
 ## Optional
 
