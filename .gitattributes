@@ -10,8 +10,9 @@
 # Deliberately NOT excluded, despite being "docs": llms.md, llms.txt and
 # README.md are meant to be discoverable from inside vendor/ by a developer or
 # an AI assistant, and .agents/skills/ exists precisely so a consuming project's
-# assistant can read it. UPGRADING.md stays for the same reason — it is the
-# migration guide a consumer reaches for while upgrading.
+# assistant can read it. UPGRADING.md and CHANGELOG.md stay for the same reason
+# — they are what a consumer reaches for while upgrading: what changed, and how
+# to take it.
 /tests           export-ignore
 /docker          export-ignore
 /.github         export-ignore

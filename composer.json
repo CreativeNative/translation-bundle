@@ -14,6 +14,11 @@
         "translation"
     ],
     "homepage": "https://github.com/CreativeNative/translation-bundle",
+    "support": {
+        "issues": "https://github.com/CreativeNative/translation-bundle/issues",
+        "source": "https://github.com/CreativeNative/translation-bundle",
+        "docs": "https://github.com/CreativeNative/translation-bundle/blob/master/llms.md"
+    },
     "license": "MIT",
     "authors": [
         {

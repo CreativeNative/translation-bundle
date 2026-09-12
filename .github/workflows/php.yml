@@ -103,7 +103,8 @@ jobs:
 
       # PHPUnit (slowest — runs last). Coverage is only collected on the
       # primary leg, since that is the only one that reports it; the floor leg
-      # just needs to prove the suite passes on Symfony 8.0.
+      # just needs to prove the suite passes on the advertised minimum
+      # (see the matrix comment for why that floor is 8.1.*, not 8.0.*).
       - name: Run PHPUnit tests with coverage
         if: matrix.primary
         shell: bash
