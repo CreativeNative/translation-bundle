@@ -83,7 +83,7 @@ Custom handlers are tagged `tmi_translation.translation_handler`; the tag's `pri
 
 ## Requirements & Translation Semantics
 
-- Requires Symfony `^8.0`, PHP `>=8.4` and Doctrine ORM `^3.5`
+- Requires Symfony `^8.0`, PHP `>=8.4`, Doctrine ORM `^3.5` and `symfony/doctrine-bridge` `^8.1` (conflicted below 8.1: the 8.0 bridge calls `GenerateSchemaEventArgs::setSchema()` unguarded, which needs a DBAL `Schema::edit()` that does not exist below dbal 4.5)
 - To-many properties (`OneToMany`, `ManyToMany`) are translated through their own handlers; a variant never shares the source entity's collection instance
 - Translating an entity into the locale it already carries is the identity operation: the same instance comes back, nothing is cloned or cached
 - Translating into a different locale is get-or-create, not a live sync: an existing variant for that Tuuid + locale is returned as-is, so in-memory edits made to the source after the variant was created are not propagated into it — use `#[SharedAmongstTranslations]` with `propagate_shared_on_flush` or `tmi:translation:sync-shared` to propagate such changes

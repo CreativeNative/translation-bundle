@@ -17,10 +17,17 @@ jobs:
       fail-fast: false
       matrix:
         php-version: [8.4]
-        # '8.0.*' pins the framework to the floor composer.json declares, so
-        # the advertised minimum is actually exercised. '8.*' is whatever
-        # Symfony 8 resolves to today and carries the full check suite.
-        symfony-version: ['8.0.*', '8.*']
+        # '8.1.*' pins the framework to the floor this bundle actually supports,
+        # so the advertised minimum is exercised. It is 8.1 rather than 8.0
+        # because composer.json conflicts with symfony/doctrine-bridge <8.1:
+        # the 8.0 bridge calls GenerateSchemaEventArgs::setSchema() unguarded,
+        # which needs a DBAL Schema::edit() that does not exist below dbal 4.5
+        # (still unreleased). Flex's SYMFONY_REQUIRE pins every symfony/*
+        # package including the transitively-pulled bridge, so an '8.0.*' leg
+        # would not merely fail -- it would not resolve at all.
+        # '8.*' is whatever Symfony 8 resolves to today and carries the full
+        # check suite.
+        symfony-version: ['8.1.*', '8.*']
         include:
           - symfony-version: '8.*'
             primary: true

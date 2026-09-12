@@ -38,7 +38,7 @@
         "symfony/uid": "^8.0"
     },
     "conflict": {
-        "doctrine/orm": ">=3.6.8"
+        "symfony/doctrine-bridge": "<8.1"
     },
     "require-dev": {
         "ext-pdo": "*",
