@@ -1,2 +1,31 @@
 * text=auto
 *.php text eol=lf
+
+# Keep the dist archive to what a consumer actually runs.
+#
+# `composer require` downloads the dist archive, not the git repo, so anything
+# marked export-ignore here never lands in a consumer's vendor/ directory. The
+# test suite alone is ~1.1 MB of files no consumer executes.
+#
+# Deliberately NOT excluded, despite being "docs": llms.md, llms.txt and
+# README.md are meant to be discoverable from inside vendor/ by a developer or
+# an AI assistant, and .agents/skills/ exists precisely so a consuming project's
+# assistant can read it. UPGRADING.md stays for the same reason — it is the
+# migration guide a consumer reaches for while upgrading.
+/tests           export-ignore
+/docker          export-ignore
+/.github         export-ignore
+/.claude         export-ignore
+/.idea           export-ignore
+/tools           export-ignore
+/bin             export-ignore
+/phpunit.xml     export-ignore
+/rector.php      export-ignore
+/phpstan.neon    export-ignore
+/codecov.yml     export-ignore
+/docker-compose.yml   export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/.dockerignore   export-ignore
+/CLAUDE.md       export-ignore
+/.gitattributes  export-ignore
+/.gitignore      export-ignore
