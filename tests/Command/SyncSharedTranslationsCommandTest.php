@@ -39,6 +39,28 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertSame('English shared', $this->reloadShared($deId));
     }
 
+    /**
+     * The whole-table write mode is the one that can destroy an edit: it copies
+     * every record FROM its default-locale row, so a record edited in another
+     * locale is reverted. --tuuid says which row is the source on its own
+     * `Source:` line; the whole-table run has no such line, so it says it once
+     * up front -- and only when it is actually about to write.
+     */
+    public function testWholeTableWriteModeWarnsAboutItsSourceRuleAndDryRunDoesNot(): void
+    {
+        $this->seedPair('English shared', 'Stale german shared');
+
+        $write = self::normalizeTable($this->run_()->getDisplay());
+
+        self::assertStringContainsString('Write mode copies each record from its "en_US" row', $write);
+        self::assertStringContainsString('--tuuid=<uuid> --source-locale=<locale>', $write);
+
+        self::assertStringNotContainsString(
+            'Write mode copies each record',
+            self::normalizeTable($this->run_(['--check' => true])->getDisplay()),
+        );
+    }
+
     public function testDryRunDoesNotWrite(): void
     {
         $deId = $this->seedPair('English shared', 'Stale german shared');
@@ -733,7 +755,8 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertStringContainsString('tuuid '.$tuuidA, $tester->getDisplay());
-        self::assertStringContainsString('Source: locale en_US', $tester->getDisplay());
+        self::assertStringContainsString('Source: locale en_US', self::normalizeTable($tester->getDisplay()));
+        self::assertStringContainsString('the default-locale rule, applied in every mode', self::normalizeTable($tester->getDisplay()));
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
         self::assertSame('A shared', $this->reloadShared($aDeId));
         self::assertSame('B stale', $this->reloadShared($bDeId), 'Another record must not be touched.');
@@ -762,13 +785,78 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $tester = $this->run_(['--tuuid' => (string) $tuuid, '--source-locale' => 'it_IT']);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('Source: locale it_IT', $tester->getDisplay());
+        self::assertStringContainsString('Source: locale it_IT — named by --source-locale.', self::normalizeTable($tester->getDisplay()));
         self::assertStringContainsString('2 translation(s) updated', $tester->getDisplay());
 
         foreach ($ids as $id) {
             self::assertNotNull($id);
             self::assertSame('120000', $this->reloadShared($id));
         }
+    }
+
+    /**
+     * The production misreading this message exists to prevent: a repair with
+     * `--source-locale=it_IT` followed by a plain `--check` on the same record
+     * printed `Source: locale en_US`, as if the tool had dropped the decision.
+     * Check mode honours --source-locale exactly like write mode does; a run
+     * that omits it says which rule picked the row instead.
+     */
+    public function testCheckHonoursSourceLocaleAndNamesTheRuleThatPickedTheRow(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('price on request');
+        $it = new Scalar()->setTuuid($tuuid)->setLocale('it_IT')->setTitle('IT')->setShared('120000');
+
+        $this->entityManager()->persist($en);
+        $this->entityManager()->persist($it);
+        $this->entityManager()->flush();
+        $enId = $en->getId();
+        self::assertIsInt($enId);
+        $this->entityManager()->clear();
+
+        $named = $this->run_(['--tuuid' => (string) $tuuid, '--source-locale' => 'it_IT', '--check' => true]);
+
+        self::assertSame(Command::FAILURE, $named->getStatusCode());
+        self::assertStringContainsString(
+            'Source: locale it_IT — named by --source-locale.',
+            self::normalizeTable($named->getDisplay()),
+        );
+
+        $byRule = $this->run_(['--tuuid' => (string) $tuuid, '--check' => true]);
+
+        self::assertSame(Command::FAILURE, $byRule->getStatusCode());
+        self::assertStringContainsString(
+            'Source: locale en_US — the default-locale rule, applied in every mode. '
+            .'Pass --source-locale to copy from another row.',
+            self::normalizeTable($byRule->getDisplay()),
+        );
+
+        self::assertSame('price on request', $this->reloadShared($enId), 'Check mode must not write.');
+    }
+
+    /**
+     * A record with no default-locale row at all: pickSource() falls back to the
+     * group's first variant, so the printed locale is neither the default nor
+     * one the operator named. The line says which of the two rules ran.
+     */
+    public function testTuuidWithoutADefaultLocaleRowSaysTheSourceIsTheFirstVariant(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->persistPair(
+            new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared('German shared'),
+            new Scalar()->setTuuid($tuuid)->setLocale('it_IT')->setTitle('IT')->setShared('Stale italian shared'),
+        );
+
+        $tester = $this->run_(['--tuuid' => (string) $tuuid, '--check' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString(
+            'the group\'s first row: this record has no "en_US" variant for the default-locale rule to pick. '
+            .'Pass --source-locale to copy from another row.',
+            self::normalizeTable($tester->getDisplay()),
+        );
     }
 
     public function testTuuidWithAMissingSourceLocaleIsRejected(): void
@@ -858,6 +946,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
             $finder,
             $synchronizer,
             new SharedDriftScanner($entityManager, $finder, $synchronizer, 'en_US'),
+            'en_US',
         );
 
         $tester = new CommandTester($command);
@@ -962,6 +1051,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
             $finder,
             $synchronizer,
             new SharedDriftScanner($this->entityManager(), $finder, $synchronizer, 'en_US'),
+            'en_US',
         );
 
         $tester = new CommandTester($command);

@@ -88,6 +88,15 @@ final class TestKernel extends BaseKernel
             'copy_source'         => true,
             'strict_orphan_check' => false,
             'strict_discovery'    => true,
+            // Pinned OFF although 5.0 defaults it ON. Large parts of this suite
+            // exist to observe drift -- sync-shared seeds siblings that disagree
+            // on a shared value and then asserts the command repairs them -- and
+            // flush-time propagation would repair (or conflict on) that seed
+            // before the assertion runs. Tests of the flag itself register their
+            // own enabled listener instance (SharedValuePropagationListenerTest),
+            // and the default is asserted where it is decided, in
+            // TmiTranslationExtensionTest.
+            'propagate_shared_on_flush' => false,
         ]);
 
         // Without monolog, the framework's fallback logger writes to the SAPI

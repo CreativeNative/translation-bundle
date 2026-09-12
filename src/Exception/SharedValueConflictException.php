@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Exception;
 
 /**
- * Thrown by the opt-in flush-time propagation
+ * Thrown by the flush-time propagation
  * ({@see \Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener})
  * when two locale variants of one Tuuid are scheduled for update in the same
  * flush with DIFFERENT new values for the same #[SharedAmongstTranslations]
@@ -30,8 +30,11 @@ final class SharedValueConflictException extends \RuntimeException
         return new self(sprintf(
             'Shared property %s::$%s of tuuid %s is being flushed with two different values at once: '
             .'%s on locale "%s" and %s on locale "%s". A #[SharedAmongstTranslations] value must be edited '
-            .'on one locale variant per flush -- with propagate_shared_on_flush enabled the bundle refuses '
-            .'to pick a winner.',
+            .'on one locale variant per flush -- while propagate_shared_on_flush is on the bundle refuses '
+            .'to pick a winner, because silently keeping one would recreate the divergence the attribute '
+            .'exists to prevent. Edit the value on a single variant and let it propagate; if the two '
+            .'locales are MEANT to differ, the property should not carry #[SharedAmongstTranslations] '
+            .'at all.',
             $class,
             $path,
             $tuuid,

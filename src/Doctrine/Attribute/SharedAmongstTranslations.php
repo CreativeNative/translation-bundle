@@ -9,16 +9,21 @@ namespace Tmi\TranslationBundle\Doctrine\Attribute;
  * created via translate(), and marks the property for retroactive
  * reconciliation through the `tmi:translation:sync-shared` command.
  *
- * By default this is copy-on-translate, NOT an enforced invariant: once a
- * variant exists, writing the property on one locale diverges it silently.
- * That is deliberate — consumers may legitimately vary such values per locale
- * (e.g. publishing one language at a time). When divergence must be caught,
- * gate CI on `tmi:translation:sync-shared --check`, which exits non-zero on
- * drift. When it must not happen at all, enable `propagate_shared_on_flush`
- * (v4.1): {@see \Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener}
- * then copies a change made on ANY locale variant onto every sibling inside the
- * same flush(), and {@see \Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer}
- * is the same copy as a public service for application code.
+ * By default this is an enforced invariant, not only a copy-on-translate:
+ * `propagate_shared_on_flush` is on, so
+ * {@see \Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener}
+ * copies a change made on ANY locale variant onto every sibling inside the same
+ * flush(), whatever code performed the edit, and
+ * {@see \Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer} is that same
+ * copy as a public service for application code. Mark a property with this
+ * attribute only when every locale must agree on its value.
+ *
+ * With `propagate_shared_on_flush: false` the attribute degrades to
+ * copy-on-translate: once a variant exists, writing the property on one locale
+ * diverges it silently. That is a legitimate choice for an application that
+ * varies such values per locale (e.g. publishing one language at a time); gate
+ * CI on `tmi:translation:sync-shared --check`, which exits non-zero on drift,
+ * and reconcile with the command itself.
  *
  * The class-level form (TARGET_CLASS) is honoured on EMBEDDABLES only: there it
  * shares every inner property that does not override it with #[EmptyOnTranslate].

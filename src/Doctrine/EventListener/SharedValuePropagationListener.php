@@ -16,11 +16,11 @@ use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Exception\SharedValueConflictException;
 
 /**
- * Opt-in flush-time invariant for #[SharedAmongstTranslations]: when
- * `tmi_translation.propagate_shared_on_flush` is enabled, a change to a shared
- * property on ANY locale variant reaches every other variant of the same
+ * The flush-time invariant behind #[SharedAmongstTranslations]: a change to a
+ * shared property on ANY locale variant reaches every other variant of the same
  * Tuuid inside the same `flush()`, whatever code performed the edit.
  *
+ * Governed by `tmi_translation.propagate_shared_on_flush`, on by default.
  * Always registered -- `$enabled` decides at runtime whether `onFlush()` does
  * anything, so toggling the config option needs no service redefinition
  * (same shape as {@see LocaleVariantRemovalListener}).

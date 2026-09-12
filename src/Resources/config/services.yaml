@@ -247,7 +247,7 @@ services:
         tags: [ { name: doctrine.event_listener, event: preRemove } ]
 
     # ----------------------------
-    # Doctrine Listener — opt-in flush-time propagation of shared values (v4.1)
+    # Doctrine Listener — flush-time propagation of shared values
     # ----------------------------
     Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener:
         arguments:
@@ -277,4 +277,5 @@ services:
             $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             $synchronizer: '@Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer'
             $scanner: '@Tmi\TranslationBundle\Doctrine\SharedDriftScanner'
+            $defaultLocale: '%tmi_translation.default_locale%'
         tags: [ { name: console.command } ]

@@ -42,6 +42,18 @@ final class SharedValueConflictExceptionTest extends TestCase
     }
 
     /**
+     * The message is read by someone who did not opt into anything -- propagation
+     * is the default -- so it has to name both ways out, not only the rule.
+     */
+    public function testNamesBothWaysOutOfTheConflict(): void
+    {
+        $message = SharedValueConflictException::forProperty('App\Entity\Listing', 'tuuid-1', 'price', 'de_DE', 1, 'it_IT', 2)->getMessage();
+
+        self::assertStringContainsString('Edit the value on a single variant', $message);
+        self::assertStringContainsString('should not carry #[SharedAmongstTranslations]', $message);
+    }
+
+    /**
      * @return iterable<string, array{mixed, string}>
      */
     public static function describedValues(): iterable

@@ -23,14 +23,17 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * Retroactively propagates #[SharedAmongstTranslations] values across all
  * locale variants of each Tuuid.
  *
- * Shared values are copied source → translation only at translate() time, so
- * data created in one locale and translated later — or edited after the fact
- * without `propagate_shared_on_flush` — keeps the shared value on the source
- * row alone. This command back-fills the siblings from the canonical
- * (default-locale) row.
+ * With `propagate_shared_on_flush` on (the default) every edit already reaches
+ * the siblings inside its own flush, and this command is the back-fill for what
+ * predates it: rows written before the flag was on, rows written with it off,
+ * and rows changed outside the ORM (a migration, a DBA, an import). With the
+ * flag off it is the only thing that reconciles at all — `translate()` copies a
+ * shared value exactly once, when a new variant is created, so an edit after
+ * that keeps the value on the edited row alone. Either way this command
+ * back-fills the siblings from the canonical (default-locale) row.
  *
  * What counts as shared, and how a value is copied, is decided by
- * {@see SharedValueSynchronizer} — the same discovery the opt-in flush-time
+ * {@see SharedValueSynchronizer} — the same discovery the flush-time
  * propagation uses, so the two never disagree: mapped columns, embeddables in
  * all three places sharing can be declared, and (since v4.1) single-valued
  * associations to a non-translatable target. Tables are walked with
@@ -77,6 +80,7 @@ final class SyncSharedTranslationsCommand extends Command
         private readonly LocaleVariantFinder $finder,
         private readonly SharedValueSynchronizer $synchronizer,
         private readonly SharedDriftScanner $scanner,
+        private readonly string $defaultLocale,
     ) {
         parent::__construct();
     }
@@ -145,6 +149,23 @@ final class SyncSharedTranslationsCommand extends Command
             }
         } else {
             $totalUpdated = 0;
+
+            if (!$dryRun) {
+                // The whole-table write mode has no per-group source line to carry
+                // the warning describeSource() carries for --tuuid, and it is the
+                // mode that can destroy an edit: every group is copied FROM its
+                // default-locale row, so a record edited in another locale is
+                // reverted to the stale default-locale values. Say so once, before
+                // the first UPDATE, rather than leaving it to the documentation.
+                $io->note(sprintf(
+                    'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
+                    .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
+                    .'to the stale default-locale values by this run -- repair those one at a time first with '
+                    .'--tuuid=<uuid> --source-locale=<locale>, then re-run this. --dry-run and --check never write.',
+                    $this->defaultLocale,
+                    $this->defaultLocale,
+                ));
+            }
 
             foreach ($classes as $class) {
                 // syncClass() streams the class and flushes/clears its own batches, so
@@ -284,7 +305,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         $io->section(sprintf('%s — tuuid %s', $found, $tuuid));
-        $io->writeln(sprintf('Source: locale <info>%s</info>', $source->getLocale() ?? 'none'));
+        $io->writeln($this->describeSource($source, null !== $sourceLocale));
 
         /** @var array<string, SharedDrift> $drift */
         $drift = [];
@@ -298,6 +319,44 @@ final class SyncSharedTranslationsCommand extends Command
         $this->reportClass($io, $updated, $drift);
 
         return $updated;
+    }
+
+    /**
+     * The `Source:` line of a --tuuid run, naming the RULE that picked the row
+     * and not only the locale it landed on.
+     *
+     * Without --source-locale the row is chosen by {@see SharedDriftScanner::pickSource()}
+     * — the default-locale variant, or the group's first row when it has none —
+     * in every mode, --check included. Printing the bare locale made two
+     * consecutive runs look like they contradicted each other: a repair with
+     * `--source-locale=de_DE` followed by a plain `--check` reported
+     * `Source: locale it_IT`, as if the tool had forgotten the decision. It had
+     * not; --source-locale is honoured wherever it is passed, and a run that
+     * does not pass it falls back to the rule. Saying so on the line itself is
+     * what keeps the two readable together.
+     */
+    private function describeSource(TranslatableInterface $source, bool $named): string
+    {
+        $locale = $source->getLocale() ?? 'none';
+
+        if ($named) {
+            return sprintf('Source: locale <info>%s</info> — named by --source-locale.', $locale);
+        }
+
+        if ($locale === $this->defaultLocale) {
+            return sprintf(
+                'Source: locale <info>%s</info> — the default-locale rule, applied in every mode. '
+                .'Pass --source-locale to copy from another row.',
+                $locale,
+            );
+        }
+
+        return sprintf(
+            'Source: locale <info>%s</info> — the group\'s first row: this record has no "%s" variant '
+            .'for the default-locale rule to pick. Pass --source-locale to copy from another row.',
+            $locale,
+            $this->defaultLocale,
+        );
     }
 
     /**

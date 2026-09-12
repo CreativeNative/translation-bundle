@@ -528,6 +528,40 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
     }
 
     /**
+     * The 5.0 default flip: `#[SharedAmongstTranslations]` keeps its promise on
+     * every write, not only at translate() time. 4.x shipped the listener behind
+     * an opt-in so consumers could first strip the attribute from properties they
+     * diverge per locale on purpose; 5.0 turns it on (UPGRADING § "UPGRADE FROM
+     * 4.1 to 5.0").
+     *
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testPropagateSharedOnFlushDefaultsToTrue(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US']], $containerBuilder);
+
+        self::assertTrue($containerBuilder->getParameter('tmi_translation.propagate_shared_on_flush'));
+    }
+
+    /**
+     * @throws Exception
+     * @throws TypesException
+     */
+    public function testPropagateSharedOnFlushCanBeDisabled(): void
+    {
+        $containerBuilder = $this->createContainerBuilderFromKernel();
+
+        $extension = new TmiTranslationExtension();
+        $extension->load([['default_locale' => 'en_US', 'propagate_shared_on_flush' => false]], $containerBuilder);
+
+        self::assertFalse($containerBuilder->getParameter('tmi_translation.propagate_shared_on_flush'));
+    }
+
+    /**
      * @throws Exception
      * @throws TypesException
      */
