@@ -160,10 +160,10 @@ target; never a collection or an association to a translatable target.
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    propagate_shared_on_flush: true   # default false in 4.x, announced 5.0 default
+    propagate_shared_on_flush: false   # the default is true
 ```
 
-With the flag on, `SharedValuePropagationListener` (`onFlush`, always registered) makes the
+With the flag on — the default — `SharedValuePropagationListener` (`onFlush`, always registered) makes the
 attribute a flush-time invariant: a shared property edited on *any* variant reaches every other
 variant of the Tuuid — including one scheduled for insertion in the same flush — before the
 statements run, field by field, via `recomputeSingleEntityChangeSet()`. Two variants flushed

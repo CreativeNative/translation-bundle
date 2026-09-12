@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **798 tests, 6,935 assertions**, all green.
+  `failOnDeprecation`). As of this release: **808 tests, 7,051 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -192,7 +192,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 #### 2. Shared Fields (#[SharedAmongstTranslations])
 - Fields or embeddables whose value is copied from the source when a translation is created.
 - Scalar and association fields reference the same object instance at translate time. Embeddables are the exception: `EmbeddedHandler` always returns a clone (never the source instance) — the clone's property values match the source, so persisted data is identical, but each locale still holds its own embeddable object.
-- **Copy-on-translate by default, flush-time invariant on request**: with `propagate_shared_on_flush: false` (the default) editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale); `tmi:translation:sync-shared` reconciles and `--check` gates CI on drift. With `propagate_shared_on_flush: true` a change on *any* variant is copied onto every sibling inside the same `flush()` by `SharedValuePropagationListener` — see "Shared-Value Propagation" below.
+- **Flush-time invariant by default, copy-on-translate on request**: with `propagate_shared_on_flush: true` (the default) a change on *any* variant is copied onto every sibling inside the same `flush()` by `SharedValuePropagationListener` — see "Shared-Value Propagation" below. With `propagate_shared_on_flush: false` editing the field on one locale variant afterwards diverges it silently (a deliberate mode — consumers may vary such values per locale); `tmi:translation:sync-shared` reconciles and `--check` gates CI on drift.
 - If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance). The class-level form is honoured on **embeddables only**: on an entity class the attribute is inert — `translate()`, `sync-shared` and the flush-time propagation read it per property.
 - If the attribute is on properties within an embeddable, only those properties' values are shared; others may still be cloned/reset.
 - Intentionally inert on a class that does not implement `TranslatableInterface`: nothing reads the attribute outside the translate() pipeline, so a trait shared between translatable and non-translatable classes (e.g. a `GeoLocatableTrait` mixed into both) can carry it on a property with no effect on the classes that merely reuse the trait.
@@ -1416,7 +1416,7 @@ translatable property filled on the baseline is filled on it too — optional pr
 empty on the baseline never count against translations. Translatable property = mapped
 column minus identifier, system columns (tuuid/locale) and
 `#[SharedAmongstTranslations]`; embedded fields contribute their non-shared inner
-properties; associations are not inspected. Since 4.1.1 "shared" is decided by
+properties; associations are not inspected. "Shared" is decided by
 `SharedValueSynchronizer::sharedProperties()` — the same discovery `sync-shared` and the
 flush-time propagation use — so the three never disagree. "Filled" = not null, and for strings not blank.
 The locale filter is suspended for the lookup and restored afterwards.
@@ -1535,6 +1535,16 @@ drifted property, how many distinct Tuuid groups and sibling rows it touched, an
 was writable, right after the existing count line. Sorted descending by row count; omitted
 entirely when nothing drifted.
 
+**Every run says which row it treats as the source**, because getting that wrong is how the
+command destroys an edit. A whole-table run in **write** mode prints one note before the first
+`UPDATE`: it copies each record from its default-locale row, so a record edited in another
+locale is reverted — repair those first with `--tuuid --source-locale`. `--dry-run` and
+`--check` write nothing and print no such note. A `--tuuid` run prints a `Source:` line naming
+the **rule** that picked the row, not only the locale it landed on: `named by --source-locale`,
+`the default-locale rule, applied in every mode`, or `the group's first row` when the record
+has no default-locale variant. `--source-locale` is honoured in `--check` exactly as in write
+mode.
+
 ---
 
 ## Removal Semantics
@@ -1647,11 +1657,11 @@ public static function valuesEqual(mixed $a, mixed $b): bool;
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    propagate_shared_on_flush: true   # default false in 4.x; announced as the 5.0 default
+    propagate_shared_on_flush: false   # the default is true
 ```
 
 An `onFlush` listener, always registered, the flag decides at runtime (same shape as
-`LocaleVariantRemovalListener`). With the flag on, after any edit of a translatable entity every
+`LocaleVariantRemovalListener`). With the flag on — the default — after any edit of a translatable entity every
 `#[SharedAmongstTranslations]` property carries the same value on every locale variant of that
 Tuuid **at the end of the same `flush()`**, regardless of which code performed the edit. Inside
 Doctrine's `onFlush` rules — no `flush()`, no `persist()`, only change-set recomputation:
@@ -1679,11 +1689,11 @@ Field-level, not row-level: an unshared edit triggers no sibling lookup and no s
 3 `UPDATE`s, one pass. With `enable_logging: true`, one `debug` line per propagating entity
 (`class`, `tuuid`, `locale`, `properties`, `siblings`).
 
-**Before enabling it:** run `tmi:translation:sync-shared --check` to zero, and remove the
-attribute from every property the application diverges per locale on purpose — with the flag on,
-the next edit would otherwise "repair" that divergence, exactly as the write mode of
-`sync-shared` always would have. `false` leaves the copy-on-translate behaviour untouched (regression-locked
-by test).
+**Before turning it back on** after running with it off: `tmi:translation:sync-shared --check`
+to zero, and remove the attribute from every property the application diverges per locale on
+purpose — with the flag on, the next edit would otherwise "repair" that divergence, exactly as
+the write mode of `sync-shared` always would have. `false` leaves the copy-on-translate
+behaviour untouched (regression-locked by test).
 
 ### [SharedDriftScanner](src/Doctrine/SharedDriftScanner.php) — the read side as a service
 
@@ -1883,34 +1893,8 @@ Step-by-step guide for building custom translation handlers for field types not 
 
 ## Revision History
 
-Only the 4.x line is supported; entries for 1.x--3.x are gone. The full history of every
-release, including the ones below 4.0, lives in `UPGRADING.md` and the GitHub release notes.
+See [`CHANGELOG.md`](CHANGELOG.md) — the single source for what changed in each release. It
+covers the supported 4.x line and later; [`UPGRADING.md`](UPGRADING.md) carries the migration
+steps, including the archived paths below 4.0.
 
-- v4.0.0: Limited, deliberate breaks on the existing storage model and handler-chain architecture — not a rewrite (full detail in `UPGRADING.md`). One line per work package:
-  - `Psr6TranslationCache` removed; `TranslationCacheInterface` aliases only to `InMemoryTranslationCache` now.
-  - `LocaleVariantFinder` (all cross-locale lookups, filter-suspended) and `TranslatableRemover` (`removeAllLocaleVariants()` / `removeSingleLocaleVariant()` / `cascadeFromPreRemove()`) — see Removal Semantics above.
-  - Opt-in `cascade_remove_locale_variants` + `LocaleVariantRemovalListener` cascade a plain `$em->remove()` to sibling locale variants automatically.
-  - `preload()`'s internal warmup now goes through `LocaleVariantFinder` — an active locale filter no longer mints a duplicate row on `translate()`.
-  - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself (its own such check, redundant with `preload()`'s, is removed along with its `LocaleVariantFinder` dependency); `EntityTranslator` remembers a `preload()` batch's misses so a per-entity `getOrTranslate()` import loop after it costs no further lookup queries, and is now `kernel.reset`-tagged to forget that memory between units of work.
-  - `BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` each preload their whole collection in one batched query per child class before looping, instead of leaving every child's own `translate()` call to query for itself — a parent with *K* already-translated association children now costs 2 queries total, not `1 + K`.
-  - Those same three handlers no longer mutate the source entity when the translator's cycle guard hands back the very instance it was given, still at the source locale (reachable in the ordinary shape once the ManyToOne/OneToOne direct form started running the full pipeline, above) — the item is skipped, not added and not back-referenced; a same-instance return already at the target locale is unaffected. See `UPGRADING.md` § 8.
-  - `#[SharedAmongstTranslations]` on a bidirectional association now throws `RuntimeException` from all five handlers: `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler` and `BidirectionalOneToManyHandler` previously threw `\ErrorException` (a PHP error-wrapper class, not a `\RuntimeException` subclass), inconsistent with `BidirectionalManyToManyHandler`/`UnidirectionalManyToManyHandler` and with the documented contract; message text is unchanged. See `UPGRADING.md` § 9.
-  - The last silent gap in that same contract is closed: `TranslatableEntityHandler`, the catch-all for a *unidirectional* `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`), now also throws `RuntimeException` for `#[SharedAmongstTranslations]` instead of silently translating the target — previously the only one of the six association shapes that ran without complaint. Sharing an association to a target that is **not** translatable is unaffected (`DoctrineObjectHandler`'s `isShared()` branch, unchanged). See `UPGRADING.md` § 9.
-  - The translation cache is identity-safe across `EntityManager::clear()` (a detached hit is a miss, not a re-inserted duplicate); `InMemoryTranslationCache` implements `ResetInterface` (`kernel.reset`).
-  - `tmi:translation:doctor` and `tmi:translation:sync-shared` now go through `TranslatableEntityLocator`, which walks each inheritance hierarchy's root once, resolving each hydrated row's own concrete class for its property list — no more double-counted SINGLE_TABLE/JOINED rows. `TranslatableEntityValidationWarmer` was never affected by this bug (it runs at `cache:warmup` over every class `getAllMetadata()` returns, not over hydrated rows, and already deduped via `ClassMetadata::isInheritedField()` plus a per-table set).
-  - The direct `ManyToOne`/`OneToOne` form (a field on the *owning* class, not a back-reference) now translates its target through the full entity pipeline (get-or-create) instead of returning the untranslated source.
-  - Proxy-safe `#[Translatable(copySource: ...)]` resolution; a fresh `ArrayCollection` for every `#[EmptyOnTranslate]` collection (no longer shared with the source); `ReflectionHelper::getProperty()` walks the hierarchy for a `mappedBy` field declared on a mapped superclass.
-  - The four no-op `EntityTranslator` lifecycle hooks (`afterLoad`/`beforePersist`/`beforeUpdate`/`beforeRemove`) are removed — every call was the identity operation, always; the info log now sits after the identity check.
-  - `tmi:translation:sync-shared` prints a `Property | Tuuids | Rows | Writable` table naming every drifted shared property, not just an aggregate count.
-  - `strict_discovery` (config) turns a `0 translatable entities discovered` compile-time result into a `LogicException`; `tmi_translation.discovered_translatable_classes` container parameter.
-  - The `tuuid` DBAL type self-registers via `prepend()` (zero-config); `tmi:translation:doctor --entity=<FQCN>` and the `null-tuuid` anomaly class.
-  - The dead `translations` JSON column and its four trait accessors (`getTranslations()` et al.) are gone.
-  - `tuuid`/`locale` columns are `NOT NULL`, `locale` grows to length 16; `TuuidType` converts a database `NULL` to PHP `null` instead of inventing a fresh Tuuid.
-  - Every bundle service is private (autowire by interface/class, not `container->get('tmi_translation....')`); the Twig global `locales` is renamed `tmi_locales`; `PreTranslateEvent`/`PostTranslateEvent` (dispatched by class) replace the `TranslateEvent::PRE_TRANSLATE`/`POST_TRANSLATE` string constants.
-  - `TranslationHandlerInterface` narrows from four methods to two: `supports(TranslationContext)`/`translate(TranslationContext)`. The single, mutable `TranslationArgs` DTO is replaced by two typed contexts sharing an abstract `TranslationContext` base — `EntityTranslationContext` (`getEntity(): TranslatableInterface`) and `PropertyTranslationContext` (`getValue(): mixed`) — plus `getSubject()`/`setSubject()` on the base for a handler reachable either way. `isShared()`/`isEmpty()` on the context (set by `EntityTranslator` from the property's attributes before dispatch) replace the two removed interface methods; a handler merges its old `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` bodies into `translate()`, gated on those two booleans. See `UPGRADING.md` § 6 for the full migration guide and a before/after custom handler.
-  - `AttributeHelper` and `ReflectionHelper::getHierarchyProperties()` cache per class; `EntityTranslator::preload()` batches import lookups per class instead of per entity; `tests/Performance/QueryBudgetTest.php` asserts an exact query count for every operation in the Performance table above.
-  - README, llms.txt, this file and the three `.agents/skills/` guides rewritten around the two arguments this section opens with — every performance and quality claim in them is backed by a named test or CI gate, not an estimate.
-- v4.1.0: Additive release, no schema change, no removed API, no changed default. `#[SharedAmongstTranslations]` gains its second half: **`propagate_shared_on_flush`** (config, default `false`, announced as the 5.0 default) makes `SharedValuePropagationListener` copy a shared change made on *any* locale variant onto every sibling — including a variant scheduled for insertion in the same flush — inside the same `flush()`, field-level, via `recomputeSingleEntityChangeSet()`, with a per-(entity, path) ping-pong guard and a `SharedValueConflictException` (never last-wins) when two variants carry different new values for one shared property. The copy logic is the new public **`SharedValueSynchronizer`** (`syncFrom()` with the edited row as source, `siblingsOf()`, `sync()`/`compare()` → `SharedValueSyncReport`, memoized `sharedProperties()`, `valuesEqual()`); `tmi:translation:sync-shared` is a thin client of it and therefore also covers to-one associations to a non-translatable target (`--check` may newly report drift there), and gains `--tuuid=<uuid> --source-locale=<locale>` — the targeted repair of one record from the row you name. New read side: **`SharedDriftScanner::scan()`** streams one `SharedDrift` per drifted sibling row and property (locations, never values) on top of the new **`LocaleVariantFinder::streamGroupedByTuuid()`**, the streaming core the command shares. `AttributeHelper` gets a class-name alias; the class-level attribute form is documented as embeddable-only. Quality gate at the tag: see README § Verified quality.
-- v4.1.1: Maintenance, no behaviour change. `LocaleCompletenessResolver` derives its "not translatable content" exclusions from `SharedValueSynchronizer::sharedProperties()` instead of its own copy of the embedded-sharing discovery (constructor: `SharedValueSynchronizer` replaces `AttributeHelper`); `AttributeHelper::isEmbeddableShared()`'s docblock names its real caller.
 - Next: Add examples for custom handler registration, event subscriber propagation, batch aside.
-

@@ -77,12 +77,13 @@ last, in registration order; handlers sharing a priority keep their registration
 ## Key Attributes
 
 ### `#[SharedAmongstTranslations]`
-Field value is copied from the source when a translation is created (copy-on-translate).
-By default there is **no update-time propagation** — later edits diverge silently, by design;
-reconcile with `tmi:translation:sync-shared` and gate CI on drift with `--check`. With
-`propagate_shared_on_flush: true` (opt-in, the announced 5.0 default) a later edit on
-*any* locale variant reaches every sibling inside the same `flush()` — see
-[Shared-Value Propagation](#shared-value-propagation).
+Field value is copied from the source when a translation is created, and — with
+`propagate_shared_on_flush`, which is **on by default** — a later edit on *any* locale variant
+reaches every sibling inside the same `flush()`; see
+[Shared-Value Propagation](#shared-value-propagation). With the flag off there is no
+update-time propagation and later edits diverge silently (a deliberate mode for content that
+varies per locale); reconcile with `tmi:translation:sync-shared` and gate CI on drift with
+`--check`.
 
 ```php
 #[SharedAmongstTranslations]
@@ -152,7 +153,7 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
   its translatable content complete? Baseline-relative: a variant is complete when every
   translatable (non-shared, non-system, non-id) property filled on the default-locale row
   is filled on it too. `resolveBatch()` answers many Tuuids with one query. "Shared" comes
-  from `SharedValueSynchronizer::sharedProperties()` (4.1.1) — no discovery of its own.
+  from `SharedValueSynchronizer::sharedProperties()` — no discovery of its own.
 - `ValueObject/LocaleCompleteness` + `ValueObject/TranslationStatus` (enum
   `Missing`/`Incomplete`/`Complete`) — the returned value objects.
 

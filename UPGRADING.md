@@ -1,3 +1,227 @@
+# Upgrade Guide
+
+Migration steps per upgrade path, newest first. [`CHANGELOG.md`](CHANGELOG.md) is the single
+source for *what* changed in each release; this file is *how* to take it.
+
+Everything below the [archive divider](#archive--unsupported-upgrade-paths) is kept for reference
+only — those versions are unsupported and receive no fixes. Nothing there is ever trimmed: a path
+you cannot follow any more is still the only record of why a column, a method or a default looks
+the way it does.
+
+## Contents
+
+- [UPGRADE FROM 4.1 to 5.0](#upgrade-from-41-to-50)
+- [UPGRADE FROM 4.0 to 4.1](#upgrade-from-40-to-41)
+- [UPGRADE FROM 3.4 to 4.0](#upgrade-from-34-to-40)
+- [Archive — unsupported upgrade paths](#archive--unsupported-upgrade-paths)
+  - [UPGRADE FROM 3.3 to 3.4](#upgrade-from-33-to-34)
+  - [UPGRADE FROM 3.1 to 3.2](#upgrade-from-31-to-32)
+  - [UPGRADE FROM 3.0 to 3.1](#upgrade-from-30-to-31)
+  - [UPGRADE FROM 2.x to 3.0](#upgrade-from-2x-to-30)
+  - [UPGRADE FROM 1.x to 2.0](#upgrade-from-1x-to-20)
+
+---
+
+# UPGRADE FROM 4.1 to 5.0
+
+Version 5.0 flips exactly one default: `propagate_shared_on_flush` is now `true`. Nothing is
+removed, no schema changes, and the only signature that moves is a console command's constructor.
+But that default decides what `#[SharedAmongstTranslations]` *means* in your application, so do
+the two steps under "Before you upgrade" first — with the flag on, an attribute on a property you
+vary per locale on purpose is no longer a dormant inconsistency. It is a live one: the next edit
+on any locale repairs the divergence away.
+
+## Table of Contents
+
+- [Before you upgrade](#before-you-upgrade)
+- [Breaking Changes (5.0)](#breaking-changes-50)
+  - [1. `propagate_shared_on_flush` defaults to `true`](#1-propagate_shared_on_flush-defaults-to-true)
+- [Behavioural Changes (5.0)](#behavioural-changes-50)
+  - [1. `sync-shared --tuuid` names the rule that picked the source row](#1-sync-shared---tuuid-names-the-rule-that-picked-the-source-row)
+  - [2. `SyncSharedTranslationsCommand` is constructed with the default locale](#2-syncsharedtranslationscommand-is-constructed-with-the-default-locale)
+- [Upgrade Checklist (5.0)](#upgrade-checklist-50)
+
+---
+
+## Before you upgrade
+
+Two steps, both on 4.1, both before `composer update`.
+
+**1. Audit every `#[SharedAmongstTranslations]` property and remove the attribute from any field
+your application varies per locale on purpose.** This is the step the whole release turns on. A
+per-language `visible` flag, a per-locale slug, a translation-workflow status — anything a human
+or a form is *supposed* to set differently per row must not carry the attribute. Under 4.x an
+attribute on such a field was mostly harmless: nothing propagated, and the divergence simply
+showed up as noise in `tmi:translation:sync-shared --check`. Under 5.0 the same attribute is
+enforced on every write, so the next edit on any locale copies that row's value over its
+siblings and the intended per-locale difference is gone — silently, inside an ordinary `flush()`,
+with no command run and no log line unless `enable_logging` is on.
+
+The bundle cannot tell the two cases apart; only you can. `sync-shared --check` is where the
+candidates surface:
+
+```bash
+php bin/console tmi:translation:sync-shared --check
+```
+
+Every property the table lists is either drift to repair (step 2) or a field that should never
+have been shared (this step). Decide per property, not per class.
+
+**2. Get `--check` to zero.**
+
+```bash
+php bin/console tmi:translation:sync-shared --dry-run   # what would change
+php bin/console tmi:translation:sync-shared             # write it
+php bin/console tmi:translation:sync-shared --check     # must exit 0
+```
+
+The write mode copies from each group's **default-locale** row. For a record that was edited in a
+non-default locale, that is the wrong direction — it would restore the stale default-locale
+values over the edit. Repair those records one at a time first, naming the row to copy from:
+
+```bash
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT --dry-run
+php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT
+```
+
+Then run the whole-table pass. A `--check` that exits 0 is the precondition for the upgrade; it
+is also what tells you the audit in step 1 is complete, because a field you decided to keep
+per-locale can only reach zero drift by losing the attribute.
+
+**If you cannot finish either step now,** take the upgrade with the flag explicitly off — see
+§ 1 below. That is a supported configuration, not a temporary escape hatch.
+
+---
+
+## Breaking Changes (5.0)
+
+### 1. `propagate_shared_on_flush` defaults to `true`
+
+**BREAKING (runtime behaviour, no code change required).** `#[SharedAmongstTranslations]` is now
+a flush-time invariant by default: a change to a shared property on *any* locale variant is
+copied onto every other variant of the same `Tuuid` — including one scheduled for insertion in
+the same flush — before the statements run, field by field. Two variants flushed at once with
+*different* new values for the same shared property throw `SharedValueConflictException` instead
+of one silently winning.
+
+The mechanism itself shipped in 4.1 and is unchanged; only the default moved. 4.1 made it opt-in
+so applications could do the audit above at their own pace. That audit is now the price of the
+upgrade.
+
+**What changes for you, concretely:**
+
+| Situation | 4.x | 5.0 |
+|---|---|---|
+| Shared field edited on the default-locale row | siblings keep the old value until `sync-shared` runs | siblings updated in the same `flush()` |
+| Shared field edited on a non-default row | same, and `sync-shared`'s write mode would have *undone* the edit | siblings updated from the edited row |
+| Two rows of one `Tuuid` flushed with different values for one shared field | both written, last one wins in the data | `SharedValueConflictException`, nothing written |
+| A per-locale field wrongly marked shared | drifts, reported by `--check` | repaired back to the source value on the next edit |
+| Unshared field edited | nothing | nothing — no sibling lookup, no sibling `UPDATE` |
+
+**Migration — option A (recommended): take the new default.** Do the two steps under
+[Before you upgrade](#before-you-upgrade), then upgrade. No config change needed.
+
+**Migration — option B: keep the 4.x behaviour.** Set the flag explicitly:
+
+```yaml
+# config/packages/tmi_translation.yaml
+tmi_translation:
+    propagate_shared_on_flush: false
+```
+
+This restores 4.x exactly: copy-on-translate only, drift reconciled by
+`tmi:translation:sync-shared`, `--check` as the CI gate. It is the right setting for an
+application that deliberately varies a shared-marked field per locale and is not ready to
+restructure those fields. It is a supported mode with its own tests, not a deprecation shim —
+there is no plan to remove it.
+
+Application code that needs the fan-out with the flag off calls the public service directly:
+
+```php
+use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
+
+// $editedRow is the source; returns the siblings that changed, managed and unflushed.
+$changed = $synchronizer->syncFrom($editedRow);
+$entityManager->flush();
+```
+
+**How to verify after upgrading.** Edit a shared field on a non-default locale row, flush, and
+reload a sibling from a cleared `EntityManager` — a managed instance would report the new value
+even if its row was never written:
+
+```php
+$it->setPrice('120000');
+$entityManager->flush();
+$entityManager->clear();
+
+// the de_DE row now carries 120000 too
+```
+
+---
+
+## Behavioural Changes (5.0)
+
+### 1. `sync-shared --tuuid` names the rule that picked the source row
+
+The `Source:` line of a `--tuuid` run now says **why** that row is the source, not only which
+locale it is:
+
+```
+Source: locale de_DE — named by --source-locale.
+Source: locale en_US — the default-locale rule, applied in every mode. Pass --source-locale to copy from another row.
+Source: locale it_IT — the group's first row: this record has no "en_US" variant for the default-locale rule to pick. Pass --source-locale to copy from another row.
+```
+
+Nothing about which row is chosen changed. The old line printed the bare locale, which made two
+consecutive runs read as contradicting each other: a targeted repair with `--source-locale=de_DE`
+followed by a plain `--check` on the same record reported `Source: locale it_IT`, as if the tool
+had forgotten the decision. It had not — `--source-locale` is honoured in `--check` exactly as in
+write mode, and a run that does not pass it falls back to the default-locale rule in both.
+
+No migration. If you parse the command's output, match on `Source: locale <locale>` rather than
+on the whole line.
+
+### 2. `SyncSharedTranslationsCommand` is constructed with the default locale
+
+`SyncSharedTranslationsCommand::__construct()` gained a sixth argument, `string $defaultLocale`,
+wired to `%tmi_translation.default_locale%` — it is what the message above needs to tell the
+second case from the third. The service definition is the bundle's own, so an application that
+lets the container build the command needs no change. Only a hand-built instance (a test, a
+custom console application) must pass the locale.
+
+```php
+new SyncSharedTranslationsCommand(
+    $entityManager,
+    $locator,
+    $finder,
+    $synchronizer,
+    $scanner,
+    'en_US', // new
+);
+```
+
+---
+
+## Upgrade Checklist (5.0)
+
+1. On 4.1, run `tmi:translation:sync-shared --check` and read the property table.
+2. For every property listed, decide: genuinely shared, or varied per locale on purpose?
+3. Remove `#[SharedAmongstTranslations]` from every property in the second group.
+4. Repair records edited in a non-default locale with
+   `--tuuid=<uuid> --source-locale=<locale>`, one at a time.
+5. Run the whole-table `tmi:translation:sync-shared`, then `--check` until it exits 0.
+6. `composer require tmi/translation-bundle:^5.0`.
+7. Run your test suite. The failures to expect are assertions that a shared field *stayed*
+   different between locale variants, and any fixture that flushes two variants of one `Tuuid`
+   with different values for one shared field — the latter now throws
+   `SharedValueConflictException` (§ 1).
+8. If steps 2–5 are not finished, set `propagate_shared_on_flush: false` and take the upgrade
+   anyway; come back to this checklist when the audit is done.
+9. Keep `tmi:translation:sync-shared --check` in CI either way. With the flag on it should stay
+   at zero; anything that appears came from outside the ORM (a migration, an import, a DBA).
+
+---
+
 # UPGRADE FROM 4.0 to 4.1
 
 Version 4.1 is additive: no schema change, no removed API, no changed default. It turns the
@@ -151,10 +375,12 @@ with a migration path.
 ## Table of Contents
 
 > Heading names below are suffixed "(4.0)" only to keep them from colliding with the
-> identically-titled sections further down this same file (2.x→3.0 and 1.x→2.0 each have their
-> own "Breaking Changes" / "Behavioural Changes" / "Upgrade Checklist") — GitHub's anchor
-> generator would otherwise silently renumber those older sections' own anchors out from under
-> their own tables of contents.
+> identically-titled sections in the [archive](#archive--unsupported-upgrade-paths) further down
+> this same file — 2.x→3.0 and 1.x→2.0 each have their own "Breaking Changes" /
+> "Behavioural Changes" / "Upgrade Checklist", written before the convention existed. GitHub's
+> anchor generator would otherwise silently renumber those older sections' own anchors out from
+> under their own tables of contents. Every section added since follows the same rule, which is
+> why you see "(4.1)" and "(5.0)" above.
 
 - [Breaking Changes (4.0)](#breaking-changes-40)
   - [1. The `translations` JSON column is gone](#1-the-translations-json-column-is-gone)
@@ -926,6 +1152,16 @@ last bullet):
 16. Run your test suite. Behavioural Changes 1-9 above are the ones most likely to surface as
     test failures rather than compile errors — a green suite on v3.4 is not evidence your
     expectations matched the (buggy) old behaviour.
+
+---
+
+# Archive — unsupported upgrade paths
+
+Everything below this line describes upgrades between versions that are **no longer supported**.
+They are kept in full, and will not be trimmed: they are the only record of why a column, a
+method signature or a default looks the way it does today, and an application still sitting on
+one of these versions needs the path to climb out. Do not treat any of it as current behaviour
+— read the supported sections above for that.
 
 ---
 

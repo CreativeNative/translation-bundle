@@ -25,7 +25,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 **Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **798 tests, 6,935 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **808 tests, 7,051 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -34,7 +34,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 - **Relations translate through the full pipeline** — a `ManyToOne`/`OneToOne` association to another translatable entity is itself translated (get-or-create) through the same handler chain as a top-level entity, not a shallow clone with a dangling id.
 - **Removal semantics** — `TranslatableRemover` removes a Tuuid's sibling locale variants together, or exactly one variant while leaving its siblings; an opt-in `cascade_remove_locale_variants` listener does the former automatically on a plain `$em->remove()`.
 - **Diagnostics** — `tmi:translation:doctor` reports four anomaly classes (standalone, incomplete, duplicate, `null-tuuid`) for every entity or, with `--entity`, just one; `tmi:translation:sync-shared` names every drifted `#[SharedAmongstTranslations]` property, how many Tuuid groups and rows it touched, and whether it was writable; `strict_discovery` fails the container compile, instead of only logging, when compile-time attribute discovery finds zero translatable entities.
-- **Shared values that stay shared** — `#[SharedAmongstTranslations]` copies a value onto a new locale variant; with the opt-in `propagate_shared_on_flush` a later edit on *any* variant reaches every sibling inside the same `flush()`, field by field, with a `SharedValueConflictException` instead of last-wins when two variants disagree — and the copy logic is the public `SharedValueSynchronizer` service, with the edited row as source.
+- **Shared values that stay shared** — `#[SharedAmongstTranslations]` copies a value onto a new locale variant, and a later edit on *any* variant reaches every sibling inside the same `flush()`, field by field, with a `SharedValueConflictException` instead of last-wins when two variants disagree. On by default (`propagate_shared_on_flush`), switchable off for content that varies per locale, and the copy logic is the public `SharedValueSynchronizer` service, with the edited row as source.
 - **Per-locale completeness** — `LocaleCompletenessResolver` answers, for one Tuuid or a batch of hundreds in a single query, whether each enabled locale has a variant and whether its content is complete relative to the baseline.
 - **AI-ready** — [AI skills](#-ai-assisted-development) for Claude Code and other assistants guide setup, debugging and custom handlers.
 
@@ -79,7 +79,7 @@ tmi_translation:
     # strict_orphan_check: ~                 # Optional: throw on orphaned translations. null = auto (on when kernel.debug)
     # unique_locale_variants: false          # Optional: make the (tuuid, locale) index a UNIQUE constraint
     # cascade_remove_locale_variants: false  # Optional: $em->remove() also removes sibling locale variants
-    # propagate_shared_on_flush: false       # Optional: copy a #[SharedAmongstTranslations] value edited on one locale onto every sibling inside the same flush()
+    # propagate_shared_on_flush: true        # Optional: copy a #[SharedAmongstTranslations] value edited on one locale onto every sibling inside the same flush()
     # strict_discovery: false                # Optional: fail compilation, instead of only logging, when 0 translatable entities are discovered
 ```
 
@@ -141,9 +141,10 @@ source's Tuuid and the target locale already exists, all three methods above ret
 existing row as-is — the handler chain does not re-run over it, so edits made to the source
 entity *after* the variant was created are **not** copied into it. This is deliberate:
 persist/update hooks call `translate()` on every flush, and re-cloning on every call would
-mint duplicate locale variants instead of returning the one already on record. To propagate
-a changed value into existing siblings, mark the field `#[SharedAmongstTranslations]` and
-either enable `propagate_shared_on_flush` or run `tmi:translation:sync-shared` — see below.
+mint duplicate locale variants instead of returning the one already on record. Propagating a
+changed value into existing siblings is `#[SharedAmongstTranslations]`'s job, not
+`translate()`'s — it happens inside the editing `flush()`, or retroactively through
+`tmi:translation:sync-shared` — see below.
 
 ## 🔧 Advanced Usage
 
@@ -160,37 +161,41 @@ identity is preserved by `translate()`, by `sync-shared` and by the flush-time p
 below. A relation whose target is itself translatable cannot be shared at all — see the note
 further down.
 
-**Two modes.** Out of the box (`propagate_shared_on_flush: false`, the 4.x default) the copy
-happens **once**: updating the field on one locale variant after the translations exist does
-**not** propagate to the siblings — the value diverges silently. That is deliberate for
-applications that legitimately vary such a value per locale (publishing one language at a
-time). Gate CI with `tmi:translation:sync-shared --check` (exits non-zero on drift) and repair
-with `tmi:translation:sync-shared`.
+**Two modes.** By default (`propagate_shared_on_flush: true`) the attribute is a **flush-time
+invariant**: a change to a shared property on *any* locale variant — whichever row a form, an
+import or a command happened to edit — is copied onto every other variant of the same `Tuuid`
+inside the same `flush()`, field by field (an unshared edit touches no sibling, and no sibling
+is even looked up). Two variants flushed at once with *different* new values for the same
+shared property throw `SharedValueConflictException` before anything is written — never
+last-wins. A variant created with `translate()` earlier in the same request receives the update
+too, so the new row is inserted from the updated source.
 
-With `propagate_shared_on_flush: true` the attribute becomes a **flush-time invariant**:
-a change to a shared property on *any* locale variant — whichever row a form, an import or a
-command happened to edit — is copied onto every other variant of the same `Tuuid` inside the
-same `flush()`, field by field (an unshared edit touches no sibling, and no sibling is even
-looked up). Two variants flushed at once with *different* new values for the same shared
-property throw `SharedValueConflictException` before anything is written — never last-wins. A
-variant created with `translate()` earlier in the same request receives the update too, so the
-new row is inserted from the updated source. Enable it once `sync-shared --check` reports zero
-drift and after removing the attribute from every property your application diverges on
-purpose; `true` becomes the default in 5.0.
+Switch it off and the copy happens **once**, at `translate()` time: updating the field on one
+locale variant after the translations exist does **not** propagate to the siblings — the value
+diverges silently. That is the right mode for an application that legitimately varies such a
+value per locale (publishing one language at a time). Gate CI with
+`tmi:translation:sync-shared --check` (exits non-zero on drift) and repair with
+`tmi:translation:sync-shared`.
 
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
-    propagate_shared_on_flush: true
+    propagate_shared_on_flush: false
 ```
+
+Turning it back **on** for an existing database is a two-step move, not a config edit: get
+`tmi:translation:sync-shared --check` to zero drift first, and remove the attribute from every
+property the application diverges per locale on purpose. With the flag on, such a property is
+no longer a dormant inconsistency — the next edit on any locale repairs it back to the source
+value, undoing the divergence on purpose.
 
 The copy itself is the public `SharedValueSynchronizer` service
 (`Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer`, alias
 `tmi_translation.doctrine.shared_value_synchronizer`): `syncFrom($editedRow)` copies the shared
 values onto every sibling with the **edited row** as source and returns the siblings that
 changed — managed, not flushed, so the caller's `flush()` writes them in the same transaction.
-That is the fan-out an application needs while the flag is off, and `siblingsOf()` is the
-per-row loop it may still need with the flag on (a per-locale status field, say). `sync()` and
+That is the fan-out an application needs with the flag off, and `siblingsOf()` is the per-row
+loop it may still need with the flag on (a per-locale status field, say). `sync()` and
 `compare()` work on one sibling and report the changed and the readonly-but-drifted property
 paths; `sharedProperties()` exposes the discovery. Its read-only counterpart over a whole table
 is `SharedDriftScanner::scan($class)` (alias `tmi_translation.doctrine.shared_drift_scanner`):
@@ -223,7 +228,7 @@ private Media $video; // Shared across all translations -- Media is not itself t
 > *later*, those earlier siblings keep their stale value. To back-fill existing data, run:
 >
 > ```
-> php bin/console tmi:translation:sync-shared           # propagate shared columns
+> php bin/console tmi:translation:sync-shared           # propagate shared columns FROM each record's default-locale row
 > php bin/console tmi:translation:sync-shared --dry-run # preview without writing
 > php bin/console tmi:translation:sync-shared --check   # CI gate: exit non-zero on drift
 > php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT   # repair ONE record from the row you name
@@ -648,11 +653,13 @@ For comprehensive documentation optimized for AI assistants, see:
 
 ## 📖 Upgrading
 
-**4.1.1 is the current release and the only supported one.** Anything below it receives no
+**5.0.0 is the current release and the only supported one.** Anything below it receives no
 fixes — upgrade rather than reporting an issue against an older tag.
 
-See [UPGRADING.md](UPGRADING.md) for the `4.0 → 4.1` migration guide. The earlier upgrade
-paths are kept below it in the same file as a historical reference only.
+[CHANGELOG.md](CHANGELOG.md) is the single source for what changed in each release;
+[UPGRADING.md](UPGRADING.md) carries the migration steps, newest path first, with the
+unsupported paths kept below an [archive divider](UPGRADING.md#archive--unsupported-upgrade-paths)
+as a historical reference only.
 
 ## 🤝 Contributing
 

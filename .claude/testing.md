@@ -143,10 +143,10 @@ It exists because the docs were the one surface with no gate: a reference to the
 fully green build. The same fact is stated in six or seven files, so a rename is always a
 multi-file edit — this is what notices the one that was missed.
 
-Two deliberate exclusions, both documented in the test: `UPGRADING.md` is exempt from the
-class check (documenting removed classes is its job), and the vendored tooling skills
-(`skill-creator`, `agent-md-refactor`, `php-pro`, `git-commit`) are out of scope, since their
-example links point at files only a consuming project would have.
+Two deliberate exclusions, both documented in the test: `UPGRADING.md` and `CHANGELOG.md` are
+exempt from the class check (documenting removed classes is their job), and the vendored
+tooling skills (`skill-creator`, `agent-md-refactor`, `php-pro`, `git-commit`) are out of
+scope, since their example links point at files only a consuming project would have.
 
 ### Documented Suite Counts
 

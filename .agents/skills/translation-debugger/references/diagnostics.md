@@ -492,13 +492,15 @@ For a scheduled watch on production, `SharedDriftScanner::scan($class)` (alias
 `tmi_translation.doctrine.shared_drift_scanner`) streams the same drift as `--check`, one
 `SharedDrift` per row and property, without console-output parsing.
 
-**Prevent recurrence:** if the drift came from an edit made on one locale row after the
-translations existed (a form bound to the admin's UI-locale row, an import), enable
-`tmi_translation.propagate_shared_on_flush: true` — a shared change on *any* variant is then
+**Prevent recurrence:** drift from an edit made on one locale row after the translations
+existed (a form bound to the admin's UI-locale row, an import) is what
+`tmi_translation.propagate_shared_on_flush` prevents, and it is **on by default** — so check
+whether the application has set it to `false`. With it on, a shared change on *any* variant is
 copied onto every sibling inside the same `flush()`, and two variants flushed with different
-new values for one shared property throw `SharedValueConflictException` instead of one
-silently winning. Precondition: `--check` reports zero drift and no deliberately per-locale
-field still carries the attribute. Application code that needs the copy without the flag calls
+new values for one shared property throw `SharedValueConflictException` instead of one silently
+winning. Before turning it back on, get `--check` to zero drift and make sure no deliberately
+per-locale field still carries the attribute — with the flag on, the next edit repairs that
+divergence away. Application code that needs the copy with the flag off calls
 `SharedValueSynchronizer::syncFrom($editedRow)` (alias
 `tmi_translation.doctrine.shared_value_synchronizer`).
 

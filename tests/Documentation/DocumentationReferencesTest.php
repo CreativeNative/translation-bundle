@@ -39,6 +39,7 @@ final class DocumentationReferencesTest extends TestCase
      */
     private const array DOCUMENTATION = [
         'README.md',
+        'CHANGELOG.md',
         'llms.md',
         'llms.txt',
         'UPGRADING.md',
@@ -58,14 +59,15 @@ final class DocumentationReferencesTest extends TestCase
     ];
 
     /**
-     * `UPGRADING.md` documents classes this version no longer ships (that is its whole
-     * job — telling a reader what was removed), so the "every class named still exists"
-     * rule cannot apply to it.
+     * `UPGRADING.md` and `CHANGELOG.md` document classes this version no longer ships (that
+     * is their whole job — telling a reader what was removed), so the "every class named
+     * still exists" rule cannot apply to them.
      *
      * @var list<string>
      */
     private const array NOT_CLASS_CHECKED = [
         'UPGRADING.md',
+        'CHANGELOG.md',
     ];
 
     /**
