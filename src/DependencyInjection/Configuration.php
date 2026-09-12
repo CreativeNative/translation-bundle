@@ -31,7 +31,7 @@ final class Configuration implements ConfigurationInterface
                 ->end()
                 ->booleanNode('copy_source')
                     ->defaultFalse()
-                    ->info('When false, new translations start empty with type-safe defaults. When true, translations clone source content (v1.x behavior).')
+                    ->info('When false, new translations start empty with type-safe defaults. When true, translations clone the source content.')
                 ->end()
                 ->booleanNode('strict_orphan_check')
                     ->defaultNull()

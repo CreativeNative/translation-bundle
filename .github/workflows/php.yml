@@ -100,7 +100,7 @@ jobs:
       - name: Run PHPUnit tests with coverage
         if: matrix.primary
         shell: bash
-        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --colors=always | tee var/coverage-summary.txt
+        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --colors=always --log-junit var/junit.xml | tee var/coverage-summary.txt
 
       - name: Run PHPUnit tests
         if: ${{ !matrix.primary }}
@@ -120,6 +120,12 @@ jobs:
             echo "::error::Coverage ${COVERAGE}% is below 100% threshold"
             exit 1
           fi
+
+      # Documentation gate: the suite counts the README and llms.md quote must
+      # match the suite that just ran. Fails on every PR that adds a test, by design.
+      - name: Check documented suite counts
+        if: matrix.primary
+        run: php tools/check-doc-claims.php var/junit.xml
 
       # Upload coverage to Codecov (once, from the primary leg)
       - name: Upload coverage to Codecov

@@ -28,12 +28,12 @@ Ask: **"Want me to use defaults (quick mode), or walk through each decision (gui
 Tell the user:
 
 **"The TranslatableTrait provides two fields automatically:**
-- **tuuid**: Translation UUID, `NOT NULL` (v4.0) linking all locale variants (already marked SharedAmongstTranslations)
-- **locale**: Current locale code (e.g., 'en', 'fr'), `NOT NULL`, up to 16 characters (v4.0)
+- **tuuid**: Translation UUID, `NOT NULL`, linking all locale variants (already marked SharedAmongstTranslations)
+- **locale**: Current locale code (e.g., 'en', 'fr'), `NOT NULL`, up to 16 characters
 
-You don't add these fields yourself - the trait handles them. (v4.0 removed the dead `$translations` JSON column and its accessors that earlier versions of the trait carried -- nothing in the bundle ever read it.)"
+You don't add these fields yourself - the trait handles them."
 
-## Step 2.5: Configuration Check (v2.0)
+## Step 2.5: Configuration Check
 
 Verify the project has framework.enabled_locales configured:
 
@@ -43,13 +43,7 @@ framework:
     enabled_locales: [en, fr, de]
 ```
 
-If missing, guide user to add it. This is REQUIRED in v2.0 (the bundle reads locales from Symfony's framework config, not its own config).
-
-Also check for v1.x config patterns that need migration:
-- `tmi_translation.locales` -> removed, use `framework.enabled_locales`
-- `tmi_translation.logging.enabled` -> use `tmi_translation.enable_logging`
-
-If v1.x patterns found, suggest: "See UPGRADING.md for the full migration guide."
+If missing, guide user to add it. This is REQUIRED (the bundle reads locales from Symfony's framework config, not its own config).
 
 ## Quick Mode Workflow
 
@@ -58,9 +52,9 @@ If v1.x patterns found, suggest: "See UPGRADING.md for the full migration guide.
 - Share all relationship fields (same entity across locales)
 - Apply EmptyOnTranslate only if field name contains "slug" or "seo"
 
-**v2.0 behavior note:**
-- If `copy_source: false` (v2.0 default), translated fields start empty with type-safe defaults
-- If `copy_source: true`, translated fields clone source content (v1.x behavior)
+**`copy_source` behaviour:**
+- If `copy_source: false` (the default), translated fields start empty with type-safe defaults
+- If `copy_source: true`, translated fields clone the source content
 - Use `#[Translatable(copySource: true)]` on individual entities to override global config
 
 **Process:**
@@ -113,7 +107,7 @@ Ask: "Which fields should be SharedAmongstTranslations? (comma-separated, or 'no
 
 Then say what the attribute does and does not do: it copies the value **when a translation is
 created**. A later edit on one locale row stays on that row **unless** the application enables
-`propagate_shared_on_flush: true` (v4.1), which copies a shared change made on *any* locale
+`propagate_shared_on_flush: true`, which copies a shared change made on *any* locale
 variant onto every sibling inside the same `flush()`. Recommend the flag whenever every shared
 field is genuinely shared — and warn that a field the application deliberately varies per
 locale (a per-language `visible` flag) must **not** carry the attribute at all, because the
@@ -123,7 +117,7 @@ propagation (like `tmi:translation:sync-shared`) would overwrite that divergence
 
 **Examples-first approach:**
 
-"Some fields need a FRESH value in each language. Mark these with EmptyOnTranslate. In v2.0, non-nullable fields get type-safe defaults (string='', int=0, float=0.0, bool=false) instead of requiring nullable types.
+"Some fields need a FRESH value in each language. Mark these with EmptyOnTranslate. Non-nullable fields get type-safe defaults (string='', int=0, float=0.0, bool=false) instead of requiring nullable types.
 
 **Examples:**
 - **Slug**: 'blue-widget' (EN) → 'widget-bleu' (FR) — must be regenerated
@@ -164,11 +158,11 @@ use Doctrine\ORM\Mapping as ORM;
 + use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 
 #[ORM\Entity]
-+ #[Translatable(copySource: false)]  // v2.0: start translations empty
++ #[Translatable(copySource: false)]  // start translations empty
 - class Product
 + class Product implements TranslatableInterface
 {
-+     use TranslatableTrait;  // Adds: tuuid, locale (both NOT NULL as of v4.0)
++     use TranslatableTrait;  // Adds: tuuid, locale (both NOT NULL)
 
     #[ORM\Column(type: Types::STRING)]
     private string $name;  // Translatable (no attribute = copied on translate)
@@ -202,7 +196,7 @@ Wait for user confirmation (yes/y/apply/confirm).
 
 **How relationship translation works:**
 - **OneToMany**: Translates the children collection, pointing each child's inverse property back at the translated parent (`BidirectionalOneToManyHandler`)
-- **ManyToOne**: Creates a new relation pointing to the translated target, get-or-create (v4.0); a bidirectional one (`inversedBy` set) cannot be shared (`BidirectionalManyToOneHandler`)
+- **ManyToOne**: Creates a new relation pointing to the translated target, get-or-create; a bidirectional one (`inversedBy` set) cannot be shared (`BidirectionalManyToOneHandler`)
 - **OneToOne**: Clones the related entity and fixes up the back-reference, in either direction — `mappedBy` or `inversedBy` (`BidirectionalOneToOneHandler`)
 - **ManyToMany**: Builds a **new** collection of translated items, in either direction, leaving the source entity's collection untouched (`BidirectionalManyToManyHandler`, or `UnidirectionalManyToManyHandler` when the mapping has neither `mappedBy` nor `inversedBy`)
 
@@ -210,12 +204,12 @@ Wait for user confirmation (yes/y/apply/confirm).
 collection or relation between locale variants makes the owning side ambiguous.
 
 A plain `#[ORM\ManyToOne(inversedBy: ...)]`/`#[ORM\OneToOne]` field declared on the *owning*
-class (not reached as a back-reference) now translates its target too, get-or-create (v4.0).
+class (not reached as a back-reference) translates its target too, get-or-create.
 There is no way to share such an association across locale variants: the bidirectional shape
 shown above rejects `#[SharedAmongstTranslations]` with a `RuntimeException`, and removing
 `inversedBy`/`mappedBy` to make it unidirectional does not open an escape hatch either — that
 shape falls through to `TranslatableEntityHandler`, which rejects it with a `RuntimeException`
-too (v4.0). `ManyToMany` cannot be shared either, in either direction:
+too. `ManyToMany` cannot be shared either, in either direction:
 `UnidirectionalManyToManyHandler` rejects the attribute too. Share the related entity's own
 scalar columns instead, or keep the association out of the translation pipeline (a plain,
 non-translatable reference) if a single shared row is a hard requirement. If the association
@@ -248,14 +242,14 @@ escape hatch for deleting one variant only). See **llms.md → "Removal Semantic
 For a "translate N entities in bulk" or "seed data" request:
 
 1. Call `$entityTranslator->preload($batch, $locale)` **once** before looping — it turns one
-   lookup query per entity into one lookup query per class (see **llms.md → "Performance
-   (v4.0)"** for the exact budget).
+   lookup query per entity into one lookup query per class (see **llms.md → "Performance"**
+   for the exact budget).
 2. Loop `getOrTranslate($entity, $locale)` over the batch, `flush()` in batches, `clear()`
    between batches if memory matters.
 3. If the process outlives one request/job (a queue consumer), nothing extra is needed —
    `InMemoryTranslationCache` is tagged `kernel.reset` and clears itself between units of
    work, and a cache hit that survived a `clear()` is treated as a miss rather than
-   duplicated (both as of v4.0).
+   duplicated.
 4. With `copy_source: false`, a freshly created variant starts empty, including mandatory
    fields like a slug — seed locale-correct placeholders in a `PostTranslateEvent` listener,
    not by cloning the source's value. See **llms.md → "Seeding hook for empty variants"**.
@@ -276,7 +270,7 @@ For a "translate N entities in bulk" or "seed data" request:
 
 **Always confirm suggestions with user before applying.**
 
-## v2.0 Composite Unique Constraints
+## Composite Unique Constraints
 
 If the entity has fields with `unique: true`, warn the user:
 
@@ -290,4 +284,4 @@ Show the fix:
 // And: #[ORM\Column(length: 255)]  // without unique: true
 ```
 
-v2.0 validates this at cache:warmup and will throw an error if single-column unique constraints are found.
+The bundle validates this at cache:warmup and will throw an error if single-column unique constraints are found.

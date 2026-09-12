@@ -23,9 +23,9 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 ## Why This Bundle
 
-**Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the no-op lifecycle hooks are gone as of v4. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
+**Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **730 tests, 6,723 assertions**, all green. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **798 tests, 6,935 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -34,7 +34,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 - **Relations translate through the full pipeline** — a `ManyToOne`/`OneToOne` association to another translatable entity is itself translated (get-or-create) through the same handler chain as a top-level entity, not a shallow clone with a dangling id.
 - **Removal semantics** — `TranslatableRemover` removes a Tuuid's sibling locale variants together, or exactly one variant while leaving its siblings; an opt-in `cascade_remove_locale_variants` listener does the former automatically on a plain `$em->remove()`.
 - **Diagnostics** — `tmi:translation:doctor` reports four anomaly classes (standalone, incomplete, duplicate, `null-tuuid`) for every entity or, with `--entity`, just one; `tmi:translation:sync-shared` names every drifted `#[SharedAmongstTranslations]` property, how many Tuuid groups and rows it touched, and whether it was writable; `strict_discovery` fails the container compile, instead of only logging, when compile-time attribute discovery finds zero translatable entities.
-- **Shared values that stay shared** — `#[SharedAmongstTranslations]` copies a value onto a new locale variant; with the opt-in `propagate_shared_on_flush` (v4.1) a later edit on *any* variant reaches every sibling inside the same `flush()`, field by field, with a `SharedValueConflictException` instead of last-wins when two variants disagree — and the copy logic is the public `SharedValueSynchronizer` service, with the edited row as source.
+- **Shared values that stay shared** — `#[SharedAmongstTranslations]` copies a value onto a new locale variant; with the opt-in `propagate_shared_on_flush` a later edit on *any* variant reaches every sibling inside the same `flush()`, field by field, with a `SharedValueConflictException` instead of last-wins when two variants disagree — and the copy logic is the public `SharedValueSynchronizer` service, with the edited row as source.
 - **Per-locale completeness** — `LocaleCompletenessResolver` answers, for one Tuuid or a batch of hundreds in a single query, whether each enabled locale has a variant and whether its content is complete relative to the baseline.
 - **AI-ready** — [AI skills](#-ai-assisted-development) for Claude Code and other assistants guide setup, debugging and custom handlers.
 
@@ -43,7 +43,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 * **Row-per-locale.** Every locale variant is a full row: *N* configured locales means up to *N*× the rows for a translatable entity, and that cost is paid per entity regardless of how many locales are actually filled in. If most of your content stays in one or two locales and only a handful of fields ever need translating, a dedicated translation-table design may cost fewer rows than this bundle's trade-off of no joins for full-row duplication.
 * **Unique constraints need the locale column.** A single-column `unique: true` on a translatable field triggers a validation error at `cache:warmup` — the same value legitimately repeats once per locale. Use a composite constraint (`field + locale`) instead — see [Quick Fix for unique fields](#quick-fix-for-unique-fields).
 * **`SharedAmongstTranslations` is not available on an association whose target is itself translatable** — `OneToMany`, `ManyToMany` (either direction), a bidirectional `ManyToOne`/`OneToOne` (`inversedBy`/`mappedBy` set), and a *unidirectional* `ManyToOne`/`OneToOne` (neither set) all reject it with a `RuntimeException`: sharing would leave the relation's ownership ambiguous across locale variants. Share the related entity's scalar columns instead. This only concerns a translatable target — a shared association to a non-translatable entity (a `GeoPlace`/`Owner`/`User`-style reference) is unaffected and keeps returning the identical instance. Associations themselves — including `ManyToMany` in both directions — are translated normally.
-* Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+** (see legacy versions for older support).
+* Requires **PHP 8.4+**, **Symfony 8.0+** and **Doctrine ORM 3.5+**.
 
 ## 📦 Installation
 
@@ -75,11 +75,11 @@ tmi_translation:
     # default_locale: 'en_US'                # Optional: uses framework.default_locale if not set
     # disabled_firewalls: ['main']           # Optional: disable filter for specific firewalls
     # enable_logging: false                  # Optional: enable PSR-3 debug logging
-    # copy_source: false                     # Optional: clone source content (true = v1.x behavior)
+    # copy_source: false                     # Optional: true = clone the source content into a new variant instead of leaving it empty
     # strict_orphan_check: ~                 # Optional: throw on orphaned translations. null = auto (on when kernel.debug)
     # unique_locale_variants: false          # Optional: make the (tuuid, locale) index a UNIQUE constraint
     # cascade_remove_locale_variants: false  # Optional: $em->remove() also removes sibling locale variants
-    # propagate_shared_on_flush: false       # Optional (v4.1): copy a #[SharedAmongstTranslations] value edited on one locale onto every sibling inside the same flush()
+    # propagate_shared_on_flush: false       # Optional: copy a #[SharedAmongstTranslations] value edited on one locale onto every sibling inside the same flush()
     # strict_discovery: false                # Optional: fail compilation, instead of only logging, when 0 translatable entities are discovered
 ```
 
@@ -167,7 +167,7 @@ applications that legitimately vary such a value per locale (publishing one lang
 time). Gate CI with `tmi:translation:sync-shared --check` (exits non-zero on drift) and repair
 with `tmi:translation:sync-shared`.
 
-With `propagate_shared_on_flush: true` (v4.1) the attribute becomes a **flush-time invariant**:
+With `propagate_shared_on_flush: true` the attribute becomes a **flush-time invariant**:
 a change to a shared property on *any* locale variant — whichever row a form, an import or a
 command happened to edit — is copied onto every other variant of the same `Tuuid` inside the
 same `flush()`, field by field (an unshared edit touches no sibling, and no sibling is even
@@ -226,7 +226,7 @@ private Media $video; // Shared across all translations -- Media is not itself t
 > php bin/console tmi:translation:sync-shared           # propagate shared columns
 > php bin/console tmi:translation:sync-shared --dry-run # preview without writing
 > php bin/console tmi:translation:sync-shared --check   # CI gate: exit non-zero on drift
-> php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT   # v4.1: repair ONE record from the row you name
+> php bin/console tmi:translation:sync-shared --tuuid=<uuid> --source-locale=it_IT   # repair ONE record from the row you name
 > ```
 >
 > `--tuuid` restricts a run to one record — every locale variant of that `Tuuid`, found in
@@ -238,7 +238,7 @@ private Media $video; // Shared across all translations -- Media is not itself t
 > apply as usual.
 >
 > The command propagates `#[SharedAmongstTranslations]` values from the **default-locale** row
-> to every sibling — mapped columns, embedded fields and, as of v4.1, single-valued associations
+> to every sibling — mapped columns, embedded fields and single-valued associations
 > to a **non**-translatable target (the same discovery the flush-time propagation uses; a shared
 > collection, or an association to a translatable target, is rejected at translate time and is
 > never synced). Every run prints a table naming each drifted property, how many Tuuid groups
@@ -256,7 +256,14 @@ private Media $video; // Shared across all translations -- Media is not itself t
 
 ### EmptyOnTranslate
 
-This attribute will empty the field when creating a new translation. **ATTENTION**: The field has to be nullable or instance of Doctrine\Common\Collections\Collection! 
+This attribute will empty the field when creating a new translation. **ATTENTION**: the field
+must be able to hold an empty value. A nullable property becomes `null`; a
+`Doctrine\Common\Collections\Collection` becomes a fresh empty collection; a **non-nullable
+scalar** gets a type-safe default (`string` → `''`, `int` → `0`, `float` → `0.0`, `bool` →
+`false`, `array` → `[]`) and therefore does *not* have to be nullable. A non-nullable **object**,
+**enum**, intersection type or `iterable`/`callable` has no safe empty value: it throws a
+`LogicException` naming the property. Make those nullable, or use
+`#[SharedAmongstTranslations]` instead.
 
 ```php
 #[ORM\ManyToOne(targetEntity: Owner::class, cascade: ['persist'], inversedBy: 'product')]
@@ -397,7 +404,7 @@ class ProductRepository extends TranslatableEntityRepository
 }
 ```
 
-If your repository must extend something else, use `TranslatableRepositoryTrait` directly (v2.1):
+If your repository must extend something else, use `TranslatableRepositoryTrait` directly:
 
 ```php
 use Doctrine\ORM\EntityRepository;
@@ -527,8 +534,8 @@ The bundle guards against this:
   and reports four anomaly classes: standalone translations (a Tuuid with no sibling),
   incomplete translations (fewer locale rows than configured locales), duplicate
   `(tuuid, locale)` pairs, and `null-tuuid` rows — a `tuuid` column that is a literal database
-  `NULL`, only reachable through a write that bypasses the entity layer (a raw insert, a
-  pre-v4 legacy row) since the column is `NOT NULL` as of v4. Exits non-zero on findings, so
+  `NULL`, only reachable through a write that bypasses the entity layer (a raw insert, a row
+  imported from elsewhere) since the column is mapped `NOT NULL`. Exits non-zero on findings, so
   it works as a post-migration / CI integrity gate:
 
   ```
@@ -537,8 +544,8 @@ The bundle guards against this:
   ```
 
 - **`tmi:translation:sync-shared`** — see above; `--check` for the CI gate, `--tuuid` +
-  `--source-locale` (v4.1) for the targeted repair of one record from the row you name.
-- **`SharedDriftScanner`** (v4.1) — the read side of `--check` as a service:
+  `--source-locale` for the targeted repair of one record from the row you name.
+- **`SharedDriftScanner`** — the read side of `--check` as a service:
   `scan($class)` streams one `SharedDrift` per drifted sibling row and property path, for a
   scheduled drift watch against a production database.
 - **`strict_discovery`** — off by default, an empty result from compile-time attribute
@@ -584,8 +591,8 @@ pair or the service is reset — `EntityTranslator` is tagged `kernel.reset` for
 
 **Reflection is cached, not repeated.** `AttributeHelper` and
 `ReflectionHelper::getHierarchyProperties()` memoize per (proxy-unwrapped) class — the hot
-path inside `translate()` used to re-walk a class's attributes and property hierarchy on
-every property, on every call.
+path inside `translate()` never re-walks a class's attributes and property hierarchy per
+property, per call.
 
 **The `(tuuid, locale)` index doesn't cover a bare `locale = ?` predicate** (`locale` is not
 its leftmost column) — a dedicated locale-only index is not worth adding regardless, since a
@@ -595,8 +602,8 @@ query planner facing 2-10 distinct locale values would usually ignore one anyway
 `getOrTranslate()` over a batch (see the import row above) — and if your process outlives one
 request or job (a queue consumer, a long-running import), both `InMemoryTranslationCache` and
 `EntityTranslator` itself are tagged `kernel.reset`, so they clear themselves between units of
-work instead of handing the next one an entity the last one cached (and, since v4's identity
-fix, possibly detached) or a stale "Tuuid not found" answer from `preload()`'s own miss memory.
+work instead of handing the next one an entity the last one cached (possibly one since
+detached) or a stale "Tuuid not found" answer from `preload()`'s own miss memory.
 
 ## 🤖 AI-Assisted Development
 
@@ -641,7 +648,11 @@ For comprehensive documentation optimized for AI assistants, see:
 
 ## 📖 Upgrading
 
-See [UPGRADING.md](UPGRADING.md) for migration guides between major versions.
+**4.1.1 is the current release and the only supported one.** Anything below it receives no
+fixes — upgrade rather than reporting an issue against an older tag.
+
+See [UPGRADING.md](UPGRADING.md) for the `4.0 → 4.1` migration guide. The earlier upgrade
+paths are kept below it in the same file as a historical reference only.
 
 ## 🤝 Contributing
 

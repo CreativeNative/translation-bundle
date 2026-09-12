@@ -32,7 +32,7 @@ class Product implements TranslatableInterface
 
 ## Trait Provides
 
-The `TranslatableTrait` adds (both columns `NOT NULL` as of v4.0 — the PHP properties stay
+The `TranslatableTrait` adds (both columns `NOT NULL` — the PHP properties stay
 `?Tuuid`/`?string`, since a freshly `new`-ed, not-yet-persisted entity legitimately has
 neither yet; `TranslatableEventSubscriber::prePersist()` assigns both before insert):
 
@@ -40,9 +40,6 @@ neither yet; `TranslatableEventSubscriber::prePersist()` assigns both before ins
 |-------|------|--------|---------|
 | `tuuid` | `?Tuuid` | `tuuid`, `length: 36`, NOT NULL | Groups translations (auto-generated) |
 | `locale` | `?string` | `Types::STRING`, `length: 16`, NOT NULL | Entity's language |
-
-v4.0 removed the dead `$translations` JSON column and its four accessors
-(`getTranslations()` et al.) — nothing in the bundle ever read them.
 
 ## Custom Doctrine Type
 
@@ -73,7 +70,7 @@ tmi_translation:
 ```
 
 Each locale must be 2-16 characters and match `language[_SUBTAG...]` — validated at compile
-time (v4.0), so a locale the `locale` column cannot hold fails fast instead of truncating.
+time, so a locale the `locale` column cannot hold fails fast instead of truncating.
 
 ### Sub-requests
 
@@ -151,7 +148,7 @@ gates it at runtime) calling `TranslatableRemover::cascadeFromPreRemove()`. With
 `removeSingleLocaleVariant()` is the escape hatch for removing one variant while its siblings
 stay online.
 
-## Shared-Value Propagation (v4.1)
+## Shared-Value Propagation
 
 `SharedValueSynchronizer` copies `#[SharedAmongstTranslations]` values from one locale variant
 onto its siblings with the **edited row as source** — `syncFrom($editedRow)` returns the
@@ -177,17 +174,17 @@ drift and the attribute is gone from every property the application diverges on 
 ## Diagnostic Commands
 
 - `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage:
-  standalone / incomplete translations, duplicate `(tuuid, locale)` pairs, and (v4.0)
+  standalone / incomplete translations, duplicate `(tuuid, locale)` pairs, and
   `null-tuuid` rows (a literal DB `NULL` in the `tuuid` column — only reachable via a write
-  outside the entity layer, since the column is `NOT NULL`); `--entity=<FQCN>` (v4.0)
+  outside the entity layer, since the column is `NOT NULL`); `--entity=<FQCN>`
   restricts the scan to one entity, checked against Doctrine's metadata so a concrete
   subclass is accepted; exits non-zero.
 - `php bin/console tmi:translation:sync-shared` — propagates `#[SharedAmongstTranslations]`
   values from the default-locale row to all sibling locale variants — columns, embeddables and
-  (v4.1) to-one associations to a non-translatable target, the same discovery as the flush-time
-  propagation (`--dry-run`, `--check` for a CI drift gate, `--entity=<FQCN>`, and v4.1's
+  to-one associations to a non-translatable target, the same discovery as the flush-time
+  propagation (`--dry-run`, `--check` for a CI drift gate, `--entity=<FQCN>`, and
   `--tuuid=<uuid> --source-locale=<locale>` to repair one record from the row you name); prints
-  a `Property | Tuuids | Rows | Writable` table naming every drifted property (v4.0). The read
+  a `Property | Tuuids | Rows | Writable` table naming every drifted property. The read
   side is also a service: `SharedDriftScanner::scan($class)` streams one `SharedDrift` per
   drifted sibling row and property, on top of `LocaleVariantFinder::streamGroupedByTuuid()`.
 

@@ -106,7 +106,7 @@ public function testTranslateCreatesNewEntityWithCorrectLocale(): void
 }
 ```
 
-### Query-Budget Tests (v4.0)
+### Query-Budget Tests
 
 `tests/Performance/QueryBudgetTest.php` (`IntegrationTestCase`) asserts an exact database
 round-trip count for a documented operation — `assertSame`, never a ceiling (`assertLessThan`
@@ -129,6 +129,37 @@ so `flush()`'s implicit transaction never inflates a budget. Every number in REA
 Performance and llms.md § Performance traces back to one of these assertions — changing a
 number in either doc without a corresponding test change is a discrepancy the reviewer should
 flag.
+
+### Documentation Tests
+
+`tests/Documentation/DocumentationReferencesTest.php` holds the prose to the same standard as
+the code. For every bundle-owned document it asserts that relative links point at files that
+exist, that every `#anchor` resolves to a heading the file actually produces (GitHub's slug
+rules, duplicate suffixes included), and that every `Tmi\TranslationBundle\...` name still
+resolves to a class, trait, enum or real namespace.
+
+It exists because the docs were the one surface with no gate: a reference to the deleted
+`Psr6TranslationCache` and a dead `#shared-value-propagation-v41` anchor both survived a
+fully green build. The same fact is stated in six or seven files, so a rename is always a
+multi-file edit — this is what notices the one that was missed.
+
+Two deliberate exclusions, both documented in the test: `UPGRADING.md` is exempt from the
+class check (documenting removed classes is its job), and the vendored tooling skills
+(`skill-creator`, `agent-md-refactor`, `php-pro`, `git-commit`) are out of scope, since their
+example links point at files only a consuming project would have.
+
+### Documented Suite Counts
+
+`tools/check-doc-claims.php` compares the "**N tests, M assertions**" claim in README.md § Why
+This Bundle and llms.md § Overview against PHPUnit's JUnit log, and fails the build when they
+diverge. Wired into `composer check` (after `@test`) and into CI next to the coverage
+threshold. It reads `var/junit.xml` rather than scraping console output — no ANSI codes, and
+no shell pipe that could mask PHPUnit's exit code.
+
+**It fails on every pull request that adds a test. That is the point**, not a nuisance: the
+counts are the load-bearing half of the verified-quality claim, and a claim nobody is forced
+to update is a claim that goes stale. Run `composer test` then `composer doc-claims` locally;
+the error message prints the exact replacement string.
 
 ### Negative-Proof Discipline
 

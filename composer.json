@@ -72,8 +72,9 @@
     },
     "scripts": {
         "test":  [
-            "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text"
+            "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --log-junit var/junit.xml"
         ],
+        "doc-claims": "php tools/check-doc-claims.php var/junit.xml",
         "cs-check": [
             "vendor/bin/php-cs-fixer fix --dry-run --diff"
         ],
@@ -88,7 +89,8 @@
         "check": [
             "@cs-fix",
             "@stan",
-            "@test"
+            "@test",
+            "@doc-claims"
         ]
     },
     "config": {

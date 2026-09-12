@@ -29,15 +29,14 @@ Translation uses a priority-based handler chain. Each handler implements `Transl
 running the handler chain for it, and unmarks it in a `finally` — the flag stays set for the
 whole frame, including any handler recursion below it. A bidirectional association whose
 translation walks back to an entity already mid-translation for that same pair (the ordinary
-shape since the direct ManyToOne/OneToOne form started running the full entity pipeline, v4.0
-Behavioural Change 1) hits that mark and gets the untranslated **source instance itself** back,
+shape, since the direct ManyToOne/OneToOne form runs the full entity pipeline) hits that mark and gets the untranslated **source instance itself** back,
 instead of recursing forever — this is the cycle-guard fallback, and it is indistinguishable
 from a legitimate "no translation happened" return except by comparing identity and locale.
 
 `BidirectionalOneToManyHandler`, `BidirectionalManyToManyHandler` and
 `UnidirectionalManyToManyHandler` are the three handlers that receive a *collection* of such
 results and decide whether to add each one to the translated owner's collection (and, for the
-two bidirectional handlers, repair its back-reference). As of v4.0 (WP22) all three check, right
+two bidirectional handlers, repair its back-reference). All three check, right
 before that add/back-reference write, whether the result is `===` the item they handed in *and*
 that item's own locale is still the source locale — if so, it is the cycle-guard fallback and is
 skipped outright, rather than mutating the source entity's own FK or back-reference collection.
@@ -59,7 +58,7 @@ final class MyCustomHandler implements TranslationHandlerInterface
 `PropertyTranslationContext` (subject: `getValue(): mixed`), both extending the shared
 `TranslationContext` base (`getSubject()`, `getProperty()`, `getTranslatedParent()`,
 `isShared()`/`isEmpty()`, source/target locale, `copySource`). `isShared()`/`isEmpty()` are
-pre-resolved by `EntityTranslator` from the property's attributes before dispatch (v4.0) — a
+pre-resolved by `EntityTranslator` from the property's attributes before dispatch — a
 handler that used to implement `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()`
 branches on those two booleans at the top of `translate()` instead. See
 [UPGRADING.md § 6](../UPGRADING.md#6-translationhandlerinterface-is-two-methods-on-typed-contexts).
@@ -81,9 +80,9 @@ last, in registration order; handlers sharing a priority keep their registration
 Field value is copied from the source when a translation is created (copy-on-translate).
 By default there is **no update-time propagation** — later edits diverge silently, by design;
 reconcile with `tmi:translation:sync-shared` and gate CI on drift with `--check`. With
-`propagate_shared_on_flush: true` (v4.1, opt-in, the announced 5.0 default) a later edit on
+`propagate_shared_on_flush: true` (opt-in, the announced 5.0 default) a later edit on
 *any* locale variant reaches every sibling inside the same `flush()` — see
-[Shared-Value Propagation](#shared-value-propagation-v41).
+[Shared-Value Propagation](#shared-value-propagation).
 
 ```php
 #[SharedAmongstTranslations]
@@ -109,7 +108,7 @@ private ?string $cachedSlug = null;
 
 ## Events
 
-Both extend `TranslateEvent` and are dispatched by class (v4.0), not by a string event
+Both extend `TranslateEvent` and are dispatched by class, not by a string event
 name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 `addListener(PreTranslateEvent::class, ...)`.
 
@@ -118,7 +117,7 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 | `PreTranslateEvent` | Before translation starts |
 | `PostTranslateEvent` | After successful translation |
 
-## Tuuid Linkage Integrity (v2.2)
+## Tuuid Linkage Integrity
 
 - `Doctrine/EventListener/TranslatableIndexListener` — injects a composite `(tuuid, locale)`
   index into every translatable entity at `loadClassMetadata`. `unique_locale_variants: true`
@@ -133,8 +132,8 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `Doctrine/LocaleVariantFinder` — the one place that queries across every locale variant of a
   Tuuid, suspending the locale filter for the query (`withoutLocaleFilter()`).
   `TranslatableRepositoryTrait`, `LocaleCompletenessResolver`, `EntityTranslator` and
-  `TranslatableRemover` delegate to it. `TranslatableEntityHandler` does not (v4.0): it no
-  longer checks for an existing variant itself — see the Performance section below.
+  `TranslatableRemover` delegate to it. `TranslatableEntityHandler` does not: it performs no
+  existence check of its own — see the Performance section below.
 - `Doctrine/TranslatableRemover` — removes every locale variant sharing a Tuuid (or exempts one
   variant from that) via `EntityManager::remove()` per variant, so ORM cascades / `orphanRemoval`
   / lifecycle callbacks fire per variant — never a bulk DQL DELETE. `$em->remove()` alone only
@@ -147,7 +146,7 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
   that calls `TranslatableRemover::cascadeFromPreRemove()` so a plain `$em->remove()` on any
   translatable entity cascades to its sibling locale variants automatically.
 
-## Per-Locale Completeness (v3.1)
+## Per-Locale Completeness
 
 - `Translation/LocaleCompletenessResolver` — per enabled locale: does a variant exist, is
   its translatable content complete? Baseline-relative: a variant is complete when every
@@ -157,7 +156,7 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `ValueObject/LocaleCompleteness` + `ValueObject/TranslationStatus` (enum
   `Missing`/`Incomplete`/`Complete`) — the returned value objects.
 
-## Shared-Value Propagation (v4.1)
+## Shared-Value Propagation
 
 - `Doctrine/SharedValueSynchronizer` — the one discovery + copy of `#[SharedAmongstTranslations]`
   values with the **edited row as source**: `syncFrom()` (every sibling, returns the changed
@@ -198,10 +197,10 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 
 | Command | Purpose |
 |---------|---------|
-| `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (v4.0: a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
-| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and (v4.1) to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (v4.1, one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table (v4.0) |
+| `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
+| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table |
 
-## Performance (v4.0)
+## Performance
 
 - `Utils/AttributeHelper` (per `declaringClass::property::attribute`) and
   `Utils/ReflectionHelper::getHierarchyProperties()` (per proxy-unwrapped class) memoize for

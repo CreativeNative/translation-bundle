@@ -197,7 +197,6 @@ works either way when a handler is genuinely reachable with both shapes.
 | `OneToMany` / `ManyToMany` | `PropertyTranslationContext` | the **`Collection`** (`getValue()`), never the owning entity |
 
 Guarding a to-many handler with `instanceof EntityTranslationContext` makes `supports()` always
-false, and the handler silently never runs — this was a real bug in the bundle's own collection
-handlers until v3.0.0 (then expressed as `instanceof TranslatableInterface` against the old
-`TranslationArgs` payload; the typed contexts in v4.0 make the same mistake a compile-time
-`instanceof` check instead of a runtime data-shape guess).
+false, and the handler silently never runs — a mistake the bundle's own collection handlers
+once shipped. Check the context type against the table above rather than guessing at the data
+shape at runtime.

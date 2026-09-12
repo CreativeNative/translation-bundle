@@ -10,7 +10,7 @@ namespace Tmi\TranslationBundle\Doctrine\Attribute;
  * When applied to a class implementing TranslatableInterface, allows per-entity
  * override of the global copy_source configuration:
  * - null: use global config (default)
- * - true: clone source content when creating translations (v1.x behavior)
+ * - true: clone source content when creating translations
  * - false: start translations empty with type-safe defaults
  */
 #[\Attribute(\Attribute::TARGET_CLASS)]

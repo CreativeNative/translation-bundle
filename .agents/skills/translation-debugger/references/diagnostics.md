@@ -38,8 +38,7 @@ class Product implements TranslatableInterface
 
 **If missing:**
 - **Severity:** BLOCKING
-- **Error:** Missing $tuuid, $locale properties (both `NOT NULL` as of v4.0; the trait's
-  `$translations` column and its accessors were removed in v4.0 -- nothing to expect there)
+- **Error:** Missing $tuuid, $locale properties (both `NOT NULL`)
 - **Symptom:** Translation fails with property access errors
 - **Fix:** Add `use TranslatableTrait;` after class opening brace
 - **llms.md:** See "Missing TranslatableInterface" troubleshooting entry
@@ -120,7 +119,7 @@ private ?Category $category = null;
   `BidirectionalOneToOneHandler`, and `BidirectionalOneToManyHandler` (bidirectional
   `ManyToOne`/`OneToOne`/`OneToMany`); `BidirectionalManyToManyHandler` and
   `UnidirectionalManyToManyHandler` (`ManyToMany` in either direction); and
-  `TranslatableEntityHandler` (v4.0), the catch-all for a *unidirectional*
+  `TranslatableEntityHandler`, the catch-all for a *unidirectional*
   `ManyToOne`/`OneToOne` — no `inversedBy`/`mappedBy` — which none of the other five handle
 - **Symptom:** Translation fails completely when processing this field
 - **Fix options:**
@@ -129,7 +128,7 @@ private ?Category $category = null;
      keep a value actually shared across locales, for every association shape (`ManyToOne`,
      `OneToOne`, `OneToMany`, `ManyToMany`), bidirectional or not. Removing `inversedBy`/`mappedBy`
      from a to-one relation does **not** avoid the `RuntimeException` — it just moves which
-     handler throws it, from a bidirectional handler to `TranslatableEntityHandler` (v4.0).
+     handler throws it, from a bidirectional handler to `TranslatableEntityHandler`.
      `OneToMany` (`mappedBy` is intrinsic to how the bundle recognizes the relation) and
      `ManyToMany` (`UnidirectionalManyToManyHandler` rejects the attribute too, in either
      direction) have no unidirectional form to fall back to at all.
@@ -145,13 +144,13 @@ private ?Category $category = null;
 
 **What to look for:** `#[EmptyOnTranslate]` on non-nullable fields
 
-**v2.0 behavior:** Non-nullable scalar fields (string, int, float, bool) now get type-safe defaults instead of throwing LogicException:
+**Behaviour:** Non-nullable scalar fields (string, int, float, bool) get type-safe defaults instead of throwing LogicException:
 - `string` -> `""`
 - `int` -> `0`
 - `float` -> `0.0`
 - `bool` -> `false`
 
-**Still invalid in v2.0:**
+**Still invalid:**
 ```php
 // INVALID - LogicException (non-nullable object)
 #[EmptyOnTranslate]
@@ -296,15 +295,15 @@ doctrine:
 
 **How to check:**
 ```php
-// v2.1 recommended: auto-persist convenience methods
+// recommended: auto-persist convenience methods
 $translated = $entityTranslator->translateAndPersist($source, 'fr');
 $entityManager->flush();
 
-// v2.1 find-or-create: returns existing or creates + persists new
+// find-or-create: returns existing or creates + persists new
 $translated = $entityTranslator->getOrTranslate($source, 'fr');
 $entityManager->flush();
 
-// Manual (v2.0 pattern):
+// Manual:
 $translated = $entityTranslator->translate($source, 'fr');
 $entityManager->persist($translated);  // Required!
 $entityManager->flush();
@@ -314,7 +313,7 @@ $entityManager->flush();
 - **Severity:** INFO
 - **Error:** No error during translation
 - **Symptom:** Translation not in database
-- **Reminder:** `translate()` creates a NEW entity that must be persisted. Use `translateAndPersist()` or `getOrTranslate()` (v2.1) to auto-persist.
+- **Reminder:** `translate()` creates a NEW entity that must be persisted. Use `translateAndPersist()` or `getOrTranslate()` to auto-persist.
 - **llms.md:** See "Translations Not Persisted" troubleshooting entry
 
 ### Check 4.4: Collection Translation Duplicates
@@ -352,16 +351,14 @@ var_dump($translation->getChildren()->first()->getLocale());      // must be 'de
 - **Cause:** A collection handler's `supports()` is not matching. The value of a to-many property is
   the `Collection`, not the owning entity — a custom handler guarding on `instanceof
   TranslatableInterface` will never match and silently drops out of the chain.
-- **Note:** the bundle's own three collection handlers had exactly this bug before **v3.0.0**. On
-  an older version, upgrade rather than working around it.
 - **Fix:** Guard on `instanceof Collection` in the custom handler, and confirm its tag priority puts
   it ahead of any broader handler.
 
 ---
 
-## Layer 5: Compile-Time Validation (v2.0)
+## Layer 5: Compile-Time Validation
 
-These checks verify v2.0 compile-time validation results.
+These checks verify the bundle's compile-time validation results.
 
 ### Check 5.1: Attribute Conflicts (AttributeValidationPass)
 
@@ -399,20 +396,7 @@ bin/console cache:warmup
 - **Fix:** Replace `unique: true` with composite `#[ORM\UniqueConstraint]` including locale
 - **llms.md:** See "Compile-Time Validation" section
 
-### Check 5.3: v1.x Config Migration
-
-**What to look for:** Removed v1.x config keys that throw LogicException
-
-**How to check:** Look for these in config/packages/tmi_translation.yaml:
-- `tmi_translation.locales` -> removed, use `framework.enabled_locales`
-- `tmi_translation.logging.enabled` -> use `tmi_translation.enable_logging: true`
-
-**If found:**
-- **Severity:** BLOCKING
-- **Error:** LogicException with migration guidance
-- **Fix:** Follow the error message guidance or see UPGRADING.md
-
-### Check 5.4: `strict_discovery` (v4.0)
+### Check 5.3: `strict_discovery`
 
 **What to look for:** A compile-time failure mentioning `tmi_translation.strict_discovery`.
 
@@ -438,20 +422,20 @@ from a logged message into a hard `LogicException`.
 
 ---
 
-## Layer 6: Tuuid Linkage Integrity (v2.2) & Removal Semantics (v4.0)
+## Layer 6: Tuuid Linkage Integrity & Removal Semantics
 
 This layer inspects *data*, not configuration — broken linkage between locale rows.
 
 ### Check 6.1: Run the doctor command
 
 **What to look for:** Locale rows that share no `Tuuid`, incomplete translation sets,
-duplicate `(tuuid, locale)` pairs, or (v4.0) a literal database `NULL` in the `tuuid` column.
+duplicate `(tuuid, locale)` pairs, or a literal database `NULL` in the `tuuid` column.
 
 **How to check:**
 
 ```bash
 php bin/console tmi:translation:doctor
-php bin/console tmi:translation:doctor --entity="App\Entity\Product"   # v4.0: restrict to one class
+php bin/console tmi:translation:doctor --entity="App\Entity\Product"   # restrict to one class
 ```
 
 **Interpreting the output:**
@@ -463,9 +447,9 @@ php bin/console tmi:translation:doctor --entity="App\Entity\Product"   # v4.0: r
 - **Incomplete translations** — a `Tuuid` with fewer locale rows than configured locales. The
   entity simply has not been translated into every locale yet.
 - **Duplicate `(tuuid, locale)` pairs** — two rows claiming to be the same locale variant.
-- **`null-tuuid` (v4.0)** — the `tuuid` column itself is a literal database `NULL`. As of v4.0
-  the column is `NOT NULL`, so this only happens through a write that bypassed the entity
-  layer entirely (a raw INSERT, or a row left over from before the v4 schema migration).
+- **`null-tuuid`** — the `tuuid` column itself is a literal database `NULL`. The column is
+  mapped `NOT NULL`, so this only happens through a write that bypassed the entity layer
+  entirely (a raw INSERT, or a row imported from another system).
 
 **Severity:** ERROR (standalone, duplicate, null-tuuid) / INFO (incomplete).
 
@@ -491,12 +475,12 @@ php bin/console tmi:translation:sync-shared --check     # CI gate: exit non-zero
 
 The command copies every `#[SharedAmongstTranslations]` value from the default-locale row to
 its siblings — mapped columns, embedded fields whose sharing is declared on the embeddable
-class or on an inner property, and (v4.1) to-one associations to a non-translatable target.
+class or on an inner property, and to-one associations to a non-translatable target.
 `readonly` shared properties cannot be written after hydration: the command lists them and
 exits non-zero instead of writing, so a non-zero exit with a "readonly shared value(s)"
 warning means those rows need manual or DB-level correction. **Severity:** WARNING.
 
-**Repair a record edited in a NON-default locale (v4.1):** the whole-table write mode copies the
+**Repair a record edited in a NON-default locale:** the whole-table write mode copies the
 default-locale row and would overwrite the edit. Name the record and the row instead:
 
 ```bash
@@ -508,7 +492,7 @@ For a scheduled watch on production, `SharedDriftScanner::scan($class)` (alias
 `tmi_translation.doctrine.shared_drift_scanner`) streams the same drift as `--check`, one
 `SharedDrift` per row and property, without console-output parsing.
 
-**Prevent recurrence (v4.1):** if the drift came from an edit made on one locale row after the
+**Prevent recurrence:** if the drift came from an edit made on one locale row after the
 translations existed (a form bound to the admin's UI-locale row, an import), enable
 `tmi_translation.propagate_shared_on_flush: true` — a shared change on *any* variant is then
 copied onto every sibling inside the same `flush()`, and two variants flushed with different
@@ -527,7 +511,7 @@ when `kernel.debug` is on. For production safety prefer explicit logging or stri
 
 **Severity:** INFO.
 
-### Check 6.4: Removal leaves sibling locale variants online (v4.0)
+### Check 6.4: Removal leaves sibling locale variants online
 
 **What to look for:** Code that calls `$em->remove($entity)` directly on a translatable
 entity, or a hand-rolled `findBy(['tuuid' => ...])` loop before removing.
@@ -547,16 +531,15 @@ $em->flush();
   `removeAllLocaleVariants($entity)` (every sibling, `$entity` included) or
   `removeSingleLocaleVariant($entity)` (just this one), then `flush()` once. To make every
   plain `$em->remove()` cascade automatically, set `cascade_remove_locale_variants: true`.
-- **llms.md:** See "Removal Semantics (v4)" and the "Deleted Entity Still Served in Another
+- **llms.md:** See "Removal Semantics" and the "Deleted Entity Still Served in Another
   Locale" troubleshooting entry.
 
-**Related, both fixed by the v4.0 upgrade itself (nothing to change in application code):**
-- **Duplicate variant on every `translate()` call under an active locale filter** — before
-  v4.0, the existing-variant lookup queried through the entity's own repository, which the
-  filter silently rewrote into a query that could never match.
-- **Detached entity duplicated during an import** (`$em->clear()` between batches) — before
-  v4.0, a cache hit surviving `clear()` was handed back as reusable and re-inserted as a new
-  row by `persist()`.
+**Related, both handled by the bundle (nothing to change in application code):**
+- **Duplicate variant from a cross-locale lookup under an active locale filter** — the bundle's
+  own lookups go through `LocaleVariantFinder`, which suspends the filter; only a hand-rolled
+  repository query can still hit the contradiction.
+- **Detached entity duplicated during an import** (`$em->clear()` between batches) — a cache hit
+  the `UnitOfWork` no longer tracks is treated as a miss, not re-inserted by `persist()`.
 
 ---
 
@@ -590,14 +573,13 @@ LAYER 4: Runtime Configuration
   [ ] Doctrine filter enabled
   [X] Persistence reminders noted
 
-LAYER 5: Compile-Time Validation (v2.0)
+LAYER 5: Compile-Time Validation
   [X] No attribute conflicts
   [X] No single-column unique constraints
-  [X] No removed v1.x config keys
-  [X] strict_discovery not tripped (v4.0)
+  [X] strict_discovery not tripped
 
-LAYER 6: Tuuid Linkage Integrity (v2.2) & Removal Semantics (v4.0)
-  [X] tmi:translation:doctor reports no anomalies (incl. null-tuuid, v4.0)
+LAYER 6: Tuuid Linkage Integrity & Removal Semantics
+  [X] tmi:translation:doctor reports no anomalies (incl. null-tuuid)
   [X] Shared values in sync across locale variants
   [X] strict_orphan_check configured
   [X] Deletions go through TranslatableRemover, not a plain $em->remove()

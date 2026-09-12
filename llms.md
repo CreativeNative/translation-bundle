@@ -13,23 +13,23 @@ guide behaviour.
 - **Performance.** Every query-cost number this guide states is an exact assertion
   (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php).
   `find()` under the active locale filter costs 1 query; `translate()` into an
-  already-existing variant costs 1 query and 0 inserts. See [Performance (v4.0)](#performance-v40)
+  already-existing variant costs 1 query and 0 inserts. See [Performance](#performance)
   for the full table.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **730 tests, 6,723 assertions**, all green.
+  `failOnDeprecation`). As of this release: **798 tests, 6,935 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
 Key components:
-- `EntityTranslator` -- central translation orchestrator; also the `preload()` entry point for batch imports (v4.0).
+- `EntityTranslator` -- central translation orchestrator; also the `preload()` entry point for batch imports.
 - `Handlers` -- classes that manage translation of entities, embeddables, collections etc.
 - `PropertyAccessor` -- used to read/write object properties generically.
-- `TranslationContext` -- abstract base of the two typed containers holding the context of a translation operation, `EntityTranslationContext`/`PropertyTranslationContext` (v4.0; replaces the single `TranslationArgs` DTO).
-- `AttributeHelper` -- utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`; memoizes per class::property::attribute (v4.0).
-- `LocaleVariantFinder` (v4.0) -- the one place that queries across every locale variant of a Tuuid, filter-suspended.
-- `TranslatableRemover` (v4.0) -- removes a Tuuid's sibling locale variants together, or exactly one while leaving its siblings.
+- `TranslationContext` -- abstract base of the two typed containers holding the context of a translation operation, `EntityTranslationContext`/`PropertyTranslationContext`.
+- `AttributeHelper` -- utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`; memoizes per class::property::attribute.
+- `LocaleVariantFinder` -- the one place that queries across every locale variant of a Tuuid, filter-suspended.
+- `TranslatableRemover` -- removes a Tuuid's sibling locale variants together, or exactly one while leaving its siblings.
 
 ---
 
@@ -192,7 +192,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 #### 2. Shared Fields (#[SharedAmongstTranslations])
 - Fields or embeddables whose value is copied from the source when a translation is created.
 - Scalar and association fields reference the same object instance at translate time. Embeddables are the exception: `EmbeddedHandler` always returns a clone (never the source instance) — the clone's property values match the source, so persisted data is identical, but each locale still holds its own embeddable object.
-- **Copy-on-translate by default, flush-time invariant on request**: with `propagate_shared_on_flush: false` (the 4.x default) editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale); `tmi:translation:sync-shared` reconciles and `--check` gates CI on drift. With `propagate_shared_on_flush: true` (v4.1) a change on *any* variant is copied onto every sibling inside the same `flush()` by `SharedValuePropagationListener` — see "Shared-Value Propagation (v4.1)" below.
+- **Copy-on-translate by default, flush-time invariant on request**: with `propagate_shared_on_flush: false` (the default) editing the field on one locale variant afterwards diverges it silently (deliberately — consumers may vary such values per locale); `tmi:translation:sync-shared` reconciles and `--check` gates CI on drift. With `propagate_shared_on_flush: true` a change on *any* variant is copied onto every sibling inside the same `flush()` by `SharedValuePropagationListener` — see "Shared-Value Propagation" below.
 - If the attribute is on the embeddable, the whole object's values are shared (each locale still gets its own cloned instance). The class-level form is honoured on **embeddables only**: on an entity class the attribute is inert — `translate()`, `sync-shared` and the flush-time propagation read it per property.
 - If the attribute is on properties within an embeddable, only those properties' values are shared; others may still be cloned/reset.
 - Intentionally inert on a class that does not implement `TranslatableInterface`: nothing reads the attribute outside the translate() pipeline, so a trait shared between translatable and non-translatable classes (e.g. a `GeoLocatableTrait` mixed into both) can carry it on a property with no effect on the classes that merely reuse the trait.
@@ -211,7 +211,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 1. #[SharedAmongstTranslations] → wins over the default cloning behaviour (it cannot co-exist with #[EmptyOnTranslate] on the same property).
 2. #[EmptyOnTranslate] → clears the value.
 3. Otherwise → default translation cloning behavior.
-4. If `copy_source: false` (v2.0 default) and field has #[EmptyOnTranslate]: type-safe defaults used instead of null for non-nullable types.
+4. If `copy_source: false` (the default) and field has #[EmptyOnTranslate]: type-safe defaults used instead of null for non-nullable types.
 
 ---
 
@@ -233,15 +233,15 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Responsible for initiating translation: taking a source object + sourceLocale + targetLocale, and returning the translated object.
 - Internally delegates to appropriate handler(s) depending on object type (entity vs embeddable vs collection).
 - Ensures metadata (locale property, Tuuid) is set correctly.
-- Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached, and nothing is logged. `TranslatableEventSubscriber`'s own `prePersist`/`postLoad` normalise an entity's locale before `translate()` is ever consulted, so `translate($entity, $entity->getLocale())` is the call shape every flush makes -- not usually, always. (v3.x had four `EntityTranslator` lifecycle hooks -- `afterLoad`/`beforePersist`/`beforeUpdate`/`beforeRemove` -- that existed to intercept exactly this identity call; v4.0 removed them because every single invocation, on every flush, was a no-op.)
-- Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]`'s job — via `propagate_shared_on_flush` (v4.1) or `tmi:translation:sync-shared` — not `translate()`'s.
+- Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached, and nothing is logged. `TranslatableEventSubscriber`'s own `prePersist`/`postLoad` normalise an entity's locale before `translate()` is ever consulted, so `translate($entity, $entity->getLocale())` is the call shape every flush makes -- not usually, always. Because that call is a guaranteed no-op, the bundle installs no `EntityTranslator` lifecycle hook to intercept it: reading and flushing a translatable entity costs nothing beyond ordinary Doctrine work.
+- Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]`'s job — via `propagate_shared_on_flush` or `tmi:translation:sync-shared` — not `translate()`'s.
 - `#[EmptyOnTranslate]` on a **collection** property is emptied by its handler (a fresh empty collection). Only non-collection, non-nullable properties fall back to `TypeDefaultResolver`.
 
 ### Translation Handlers
 
-All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/TranslationHandlerInterface.php), which defines two methods, both taking a typed [`TranslationContext`](src/Translation/Context/TranslationContext.php) (v4.0 — `EntityTranslationContext` or `PropertyTranslationContext`; replaces the four-method `TranslationArgs` contract):
+All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/TranslationHandlerInterface.php), which defines two methods, both taking a typed [`TranslationContext`](src/Translation/Context/TranslationContext.php) (`EntityTranslationContext` or `PropertyTranslationContext`):
 - `supports(TranslationContext $context): bool` — Determines if the handler can process the data.
-- `translate(TranslationContext $context): mixed` — Performs the actual translation logic. `EntityTranslator` resolves `#[SharedAmongstTranslations]`/`#[EmptyOnTranslate]` from the property's attributes *before* dispatch and stamps the answer onto the context (`$context->isShared()`/`isEmpty()`); a handler branches on those at the top of `translate()` for the cases the old `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()` methods used to cover.
+- `translate(TranslationContext $context): mixed` — Performs the actual translation logic. `EntityTranslator` resolves `#[SharedAmongstTranslations]`/`#[EmptyOnTranslate]` from the property's attributes *before* dispatch and stamps the answer onto the context (`$context->isShared()`/`isEmpty()`); a handler branches on those two booleans at the top of `translate()` to cover the shared and empty cases.
 
 ---
 
@@ -311,8 +311,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
     - `translate()`:
         - `isShared()` — Throws exception; unsupported.
         - `isEmpty()` — Returns an empty `ArrayCollection`.
-        - Otherwise — Hands the whole child collection to `EntityTranslatorInterface::preload()` once (one batched query per child class, v4.0), then iterates the collection: translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`. **v4.0:** before adding a translated child or repairing its back-reference, checks whether the translator handed back the very same child instance *and* that instance is still at the source locale — the cycle-guard fallback `EntityTranslator::processTranslation()` returns when the child's own (tuuid, locale) is already mid-translation higher up this same call (the ordinary shape: translating a child recurses into its bidirectional `ManyToOne` parent, which recurses back into this very collection and finds the same child still in progress). That instance is skipped outright — not added, back-reference untouched — instead of mutating the source child's own FK. A same-instance return that *already* carries the target locale is a genuine existing translation, not the guard, and is still added and re-pointed as before.
-- **Notes:** Maintains bidirectional integrity, ensures clones are used, integrates with `EntityTranslator`. **v4.0:** the upfront `preload()` call turns *K* already-translated children into one query per class instead of one per child — see [Performance (v4.0)](#performance-v40). The cycle-guard fallback above means the translated parent's collection is missing an in-progress child until a reload — never data loss: that collection is never persisted on its own (Doctrine writes the child's own `ManyToOne` FK), and Doctrine does not retroactively complete an inverse collection from a FK write that went through a different entity instance.
+        - Otherwise — Hands the whole child collection to `EntityTranslatorInterface::preload()` once (one batched query per child class), then iterates the collection: translates each child recursively, sets inverse property to maintain bidirectional consistency, returns translated `ArrayCollection`. Before adding a translated child or repairing its back-reference, checks whether the translator handed back the very same child instance *and* that instance is still at the source locale — the cycle-guard fallback `EntityTranslator::processTranslation()` returns when the child's own (tuuid, locale) is already mid-translation higher up this same call (the ordinary shape: translating a child recurses into its bidirectional `ManyToOne` parent, which recurses back into this very collection and finds the same child still in progress). That instance is skipped outright — not added, back-reference untouched — instead of mutating the source child's own FK. A same-instance return that *already* carries the target locale is a genuine existing translation, not the guard, and is still added and re-pointed as before.
+- **Notes:** Maintains bidirectional integrity, ensures clones are used, integrates with `EntityTranslator`. The upfront `preload()` call turns *K* already-translated children into one query per class instead of one per child — see [Performance](#performance). The cycle-guard fallback above means the translated parent's collection is missing an in-progress child until a reload — never data loss: that collection is never persisted on its own (Doctrine writes the child's own `ManyToOne` FK), and Doctrine does not retroactively complete an inverse collection from a FK write that went through a different entity instance.
 
 ---
 
@@ -339,8 +339,8 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
     - `translate()`:
         - `isShared()` — Throws exception if `#[SharedAmongstTranslations]` is present (the common case, since `EntityTranslator` only sets `isShared()` when it is); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
         - `isEmpty()` — Best-effort clears the target collection on the translated parent, and returns an empty `ArrayCollection`.
-        - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class, v4.0), then builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries. Before recursing into an item, its own back-reference collection is detached (set to a fresh empty one, restored in a `finally`) — this alone already defeats a same-property, two-class recursion; a genuine cycle still reaches this handler whenever the item's own tuuid is independently mid-translation through some *other* path in the graph by the time this loop's `translate()` call reaches it. **v4.0:** when `translate()` hands back that very same item instance *still at the source locale* (the cycle-guard fallback), the item is skipped outright — no add, no back-reference write — instead of writing the translated owner into the source item's own back-reference collection (a join row crossing locales). A same-instance return already at the target locale is a genuine existing translation, not the guard, and is still added and re-pointed as before.
-- **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`. **v4.0:** the upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance (v4.0)](#performance-v40). The cycle-guard fallback above means the translated owner's collection is missing an in-progress item until a reload — never data loss: the join table is written from the item's own owning-side field, not from this collection, and Doctrine does not retroactively complete an inverse collection either.
+        - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class), then builds a new collection of translated related entities and points each one back at the translated owner (via `mappedBy`, or `inversedBy` when the translated entity owns the relation). The back-reference is added, never replaced, and the source entities are left untouched. Avoids duplicate entries. Before recursing into an item, its own back-reference collection is detached (set to a fresh empty one, restored in a `finally`) — this alone already defeats a same-property, two-class recursion; a genuine cycle still reaches this handler whenever the item's own tuuid is independently mid-translation through some *other* path in the graph by the time this loop's `translate()` call reaches it. When `translate()` hands back that very same item instance *still at the source locale* (the cycle-guard fallback), the item is skipped outright — no add, no back-reference write — instead of writing the translated owner into the source item's own back-reference collection (a join row crossing locales). A same-instance return already at the target locale is a genuine existing translation, not the guard, and is still added and re-pointed as before.
+- **Notes:** Maintains bidirectional integrity, ensures cloned translations do not affect originals, integrates with `EntityTranslator`. The upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance](#performance). The cycle-guard fallback above means the translated owner's collection is missing an in-progress item until a reload — never data loss: the join table is written from the item's own owning-side field, not from this collection, and Doctrine does not retroactively complete an inverse collection either.
 
 ---
 
@@ -353,15 +353,15 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
   - `translate()`:
     - `isShared()` — Throws a `RuntimeException` if `#[SharedAmongstTranslations]` is applied (unsupported); otherwise falls through to the same collection-translation logic as the default case, via a private `translateCollection()` helper (calling `translate()` again would re-enter this same branch).
     - `isEmpty()` — Returns a new empty `ArrayCollection`.
-    - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class, v4.0 — `preload()` ignores non-translatable items on its own, so a mixed collection is safe to hand it whole), then translates each item in the collection:
+    - Otherwise — Hands the whole collection to `EntityTranslatorInterface::preload()` once (one batched query per item class — `preload()` ignores non-translatable items on its own, so a mixed collection is safe to hand it whole), then translates each item in the collection:
       - `TranslatableInterface` items are translated for the target locale using `EntityTranslator`; every other item (plain entities such as tags or categories, the most common shape for a unidirectional ManyToMany — plus any item when no target locale is available) is added to the result **as-is**, not dropped.
-      - **v4.0:** when `translate()` hands back the very same item instance *still at the source locale* (the cycle-guard fallback — see `EntityTranslator::processTranslation()`'s in-progress check), the item is skipped rather than added. Unlike the two bidirectional handlers there is no back-reference to corrupt here (a unidirectional association has none), but adding it unchanged would still persist a join row linking the translated owner to the untranslated, source-locale item. A same-instance return already at the target locale is a genuine existing translation, not the guard, and is still added.
+      - When `translate()` hands back the very same item instance *still at the source locale* (the cycle-guard fallback — see `EntityTranslator::processTranslation()`'s in-progress check), the item is skipped rather than added. Unlike the two bidirectional handlers there is no back-reference to corrupt here (a unidirectional association has none), but adding it unchanged would still persist a join row linking the translated owner to the untranslated, source-locale item. A same-instance return already at the target locale is a genuine existing translation, not the guard, and is still added.
       - Collects them into a **new** `ArrayCollection`, preventing duplicates (same instance check for both translated and passed-through items).
       - Never clears the collection currently held by the translated parent — a clone shares that instance with the source entity, so clearing it would wipe the source association. The caller assigns the returned collection.
 - **Notes:**
   - Ensures safe translation of unidirectional ManyToMany relations without affecting the original collection.
   - Maintains Doctrine collection integrity while cloning translated items.
-  - **v4.0:** the upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance (v4.0)](#performance-v40).
+  - The upfront `preload()` call turns *K* already-translated items into one query per class instead of one per item — see [Performance](#performance).
   - The cycle-guard fallback above means the translated owner's collection is missing an in-progress item until a reload — this is never data loss: the join table is written from the owner's own owning-side field, not from this in-memory collection.
   - Prevents shared translation attributes from being misused on unidirectional relations.
   - Non-translatable items in the collection are preserved rather than silently dropped — mirrors `BidirectionalManyToManyHandler`'s pass-through behaviour for the same case.
@@ -371,14 +371,14 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### [TranslatableEntityHandler](src/Translation/Handlers/TranslatableEntityHandler.php)
 - **Purpose:** Handles **entities implementing `TranslatableInterface`**.
 - **Priority:** 20
-- **Dependencies:** `DoctrineObjectHandler`, `AttributeHelper`. (v4.0: no longer `LocaleVariantFinder` — see below.)
+- **Dependencies:** `DoctrineObjectHandler`, `AttributeHelper`.
 - **Methods:**
     - `supports()` — Returns true when the context is an `EntityTranslationContext`.
     - `translate()`:
-        - `isShared()` — Throws a `RuntimeException` naming the property and class (v4.0). This is the catch-all for a *unidirectional* `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`): none of the five dedicated association handlers' `supports()` match that shape, so a `#[SharedAmongstTranslations]` association whose target is itself translatable reaches this handler untreated — it is rejected here instead of being silently translated. The bidirectional handlers above never delegate to this one while shared (their own `translate()` branches on `isShared()` first), so this branch only ever fires on the direct/unidirectional path.
+        - `isShared()` — Throws a `RuntimeException` naming the property and class. This is the catch-all for a *unidirectional* `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`): none of the five dedicated association handlers' `supports()` match that shape, so a `#[SharedAmongstTranslations]` association whose target is itself translatable reaches this handler untreated — it is rejected here instead of being silently translated. The bidirectional handlers above never delegate to this one while shared (their own `translate()` branches on `isShared()` first), so this branch only ever fires on the direct/unidirectional path.
         - `isEmpty()` — Returns `null`.
-        - Otherwise — Clones the entity itself (`$clone = clone $data`) and delegates only the property translation to `DoctrineObjectHandler::translateProperties($subContext)` — the clone is not `DoctrineObjectHandler`'s to make. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations (v2.1).
-- **Notes:** Integrates entity-level and property-level translation. Since v2.1, callers no longer need to manually reset auto-generated IDs on cloned translations. **v4.0:** no longer checks for an existing target-locale variant itself — `EntityTranslator::processTranslation()` resolves that exactly once, via its own `preload()`-then-cache-check, before dispatching to *any* handler (see that method's docblock). This handler is reached only (a) from `EntityTranslator::runHandlers()`, always after that check ran for the same subject, or (b) from `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler`, themselves reached the same way for the same subject. Calling `translate()` any other way — bypassing `EntityTranslatorInterface::translate()`/`processTranslation()` — skips the check entirely and always clones, minting a duplicate row for a Tuuid that already has a variant in the target locale. A shared association to a **non**-translatable target never reaches this handler at all — the property value is not a `TranslatableInterface`, so `DoctrineObjectHandler::translateProperties()` never wraps it in an `EntityTranslationContext`, and it resolves through `DoctrineObjectHandler`'s own `isShared()` branch instead, returning the identical instance.
+        - Otherwise — Clones the entity itself (`$clone = clone $data`) and delegates only the property translation to `DoctrineObjectHandler::translateProperties($subContext)` — the clone is not `DoctrineObjectHandler`'s to make. Automatically resets generated IDs (`#[ORM\Id]` + `#[ORM\GeneratedValue]`) on cloned translations.
+- **Notes:** Integrates entity-level and property-level translation; callers never need to reset auto-generated IDs on cloned translations themselves. It does **not** check for an existing target-locale variant itself — `EntityTranslator::processTranslation()` resolves that exactly once, via its own `preload()`-then-cache-check, before dispatching to *any* handler (see that method's docblock). This handler is reached only (a) from `EntityTranslator::runHandlers()`, always after that check ran for the same subject, or (b) from `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler`, themselves reached the same way for the same subject. Calling `translate()` any other way — bypassing `EntityTranslatorInterface::translate()`/`processTranslation()` — skips the check entirely and always clones, minting a duplicate row for a Tuuid that already has a variant in the target locale. A shared association to a **non**-translatable target never reaches this handler at all — the property value is not a `TranslatableInterface`, so `DoctrineObjectHandler::translateProperties()` never wraps it in an `EntityTranslationContext`, and it resolves through `DoctrineObjectHandler`'s own `isShared()` branch instead, returning the identical instance.
 
 ---
 
@@ -400,12 +400,12 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 #### Notes for Handlers
 - Handlers can be extended or replaced to implement custom translation logic.
 - `AttributeHelper` is used throughout to detect Doctrine mapping types (`OneToMany`, `ManyToOne`, `Embedded`, `Id`, `OneToOne`, etc.).
-- `TranslationContext` (abstract base of `EntityTranslationContext`/`PropertyTranslationContext`, v4.0 — replaces `TranslationArgs`) encapsulates:
+- `TranslationContext` (abstract base of `EntityTranslationContext`/`PropertyTranslationContext`) encapsulates:
     - the subject being translated: `getSubject()` (mixed, either shape) plus the typed accessor for the concrete class — `getEntity(): TranslatableInterface` or `getValue(): mixed`
     - `sourceLocale` / `targetLocale`
     - `translatedParent` (for bidirectional associations)
     - `property` (ReflectionProperty being translated)
-    - `isShared()` / `isEmpty()` — attribute facts `EntityTranslator` resolves before dispatch, replacing the two removed interface methods
+    - `isShared()` / `isEmpty()` — attribute facts `EntityTranslator` resolves before dispatch
 - `EntityTranslatorInterface` orchestrates recursive property translation, delegating to appropriate handlers.
 
 ---
@@ -414,7 +414,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 
 ### [TranslationCacheInterface](src/Translation/Cache/TranslationCacheInterface.php)
 
-Abstraction for translation caching and circular-reference detection. Replaces the internal `$translationCache` and `$inProgress` arrays from v1.x EntityTranslator.
+Abstraction for translation caching and circular-reference detection.
 
 **Interface methods:**
 - `get(string $tuuid, string $locale): TranslatableInterface|null` -- Get cached translation
@@ -425,22 +425,21 @@ Abstraction for translation caching and circular-reference detection. Replaces t
 
 `EntityTranslator` always clears the in-progress mark in a `finally`, so a failing handler cannot leave a stale mark behind. A cache hands back managed instances or null; a custom implementation backed by a persistent store must reload through the `EntityManager` with the locale filter suspended -- in-progress markers are per-process by definition and are never expected to outlive the request that set them.
 
-**Identity-safe across `EntityManager::clear()` (v4.0):** a cache hit is only ever handed back
+**Identity-safe across `EntityManager::clear()`:** a cache hit is only ever handed back
 when `$entityManager->getUnitOfWork()->getEntityState($cached)` is not `STATE_DETACHED`.
-Before v4.0, a hit that survived a `clear()` call (import batches, long-running workers) was
-still treated as reusable even though the `UnitOfWork` no longer tracked it --
-`getOrTranslate()`'s `persist()` call then re-inserted that detached instance as a brand-new
-row instead of reusing the existing one, silently, no exception. A detached hit is now a miss:
-it falls through to a fresh lookup, which reloads (or reuses) a managed instance and
-overwrites the stale cache entry.
+A hit that survived a `clear()` call (import batches, long-running workers) must not be treated
+as reusable -- the `UnitOfWork` no longer tracks it, so `getOrTranslate()`'s `persist()` call
+would re-insert that detached instance as a brand-new row instead of reusing the existing one,
+silently, no exception. A detached hit is therefore a miss: it falls through to a fresh lookup,
+which reloads (or reuses) a managed instance and overwrites the stale cache entry.
 
-**No `has()` on the contract:** `TranslationCacheInterface` deliberately has no existence check besides `get()`. A `has()` the bundle shipped up to v3.3.0 was removed in v3.4.0, because on a persistent backend key presence proves nothing: a row deleted since it was cached, or an entry written in an older format, leaves the key behind while the entry no longer loads -- exactly the v3.2.1 trap (see Revision History), where a check-then-get let that gap surface as a `TypeError` in production. The one reliable check is `get() !== null`, which also costs one pool round-trip instead of two. A custom cache implementation that still declares a `has()` method keeps working (an extra public method is harmless) -- just delete it.
+**No `has()` on the contract:** `TranslationCacheInterface` deliberately has no existence check besides `get()`. On a persistent backend key presence proves nothing: a row deleted since it was cached, or an entry written in an older format, leaves the key behind while the entry no longer loads, and a check-then-get pattern lets that gap surface as a `TypeError`. The one reliable check is `get() !== null`, which also costs one pool round-trip instead of two. A custom cache implementation that declares a `has()` method of its own keeps working (an extra public method is harmless) -- the bundle simply never calls it.
 
 ### Default Implementation: InMemoryTranslationCache
 
-Stores translations in PHP arrays, scoped to the current request. Registered as the default and only bundled implementation; the interface is aliased to it and there is no other option to switch to via configuration (v4.0 removed the bundled `Psr6TranslationCache` -- see Revision History). It also implements `ResetInterface`, tagged `kernel.reset` explicitly in `services.yaml` (Symfony does not autoconfigure that tag): a long-running worker (a Messenger consumer, `services_resetter`) resets the cache between units of work instead of handing a later one an entity an earlier one cached -- and possibly, since, detached.
+Stores translations in PHP arrays, scoped to the current request. Registered as the default and only bundled implementation; the interface is aliased to it and there is no other option to switch to via configuration. It also implements `ResetInterface`, tagged `kernel.reset` explicitly in `services.yaml` (Symfony does not autoconfigure that tag): a long-running worker (a Messenger consumer, `services_resetter`) resets the cache between units of work instead of handing a later one an entity an earlier one cached -- and possibly, since, detached.
 
-A cache hands back managed instances or null, never a detached or stale one. `InMemoryTranslationCache` never outlives the request, but it can still hold an instance that `EntityManager::clear()` has detached since it was cached. `EntityTranslator` therefore checks every hit against the UnitOfWork (`getEntityState()` without an assumed state) and treats a `STATE_DETACHED` hit as a miss, reloading through `LocaleVariantFinder` instead of handing back an instance that `persist()` would re-insert as a new row (v4.0, identity-safe cache). A persistent, cross-request implementation (Redis, filesystem, ...) is possible via a custom `TranslationCacheInterface` -- see below -- but it must reload the entity through the `EntityManager` on every hit, with the locale filter suspended, rather than serializing the entity itself: a serialized Doctrine entity carries dead proxy/EntityManager references across requests or processes, and reloading also lets a row deleted since it was cached resolve to a clean miss instead of a stale object.
+A cache hands back managed instances or null, never a detached or stale one. `InMemoryTranslationCache` never outlives the request, but it can still hold an instance that `EntityManager::clear()` has detached since it was cached. `EntityTranslator` therefore checks every hit against the UnitOfWork (`getEntityState()` without an assumed state) and treats a `STATE_DETACHED` hit as a miss, reloading through `LocaleVariantFinder` instead of handing back an instance that `persist()` would re-insert as a new row. A persistent, cross-request implementation (Redis, filesystem, ...) is possible via a custom `TranslationCacheInterface` -- see below -- but it must reload the entity through the `EntityManager` on every hit, with the locale filter suspended, rather than serializing the entity itself: a serialized Doctrine entity carries dead proxy/EntityManager references across requests or processes, and reloading also lets a row deleted since it was cached resolve to a clean miss instead of a stale object.
 
 ### Custom Implementation
 
@@ -474,11 +473,11 @@ Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface:
 
 ---
 
-## Type-Safe Defaults (v2.0)
+## Type-Safe Defaults
 
 ### [TypeDefaultResolver](src/Translation/TypeDefaultResolver.php)
 
-Resolves default values for non-nullable properties marked with `#[EmptyOnTranslate]`. Eliminates the v1.x requirement that EmptyOnTranslate fields must be nullable.
+Resolves default values for non-nullable properties marked with `#[EmptyOnTranslate]`. An `#[EmptyOnTranslate]` property therefore does not have to be nullable.
 
 **Resolution rules:**
 | Type | Default Value |
@@ -548,13 +547,13 @@ Property has #[EmptyOnTranslate]?
 
 ### Global Configuration
 
-Controls whether new translations start with cloned source content (v1.x behavior) or type-safe defaults:
+Controls whether new translations start with cloned source content or type-safe defaults:
 
 ```yaml
 # config/packages/tmi_translation.yaml
 tmi_translation:
     copy_source: false  # Default: new translations start empty with defaults
-    # copy_source: true  # v1.x behavior: clone source content into new translation
+    # copy_source: true  # clone the source content into the new translation
 ```
 
 ### Per-Entity Override
@@ -595,7 +594,7 @@ class Page implements TranslatableInterface { ... }
 With `copy_source: false` a new variant is seeded empty — including fields the application
 treats as mandatory (name, slug), which collide on `(slug, locale)` unique keys and can leak
 placeholders to public URLs when published untouched. The supported seam is a listener on
-`PostTranslateEvent` — there is no `TranslateEvent::POST_TRANSLATE` string constant in 4.0;
+`PostTranslateEvent` — there is no `TranslateEvent::POST_TRANSLATE` string constant;
 subscribe with `#[AsEventListener(event: PostTranslateEvent::class)]` or a subscriber keyed by
 `PostTranslateEvent::class`. It fires right after the variant is constructed and before it is
 persisted, so a listener can mint locale-correct placeholder values (e.g.
@@ -607,9 +606,9 @@ class.
 
 ---
 
-## Compile-Time Validation (v2.0)
+## Compile-Time Validation
 
-v2.0 validates translatable entity configuration at compile time (`cache:warmup` / `cache:clear`), catching errors before production.
+The bundle validates translatable entity configuration at compile time (`cache:warmup` / `cache:clear`), catching errors before production.
 
 ### AttributeValidationPass (Compiler Pass)
 
@@ -623,7 +622,7 @@ Runs during container compilation. Scans all Doctrine-mapped TranslatableInterfa
 
 **Error format:** Single LogicException listing all errors found across all entities.
 
-**`strict_discovery` (v4.0, config, default `false`):** compile-time discovery walking the
+**`strict_discovery` (config, default `false`):** compile-time discovery walking the
 Doctrine attribute-metadata driver's mapped directories can legitimately find zero
 `TranslatableInterface` classes (a project with none yet) -- by default that only logs. With
 `strict_discovery: true` it becomes a hard `LogicException`
@@ -674,7 +673,7 @@ class Product implements TranslatableInterface
   - Delegate translation of the property value to the translator.  
   - Set the translated value back on the cloned object.
 
-### TranslationContext (v4.0; replaces TranslationArgs)
+### TranslationContext
 - Abstract base class `TranslationContext` holds:
   - `sourceLocale`, `targetLocale`.
   - `translatedParent` (optional) — the parent object in nested translation contexts.
@@ -763,7 +762,7 @@ Now decide, for each field, which of three behaviours it needs.
 - **Description:** Product details written in each language
 
 **A translatable association (get-or-created to the matching locale, not shared, not hand-edited):**
-- **Category:** `Category` is itself `TranslatableInterface`. Since v4.0 a direct `ManyToOne`/`OneToOne` to a translatable target is translated through the same pipeline as a top-level entity — `$frenchProduct->getCategory()` ends up pointing at `Category`'s own 'fr' variant (same Tuuid, different row), not the English one. This is the default for *any* such association; nothing needs to be marked for it.
+- **Category:** `Category` is itself `TranslatableInterface`. A direct `ManyToOne`/`OneToOne` to a translatable target is translated through the same pipeline as a top-level entity — `$frenchProduct->getCategory()` ends up pointing at `Category`'s own 'fr' variant (same Tuuid, different row), not the English one. This is the default for *any* such association; nothing needs to be marked for it.
 
 **Why this distinction matters:**
 The handler chain processes each field during translation. By default, `ScalarHandler` (priority 90) copies scalar values, and `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` (etc.) translate an association to a translatable target via the same get-or-create pipeline. `#[SharedAmongstTranslations]` overrides either default, making every translation reference the exact same instance instead — but it is **not** available on any association whose target is itself translatable, bidirectional (one declared with `inversedBy`/`mappedBy`, like `$category` below) or unidirectional: every handler that can reach one rejects the attribute with a `RuntimeException`, since sharing it would leave the relation's ownership ambiguous across locale variants. Scalar columns have no such restriction, and neither does an association to a target that is not itself translatable.
@@ -973,7 +972,7 @@ No special attribute => treated as locale‑specific. The translator clones the 
 
 **Symptom:** `LogicException: Locale "xx" is not allowed`
 
-**Cause:** Target locale not configured in Symfony's enabled locales (v2.0 reads from framework.enabled_locales)
+**Cause:** Target locale not configured in Symfony's enabled locales (the bundle reads them from `framework.enabled_locales`)
 
 **Fix:** Add the locale to `framework.enabled_locales` in your framework configuration file:
 
@@ -987,9 +986,9 @@ framework:
 
 **Symptom:** `LogicException: Property ... is a non-nullable object and cannot have a type-safe default`
 
-**Cause:** `#[EmptyOnTranslate]` attribute applied to a non-nullable object property. In v2.0, non-nullable scalar fields (string/int/float/bool) automatically get type-safe defaults, but non-nullable objects cannot be safely defaulted.
+**Cause:** `#[EmptyOnTranslate]` attribute applied to a non-nullable object property. Non-nullable scalar fields (string/int/float/bool) automatically get type-safe defaults, but non-nullable objects cannot be safely defaulted.
 
-**Fix:** For non-nullable scalar fields, v2.0 handles them automatically with type-safe defaults (string='', int=0, etc.). For non-nullable objects, choose one of these options:
+**Fix:** Non-nullable scalar fields are handled automatically with type-safe defaults (string='', int=0, etc.). For non-nullable objects, choose one of these options:
 
 ```php
 // Option 1: Make nullable (allows null as empty value)
@@ -1006,7 +1005,7 @@ private \DateTimeImmutable $publishedAt;
 #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
 private \DateTimeImmutable $publishedAt;
 
-// Non-nullable scalars work automatically in v2.0:
+// Non-nullable scalars work automatically:
 #[EmptyOnTranslate]
 #[ORM\Column]
 private string $title;  // Gets "" on translate
@@ -1093,7 +1092,7 @@ sharing would leave the relation's ownership ambiguous across locale variants:
 `BidirectionalManyToOneHandler`, `BidirectionalOneToOneHandler`, and
 `BidirectionalOneToManyHandler` (bidirectional `ManyToOne`/`OneToOne`/`OneToMany`);
 `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` (`ManyToMany` in either
-direction); and `TranslatableEntityHandler` (v4.0), the catch-all for a *unidirectional*
+direction); and `TranslatableEntityHandler`, the catch-all for a *unidirectional*
 `ManyToOne`/`OneToOne` — no `inversedBy`/`mappedBy` — which none of the other five handle.
 
 **Fix:** Remove `#[SharedAmongstTranslations]` from the relation; there is no way to keep an
@@ -1109,7 +1108,7 @@ private ?Category $category = null;
 
 // DON'T either: removing inversedBy does not open an escape hatch -- the resulting
 // unidirectional association falls through to TranslatableEntityHandler, which
-// rejects it with a RuntimeException too (v4.0)
+// rejects it with a RuntimeException too
 #[SharedAmongstTranslations]
 #[ORM\ManyToOne(targetEntity: Category::class)]  // No inversedBy
 private ?Category $category = null;
@@ -1151,18 +1150,18 @@ private string $sku;
 
 **Diagnosis:** Check if `persist()` and `flush()` were called on the translated entity. The translator creates a NEW entity, not an update to existing.
 
-**Resolution:** Use `translateAndPersist()` or `getOrTranslate()` (v2.1) to auto-persist, or manually persist:
+**Resolution:** Use `translateAndPersist()` or `getOrTranslate()` to auto-persist, or manually persist:
 
 ```php
-// v2.1 recommended: auto-persist
+// recommended: auto-persist
 $frenchProduct = $entityTranslator->translateAndPersist($product, 'fr');
 $entityManager->flush();
 
-// v2.1 find-or-create: returns existing or creates + persists new
+// find-or-create: returns existing or creates + persists new
 $frenchProduct = $entityTranslator->getOrTranslate($product, 'fr');
 $entityManager->flush();
 
-// Manual (v2.0 pattern):
+// Manual:
 $frenchProduct = $entityTranslator->translate($product, 'fr');
 $entityManager->persist($frenchProduct);  // Required!
 $entityManager->flush();
@@ -1300,37 +1299,37 @@ Handlers sharing a priority keep their registration order.
 
 **Cause:** Plain `$em->remove()` removes exactly the row you pass it. Nothing links a translatable entity's sibling locale variants for Doctrine to cascade through on its own — a naive delete only ever touches the current-locale row.
 
-**Fix:** Inject `Tmi\TranslationBundle\Doctrine\TranslatableRemover` and call `removeAllLocaleVariants($entity)` (schedules every sibling, `$entity` included; flush once afterwards), or set `cascade_remove_locale_variants: true` to make every plain `$em->remove()` on a translatable entity cascade automatically. See [Removal Semantics (v4)](#removal-semantics-v4).
+**Fix:** Inject `Tmi\TranslationBundle\Doctrine\TranslatableRemover` and call `removeAllLocaleVariants($entity)` (schedules every sibling, `$entity` included; flush once afterwards), or set `cascade_remove_locale_variants: true` to make every plain `$em->remove()` on a translatable entity cascade automatically. See [Removal Semantics](#removal-semantics).
 
-### Duplicate Variant Under the Locale Filter
+### Duplicate Variant From a Hand-Rolled Cross-Locale Lookup
 
-**Symptom:** Calling `translate($entity, $locale)` repeatedly, or importing under an active locale filter, mints a new row every time instead of reusing the one already there.
+**Symptom:** Your own "does a variant for this Tuuid and locale already exist?" query returns nothing under an active locale filter, so the calling code creates a second row for a Tuuid that already has one.
 
-**Cause:** Before v4.0, the existing-variant lookup (`EntityTranslator`'s internal warmup, `TranslatableEntityHandler::translate()`) queried through the entity's own repository/query builder. Under an **active** locale filter pinned to the source locale, Doctrine's `SQLFilter` combined that filter's own locale condition with the lookup's explicit target-locale condition into a contradiction that could never match — so every `translate()` call under an active filter minted a duplicate row.
+**Cause:** Doctrine's `SQLFilter` ANDs the locale filter's own condition onto every query. A lookup that pins the target locale explicitly therefore combines with a filter pinned to the source locale into a contradiction that can never match — the existing variant is invisible, not absent.
 
-**Fix:** As of v4.0 both lookups go through `LocaleVariantFinder`, which suspends the filter for the query and restores it afterwards — there is nothing to work around. On a pre-4.0 version, disable the filter yourself before calling `translate()`, or upgrade.
+**Fix:** Never query across locales through a plain repository or query builder. Inject `LocaleVariantFinder` (or use `TranslatableRepositoryTrait`/`TranslatableEntityRepository`, which delegate to it): it suspends the filter for the query and restores it in a `finally`. The bundle's own lookups — `EntityTranslator`'s internal warmup and `preload()` — already go through it, so `translate()` itself is unaffected.
 
 ### Detached Entity in an Import
 
 **Symptom:** An import loop that calls `$entityManager->clear()` between batches produces a second row with a new id for a Tuuid it already translated earlier in the same run.
 
-**Cause:** Before v4.0, a cache hit surviving `clear()` was still handed back as reusable even though the `UnitOfWork` no longer tracked it (`STATE_DETACHED`); `getOrTranslate()`'s `persist()` call then re-inserted that detached instance as a brand-new row — Doctrine's `persist()` assumes `STATE_NEW` for anything the `UnitOfWork` does not track.
+**Cause:** A translation cache hit can survive a `clear()` call even though the `UnitOfWork` no longer tracks it (`STATE_DETACHED`), and `persist()` assumes `STATE_NEW` for anything untracked — so handing such a hit back would re-insert it as a brand-new row.
 
-**Fix:** As of v4.0 a cache hit is checked against the entity's real `UnitOfWork` state; a detached hit is a miss and falls through to a fresh lookup instead of being re-inserted. Nothing to change in your import code — see [Performance (v4.0)](#performance-v40) for `preload()`, which is the recommended way to batch these lookups regardless.
+**Fix:** Nothing, with the bundled cache: `EntityTranslator` checks every hit against the real `UnitOfWork` state and treats a detached one as a miss, falling through to a fresh lookup. A **custom** `TranslationCacheInterface` must uphold the same contract — reload through the `EntityManager` on every hit rather than serializing entities. See [Performance](#performance) for `preload()`, the recommended way to batch import lookups regardless.
 
-### The Source Entity's Parent Changed After Translating a Child
+### A Translated Parent's Collection Is Missing a Child Until Reload
 
-**Symptom:** After `$child2 = $translator->translate($child, $locale);`, the *source* `$child->getParentSimple()` (or `getSimpleParents()`/back-reference collection for a `ManyToMany`) no longer points at the original parent — it now points at (or contains) the translated, target-locale parent instead. A flush moves the untranslated child's own row under the new-locale parent.
+**Symptom:** Right after `$parent2 = $translator->translate($parent, $locale);`, `$parent2`'s `OneToMany`/`ManyToMany` collection is missing one child that a reload after `flush()` does show.
 
-**Cause:** Before v4.0, the cycle-guard fallback `EntityTranslator::processTranslation()` returns when a translation cycle closes back on an entity still mid-translation (see the Handler Chain Decision Tree's in-progress guard) was mishandled by the three collection handlers. Translating a child with a bidirectional `ManyToOne` parent (`inversedBy`) recurses parent → children → the same child, still in progress; the fallback hands that child back unchanged, and the old `BidirectionalOneToManyHandler`/`BidirectionalManyToManyHandler`/`UnidirectionalManyToManyHandler` code added it to the translated parent's collection like any other translated item and — for the two bidirectional handlers — rewrote its own back-reference field to point at the translated parent, mutating the SOURCE entity.
+**Cause:** The translation cycle closed back on that child while it was still mid-translation (see the Handler Chain Decision Tree's in-progress guard): translating a child recurses into its bidirectional `ManyToOne` parent, which recurses back into this very collection and meets the same child again. The cycle-guard fallback hands the instance back unchanged, still at the **source** locale, and all three collection handlers skip such a return outright — no add, no back-reference write — rather than adding an untranslated, source-locale item to the translated parent or rewriting the source child's own FK.
 
-**Fix:** Fixed in 4.0 — see [Behavioural Change 8](UPGRADING.md#8-a-cycle-guard-fallback-never-mutates-the-source-entity). All three handlers now skip a same-instance, still-source-locale return outright: no add, no back-reference write, source untouched. The one thing to expect: the translated parent's own collection is missing that in-progress child/item until you reload — it is never persisted from that in-memory collection (Doctrine writes the child's own `ManyToOne` FK, or a `ManyToMany` join row, from the *other* side), and Doctrine does not retroactively complete it either, so a reload after `flush()` always shows the complete, correct set.
+**Fix:** None needed, and nothing is lost. That in-memory collection is never the thing persisted: Doctrine writes the child's own `ManyToOne` FK, or the `ManyToMany` join row, from the *other* side, and does not retroactively complete an inverse collection. A reload after `flush()` always shows the complete, correct set.
 
 ### Rows Reported as `null-tuuid`
 
 **Symptom:** `tmi:translation:doctor` reports one or more `null-tuuid` rows.
 
-**Cause:** The `tuuid` column on that row is a literal database `NULL`. As of v4.0 the column is `NOT NULL`, so a normal `persist()` can no longer produce this — it only happens through a write that bypasses the entity layer entirely: a raw `INSERT`, or a row left over from before the v4 schema migration in `UPGRADING.md`.
+**Cause:** The `tuuid` column on that row is a literal database `NULL`. The column is mapped `NOT NULL`, so a normal `persist()` cannot produce this — it only happens through a write that bypasses the entity layer entirely: a raw `INSERT`, or a row imported from another system.
 
 **Fix:** There is no automatic repair — the doctor is read-only by design. Assign the row a real, correctly-linked Tuuid, or delete it, at the database level. Run the NULL-row sweep from `UPGRADING.md` §2 before migrating the columns to `NOT NULL` to avoid ever reaching this state in the first place.
 
@@ -1347,7 +1346,7 @@ Handlers sharing a priority keep their registration order.
 
 ---
 
-## Locale Variant DX (v2.1)
+## Locale Variant DX
 
 ### Convenience Methods on EntityTranslatorInterface
 
@@ -1375,7 +1374,7 @@ A trait for Doctrine entity repositories that provides batch locale variant look
 - **`findAllLocaleVariants(Tuuid $tuuid): array<string, TranslatableInterface>`** — Returns all locale variants for a single Tuuid, keyed by locale.
 - **`findAllLocaleVariantsBatch(list<Tuuid> $tuuids): array<string, array<string, TranslatableInterface>>`** — Batch lookup for multiple Tuuids, grouped by tuuid string then locale.
 
-Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales, then re-enable it in a `finally` block. As of v4.0, both delegate to `Tmi\TranslationBundle\Doctrine\LocaleVariantFinder` -- inject the finder directly wherever a repository isn't the natural fit (a service, a console command); it also offers single-locale lookups the trait does not expose, `findLocaleVariant(class, tuuid, locale)` and `findLocaleVariantsBatch(class, tuuids, locale)`.
+Both methods temporarily disable the `tmi_translation_locale_filter` (if enabled) to query across all locales, then re-enable it in a `finally` block. Both delegate to `Tmi\TranslationBundle\Doctrine\LocaleVariantFinder` -- inject the finder directly wherever a repository isn't the natural fit (a service, a console command); it also offers single-locale lookups the trait does not expose, `findLocaleVariant(class, tuuid, locale)` and `findLocaleVariantsBatch(class, tuuids, locale)`.
 
 All four of those lookups are built on a fifth, public method: **`withoutLocaleFilter(callable(): T $query): T`**. It runs `$query` with `tmi_translation_locale_filter` disabled and restores it afterwards -- to exactly the state it was in before, enabled or not, even if `$query` throws -- via a plain disable/try/finally/enable dance. Reach for it directly for any other query that must see every locale variant of a Tuuid; it is the one place that pattern is implemented correctly, so prefer it over hand-rolling the same disable/enable sequence.
 
@@ -1400,7 +1399,7 @@ $batch = $productRepository->findAllLocaleVariantsBatch([$tuuid1, $tuuid2]);
 
 Use `@phpstan-require-extends \Doctrine\ORM\EntityRepository` in the trait for PHPStan level max compatibility.
 
-### [LocaleCompletenessResolver](src/Translation/LocaleCompletenessResolver.php) (v3.1)
+### [LocaleCompletenessResolver](src/Translation/LocaleCompletenessResolver.php)
 
 Answers, per enabled locale, whether a Tuuid has a variant and whether that variant's
 translatable content is complete. Returns a [LocaleCompleteness](src/ValueObject/LocaleCompleteness.php)
@@ -1428,7 +1427,7 @@ The locale filter is suspended for the lookup and restored afterwards.
 
 ---
 
-## Tuuid Linkage Integrity (v2.2)
+## Tuuid Linkage Integrity
 
 Every locale variant of an entity must share one `Tuuid`. Translations produced by
 `EntityTranslator::translate()` inherit it automatically. The danger is application code that
@@ -1436,7 +1435,7 @@ bypasses the translator — `new Entity()` + `setLocale('de_DE')` without `setTu
 mints a fresh, *standalone* Tuuid. The "translation" is then linked to nothing, and Tuuid-keyed
 features (locale variants, `hreflang`, shared media) resolve only on the canonical locale.
 
-v2.2 makes this whole failure class visible:
+The bundle makes this whole failure class visible:
 
 ### `TranslatableEntityRepository`
 
@@ -1491,14 +1490,14 @@ Scans every translatable table (locale filter disabled) and reports four anomaly
 1. **standalone** — a Tuuid carried by a single locale row;
 2. **incomplete** — a Tuuid with fewer locale rows than configured locales;
 3. **duplicate** — more than one row sharing a `(tuuid, locale)` pair;
-4. **null-tuuid** (v4.0) — a row whose `tuuid` column is a literal database `NULL`. Only
-   reachable through a write that bypasses the entity layer (a raw insert, a pre-v4 legacy
-   row), since the column is `NOT NULL` as of v4.0 -- a normal `persist()` cannot produce one.
+4. **null-tuuid** — a row whose `tuuid` column is a literal database `NULL`. Only reachable
+   through a write that bypasses the entity layer (a raw insert, a row imported from another
+   system), since the column is mapped `NOT NULL` -- a normal `persist()` cannot produce one.
 
-`--entity=<FQCN>` (v4.0) restricts the scan to a single entity class -- validated against
+`--entity=<FQCN>` restricts the scan to a single entity class -- validated against
 Doctrine's metadata directly, so a concrete subclass of an inheritance hierarchy is accepted
 even though the scan itself only ever enumerates each hierarchy's root (SINGLE_TABLE/JOINED
-hierarchies are counted once, from the root, as of v4.0 -- see Revision History).
+hierarchies are counted once, from the root).
 
 Exits non-zero when anomalies are found — run it as a post-migration / CI integrity gate:
 
@@ -1514,11 +1513,11 @@ every sibling. This fixes the ordering caveat — shared values only propagate t
 created *after* the value was set, so data translated later keeps stale siblings. Options:
 `--dry-run` (preview), `--check` (write nothing, exit non-zero when any shared value has
 drifted — a CI gate for "no shared property has diverged"), `--entity=<FQCN>` (restrict to one
-class), and — v4.1 — `--tuuid=<uuid>` (restrict to ONE record) with `--source-locale=<locale>`
+class), and `--tuuid=<uuid>` (restrict to ONE record) with `--source-locale=<locale>`
 (copy from that row instead of the default-locale row: the targeted repair for a record edited in
-a non-default locale; refused without `--tuuid`). As of v4.1 the command is a thin client of
+a non-default locale; refused without `--tuuid`). The command is a thin client of
 `SharedValueSynchronizer`, `SharedDriftScanner::pickSource()` and
-`LocaleVariantFinder::streamGroupedByTuuid()` (see "Shared-Value Propagation (v4.1)"), so its
+`LocaleVariantFinder::streamGroupedByTuuid()` (see "Shared-Value Propagation"), so its
 discovery also covers to-one associations to a **non**-translatable target; a shared collection,
 or an association to a translatable target, is rejected at translate time and never synced.
 
@@ -1531,14 +1530,14 @@ override it with `#[EmptyOnTranslate]`), or on a single inner property — mirro
 `--dry-run` too), skipped rather than crashing the run, and make the command exit non-zero;
 the remaining shared values still sync.
 
-**Every run prints a table (v4.0)** — `Property | Tuuids | Rows | Writable` — naming each
+**Every run prints a table** — `Property | Tuuids | Rows | Writable` — naming each
 drifted property, how many distinct Tuuid groups and sibling rows it touched, and whether it
 was writable, right after the existing count line. Sorted descending by row count; omitted
 entirely when nothing drifted.
 
 ---
 
-## Removal Semantics (v4)
+## Removal Semantics
 
 Plain `$em->remove($entity)` removes exactly the row you pass it — nothing links a
 translatable entity's sibling locale variants for Doctrine to cascade through on its own, so a
@@ -1604,7 +1603,7 @@ Both are set before the removal work and cleared in a `finally`.
 
 ---
 
-## Shared-Value Propagation (v4.1)
+## Shared-Value Propagation
 
 `#[SharedAmongstTranslations]` copies a value onto a variant **once**, when `translate()` creates
 it. Version 4.1 adds the other half — keeping the value equal afterwards — as one service and
@@ -1683,7 +1682,7 @@ Field-level, not row-level: an unshared edit triggers no sibling lookup and no s
 **Before enabling it:** run `tmi:translation:sync-shared --check` to zero, and remove the
 attribute from every property the application diverges per locale on purpose — with the flag on,
 the next edit would otherwise "repair" that divergence, exactly as the write mode of
-`sync-shared` always would have. `false` keeps v4.0.0 behaviour byte for byte (regression-locked
+`sync-shared` always would have. `false` leaves the copy-on-translate behaviour untouched (regression-locked
 by test).
 
 ### [SharedDriftScanner](src/Doctrine/SharedDriftScanner.php) — the read side as a service
@@ -1733,7 +1732,7 @@ codes follow the whole-table run.
 
 ---
 
-## Performance (v4.0)
+## Performance
 
 Every number below is enforced by an exact assertion (`assertSame`, not a ceiling) in
 [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — a
@@ -1775,11 +1774,8 @@ with the whole batch first is what turns that into one query per class.
 query looked up and found nothing for. `translate()`'s own internal single-entity `preload()`
 call checks that memory first and skips its query for a remembered miss instead of asking the
 database the same question again — the mechanism that keeps the import row above at `1 + N`
-(the upfront batch query plus *N* `INSERT`s) rather than `1 + 3N` — the upfront query, plus
-three per-entity components pre-v4.0: `translate()`'s own redundant per-entity `preload()`
-re-query, `TranslatableEntityHandler`'s former redundant existence check (removed in v4.0 — see
-[§ 7 of UPGRADING.md](UPGRADING.md#7-translatableentityhandler-no-longer-checks-for-an-existing-variant-itself)),
-and the `INSERT` on flush itself.
+(the upfront batch query plus *N* `INSERT`s) rather than one upfront query plus a per-entity
+re-query on top of every `INSERT`.
 The memory entry for a pair is dropped the instant `EntityTranslator` itself caches a
 translation for it, so a variant this translator creates is always found again, even across an
 `EntityManager::clear()`. **The one caveat:** a variant for a remembered pair created by
@@ -1808,9 +1804,9 @@ the table above reads `2` regardless of *K*.
 
 `AttributeHelper` (per `declaringClass::property::attribute`) and
 `ReflectionHelper::getHierarchyProperties()` (per proxy-unwrapped class) memoize for the life
-of the process — both are class-level facts, immutable once the class is loaded. Before
-v4.0, the hot path inside `translate()` re-walked a class's attributes and property hierarchy
-on every property, on every call.
+of the process — both are class-level facts, immutable once the class is loaded. Without that
+memoization the hot path inside `translate()` would re-walk a class's attributes and property
+hierarchy on every property, on every call.
 
 ### The `(tuuid, locale)` index and a bare `locale = ?` predicate
 
@@ -1825,8 +1821,8 @@ Both `InMemoryTranslationCache` and `EntityTranslator` are tagged `kernel.reset`
 (`ResetInterface`) — Symfony does not autoconfigure that tag, so the bundle wires each
 explicitly. In a process that outlives one request or job (a queue consumer, a long-running
 import), the cache clears itself between units of work instead of handing the next one an
-entity the previous one cached — and, since v4.0's identity fix, an entity possibly since
-detached by an `EntityManager::clear()` call in between — and `EntityTranslator` forgets its
+entity the previous one cached — possibly one since detached by an `EntityManager::clear()`
+call in between — and `EntityTranslator` forgets its
 own `preload()` miss memory (see above), so a variant created by another unit of work becomes
 visible again immediately instead of staying a remembered miss.
 
@@ -1849,11 +1845,11 @@ visible again immediately instead of staying a remembered miss.
 - **“How can I handle OneToMany relations differently for shared vs per‑locale?”**  
   If the relation should be shared: mark property `#[SharedAmongstTranslations]`. If per‑locale: leave un‑marked. Use or extend handler logic if custom merging is needed.
 
-- **"How do I delete a translatable entity along with every other locale's copy?"** (v4.0)
-  Inject `TranslatableRemover` and call `removeAllLocaleVariants($entity)`, then `flush()` once. A plain `$em->remove()` only ever touches the one row you pass it. See [Removal Semantics (v4)](#removal-semantics-v4). To make every plain `$em->remove()` do this automatically, set `cascade_remove_locale_variants: true`.
+- **"How do I delete a translatable entity along with every other locale's copy?"**
+  Inject `TranslatableRemover` and call `removeAllLocaleVariants($entity)`, then `flush()` once. A plain `$em->remove()` only ever touches the one row you pass it. See [Removal Semantics](#removal-semantics). To make every plain `$em->remove()` do this automatically, set `cascade_remove_locale_variants: true`.
 
-- **"How do I speed up a bulk import?"** (v4.0)
-  Call `$entityTranslator->preload($batch, $locale)` once before looping `getOrTranslate()` over the batch — it turns *N* per-entity lookup queries into one query per class. See [Performance (v4.0)](#performance-v40).
+- **"How do I speed up a bulk import?"**
+  Call `$entityTranslator->preload($batch, $locale)` once before looping `getOrTranslate()` over the batch — it turns *N* per-entity lookup queries into one query per class. See [Performance](#performance).
 
 ---
 
@@ -1886,22 +1882,13 @@ Step-by-step guide for building custom translation handlers for field types not 
 ---
 
 ## Revision History
-- v1.0: Initial methodology documented.
-- v2.0: Added cache service, type-safe defaults, fallback control, compile-time validation documentation.
-- v2.0.1: Added AI Skills section (entity-translation-setup, translation-debugger, custom-handler-creator).
-- v2.1.0: Added locale variant DX improvements: `translateAndPersist()`, `getOrTranslate()`, `TranslatableRepositoryTrait`, auto-reset generated IDs.
-- v2.2.0: Added Tuuid linkage integrity: `TranslatableEntityRepository`, composite `(tuuid, locale)` index, orphan detection (`strict_orphan_check`), and the `tmi:translation:doctor` / `tmi:translation:sync-shared` commands.
-- v3.0.0: Requires Symfony `^8.0` (PHP `>=8.4`). Correctness release from an adversarial bug hunt — collection properties are now actually translated (all three to-many handlers were unreachable), translating into an entity's own locale is the identity operation, handler tag priority is honoured, the locale filter is restored after sub-requests, and the in-progress flag is always cleared. `#[SharedAmongstTranslations]` on a bidirectional ManyToMany now throws as documented instead of being silently ignored.
-- v3.0.1: Documentation only, no code change. Corrected claims that no longer matched the code (or never did): the entity translator service id, the `Doctrine\Model\` namespaces, the `AttributeHelper` service reference in the custom-handler template, the `TranslationCacheInterface` example signatures, and the description of `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` as a precedence rule rather than a compile-time conflict. `UPGRADING.md` gained the v3.0 behavioural changes it was missing.
-- v3.1.0: Consumer-findings release from the first Terra Mia production audit. Corrected the `#[SharedAmongstTranslations]` contract everywhere (copy-on-translate, not an enforced invariant), added `tmi:translation:sync-shared --check` (writes nothing, exits non-zero on drift — a CI gate), added the per-locale completeness API (`LocaleCompletenessResolver` + `LocaleCompleteness` / `TranslationStatus`), documented `TranslateEvent::POST_TRANSLATE` as the seeding hook for `copy_source: false` variants, and made the orphan check accurate: verdict at flush time (same-flush translations count as linked) with the warning gated behind `enable_logging`.
-- v3.1.1: Dependency guard, no behavioural change. Added a composer `conflict` with `doctrine/orm` 3.6.8 — its `GenerateSchemaEventArgs::setSchema()` throws `BadMethodCallException` unless the unreleased `doctrine/dbal` 4.5 provides `Schema::edit()`, so on Symfony 8.0.x any `SchemaTool` run explodes; excluding exactly 3.6.8 resolves 3.6.7 and self-heals once 3.6.9 ships. The test kernel now wires a `NullLogger` so test output stays deterministic without monolog.
-- v3.2.0: Fix release from the second adversarial bug hunt. Unidirectional ManyToMany translation now preserves non-translatable collection items instead of silently dropping them (consistent with the bidirectional handler). `tmi:translation:sync-shared` streams entities grouped by Tuuid via `toIterable()` with batched flushes instead of `findAll()`, so memory stays bounded on large tables, and `DateTimeInterface` shared values compare by instant without `serialize()`. `Psr6TranslationCache` now stores `[class, id]` references and reloads entities through the `EntityManager` — persistent backends (Redis, filesystem) are safe; its constructor gained a required `EntityManagerInterface` (see `UPGRADING.md`). Embeddables marked `#[SharedAmongstTranslations]` are always cloned in both translate paths (values synced, instances never shared), and `translate()`'s idempotent get-or-create contract is documented explicitly.
-- v3.2.1: Consumer-reported fix release, no API or config change. Every property walk now sees private parent-class properties (`ReflectionClass::getProperties()` never lists them): a generated id declared private on a mapped superclass is reset on fresh variants — `getId()` no longer reports the source's id before flush — and such columns now run through the whole pipeline (`#[SharedAmongstTranslations]` / `#[EmptyOnTranslate]` honoured, completeness counted, `sync-shared` back-fills them, compile-time validation covers them), centralised in `ReflectionHelper::getHierarchyProperties()`. `EntityTranslator` treats a cache hit that cannot be loaded as a miss: on a PSR-6 pool `has()` can report a key whose entry no longer reloads (row deleted since caching, pre-3.2 entry format), and the old check-then-get let that `null` escape as a `TypeError` from `translate()` under `zend.assertions=-1`; both read sites collapse into a single `get()` (halves pool round-trips) and warmup no longer skips tuuids behind stale keys.
-- v3.3.0: Backlog maintenance release, no API or config change — but validation may newly flag entities it previously skipped. Compile-time class discovery now tokenizes files (`PhpToken::tokenize()`) instead of regex-matching the raw text: a "class Foo" mention in a docblock or string before the real declaration no longer derails extraction, `::class` fetches and anonymous classes are ignored, and every class a file declares is validated — entities the old first-match regex silently skipped now run through validation and may surface new compile-time errors (that is the point). A new integration test loads the real doctrine-bundle extension as an early-warning tripwire for the `attribute_metadata_driver` service shape the discovery depends on, and the compiler pass logs (never throws) when Doctrine is configured but zero translatable classes are found. Documented: `has()` staleness on PSR-6 pools (prefer `get() !== null`; `has()` is a removal candidate for v4), attribute inertness on non-translatable classes as the feature enabling shared traits, and the per-flush orphan verdict as a strict-mode-preserving limitation.
-- v3.4.0: `TranslationCacheInterface::has()` is removed — interface and both implementations. Technically an API removal in a minor, decided deliberately while the bundle has no external consumers (zero Packagist dependents; TMI and NRP verified free of callers): the method's answer is inherently unreliable on persistent backends — a key can exist while the entry no longer loads — so the unsafe check-then-get pattern is taken off the table before anyone adopts it, instead of being deprecated across a major cycle. Removing an interface method breaks only callers, never implementors: a custom cache still declaring `has()` keeps working and can simply delete it. `get() !== null` is the one canonical existence check (see `UPGRADING.md`).
+
+Only the 4.x line is supported; entries for 1.x--3.x are gone. The full history of every
+release, including the ones below 4.0, lives in `UPGRADING.md` and the GitHub release notes.
+
 - v4.0.0: Limited, deliberate breaks on the existing storage model and handler-chain architecture — not a rewrite (full detail in `UPGRADING.md`). One line per work package:
   - `Psr6TranslationCache` removed; `TranslationCacheInterface` aliases only to `InMemoryTranslationCache` now.
-  - `LocaleVariantFinder` (all cross-locale lookups, filter-suspended) and `TranslatableRemover` (`removeAllLocaleVariants()` / `removeSingleLocaleVariant()` / `cascadeFromPreRemove()`) — see Removal Semantics (v4) above.
+  - `LocaleVariantFinder` (all cross-locale lookups, filter-suspended) and `TranslatableRemover` (`removeAllLocaleVariants()` / `removeSingleLocaleVariant()` / `cascadeFromPreRemove()`) — see Removal Semantics above.
   - Opt-in `cascade_remove_locale_variants` + `LocaleVariantRemovalListener` cascade a plain `$em->remove()` to sibling locale variants automatically.
   - `preload()`'s internal warmup now goes through `LocaleVariantFinder` — an active locale filter no longer mints a duplicate row on `translate()`.
   - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself (its own such check, redundant with `preload()`'s, is removed along with its `LocaleVariantFinder` dependency); `EntityTranslator` remembers a `preload()` batch's misses so a per-entity `getOrTranslate()` import loop after it costs no further lookup queries, and is now `kernel.reset`-tagged to forget that memory between units of work.

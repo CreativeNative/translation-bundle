@@ -27,7 +27,7 @@ Ask: **"What should happen during translation for this field type?"**
 Gather requirements:
 1. **supports()**: What condition identifies this field type? (narrow on `EntityTranslationContext`/`PropertyTranslationContext` first, then the field-specific check)
 2. **translate()**, `$context->isShared()` branch: Return same instance or throw exception?
-3. **translate()**, `$context->isEmpty()` branch: Return null, empty instance, or special value? Use TypeDefaultResolver to return type-safe defaults for non-nullable types (v2.0 pattern)
+3. **translate()**, `$context->isEmpty()` branch: Return null, empty instance, or special value? Use TypeDefaultResolver to return type-safe defaults for non-nullable types
 4. **translate()**, otherwise: How should the value be cloned/transformed?
 
 ## Step 3: Interactive Priority Selection
@@ -62,7 +62,7 @@ Show Symfony service configuration:
 App\Translation\Handler\{HandlerName}:
     arguments:
         $attributeHelper: '@tmi_translation.utils.attribute_helper'
-        # Optional v2.0 dependencies:
+        # Optional dependencies:
         # $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
         # $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
     tags:
@@ -84,14 +84,14 @@ If yes, use template from [test-template.md](references/test-template.md):
 
 For complete handler chain architecture, priority order, and decision tree, see **llms.md "Handler Chain Decision Tree"** section.
 
-### v2.0 Handler Changes
+### Injectable Collaborators
 
-- **EmbeddedHandler** now receives `TypeDefaultResolver` for type-safe empty defaults
-- **EntityTranslator** now receives `TranslationCacheInterface` for cache delegation
+- **EmbeddedHandler** receives `TypeDefaultResolver` for type-safe empty defaults
+- **EntityTranslator** receives `TranslationCacheInterface` for cache delegation
 - Custom handlers can inject `TypeDefaultResolver` to resolve type-safe defaults for the `translate()` `isEmpty()` branch
 - Custom handlers can inject `TranslationCacheInterface` to check/store translations
 
-### v4.0: Three Reusable Building Blocks Instead of Hand-Rolling
+### Three Reusable Building Blocks Instead of Hand-Rolling
 
 If the custom handler needs any of these, delegate — don't reimplement:
 
@@ -105,7 +105,7 @@ If the custom handler needs any of these, delegate — don't reimplement:
   duplicating rows on the next translate. `TranslatableEntityHandler` itself (what
   `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` delegate a clone to) runs the
   target's own property pipeline and resets generated ids, but performs **no** existence check
-  of its own since v4.0 — it is reached only from inside the handler chain, always after
+  of its own — it is reached only from inside the handler chain, always after
   `processTranslation()` already ran that check for the same subject (see its class docblock).
 - **Walking a class's properties, including private ones on a parent class.**
   `\ReflectionClass::getProperties()` never lists a private property declared on a parent —
@@ -119,11 +119,11 @@ If the custom handler needs any of these, delegate — don't reimplement:
   translates each item — never inside it. `preload()` groups translatable items by class,
   issues one `LocaleVariantFinder` query per class, ignores non-translatable items and cached
   hits, and remembers misses, so K items of one class cost one lookup instead of K. The
-  bundled `BidirectionalOneToManyHandler` and both ManyToMany handlers do exactly this (v4.0).
+  bundled `BidirectionalOneToManyHandler` and both ManyToMany handlers do exactly this.
 
 ## Quick Reference: TranslationHandlerInterface
 
-All handlers implement these 2 methods (v4.0), both on a typed `TranslationContext`
+All handlers implement these 2 methods, both on a typed `TranslationContext`
 (`EntityTranslationContext` or `PropertyTranslationContext`):
 
 ```php
@@ -132,8 +132,6 @@ public function translate(TranslationContext $context): mixed;
 ```
 
 `translate()` branches on `$context->isShared()`/`isEmpty()` — pre-resolved by
-`EntityTranslator` from the property's attributes before dispatch — for what used to be the
-two extra interface methods, `handleSharedAmongstTranslations()`/`handleEmptyOnTranslate()`.
-See [UPGRADING.md § 6](../../../UPGRADING.md#6-translationhandlerinterface-is-two-methods-on-typed-contexts)
-for the full migration guide, and [handler-template.md](references/handler-template.md) for a
-complete implementation template.
+`EntityTranslator` from the property's attributes before dispatch — to cover the shared and
+empty cases inside the one method. See
+[handler-template.md](references/handler-template.md) for a complete implementation template.
