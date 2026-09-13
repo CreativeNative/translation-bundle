@@ -198,7 +198,7 @@ Wait for user confirmation (yes/y/apply/confirm).
 
 **How relationship translation works:**
 - **OneToMany**: Translates the children collection, pointing each child's inverse property back at the translated parent (`BidirectionalOneToManyHandler`)
-- **ManyToOne**: Creates a new relation pointing to the translated target, get-or-create; a bidirectional one (`inversedBy` set) cannot be shared (`BidirectionalManyToOneHandler`)
+- **ManyToOne**: Creates a new relation pointing to the translated target, get-or-create; a bidirectional one (`inversedBy` set) cannot be shared in the direct form (`BidirectionalManyToOneHandler`). A child's own back-reference to the parent being translated may carry `#[SharedAmongstTranslations]` harmlessly (5.1): the flag is consumed and the child's clone points at the parent's clone. A `ManyToOne` typed to a `TranslationRootInterface` is a **root reference** and is reaffirmed to the identical root — see "Translation roots" below.
 - **OneToOne**: Clones the related entity and fixes up the back-reference, in either direction — `mappedBy` or `inversedBy` (`BidirectionalOneToOneHandler`)
 - **ManyToMany**: Builds a **new** collection of translated items, in either direction, leaving the source entity's collection untouched (`BidirectionalManyToManyHandler`, or `UnidirectionalManyToManyHandler` when the mapping has neither `mappedBy` nor `inversedBy`)
 
@@ -221,6 +221,37 @@ association to a non-translatable entity (a `GeoPlace`/`Owner`/`User`-style refe
 locale of its own) is unaffected and keeps returning the identical instance.
 
 For complete handler chain details, priority order, and edge cases, see **llms.md → "Handler Chain Decision Tree"** section.
+
+## Translation roots (5.1, optional)
+
+Offer this when the entity owns data that belongs to the *object* rather than to a *language*
+— child collections, foreign keys from other tables, shared scalars — and the user asks where
+that data should hang. Without a root it either sits on one locale row or is keyed by the bare
+`tuuid` string with no foreign key. A **translation root** is one NON-translatable row per
+object owning the `tuuid`; every locale variant references it with a real `ManyToOne`.
+
+1. Root class: `implements TranslationRootInterface` + `use TranslationRootTrait` — never
+   `TranslatableInterface`. Identity is born once with `mintTuuid()`; `adoptTuuid()` is only
+   for taking over an existing group; `getTuuid()` never mints lazily.
+2. Translation row: `#[ORM\ManyToOne(targetEntity: Root::class)]` typed to the root class (or
+   the bare interface). The TYPE makes it a root reference; `#[TranslationRoot]` is an optional
+   marker for readers. The constructor takes the root and copies its identity:
+   `$this->setTuuid($root->getTuuid())`.
+3. Register exactly one `RootAdopterInterface` per translatable hierarchy, tagged
+   `tmi_translation.root_adopter` with `class: App\Entity\Row` — `cache:clear` fails until it
+   exists. `createRootFor()` returns a root WITHOUT a tuuid; `rootClassFor()` decides the
+   concrete class (STI: from the discriminator); `coherenceKey()` names what else must agree
+   inside a group.
+4. Roll out in two phases, no config key: nullable reference first (`adopt-root --dry-run`,
+   `adopt-root`, `adopt-root --check` to zero, `--check` in CI), then `NOT NULL` + required
+   constructor parameter — that flips the compile-time constructor rule on.
+
+Warn about the shapes the compile-time contract refuses (`TranslationRootContractException`,
+each with a `Solution:` line): two root references on one class, a root type that is also
+translatable, `#[ORM\Id]` or `#[EmptyOnTranslate]` on the reference, a unique join column,
+the marker on a non-root property. `sync-shared` never re-points a root reference; a group
+whose siblings disagree fails it and is resolved by `adopt-root`. See **README → "Translation
+roots"** and **llms.md → "Translation Roots"**.
 
 ## Removing a Translatable Entity
 

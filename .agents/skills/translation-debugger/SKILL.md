@@ -28,7 +28,7 @@ Execute all checks from **references/diagnostics.md** in order:
 3. **Handler Chain Mapping Layer** - Handler compatibility
 4. **Runtime Configuration Layer** - Environment setup
 5. **Compile-Time Validation Layer** - attribute conflicts, unique constraints, `strict_discovery`
-6. **Tuuid Linkage Integrity Layer** - broken linkage (run `tmi:translation:doctor`, four anomaly classes) plus Removal Semantics
+6. **Tuuid Linkage Integrity Layer** - broken linkage (run `tmi:translation:doctor`, four anomaly classes), Removal Semantics, and — for an application declaring translation roots — the root invariant (`tmi:translation:adopt-root --check`, Check 6.5)
 
 ### Step 3: Present Results
 
@@ -115,7 +115,17 @@ Run `tmi:translation:doctor` (Layer 6) — likely a standalone Tuuid created by 
 Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. Drift on a fresh
 database means `propagate_shared_on_flush` is off (it is on by default) — or the field is one
 the application varies per locale on purpose and should not carry the attribute at all. See
-diagnostics Check 6.2.
+diagnostics Check 6.2. A `listing`-style path listed as **not writable** with a warning naming
+`tmi:translation:adopt-root --check` is a translation root reference the siblings disagree on
+— `sync-shared` never re-points it; see Check 6.5.
+
+### "adopt-root --check fails" / "TranslationRootContractException at cache:clear"
+Run `tmi:translation:adopt-root --dry-run`: `new`/`partial` groups are repaired by the write
+mode, `drift`/`ambiguous`/`mismatched` groups need a manual decision (the report names tuuid,
+locales and detail). A contract exception at compile time names the declaration and carries a
+`Solution:` line — most often a missing `tmi_translation.root_adopter` tag (`class` attribute)
+or a non-nullable root reference without a constructor that requires the root. See diagnostics
+Check 6.5.
 
 ### "OrphanTranslationException on flush"
 An entity is being flushed in a non-default locale without a shared Tuuid — no other
@@ -163,6 +173,7 @@ For users who know what to check:
 - **"Check runtime"** - Run Runtime Configuration Layer only
 - **"Check validation"** - Run Compile-Time Validation Layer only
 - **"Check linkage"** - Run Tuuid Linkage Integrity Layer only (`tmi:translation:doctor`)
+- **"Check roots"** - Run the root invariant only (`tmi:translation:adopt-root --check`, Check 6.5)
 - **"Full diagnostic"** - Run all layers (default)
 
 ## References
@@ -171,5 +182,6 @@ For users who know what to check:
 - **llms.md -> Troubleshooting** - Fix procedures for each issue type
 - **llms.md -> Handler Chain Decision Tree** - Handler priority and routing
 - **llms.md -> Removal Semantics** - `TranslatableRemover`, `cascade_remove_locale_variants`
+- **llms.md -> Translation Roots** - root contract, `adopt-root` classification, extension points
 - **llms.md -> Performance** - `preload()`, reflection caches, query budgets
-- **UPGRADING.md** - Migration guide for 4.0 -> 4.1
+- **UPGRADING.md** - Migration guide per upgrade path, newest first

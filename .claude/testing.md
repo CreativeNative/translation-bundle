@@ -9,13 +9,16 @@ PHPUnit 12.4.4+ with 100% code coverage target.
 ```
 tests/
 ├── IntegrationTestCase.php      # Base class for DB tests
-├── TestKernel.php               # Minimal test kernel (SQLite)
-├── Fixtures/Entity/             # Test entities
+├── TestKernel.php               # Minimal test kernel (SQLite); registers the two root adopters
+├── Fixtures/Entity/             # Test entities (Root/: translation-root fixtures, both rollout phases)
+├── Fixtures/Validation/         # Reflection-only fixtures for the compiler passes (Root/: one dir per contract error)
 ├── Translation/Handlers/        # Handler unit tests
-├── Doctrine/                    # ORM integration tests
+├── Doctrine/                    # ORM integration tests (Root/: adopter registry, check aggregator)
 ├── DependencyInjection/         # Container tests
+├── Command/                     # Console command tests (CommandTester)
+├── Documentation/               # Doc link/anchor/class-name gate
 ├── Performance/                 # Query-budget tests (QueryBudgetTest.php)
-└── Support/                     # Test-only infrastructure (QueryCounter.php)
+└── Support/                     # Test-only infrastructure (QueryCounter.php, Root/: test adopters)
 ```
 
 ## Base Classes
@@ -48,6 +51,20 @@ docker exec php vendor/bin/phpunit --filter MethodName # Single test
 ## Test Fixtures
 
 Test entities live in `tests/Fixtures/Entity/`. Create specific fixtures for each relationship type being tested.
+
+Two rules learned the hard way:
+
+- Everything under `tests/Fixtures/Entity/` is mapped by `TestKernel` and validated by
+  `AttributeValidationPass` at kernel compile — a fixture that breaks a compile-time contract
+  (a root reference without an adopter, say) breaks **every** integration test. Reflection-only
+  fixtures for the passes go under `tests/Fixtures/Validation/`, which is not mapped.
+- Do not name a mapped fixture after a generic word an existing test asserts on in console
+  output (`Property` collided with the `Property | Tuuids | Rows` table header in
+  `SyncSharedTranslationsCommandTest`; the root fixture is `Estate`).
+
+Data providers run before coverage collection starts, and `#[CoversClass]` restricts what a
+test is credited for: an exception class exercised only through other tests' `CoversClass`
+scopes reports 0 % — yield closures from the provider and call them inside the test.
 
 ## Strict Mode
 
