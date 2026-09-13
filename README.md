@@ -25,7 +25,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 **Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **808 tests, 7,051 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **934 tests, 8,453 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -520,6 +520,98 @@ index into every translatable entity at mapping time, so locale-variant lookups 
 unindexed scan. Set `unique_locale_variants: true` to promote it to a `UNIQUE` constraint —
 do this only once existing data is free of duplicate locale rows (see `tmi:translation:doctor`).
 
+### Translation roots
+
+A translatable entity is one row per locale sharing a `tuuid`. Data that belongs to the *object*
+rather than to a *language* — children, foreign keys, shared scalars — has nowhere to hang: it
+either sits on one locale row or is keyed by the bare `tuuid` string with no foreign key. A
+**translation root** fixes that: one non-translatable row per object, owning the `tuuid`, that
+every locale variant references with a real `ManyToOne`. Doctrine then cascades natively.
+
+```php
+use Tmi\TranslationBundle\Doctrine\Model\TranslationRootInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslationRootTrait;
+
+#[ORM\Entity]
+class Listing implements TranslationRootInterface   // NOT translatable: no locale, no listeners
+{
+    use TranslationRootTrait;                        // unique `tuuid` column; mintTuuid() / adoptTuuid() / getTuuid()
+
+    #[ORM\Id, ORM\GeneratedValue, ORM\Column]
+    private ?int $id = null;
+}
+
+#[ORM\Entity]
+class Property implements TranslatableInterface
+{
+    use TranslatableTrait;
+
+    #[ORM\ManyToOne(targetEntity: Listing::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    #[TranslationRoot]                               // optional marker -- the TYPE makes it a root reference
+    private Listing $listing;
+
+    public function __construct(Listing $listing)
+    {
+        $this->listing = $listing;
+        $this->setTuuid($listing->getTuuid());       // copy the identity, never mint one
+    }
+}
+
+$listing = new Listing();
+$listing->mintTuuid();                               // the one place an identity is born
+$row = new Property($listing);
+```
+
+A property is a root reference **structurally** — a `ManyToOne` whose declared type implements
+`TranslationRootInterface` — with or without the `#[TranslationRoot]` marker. `translate()`
+then hands every clone the identical root instance, `tmi:translation:sync-shared --check`
+compares it by identity (and never re-points it), and the compile-time validation refuses the
+shapes that cannot work: two root references on one class, a root type that is also
+translatable, `#[ORM\Id]` or `#[EmptyOnTranslate]` on the reference, a unique join column, a
+marker on a non-root property. Once the reference is **non-nullable**, the constructor must
+require the root — that is the switch that says "this class has finished migrating".
+
+Existing rows predate their roots. `tmi:translation:adopt-root` creates them, one per `tuuid`
+group, through an adopter you register for each translatable hierarchy:
+
+```php
+final class PropertyRootAdopter implements RootAdopterInterface
+{
+    public function getTranslatableClass(): string { return Property::class; }
+    public function getRoot(TranslatableInterface $row): ?TranslationRootInterface { /* $row->getListing() */ }
+    public function createRootFor(array $group): TranslationRootInterface { return new Listing(); }   // WITHOUT a tuuid
+    public function attach(TranslatableInterface $row, TranslationRootInterface $root): void { /* setter or reflection */ }
+    public function rootClassFor(TranslatableInterface $row): string { return Listing::class; }        // STI: from the discriminator
+    public function coherenceKey(TranslatableInterface $row): string { return ''; }                     // what else must agree inside a group
+}
+```
+
+```yaml
+# config/services.yaml
+App\Translation\PropertyRootAdopter:
+    tags: [{ name: tmi_translation.root_adopter, class: App\Entity\Property }]
+```
+
+The command classifies **every** group before writing anything — `new`, `complete`, `partial`,
+`drift` (a row whose `tuuid` differs from its root's), `ambiguous` (two roots in one group),
+`mismatched` (rows disagree on root class or coherence key) — and refuses to write while any
+group is drifted, ambiguous or mismatched. Otherwise it adopts in batches of whole groups: a new
+group gets a root that *adopts* the group's `tuuid`, a partial group is healed onto its existing
+root. `--check` writes nothing and fails on anything but `complete`, on roots without rows
+(counted generically with `NOT EXISTS`), and on any `tmi_translation.tuuid_orphan_counter` service
+above zero — your own count of rows in tables the bundle does not know that reference a `tuuid`
+no row carries. Every counter is printed, at 0 too.
+
+```
+php bin/console tmi:translation:adopt-root --dry-run    # classify, write nothing
+php bin/console tmi:translation:adopt-root              # adopt new + partial groups
+php bin/console tmi:translation:adopt-root --check      # CI gate on the root invariant
+```
+
+Roll out in two phases without a configuration key: first a **nullable** reference (adopt-root
+fills it, `--check` to zero), then make it non-nullable and add the constructor parameter.
+
 ### Diagnostics
 
 Every locale variant of an entity shares one `Tuuid`. Translations created through
@@ -549,7 +641,11 @@ The bundle guards against this:
   ```
 
 - **`tmi:translation:sync-shared`** — see above; `--check` for the CI gate, `--tuuid` +
-  `--source-locale` for the targeted repair of one record from the row you name.
+  `--source-locale` for the targeted repair of one record from the row you name. A translation
+  root reference the siblings disagree on is reported and fails the run, never re-pointed.
+- **`tmi:translation:adopt-root`** — see [Translation roots](#translation-roots); `--check` proves
+  that every `tuuid` group has exactly one root with the same identity, every root has rows, and
+  every registered orphan counter is 0.
 - **`SharedDriftScanner`** — the read side of `--check` as a service:
   `scan($class)` streams one `SharedDrift` per drifted sibling row and property path, for a
   scheduled drift watch against a production database.

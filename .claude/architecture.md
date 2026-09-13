@@ -199,7 +199,33 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 | Command | Purpose |
 |---------|---------|
 | `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
-| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table |
+| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table; a translation root reference the siblings disagree on is reported as not writable and fails the run |
+| `tmi:translation:adopt-root` | Create translation roots for the `tuuid` groups that predate them, through the registered `RootAdopterInterface` per hierarchy; classifies every group before writing (`mismatched`/`new`/`complete`/`partial`/`drift`/`ambiguous`), aborts write mode on mismatched/drift/ambiguous; `--dry-run`, `--check` (CI gate: only `complete` groups, no root without rows, every `tuuid_orphan_counter` at 0), `--entity` (streams the hierarchy root) |
+
+## Translation Roots
+
+- `Doctrine/Model/TranslationRootInterface` + `TranslationRootTrait` — the root's identity
+  contract (`hasTuuid()`, `adoptTuuid()`, `getTuuid()` on the interface; `mintTuuid()` and the
+  unique `tuuid` column on the trait). Never `TranslatableInterface`, never PHP `readonly`.
+- `Doctrine/Attribute/TranslationRoot` — optional marker; the reference is a root reference by
+  TYPE (`Utils/AttributeHelper::isTranslationRootReference()`: `ManyToOne` + declared type
+  implementing the interface). `isEffectivelyShared()` = attribute OR root reference, asked by
+  `EntityTranslator::runHandlers()` and `SharedValueSynchronizer::discover()`.
+- `Exception/TranslationRootContractException` — one class, named factories, `Solution:` line;
+  per-property checks in `AttributeHelper::collectValidationErrors()`, per-class checks (one
+  root reference; constructor rule for a non-nullable one) in
+  `DependencyInjection/Compiler/AttributeValidationPass`, which also publishes
+  `tmi_translation.translation_root_classes`.
+- `DependencyInjection/Compiler/RootAdopterPass` (after the validation pass) collects tag
+  `tmi_translation.root_adopter` (required attribute `class`) into `Doctrine/Root/RootAdopterRegistry`
+  and cross-checks it against that parameter; `TuuidOrphanCounterPass` collects
+  `tmi_translation.tuuid_orphan_counter` into `Doctrine/Root/RootCheckAggregator` (roots without
+  rows via `NOT EXISTS`, filter suspended).
+- `Command/AdoptRootCommand` — see the table above; `Exception/RootAdoptionException` for a
+  factory result that already carries a `tuuid` or is of the wrong class.
+- `SharedValueSynchronizer` flags a root reference `root` in its `SharedProperty` entries and
+  reports a mismatch as `SharedValueSyncReport::rootDrift()`; it is never written by
+  `reconcile()`, and `SharedValuePropagationListener` skips it entirely.
 
 ## Performance
 
@@ -242,6 +268,7 @@ src/
 ├── Command/              # Diagnostic / maintenance console commands
 ├── DependencyInjection/  # Bundle configuration
 ├── Doctrine/             # ORM integration (models, types, filters, listeners)
+│   └── Root/             # RootAdopterInterface, RootAdopterRegistry, TuuidOrphanCounterInterface, RootCheckAggregator (5.1)
 ├── Event/                # Translation events
 ├── EventSubscriber/      # LocaleFilterConfigurator (toggles the locale filter per request)
 ├── Exception/            # Bundle exceptions

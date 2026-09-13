@@ -10,6 +10,7 @@ the way it does.
 
 ## Contents
 
+- [UPGRADE FROM 5.0 to 5.1](#upgrade-from-50-to-51)
 - [UPGRADE FROM 4.1 to 5.0](#upgrade-from-41-to-50)
 - [UPGRADE FROM 4.0 to 4.1](#upgrade-from-40-to-41)
 - [UPGRADE FROM 3.4 to 4.0](#upgrade-from-34-to-40)
@@ -19,6 +20,139 @@ the way it does.
   - [UPGRADE FROM 3.0 to 3.1](#upgrade-from-30-to-31)
   - [UPGRADE FROM 2.x to 3.0](#upgrade-from-2x-to-30)
   - [UPGRADE FROM 1.x to 2.0](#upgrade-from-1x-to-20)
+
+---
+
+# UPGRADE FROM 5.0 to 5.1
+
+Version 5.1 adds **translation roots** — one non-translatable row per object that owns the
+`tuuid`, so children, foreign keys and shared scalars can hang off a real primary key — and the
+command that creates those roots for rows that already exist. Nothing is removed, no default
+changes, no configuration key is introduced, and an application that declares no root is
+unchanged: the new machinery keys on a property's *type* implementing a 5.1 interface, which no
+pre-5.1 class can. One existing throw path changes behaviour (below); everything else is additive.
+
+## Table of Contents
+
+- [What is new](#what-is-new)
+- [Behavioural Changes (5.1)](#behavioural-changes-51)
+  - [1. A shared bidirectional `ManyToOne` back-reference no longer throws](#1-a-shared-bidirectional-manytoone-back-reference-no-longer-throws)
+  - [2. `sync-shared` reports a root reference the siblings disagree on, and exits non-zero](#2-sync-shared-reports-a-root-reference-the-siblings-disagree-on-and-exits-non-zero)
+  - [3. `SharedValueSyncReport` and `SharedValueSynchronizer::sharedProperties()` grow a field](#3-sharedvaluesyncreport-and-sharedvaluesynchronizersharedproperties-grow-a-field)
+- [Adopting translation roots](#adopting-translation-roots)
+- [Upgrade Checklist (5.1)](#upgrade-checklist-51)
+
+---
+
+## What is new
+
+- `TranslationRootInterface` + `TranslationRootTrait` (`Doctrine\Model`): the root's contract —
+  `mintTuuid()` for a brand-new object, `adoptTuuid()` for taking over an existing group's
+  identity, `getTuuid()` that never lazily mints. A unique `tuuid` column on the trait.
+- `#[TranslationRoot]` (`Doctrine\Attribute`): an **optional** marker for the root reference.
+  The reference is recognised by its type — a `ManyToOne` whose declared type implements the
+  interface — with or without the marker.
+- `translate()` reaffirms a root reference to the identical root instance on every clone;
+  `AttributeHelper::isEffectivelyShared()` is the new question `EntityTranslator` and
+  `SharedValueSynchronizer` ask (`isSharedAmongstTranslations()` stays literal).
+- Compile-time contract checks in `AttributeValidationPass`, each a
+  `TranslationRootContractException` with a `Solution:` line; the constructor rule turns on the
+  moment the reference is non-nullable.
+- `tmi:translation:adopt-root` with `--dry-run`, `--check`, `--entity`; the extension points
+  `RootAdopterInterface` (tag `tmi_translation.root_adopter`, required attribute `class`) and
+  `TuuidOrphanCounterInterface` (tag `tmi_translation.tuuid_orphan_counter`); the compiler passes
+  `RootAdopterPass` and `TuuidOrphanCounterPass`; `RootAdopterRegistry`, `RootCheckAggregator`,
+  `RootAdoptionException`.
+
+See [`README.md` § Translation roots](README.md#translation-roots) for the shape and
+[`llms.md` § Translation Roots](llms.md#translation-roots) for the mechanics.
+
+## Behavioural Changes (5.1)
+
+### 1. A shared bidirectional `ManyToOne` back-reference no longer throws
+
+**Before:** `BidirectionalManyToOneHandler::translate()` threw
+`"...is a Bidirectional ManyToOne, it cannot be shared amongst translations"` the moment a
+context was flagged shared — in *both* shapes the handler serves. A child entity whose own
+`ManyToOne` back to its translatable parent carried `#[SharedAmongstTranslations]` (an
+`ItineraryDay::$itinerary` pointing at its `Itinerary`) therefore made the **parent**
+untranslatable: walking the parent's `OneToMany` reached the child, the child's back-reference
+was flagged shared, and the handler threw before a single clone existed.
+
+**After:** the throw stays for the **direct form** — the property declared on a *different*,
+owning class, where "the identical instance on every locale" would leave the relation's
+ownership ambiguous. In the **back-reference form** the attribute changes nothing about the
+outcome: the property is the child's FK back to the parent being translated, and the only
+correct value for it on the child's clone is the parent's clone — which is what the handler
+writes for the non-shared case. The flag is consumed there, the child is cloned through the full
+pipeline, and its back-reference resolves to the parent's clone (a distinct instance from the
+source parent).
+
+**Action:** none, unless a test of yours asserted the old throw for this shape. The attribute on
+such a back-reference is now harmless redundancy; drop it or keep it. Known gap, unchanged: the
+shared early return in `EntityTranslator::runHandlers()` skips `PostTranslateEvent` and the
+translation cache for the value it hands back, and the repaired child now passes through it too.
+
+### 2. `sync-shared` reports a root reference the siblings disagree on, and exits non-zero
+
+A root reference is discovered as a shared association like any to-one association to a
+non-translatable target, and compared by identity — but it is **never written** by
+`tmi:translation:sync-shared` in write mode nor by the flush-time propagation. The command's
+whole-table write mode names the default-locale row canonical; re-pointing every other sibling's
+FK at that row's root would silently collapse an *ambiguous* group into one root and leave
+`adopt-root --check` clean afterwards. Such a group is listed in the drift table as not writable,
+a warning names `tmi:translation:adopt-root --check`, and the command exits `FAILURE` in every
+mode — exactly as it does for readonly drift.
+
+**Action:** none for an application without roots (no property qualifies).
+
+### 3. `SharedValueSyncReport` and `SharedValueSynchronizer::sharedProperties()` grow a field
+
+`SharedValueSyncReport::__construct()` takes a third, optional `list<string> $rootDrift = []`
+and exposes it as `rootDrift()`; `hasChanges()` is unchanged (root drift is never a change).
+Every entry of `sharedProperties()` carries a new boolean key `root`. Both are additive; only
+code that constructs the report by hand or destructures an entry with an exhaustive shape has to
+add the field. `SharedDriftScanner` yields root drift as `SharedDrift::isReadonly() === true`.
+
+## Adopting translation roots
+
+Opt-in, in two phases, with no configuration key — the phase is the **nullability** of the
+root reference:
+
+| Phase | Application | Bundle behaviour |
+|---|---|---|
+| 1 | FK column nullable; `Listing\|null $listing = null`; adopter registered; constructor unchanged | structural detection works; no constructor rule; `adopt-root` fills the FK; `--check` to zero |
+| 2 | column `NOT NULL`; `Listing $listing`; constructor requires the root; every raw `new` site updated | constructor rule enforced at compile time; `--check` stays in CI |
+
+The compile-time cross-check requires **exactly one** `tmi_translation.root_adopter` per
+translatable class that declares a root reference (registered for the class or an ancestor) —
+`cache:clear` fails with a `TranslationRootContractException` message naming the class until
+the adopter exists, and refuses an adopter for a class without a root reference. A
+`SINGLE_TABLE` hierarchy registers one adopter for its abstract root; its `rootClassFor()`
+decides the concrete root class per row (from the discriminator), and every row of a group
+must agree — a group whose rows disagree, or whose `coherenceKey()` differs, is *mismatched*
+and never adopted.
+
+`createRootFor()` must return a root **without** a `tuuid`: the command adopts the group's onto
+it (`RootAdoptionException::forMintedRoot()` otherwise), and the result must be an instance of
+`rootClassFor()` (`::forWrongRootClass()`). Write mode classifies every group first and refuses
+to write while any group is drifted, ambiguous or mismatched; an interrupted run never leaves a
+half-attached group, and the next run heals a *partial* one onto its existing root.
+
+## Upgrade Checklist (5.1)
+
+- [ ] `composer update tmi/translation-bundle` to `^5.1` — no schema change for an application
+      without roots, no configuration change.
+- [ ] If a test asserted the old throw for a shared back-reference `ManyToOne` reached through
+      its parent's `OneToMany`, update it: the parent translates, the child's clone points at the
+      parent's clone.
+- [ ] Code constructing `SharedValueSyncReport` by hand, or destructuring
+      `sharedProperties()` entries exhaustively: add `rootDrift` / `root`.
+- [ ] To adopt roots: declare the root class (`TranslationRootInterface` + `TranslationRootTrait`),
+      add a **nullable** `ManyToOne` on the translation row, register one adopter per hierarchy,
+      run `adopt-root --dry-run`, then `adopt-root`, then `adopt-root --check` to zero, and put
+      `--check` in CI. Make the reference non-nullable and add the constructor parameter once
+      every `new` site passes the root.
 
 ---
 

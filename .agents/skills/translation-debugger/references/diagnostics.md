@@ -543,6 +543,28 @@ $em->flush();
 - **Detached entity duplicated during an import** (`$em->clear()` between batches) — a cache hit
   the `UnitOfWork` no longer tracks is treated as a miss, not re-inserted by `persist()`.
 
+### Check 6.5: Translation root invariant (5.1)
+
+**What to look for:** An application that declares translation roots (a `ManyToOne` on the
+translation row whose type implements `TranslationRootInterface`) with `tuuid` groups that have
+no root yet, two roots, a root whose `tuuid` differs from the group's, or roots no row references.
+
+**How to check / fix:**
+
+```bash
+php bin/console tmi:translation:adopt-root --dry-run   # classify every group, write nothing
+php bin/console tmi:translation:adopt-root             # adopt new groups, heal partial ones
+php bin/console tmi:translation:adopt-root --check     # CI gate: exit non-zero unless every group is complete
+```
+
+`new` and `partial` groups are repaired by the write mode; `drift`, `ambiguous` and `mismatched`
+groups abort it before the first write and need a manual decision — the report names the
+`tuuid`, the locales and the detail (which root, which class, which coherence key disagrees).
+`--check` also prints every registered `tmi_translation.tuuid_orphan_counter` (at 0 too) and
+the roots-without-rows count per root class; a counter that throws shows as `ERROR` and fails.
+A `TranslationRootContractException` at `cache:clear` names the declaration that breaks the
+contract and carries a `Solution:` line. **Severity:** ERROR for `--check` failures.
+
 ---
 
 ## Diagnostic Summary Template

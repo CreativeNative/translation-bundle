@@ -171,8 +171,46 @@ with *different* new values for the same shared property throw `SharedValueConfl
 and nothing is written. Enable it only after `tmi:translation:sync-shared --check` reports zero
 drift and the attribute is gone from every property the application diverges on purpose.
 
+## Translation Roots (5.1)
+
+One NON-translatable row per logical object owning the `tuuid` every locale variant copies —
+`TranslationRootInterface` + `TranslationRootTrait` (`mintTuuid()` once for a new object,
+`adoptTuuid()` for an existing group's identity, `getTuuid()` never lazily mints, unique column,
+not PHP `readonly` because Doctrine's `ReflectionReadonlyProperty` compares by identity). The
+translation row references it with a `ManyToOne` whose declared type implements the interface —
+that TYPE is the signal (`AttributeHelper::isTranslationRootReference()`); `#[TranslationRoot]`
+is an optional marker. `translate()` reaffirms the reference to the identical root
+(`isEffectivelyShared()` in `EntityTranslator::runHandlers()`); the shared-value machinery
+discovers it as a shared association flagged `root`, compares by identity and REPORTS a mismatch
+(`SharedValueSyncReport::rootDrift()`), never writes it — not `sync-shared` in write mode, not the
+flush listener. Contract checks (reflection only, `TranslationRootContractException` with a
+`Solution:` line) run in `AttributeValidationPass`; the constructor rule turns on the moment the
+reference is non-nullable. `RootAdopterPass` cross-checks the `tmi_translation.root_adopter`
+tags (required attribute `class`) against the classes the validation pass found — exactly one
+adopter per root-declaring class — in a compiler pass, not the optional cache warmer.
+
+`tmi:translation:adopt-root` creates roots for rows that predate them: streams the adopter's
+hierarchy root (`--entity` with a leaf still streams the root), classifies EVERY group before
+writing (`mismatched` first, then `new`/`complete`/`partial`/`drift`/`ambiguous`, by tuuid
+string), aborts write mode before the first write on mismatched/drift/ambiguous, adopts `new`
+groups (the factory's root must be tuuid-less and of `rootClassFor()`'s class — it adopts the
+group's tuuid) and heals `partial` ones onto their existing root, in batches of whole groups
+with per-entity detach. `--check` fails on anything but `complete`, on roots without rows (one
+`NOT EXISTS` per root reference, filter suspended — `NOT IN` is the NULL trap) and on any
+`tmi_translation.tuuid_orphan_counter` above zero; every counter is printed at 0 too, an
+exception is `ERROR` + `FAILURE`.
+
+Test fixtures: `tests/Fixtures/Entity/Root/` (`Listing`/`ListingA`/`ListingB` STI roots,
+`Estate`/`EstateA`/`EstateB` phase-1 rows with the marker, `ArticleRoot`/`Article` phase-2 rows
+without it), adopters in `tests/Support/Root/`, one directory per contract error in
+`tests/Fixtures/Validation/Root/`. TestKernel registers the two adopters — the compile-time
+cross-check requires them.
+
 ## Diagnostic Commands
 
+- `php bin/console tmi:translation:adopt-root` — see Translation Roots above; `--dry-run`
+  classifies only, `--check` is the CI gate on the root invariant, `--entity=<FQCN>` restricts
+  to one hierarchy.
 - `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage:
   standalone / incomplete translations, duplicate `(tuuid, locale)` pairs, and
   `null-tuuid` rows (a literal DB `NULL` in the `tuuid` column — only reachable via a write
@@ -203,11 +241,17 @@ drift and the attribute is gone from every property the application diverges on 
 
 1. **Translatable associations + SharedAmongstTranslations**: Rejected on every association
    shape whose target is itself translatable — `OneToMany`, `ManyToMany` (both directions), a
-   bidirectional `ManyToOne`/`OneToOne`, and a unidirectional `ManyToOne`/`OneToOne` (no
-   `inversedBy`/`mappedBy`, rejected by `TranslatableEntityHandler`) — sharing would leave the
-   relation's ownership ambiguous across locale variants. Share the related entity's own scalar
-   columns instead. Unaffected: sharing an association whose target is *not* translatable (a
-   `GeoPlace`/`Owner`/`User`-style reference) still returns the identical instance.
+   bidirectional `ManyToOne`/`OneToOne` in the **direct form**, and a unidirectional
+   `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`, rejected by `TranslatableEntityHandler`)
+   — sharing would leave the relation's ownership ambiguous across locale variants. Share the
+   related entity's own scalar columns instead. Unaffected: sharing an association whose target
+   is *not* translatable (a `GeoPlace`/`Owner`/`User`-style reference) still returns the
+   identical instance. **Exception since 5.1:** a `#[SharedAmongstTranslations]` `ManyToOne`
+   **back-reference** reached through its parent's `OneToMany` (the child's own FK to the parent
+   being translated) is not rejected — `BidirectionalManyToOneHandler` consumes the flag and the
+   child's clone points at the parent's clone, the non-shared outcome. Known gap kept: that
+   value returns through the shared early return in `EntityTranslator::runHandlers()`, which
+   skips `PostTranslateEvent` and the translation cache for it.
 2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
    validation at `cache:warmup` — use a composite `field + locale` constraint.
 3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to

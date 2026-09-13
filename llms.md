@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **808 tests, 7,051 assertions**, all green.
+  `failOnDeprecation`). As of this release: **934 tests, 8,453 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -30,6 +30,7 @@ Key components:
 - `AttributeHelper` -- utility to inspect attributes/annotations like `#[SharedAmongstTranslations]` or `#[EmptyOnTranslate]`; memoizes per class::property::attribute.
 - `LocaleVariantFinder` -- the one place that queries across every locale variant of a Tuuid, filter-suspended.
 - `TranslatableRemover` -- removes a Tuuid's sibling locale variants together, or exactly one while leaving its siblings.
+- `TranslationRootInterface` / `TranslationRootTrait` (5.1) -- one non-translatable row per object that owns the Tuuid; `RootAdopterInterface` and `tmi:translation:adopt-root` create roots for rows that predate them. See [Translation Roots](#translation-roots).
 
 ---
 
@@ -295,7 +296,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Methods:**
   - `supports()` — Returns true for an `EntityTranslationContext` with a ManyToOne association having `inversedBy`.
   - `translate()`:
-    - `isShared()` — Throws exception; unsupported.
+    - `isShared()` — Throws in the **direct form** (sharing an association to a translatable target is unsupported). In the **back-reference form** (5.1) the flag is consumed instead: the property is the child's own FK back to the parent being translated, so the child is cloned through the full pipeline and its back-reference resolves to the parent's clone -- exactly the non-shared outcome. Before 5.1 a child declaring its back-reference `#[SharedAmongstTranslations]` made the whole parent untranslatable.
     - `isEmpty()` — Returns `null`.
     - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (the entity's own property pipeline, generated-id reset, locale -- existence of a target-locale variant was already resolved before this handler ran, by `EntityTranslator::processTranslation()`'s own `preload()`-then-cache-check for this same subject). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
 - **Notes:** Never mutates the source; integrates with `TranslatableEntityHandler`/`EntityTranslator` for nested translations.
@@ -606,6 +607,109 @@ class.
 
 ---
 
+## Translation Roots
+
+One NON-translatable row per logical object, owning the Tuuid every locale variant copies, so
+children, foreign keys and shared scalars hang off a real primary key instead of a bare `tuuid`
+string (5.1). Opt-in by TYPE: an application that declares no root is unchanged, provably --
+no configuration key exists, and the structural test below is false for every property whose
+type does not implement a 5.1 interface.
+
+### [TranslationRootInterface](src/Doctrine/Model/TranslationRootInterface.php) / [TranslationRootTrait](src/Doctrine/Model/TranslationRootTrait.php)
+
+- `hasTuuid()`, `adoptTuuid(Tuuid)`, `getTuuid()` on the interface; the trait adds `mintTuuid()`
+  and the `#[ORM\Column(type: 'tuuid', unique: true)]` property.
+- `mintTuuid()` -- a brand-new identity, once; `adoptTuuid()` -- an EXISTING group's identity
+  (the migration path); same value again is a no-op (Doctrine re-hydration), a different value or
+  a second mint throws `LogicException`. `getTuuid()` never lazily mints -- the deliberate
+  asymmetry with `TranslatableTrait::getTuuid()`.
+- A root is deliberately not `TranslatableInterface`: it has no locale, so none of the
+  translatable listeners run for it. Not PHP `readonly` either: Doctrine's
+  `ReflectionReadonlyProperty` compares by identity, and a re-hydrated equal Tuuid would throw.
+
+### The root reference
+
+A translation row's `#[ORM\ManyToOne]` whose declared type implements
+`TranslationRootInterface` -- resolved by `AttributeHelper::isTranslationRootReference()` with
+`is_a(..., true)` on the type name, never gated behind `class_exists()` (a property typed to the
+bare interface is legitimate). `ManyToOne` only: a root has two or more rows by construction.
+`#[TranslationRoot]` ([TranslationRoot](src/Doctrine/Attribute/TranslationRoot.php)) is an
+OPTIONAL marker -- documentation and a validation hook, never the signal.
+`AttributeHelper::isEffectivelyShared()` = shared by attribute OR root reference, and is what
+`EntityTranslator::runHandlers()` and `SharedValueSynchronizer` ask; `isSharedAmongstTranslations()`
+stays literal.
+
+Consequences:
+- `translate()` reaffirms the root reference to the identical instance on every clone (the
+  shared branch of `DoctrineObjectHandler`); a `null` reference (phase 1) stays `null`.
+- `SharedValueSynchronizer` discovers it as a shared association flagged `root` and REPORTS a
+  mismatch between siblings (`SharedValueSyncReport::rootDrift()`), never writes it -- neither
+  `sync-shared` in write mode nor `SharedValuePropagationListener`. Re-pointing a row at another
+  root is an identity decision only `adopt-root`'s classification may make.
+  `tmi:translation:sync-shared` lists such drift as not writable and exits non-zero.
+- The constructor copies the identity: `$this->setTuuid($root->getTuuid())`.
+
+### Contract checks (compile time, reflection only)
+
+Per property, through `AttributeHelper::validateProperty()` (so also at translate time), each a
+[TranslationRootContractException](src/Exception/TranslationRootContractException.php) with a
+`Solution:` line: the type must not also be translatable; not `#[ORM\Id]`; not
+`#[EmptyOnTranslate]`; no `unique: true` join column; `#[TranslationRoot]` only on a real root
+reference. `#[SharedAmongstTranslations]` on a root reference is tolerated as redundant.
+
+Per class, in `AttributeValidationPass`: at most one root reference; and once that reference is
+**non-nullable** -- the phase-2 switch -- the constructor `new` invokes must have a required,
+non-nullable parameter typed to `TranslationRootInterface` or a subtype. A property declared on
+an abstract SINGLE_TABLE ancestor is reported once (one `AttributeHelper` per run), the
+constructor rule once per concrete leaf. The pass publishes the concrete classes that declare a
+root reference as `tmi_translation.translation_root_classes`.
+
+### Extension points
+
+- [RootAdopterInterface](src/Doctrine/Root/RootAdopterInterface.php), tag
+  `tmi_translation.root_adopter` with the REQUIRED attribute `class` (the translatable hierarchy
+  it serves): `getTranslatableClass()`, `getRoot($row)` (must tolerate an uninitialized property),
+  `createRootFor($group)` (a NEW root WITHOUT a Tuuid -- the command adopts the group's),
+  `attach($row, $root)`, `rootClassFor($row)` (STI: from the discriminator) and
+  `coherenceKey($row)` (everything else that must agree inside one group). `RootAdopterPass`
+  collects them into `RootAdopterRegistry` (`addAdopter()` refuses an adopter whose method
+  disagrees with its tag) and cross-checks at compile time: every root-declaring class has
+  EXACTLY one adopter (for the class or an ancestor), every adopter names a class under which one
+  declares a root reference. Not a cache warmer on purpose -- the bundle's warmer is optional and
+  Symfony skips optional warmers on the ordinary rebuild path.
+- [TuuidOrphanCounterInterface](src/Doctrine/Root/TuuidOrphanCounterInterface.php), tag
+  `tmi_translation.tuuid_orphan_counter`: `getName()`, `countOrphans()` -- rows in a table the
+  bundle does not know that reference a Tuuid no row carries. Collected by
+  `TuuidOrphanCounterPass` into [RootCheckAggregator](src/Doctrine/Root/RootCheckAggregator.php),
+  which also counts roots without rows generically: one `NOT EXISTS` query per root reference,
+  locale filter suspended (`NOT IN (subquery)` is banned -- NULL foreign keys during the
+  migration window make it report zero orphans regardless of the truth).
+
+### `tmi:translation:adopt-root`
+
+Streams each adopter's hierarchy ROOT with `LocaleVariantFinder::streamGroupedByTuuid()` and
+classifies EVERY group before writing: `mismatched` (rows disagree on `rootClassFor()` or
+`coherenceKey()`; checked first, never adopted), `new`, `complete` (idempotency), `partial`,
+`drift` (a row's Tuuid differs from its root's, or the root's class is not the one the rows
+imply; compared by Tuuid STRING, identity is not observable across a cold process), `ambiguous`
+(two or more roots). Write mode aborts with `FAILURE` before the first write while any group is
+mismatched, drifted or ambiguous; otherwise it adopts in batches of whole groups (`persist(root)`
+and every `attach()` complete before the batch's `flush()`, settled entities detached
+individually -- never a blanket `clear()`): a `new` group gets `createRootFor()`'s root
+(refused with [RootAdoptionException](src/Exception/RootAdoptionException.php) if it already
+carries a Tuuid or is not an instance of `rootClassFor()`), which adopts the group's Tuuid; a
+`partial` group is healed onto its existing root. `--dry-run` classifies only. `--check`
+implies dry run and fails on any group but `complete`, any root without rows, any counter above
+zero -- every counter is printed at 0 too, and an exception from a counter or from the bundle's
+own query shows as `ERROR` and fails. `--entity` accepts a concrete leaf but always streams the
+hierarchy root (a leaf-scoped run would turn a sibling leaf's rows into an ambiguous group).
+
+Two-phase rollout, no configuration key: phase 1 -- nullable reference, adopter registered,
+`adopt-root` fills the FK, `--check` to zero; phase 2 -- `NOT NULL` column, non-nullable
+property, constructor requires the root (the compile-time rule turns on), `--check` stays in CI.
+
+---
+
 ## Compile-Time Validation
 
 The bundle validates translatable entity configuration at compile time (`cache:warmup` / `cache:clear`), catching errors before production.
@@ -619,6 +723,10 @@ Runs during container compilation. Scans all Doctrine-mapped TranslatableInterfa
 - No property-level `#[SharedAmongstTranslations]` + `#[EmptyOnTranslate]` conflict
 - No `#[EmptyOnTranslate]` on readonly properties
 - Locale property exists (via TranslatableTrait or manual definition)
+- The translation root contract (5.1) -- see [Translation Roots](#translation-roots): the
+  per-property checks, at most one root reference per class, and the constructor rule for a
+  non-nullable one. `RootAdopterPass` (runs after it) cross-checks the `tmi_translation.root_adopter`
+  tags against the classes this pass found declaring a root reference.
 
 **Error format:** Single LogicException listing all errors found across all entities.
 
@@ -691,6 +799,7 @@ class Product implements TranslatableInterface
   $this->attributeHelper->isEmbedded($context->getProperty())
   ```  
 - Also used to detect `SharedAmongstTranslations` (and potentially other custom logic) so that translation logic can branch accordingly.
+- `isTranslationRootReference()` (a `ManyToOne` typed to a `TranslationRootInterface`), `translationRootType()`, `hasTranslationRootMarker()` and `isEffectivelyShared()` (attribute OR root reference) carry the translation root contract (5.1); `validateProperty()` reports the per-property root checks as `TranslationRootContractException`.
 
 ---
 

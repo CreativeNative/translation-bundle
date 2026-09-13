@@ -12,6 +12,77 @@ Only the 4.x line and later is supported. Entries for 1.x–3.x are deliberately
 migration paths are kept in [`UPGRADING.md`](UPGRADING.md#archive--unsupported-upgrade-paths)
 and their notes in the GitHub releases.
 
+## [5.1.0] — 2026-09-13
+
+Translation roots — one non-translatable row per object that owns the `tuuid` — and the command
+that creates them for rows that predate them. Additive on 5.0: no default changes, no
+configuration key, an application without roots is unchanged. One existing throw path changes
+behaviour (under *Fixed*). Migration:
+[`UPGRADING.md` § UPGRADE FROM 5.0 to 5.1](UPGRADING.md#upgrade-from-50-to-51).
+
+### Added
+
+- `TranslationRootInterface` and `TranslationRootTrait` (`Doctrine\Model`): the root's
+  identity contract — `mintTuuid()` for a brand-new object, `adoptTuuid()` for taking over an
+  existing group's identity (same value again is a no-op, a different one throws), `getTuuid()`
+  that never lazily mints — and a unique `tuuid` column. A root is deliberately not
+  `TranslatableInterface` (no locale, no listeners) and not PHP `readonly` (Doctrine's
+  `ReflectionReadonlyProperty` compares by identity).
+- `#[TranslationRoot]` (`Doctrine\Attribute`): optional marker for a translation row's root
+  reference. The reference is recognised **structurally** — a `#[ORM\ManyToOne]` whose declared
+  type implements the interface, `is_a()` on the name and never gated behind `class_exists()` —
+  so a forgotten attribute cannot silently clone the root, and no pre-5.1 class can qualify by
+  accident. `AttributeHelper::isTranslationRootReference()`, `translationRootType()`,
+  `hasTranslationRootMarker()` and `isEffectivelyShared()` (attribute OR root reference).
+- `translate()` reaffirms a root reference to the identical root instance on every clone; a
+  `null` reference (phase 1) stays `null`.
+- Compile-time contract checks in `AttributeValidationPass`, each a
+  `TranslationRootContractException` with a `Solution:` line: at most one root reference per
+  class; the type must not also be translatable; not `#[ORM\Id]`, not `#[EmptyOnTranslate]`, no
+  unique join column; the marker only on a real root reference; and, once the reference is
+  non-nullable, a constructor that requires the root. One `AttributeHelper` per run, so a
+  property declared on an abstract `SINGLE_TABLE` ancestor is reported once, the constructor rule
+  once per concrete leaf. The pass publishes `tmi_translation.translation_root_classes`.
+- `tmi:translation:adopt-root` (`--dry-run`, `--check`, `--entity`): streams each adopter's
+  hierarchy root and classifies every group before writing — `mismatched`, `new`, `complete`,
+  `partial`, `drift`, `ambiguous`. Write mode aborts before the first write while any group is
+  mismatched, drifted or ambiguous; otherwise adopts in batches of whole groups (a `new` group's
+  root adopts the group's `tuuid`; a `partial` group is healed onto its existing root; an
+  interruption never commits a half-attached group). `--check` fails on anything but `complete`,
+  on roots without rows (one `NOT EXISTS` query per root reference, locale filter suspended;
+  `NOT IN` banned by name), and on any orphan counter above zero — every counter printed at 0
+  too, an exception shown as `ERROR` and failing. `--entity` with a concrete leaf still streams
+  the hierarchy root.
+- Extension points: `RootAdopterInterface` (tag `tmi_translation.root_adopter`, required
+  attribute `class`) collected by `RootAdopterPass` into `RootAdopterRegistry` and cross-checked
+  at compile time — exactly one adopter per root-declaring class, no adopter for a class without
+  one, tag and `getTranslatableClass()` must agree; `TuuidOrphanCounterInterface` (tag
+  `tmi_translation.tuuid_orphan_counter`) collected by `TuuidOrphanCounterPass` into
+  `RootCheckAggregator`; `RootAdoptionException` for a factory result that already carries a
+  `tuuid` or is of the wrong class.
+- `SharedValueSyncReport::rootDrift()` (third, optional constructor argument) and the `root`
+  key on every `SharedValueSynchronizer::sharedProperties()` entry.
+
+### Changed
+
+- `SharedValueSynchronizer` discovers a root reference as a shared association and compares it
+  by identity, but never writes it: a mismatch between siblings is reported as `rootDrift()`, in
+  write mode and compare mode alike. `SharedValuePropagationListener` neither propagates nor
+  conflict-checks a root reference path. `tmi:translation:sync-shared` lists such drift as not
+  writable, names `tmi:translation:adopt-root --check`, and exits non-zero in every mode.
+  `SharedDriftScanner` yields it with `isReadonly() === true`.
+
+### Fixed
+
+- `BidirectionalManyToOneHandler` no longer throws for a `#[SharedAmongstTranslations]`
+  `ManyToOne` **back-reference** reached through its parent's `OneToMany` (an
+  `ItineraryDay::$itinerary`): the parent was untranslatable the moment a child declared its
+  back-reference shared, for an attribute that changes nothing about the outcome. The flag is
+  consumed, the child is cloned through the full pipeline and its back-reference resolves to
+  the parent's clone. The **direct form** — a shared association declared on another owning
+  class — still throws. This is a behaviour change on an existing throw path; no consumer relied
+  on it.
+
 ## [5.0.0] — 2026-09-12
 
 One breaking change — the `propagate_shared_on_flush` default — and everything that had

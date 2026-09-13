@@ -1,6 +1,16 @@
 # SPEC — Translation roots (bundle 5.1.0)
 
-> **Status:** draft for review, 2026-09-13. Nothing built. Written for the session that implements
+> **Status:** implemented in 5.1.0 (2026-09-13). Kept as the design record; `CHANGELOG.md`,
+> `UPGRADING.md` § 5.0 → 5.1 and `llms.md` § Translation Roots describe what shipped. Deviations
+> from this text, all deliberate: `adoptTuuid()` is part of `TranslationRootInterface` (the
+> command calls it on an interface-typed value); the per-property contract checks live in
+> `AttributeHelper::validateProperty()` so they also run at translate time, and
+> `#[EmptyOnTranslate]` on a root reference is reported as the root-specific error rather than
+> the generic Shared+Empty conflict; the synchronizer reports a root mismatch in its own
+> `rootDrift()` bucket (the drift scanner still yields it as not writable); the roots-without-rows
+> query runs with the locale filter suspended (a filtered subquery would count a root whose rows
+> are all in another locale as orphaned); in write mode the counters and roots-without-rows are
+> printed for information and gate only `--check`. Written for the session that implements
 > 5.1.0; the application side (Terra Mia, stage 1 of its root-row plan) is referenced, not specified.
 > Method: a readers' map of this repository at `v5.0.0` (six readers), three independent design
 > drafts (Doctrine-native · explicit-contracts · migration-first), three judges; the migration-first
@@ -10,9 +20,8 @@
 > never touch a root reference (§ 3.2), that the adopter cross-check cannot live in an optional
 > cache warmer (§ 3.4), and that groups must agree on root class and coherence key (§ 5.2).
 >
-> This file is deliberately **not** in `tests/Documentation/DocumentationReferencesTest.php`: it names
-> classes that do not exist yet. Add it to that list — or fold it into `UPGRADING.md` — in the commit
-> that makes them exist.
+> This file is part of `tests/Documentation/DocumentationReferencesTest.php` since the commit that
+> made the classes it names exist.
 
 ## 1. The problem in one paragraph
 
