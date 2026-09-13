@@ -26,6 +26,14 @@ and their notes in the GitHub releases.
 - `CollectionTranslationSupport` (`Translation\Handlers`): the batched `preload()` and the
   cycle-guard test the three collection handlers share — a building block for custom collection handlers.
 - `ReflectionHelper::realClass()`: an instance's mapped class, proxies unwrapped.
+- `Utils\PropertyLocation`: where a mapped value lives (the entity, or an embeddable it holds) and
+  `holderOf()` — the one answer `SharedValueSynchronizer` and `LocaleCompletenessResolver` share;
+  `sharedProperties()` entries carry it under `location` (was `owner` + `property`).
+- `TranslatableInterface::SYSTEM_PROPERTIES` (`tuuid`, `locale`) and `LOCALE_LENGTH` (16), the
+  one home for what two classes and the cache warmer each spelled out themselves.
+- `ValidationException::fromMessages()`: the aggregate a compiler pass throws (label, one line per
+  message, the messages as errors); `ReadonlyPropertyException::forWriteDuringTranslate()` for the
+  readonly write `DoctrineObjectHandler` refuses (was a bare `\LogicException`).
 - `tmi:translation:doctor --strict`: counts untranslated and incomplete records as anomalies
   (the pre-5.2 verdict).
 - `TranslatableEntityLocator::isTranslatableEntity()`: the `--entity` test the three commands
@@ -46,6 +54,17 @@ and their notes in the GitHub releases.
   *standalone* class is split — a non-default-locale-only row is an *orphan* (a translation
   without its source) and still fails the run. *Incomplete* records are listed for information
   too. Orphan, duplicate and `null-tuuid` decide the exit code; `--strict` restores the old gate.
+- `TranslatableTrait::setLocale()` refuses a locale longer than the 16-character column with an
+  `InvalidArgumentException` instead of letting the driver truncate or reject it at flush.
+- `LocaleCompletenessResolver` treats an uninitialized embeddable as not filled (a managed row
+  built without its constructor) instead of failing on the access.
+- `AttributeConflictException`, `ClassLevelAttributeConflictException` and
+  `ReadonlyPropertyException` are built through named factories (`forSharedAndEmpty()`,
+  `forClass()`, `forEmptyOnTranslate()`) with one-paragraph messages that end in a `Solution:`
+  — the idiom every bundle exception now follows.
+- `TranslatableEventSubscriber` is registered through `doctrine.event_listener` tags for its three
+  events (plus its `#[AsDoctrineListener]` attributes); `#[EmptyOnTranslate]`,
+  `#[SharedAmongstTranslations]` are `final`.
 - `tmi:translation:sync-shared` and `tmi:translation:adopt-root` take their run mode from one
   `RunMode` and their batching from one `GroupBatch`; the `Source:` and error lines say `Tuuid`.
 
@@ -89,6 +108,12 @@ and their notes in the GitHub releases.
 
 - `EntityTranslator::setLogger()` and `EmbeddedHandler::setLogger()` — the logger is a
   constructor dependency.
+- The public constructors and getters of `AttributeConflictException`,
+  `ClassLevelAttributeConflictException` and `ReadonlyPropertyException` (`getClassName()`,
+  `getPropertyName()`, `getAttribute1()`, `getAttribute2()`) — the message is the contract.
+- `TranslatableEventSubscriber::getSubscribedEvents()` and its `EventSubscriber` interface, and
+  the `doctrine.event_subscriber` tag: Symfony's doctrine-bridge no longer reads that tag, so all
+  three were dead.
 - `symfony/translation-contracts` from `require` — the bundle never imported it. An application
   that relied on the bundle pulling it in gets it from `symfony/translation` or `symfony/validator`.
 - The dead Rector configuration (`rector.php`, `composer rector`): Rector was never installed,

@@ -287,35 +287,7 @@ class AttributeHelper
         \ReflectionClass $class,
         LoggerInterface $logger = new NullLogger(),
     ): void {
-        $cacheKey = $class->getName();
-
-        if (isset($this->validatedClasses[$cacheKey])) {
-            return;
-        }
-
-        $this->validatedClasses[$cacheKey] = true;
-
-        $errors = [];
-
-        if ($this->classHasSharedAmongstTranslations($class) && $this->classHasEmptyOnTranslate($class)) {
-            $errors[] = new ClassLevelAttributeConflictException($class->getName());
-        }
-
-        foreach (ReflectionHelper::getHierarchyProperties($class) as $property) {
-            try {
-                $this->validateProperty($property);
-            } catch (ValidationException $e) {
-                $errors = array_merge($errors, $e->getErrors());
-            }
-        }
-
-        if ([] !== $errors) {
-            foreach ($errors as $error) {
-                $logger->error('[TMI Translation][Embedded] '.$error->getMessage());
-            }
-
-            throw new ValidationException($errors);
-        }
+        $this->validateOnce($class->getName(), $this->validatedClasses, fn (): array => $this->collectEmbeddableErrors($class), '[TMI Translation][Embedded] ', $logger);
     }
 
     /**
@@ -329,23 +301,7 @@ class AttributeHelper
         \ReflectionProperty $property,
         LoggerInterface $logger = new NullLogger(),
     ): void {
-        $cacheKey = $property->class.'::$'.$property->name;
-
-        if (isset($this->validatedProperties[$cacheKey])) {
-            return;
-        }
-
-        $this->validatedProperties[$cacheKey] = true;
-
-        $errors = $this->collectValidationErrors($property);
-
-        if ([] !== $errors) {
-            foreach ($errors as $error) {
-                $logger->error('[TMI Translation] '.$error->getMessage());
-            }
-
-            throw new ValidationException($errors);
-        }
+        $this->validateOnce($property->class.'::$'.$property->name, $this->validatedProperties, fn (): array => $this->collectValidationErrors($property), '[TMI Translation] ', $logger);
     }
 
     /**
@@ -361,6 +317,61 @@ class AttributeHelper
         }
 
         return $attrs[0]->newInstance();
+    }
+
+    /**
+     * @param \ReflectionClass<object> $class
+     *
+     * @return list<\LogicException>
+     */
+    private function collectEmbeddableErrors(\ReflectionClass $class): array
+    {
+        $errors = [];
+
+        if ($this->classHasSharedAmongstTranslations($class) && $this->classHasEmptyOnTranslate($class)) {
+            $errors[] = ClassLevelAttributeConflictException::forClass($class->getName());
+        }
+
+        foreach (ReflectionHelper::getHierarchyProperties($class) as $property) {
+            try {
+                $this->validateProperty($property);
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, array_values($e->getErrors()));
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * The one validate-and-remember skeleton behind both public validators: a key is
+     * checked once per helper instance, every error is logged under its prefix, and
+     * the errors are thrown together.
+     *
+     * @param array<string, true>                $validated
+     * @param \Closure(): list<\LogicException> $collect
+     *
+     * @throws ValidationException
+     */
+    private function validateOnce(string $key, array &$validated, \Closure $collect, string $logPrefix, LoggerInterface $logger): void
+    {
+        if (isset($validated[$key])) {
+            return;
+        }
+
+        $validated[$key] = true;
+
+        $errors = $collect();
+
+        if ([] === $errors) {
+            return;
+        }
+
+        foreach ($errors as $error) {
+            $logger->error($logPrefix.$error->getMessage());
+        }
+
+        throw new ValidationException($errors);
     }
 
     /**
@@ -393,26 +404,18 @@ class AttributeHelper
     }
 
     /**
-     * @return array<\LogicException>
+     * @return list<\LogicException>
      */
     private function collectValidationErrors(\ReflectionProperty $property): array
     {
         $errors = [];
 
         if ($this->isSharedAmongstTranslations($property) && $this->isEmptyOnTranslate($property)) {
-            $errors[] = new AttributeConflictException(
-                $property->class,
-                $property->name,
-                'SharedAmongstTranslations',
-                'EmptyOnTranslate',
-            );
+            $errors[] = AttributeConflictException::forSharedAndEmpty($property->class, $property->name);
         }
 
         if ($this->isEmptyOnTranslate($property) && $property->isReadOnly()) {
-            $errors[] = new ReadonlyPropertyException(
-                $property->class,
-                $property->name,
-            );
+            $errors[] = ReadonlyPropertyException::forEmptyOnTranslate($property->class, $property->name);
         }
 
         $emptyType = $this->isEmptyOnTranslate($property) ? self::nonNullableObjectType($property) : null;

@@ -76,7 +76,19 @@ overwritten on flush. The ManyToOne handler now reads an explicit back-reference
 the mapping. A custom collection handler that dispatches children to the ManyToOne handler sets
 `->setBackReference(true)` on the child's context.
 
-### 3. `tmi:translation:doctor` no longer fails on untranslated or incomplete records
+### 3. `setLocale()` refuses a locale longer than the column
+
+`TranslatableTrait::setLocale()` throws an `InvalidArgumentException` for a value longer than
+16 characters (`TranslatableInterface::LOCALE_LENGTH`), the width of the `locale` column. Before,
+the value reached the driver, which truncated or rejected it at flush.
+
+### 4. An uninitialized embeddable counts as not filled
+
+`LocaleCompletenessResolver` reported an `Error` when a managed row's embedded property was never
+initialized (a row built without its constructor and flushed in the same unit of work); such a
+variant is `Incomplete` now.
+
+### 5. `tmi:translation:doctor` no longer fails on untranslated or incomplete records
 
 A record that exists in the default locale only was reported as a "standalone" anomaly and
 failed the run — which made the doctor unusable as a gate on any database with one pending
@@ -89,7 +101,7 @@ If you gated on the old verdict, pass `--strict`: it counts untranslated and inc
 records again. The doctor's constructor takes `LocaleVariantFinder` and the default locale
 (relevant only to a hand-built instance).
 
-### 4. `enable_logging: false` now silences `EmbeddedHandler` too
+### 6. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -116,13 +128,34 @@ entity throws `SharedAssociationException`, with one message, instead of a bare
 ("cannot be shared amongst translations", "SharedAmongstTranslations is not allowed on") matches
 the new one on the exception class.
 
-### 3. Handler constructors
+### 3. Exception constructors and getters
+
+`AttributeConflictException`, `ClassLevelAttributeConflictException` and `ReadonlyPropertyException`
+are created through named factories and carry no getters any more — the message is the contract
+(one paragraph, ending in `Solution:`). Code that constructed one or read `getClassName()` /
+`getPropertyName()` / `getAttribute1()` / `getAttribute2()` reads the message instead. The compiler
+passes throw `ValidationException` (a `\LogicException`, as before) with the same text.
+
+### 4. `TranslatableEventSubscriber` implements no `EventSubscriber` interface
+
+`getSubscribedEvents()` is gone with it; the class is registered by its three
+`#[AsDoctrineListener]` attributes and by `doctrine.event_listener` tags. A test that registered a
+hand-built instance with `addEventSubscriber()` uses
+`addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber)`.
+
+### 5. `SharedValueSynchronizer::sharedProperties()` entries
+
+Each entry carries `location` (a `PropertyLocation` with `owner`, `property` and `holderOf()`)
+instead of the two keys `owner` and `property`. `path`, `changeSetPaths`, `association` and
+`root` are unchanged.
+
+### 6. Handler constructors
 
 `ScalarHandler` takes `EntityManagerInterface` and `AttributeHelper`; `BidirectionalManyToOneHandler`
 no longer takes `EntityManagerInterface`. Relevant only to a hand-built instance — the container
 wires both.
 
-### 4. `symfony/translation-contracts` is no longer a bundle requirement
+### 7. `symfony/translation-contracts` is no longer a bundle requirement
 
 The bundle never imported it. An application gets it from `symfony/translation`,
 `symfony/validator` or `symfony/form`; one that relied on the bundle pulling it in adds it to

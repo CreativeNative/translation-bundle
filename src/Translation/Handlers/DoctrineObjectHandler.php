@@ -11,6 +11,7 @@ use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
@@ -164,7 +165,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
                     continue;
                 }
 
-                throw new \LogicException(\sprintf('Property %s::$%s is readonly and cannot be reassigned while translating. Mark it #[SharedAmongstTranslations] so every locale keeps the same value, or drop the readonly modifier.', $property->class, $property->name));
+                throw ReadonlyPropertyException::forWriteDuringTranslate($property->class, $property->name);
             }
 
             // try to set via accessor; if it throws NoSuchPropertyException, fallback to reflection

@@ -11,108 +11,22 @@ use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 #[CoversClass(ReadonlyPropertyException::class)]
 final class ReadonlyPropertyExceptionTest extends TestCase
 {
-    public function testExtendsLogicException(): void
+    public function testEmptyOnTranslateOnAReadonlyPropertyNamesThePropertyAndTheWayOut(): void
     {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
+        $exception = ReadonlyPropertyException::forEmptyOnTranslate('App\Entity\Article', 'cachedSlug');
 
-        $parents = class_parents($exception);
-        self::assertNotEmpty($parents);
-        self::assertContains(\LogicException::class, $parents);
+        self::assertStringStartsWith('Invalid #[EmptyOnTranslate] on readonly property App\Entity\Article::$cachedSlug: ', $exception->getMessage());
+        self::assertStringContainsString('Solution: drop the readonly modifier, or remove #[EmptyOnTranslate].', $exception->getMessage());
     }
 
-    public function testMessageContainsClassName(): void
+    public function testAWriteDuringTranslateNamesThePropertyAndTheWayOut(): void
     {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
+        $exception = ReadonlyPropertyException::forWriteDuringTranslate('App\Entity\Article', 'sku');
+
+        self::assertSame(
+            'Property App\Entity\Article::$sku is readonly and cannot be reassigned while translating. '
+            .'Solution: mark it #[SharedAmongstTranslations] so every locale keeps the same value, or drop the readonly modifier.',
+            $exception->getMessage(),
         );
-
-        self::assertStringContainsString('App\\Entity\\Article', $exception->getMessage());
-    }
-
-    public function testMessageContainsPropertyName(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'immutableValue',
-        );
-
-        self::assertStringContainsString('$immutableValue', $exception->getMessage());
-    }
-
-    public function testMessageContainsExplanationOfConflict(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
-
-        $message = $exception->getMessage();
-
-        // Check for explanation of why readonly and EmptyOnTranslate conflict
-        self::assertStringContainsString('Readonly properties cannot be modified', $message);
-        self::assertStringContainsString('#[EmptyOnTranslate]', $message);
-        self::assertStringContainsString('readonly', $message);
-    }
-
-    public function testMessageContainsWhyThisConflictsSection(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
-
-        $message = $exception->getMessage();
-
-        self::assertStringContainsString('Why this conflicts:', $message);
-        self::assertStringContainsString('readonly properties can only be set once', $message);
-    }
-
-    public function testMessageContainsSolutionSuggestion(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
-
-        self::assertStringContainsString('Solution:', $exception->getMessage());
-        self::assertStringContainsString('Remove the readonly modifier', $exception->getMessage());
-        self::assertStringContainsString('remove #[EmptyOnTranslate]', $exception->getMessage());
-    }
-
-    public function testMessageContainsCodeExamples(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
-
-        // Check for code examples in message
-        self::assertStringContainsString('Example of valid usage:', $exception->getMessage());
-        self::assertStringContainsString('Option 1:', $exception->getMessage());
-        self::assertStringContainsString('Option 2:', $exception->getMessage());
-    }
-
-    public function testGetClassNameReturnsCorrectValue(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'createdAt',
-        );
-
-        self::assertSame('App\\Entity\\Article', $exception->getClassName());
-    }
-
-    public function testGetPropertyNameReturnsCorrectValue(): void
-    {
-        $exception = new ReadonlyPropertyException(
-            'App\\Entity\\Article',
-            'immutableField',
-        );
-
-        self::assertSame('immutableField', $exception->getPropertyName());
     }
 }

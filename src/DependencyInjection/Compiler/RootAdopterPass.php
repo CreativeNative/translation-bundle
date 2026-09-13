@@ -9,6 +9,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 use Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry;
 use Tmi\TranslationBundle\Exception\TranslationRootContractException;
+use Tmi\TranslationBundle\Exception\ValidationException;
 
 /**
  * Collects the `tmi_translation.root_adopter` services into {@see RootAdopterRegistry}
@@ -90,7 +91,7 @@ final class RootAdopterPass implements CompilerPassInterface
         }
 
         if ([] !== $errors) {
-            throw new \LogicException(\sprintf("TMI Translation Bundle: Root adopter validation failed with %d error(s):\n\n%s", \count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
+            throw ValidationException::fromMessages('Root adopter validation', $errors);
         }
     }
 }

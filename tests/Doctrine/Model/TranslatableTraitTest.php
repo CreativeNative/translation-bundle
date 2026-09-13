@@ -10,6 +10,7 @@ use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\OptimisticLockException;
 use Symfony\Component\Uid\Uuid;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -123,6 +124,18 @@ final class TranslatableTraitTest extends IntegrationTestCase
 
         $entity->setLocale(null);
         self::assertNull($entity->getLocale());
+    }
+
+    /** The locale column is 16 characters wide; a longer value is refused here, not truncated at flush. */
+    public function testSetLocaleRejectsAValueLongerThanTheColumn(): void
+    {
+        $entity = new Scalar();
+        $entity->setLocale(str_repeat('x', TranslatableInterface::LOCALE_LENGTH));
+
+        self::expectException(\InvalidArgumentException::class);
+        self::expectExceptionMessage('is longer than the 16 characters the locale column holds');
+
+        $entity->setLocale(str_repeat('x', TranslatableInterface::LOCALE_LENGTH + 1));
     }
 
     /**

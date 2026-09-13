@@ -233,14 +233,23 @@ services:
         tags: [ { name: kernel.event_subscriber } ]
 
     # ----------------------------
-    # Doctrine Event Subscriber
+    # Doctrine Lifecycle Listener -- tuuid/locale on persist, orphan verdict on flush
     # ----------------------------
+    # Registered by its three #[AsDoctrineListener] attributes (autoconfigure) AND by
+    # the explicit tags below: the two are deduplicated per service id, and the
+    # explicit tags keep a container that overrides this definition without
+    # autoconfigure (a test kernel) wired. `doctrine.event_subscriber` is dead on
+    # Symfony >= 7 -- the bridge's RegisterEventListenersAndSubscribersPass no longer
+    # reads it -- so the class implements no EventSubscriber interface.
     Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber:
         arguments:
             $defaultLocale: '%tmi_translation.default_locale%'
             $logger: '@?logger'
             $strictOrphanCheck: '%tmi_translation.strict_orphan_check%'
-        tags: [ { name: doctrine.event_subscriber, connection: default } ]
+        tags:
+            - { name: doctrine.event_listener, event: prePersist }
+            - { name: doctrine.event_listener, event: postLoad }
+            - { name: doctrine.event_listener, event: onFlush }
 
     # ----------------------------
     # Doctrine Metadata Listener — composite (tuuid, locale) index

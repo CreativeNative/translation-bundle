@@ -34,6 +34,25 @@ final class ValidationException extends \LogicException
     }
 
     /**
+     * The aggregate a compiler pass throws: one line per message under one label,
+     * e.g. "TMI Translation Bundle: Compile-time validation failed with 2 error(s):".
+     *
+     * @param list<string> $messages
+     */
+    public static function fromMessages(string $label, array $messages): self
+    {
+        $exception          = new self(array_map(static fn (string $message): \LogicException => new \LogicException($message), $messages));
+        $exception->message = \sprintf(
+            "TMI Translation Bundle: %s failed with %d error(s):\n\n%s",
+            $label,
+            \count($messages),
+            implode("\n", array_map(static fn (string $message): string => '- '.$message, $messages)),
+        );
+
+        return $exception;
+    }
+
+    /**
      * Get all validation errors for programmatic access.
      *
      * @return array<\LogicException>

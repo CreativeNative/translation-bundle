@@ -75,6 +75,19 @@ public function __construct(
 | `RuntimeException` | Runtime failures |
 | `InvalidArgumentException` | Invalid input values |
 
+Bundle exceptions live in `src/Exception/` and follow one idiom: a `final` class extending the
+SPL base above, **named static factories** (`forSharedAndEmpty()`, `forAssociation()`,
+`fromMessages()`) instead of public constructors with getters, and a one-paragraph message that
+names class and property and ends in a `Solution:` sentence. The message is the contract; nothing
+reads structured fields off an exception.
+
+| Bundle exception | Base | Raised by |
+|---|---|---|
+| `ValidationException` | `LogicException` | `AttributeHelper` (aggregate of the errors below), compiler passes via `fromMessages()` |
+| `AttributeConflictException`, `ClassLevelAttributeConflictException`, `ReadonlyPropertyException`, `EmptyOnTranslateTypeException`, `TranslationRootContractException` | `LogicException` | attribute validation, compile time and translate time |
+| `SharedAssociationException` | `RuntimeException` | every handler that meets `#[SharedAmongstTranslations]` on an association to a translatable entity |
+| `OrphanTranslationException`, `SharedValueConflictException`, `RootAdoptionException` | `RuntimeException` / `LogicException` | flush-time listeners and `adopt-root` |
+
 ## Code Quality Tools
 
 - **Pre-commit**: Run `docker exec php composer check` (cs-fix + stan + test) before every commit

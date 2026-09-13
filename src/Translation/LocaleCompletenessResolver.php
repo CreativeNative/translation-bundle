@@ -9,6 +9,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
+use Tmi\TranslationBundle\Utils\PropertyLocation;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 use Tmi\TranslationBundle\ValueObject\LocaleCompleteness;
 use Tmi\TranslationBundle\ValueObject\TranslationStatus;
@@ -35,15 +36,10 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * spanning an inheritance hierarchy mixes tuuids belonging to different
  * concrete subclasses, each of which may declare its own translatable or
  * shared properties on top of the root's.
- *
- * @phpstan-type CheckedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty}
  */
 final class LocaleCompletenessResolver
 {
-    /** @var list<string> */
-    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
-
-    /** @var array<class-string, list<CheckedProperty>> */
+    /** @var array<class-string, list<PropertyLocation>> */
     private array $checkedProperties = [];
 
     /**
@@ -136,40 +132,37 @@ final class LocaleCompletenessResolver
      *
      * @param class-string $class
      *
-     * @return list<CheckedProperty>
+     * @return list<PropertyLocation>
      */
     private function filledProperties(string $class, TranslatableInterface $baseline): array
     {
         return array_values(array_filter(
             $this->checkedProperties($class),
-            fn (array $checked): bool => $this->isFilled($baseline, $checked),
+            fn (PropertyLocation $checked): bool => $this->isFilled($baseline, $checked),
         ));
     }
 
     /**
-     * @param list<CheckedProperty> $required
+     * @param list<PropertyLocation> $required
      */
     private function isMissingAny(TranslatableInterface $variant, array $required): bool
     {
-        return array_any($required, fn (array $checked): bool => !$this->isFilled($variant, $checked));
+        return array_any($required, fn (PropertyLocation $checked): bool => !$this->isFilled($variant, $checked));
     }
 
     /**
-     * @param CheckedProperty $checked
+     * An uninitialized embeddable -- a row `new`-ed without its constructor and
+     * flushed in the same unit of work, still managed -- holds nothing: not filled.
      */
-    private function isFilled(TranslatableInterface $entity, array $checked): bool
+    private function isFilled(TranslatableInterface $entity, PropertyLocation $checked): bool
     {
-        $owner  = $checked['owner'];
-        $holder = $entity;
+        $holder = $checked->holderOf($entity);
 
-        if (null !== $owner) {
-            // Doctrine always hydrates embeddables on a loaded entity.
-            $embeddable = $owner->getValue($entity);
-            \assert(\is_object($embeddable));
-            $holder = $embeddable;
+        if (null === $holder) {
+            return false;
         }
 
-        $value = $checked['property']->getValue($holder);
+        $value = $checked->property->getValue($holder);
 
         if (null === $value) {
             return false;
@@ -192,7 +185,7 @@ final class LocaleCompletenessResolver
      *
      * @param class-string $class
      *
-     * @return list<CheckedProperty>
+     * @return list<PropertyLocation>
      */
     private function checkedProperties(string $class): array
     {
@@ -208,7 +201,7 @@ final class LocaleCompletenessResolver
         foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
             $name = $property->getName();
 
-            if (\in_array($name, self::SYSTEM_PROPERTIES, true) || isset($shared[$name])) {
+            if (\in_array($name, TranslatableInterface::SYSTEM_PROPERTIES, true) || isset($shared[$name])) {
                 continue;
             }
 
@@ -226,7 +219,7 @@ final class LocaleCompletenessResolver
                 continue;
             }
 
-            $checked[] = ['owner' => null, 'property' => $property];
+            $checked[] = new PropertyLocation(null, $property);
         }
 
         return $this->checkedProperties[$class] = $checked;
@@ -266,7 +259,7 @@ final class LocaleCompletenessResolver
      * @param class-string        $embeddableClass
      * @param array<string, true> $shared
      *
-     * @return list<CheckedProperty>
+     * @return list<PropertyLocation>
      */
     private function translatableEmbeddedProperties(\ReflectionProperty $property, string $embeddableClass, array $shared): array
     {
@@ -277,7 +270,7 @@ final class LocaleCompletenessResolver
                 continue;
             }
 
-            $checked[] = ['owner' => $property, 'property' => $inner];
+            $checked[] = new PropertyLocation($property, $inner);
         }
 
         return $checked;

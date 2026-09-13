@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Events;
 use Doctrine\ORM\Tools\SchemaTool;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -82,7 +83,7 @@ class IntegrationTestCase extends KernelTestCase
         $subscriber = new TranslatableEventSubscriber('en_US');
 
         $eventManager = $entityManager->getEventManager();
-        $eventManager->addEventSubscriber($subscriber);
+        $eventManager->addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber);
 
         $metadata   = $entityManager->getMetadataFactory()->getAllMetadata();
         $schemaTool = new SchemaTool($entityManager);

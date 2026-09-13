@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
@@ -397,7 +398,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             }
         };
 
-        self::expectException(\LogicException::class);
+        self::expectException(ReadonlyPropertyException::class);
         self::expectExceptionMessage('is readonly and cannot be reassigned while translating');
 
         $handler->translateProperties($this->propertyContext($entity));

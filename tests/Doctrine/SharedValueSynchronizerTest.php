@@ -65,7 +65,7 @@ final class SharedValueSynchronizerTest extends IntegrationTestCase
 
         self::assertCount(1, $entries);
         self::assertSame('sharedAddress', $entries[0]['path']);
-        self::assertNull($entries[0]['owner']);
+        self::assertNull($entries[0]['location']->owner);
         self::assertFalse($entries[0]['association']);
         self::assertEqualsCanonicalizing(
             ['sharedAddress.street', 'sharedAddress.postalCode', 'sharedAddress.city', 'sharedAddress.country'],
@@ -84,7 +84,7 @@ final class SharedValueSynchronizerTest extends IntegrationTestCase
         self::assertSame(['classShared.sharedByDefault', 'propertyShared.reference'], array_column($entries, 'path'));
 
         foreach ($entries as $entry) {
-            self::assertNotNull($entry['owner']);
+            self::assertNotNull($entry['location']->owner);
             self::assertSame([$entry['path']], $entry['changeSetPaths']);
         }
     }

@@ -5,54 +5,32 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Exception;
 
 /**
- * Exception thrown when #[EmptyOnTranslate] is used on a readonly property.
- *
- * Readonly properties cannot be modified after initialization, making
- * #[EmptyOnTranslate] impossible to apply at translation time.
+ * A PHP `readonly` property that translate() would have to write. Readonly means
+ * "set once": an already-hydrated readonly property cannot take a second value, so
+ * the two cases below are both refused -- one at compile time, one when a clone is
+ * resolved.
  */
 final class ReadonlyPropertyException extends \LogicException
 {
-    public function __construct(
-        private readonly string $className,
-        private readonly string $propertyName,
-    ) {
-        parent::__construct($this->buildMessage());
+    /** `#[EmptyOnTranslate]` on a readonly property: the attribute clears the value on every new translation. */
+    public static function forEmptyOnTranslate(string $class, string $property): self
+    {
+        return new self(\sprintf(
+            'Invalid #[EmptyOnTranslate] on readonly property %s::$%s: a readonly property can only be set once, but the attribute clears the value when a translation is created. '
+            .'Solution: drop the readonly modifier, or remove #[EmptyOnTranslate].',
+            $class,
+            $property,
+        ));
     }
 
-    public function getClassName(): string
+    /** translate() resolved a different value for a readonly property and cannot store it on the clone. */
+    public static function forWriteDuringTranslate(string $class, string $property): self
     {
-        return $this->className;
-    }
-
-    public function getPropertyName(): string
-    {
-        return $this->propertyName;
-    }
-
-    private function buildMessage(): string
-    {
-        return <<<MSG
-Invalid #[EmptyOnTranslate] on readonly property {$this->className}::\${$this->propertyName}
-
-Readonly properties cannot be modified after initialization, but #[EmptyOnTranslate]
-requires setting the property to null/empty when creating a translation.
-
-Why this conflicts:
-- readonly properties can only be set once (in constructor or property declaration)
-- #[EmptyOnTranslate] needs to clear the value during translation
-
-Solution: Remove the readonly modifier OR remove #[EmptyOnTranslate].
-
-Example of valid usage:
-
-    // Option 1: Remove readonly (allow clearing during translation)
-    #[EmptyOnTranslate]
-    #[ORM\\Column(nullable: true)]
-    private ?string \$cachedSlug = null;
-
-    // Option 2: Remove EmptyOnTranslate (keep readonly, value persists)
-    #[ORM\\Column]
-    private readonly string \$immutableValue;
-MSG;
+        return new self(\sprintf(
+            'Property %s::$%s is readonly and cannot be reassigned while translating. '
+            .'Solution: mark it #[SharedAmongstTranslations] so every locale keeps the same value, or drop the readonly modifier.',
+            $class,
+            $property,
+        ));
     }
 }

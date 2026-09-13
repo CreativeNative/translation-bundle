@@ -41,6 +41,6 @@ namespace Tmi\TranslationBundle\Doctrine\Attribute;
  * plain classes that merely reuse the trait.
  */
 #[\Attribute(\Attribute::TARGET_PROPERTY | \Attribute::TARGET_CLASS)]
-class SharedAmongstTranslations
+final class SharedAmongstTranslations
 {
 }

@@ -5,68 +5,21 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Exception;
 
 /**
- * Exception thrown when incompatible attributes are used on the same property.
- *
- * This typically occurs when both #[SharedAmongstTranslations] and #[EmptyOnTranslate]
- * are applied to the same property, which is a logical contradiction.
+ * `#[SharedAmongstTranslations]` and `#[EmptyOnTranslate]` on the same property: a
+ * value cannot both be copied from the source and cleared when a translation is
+ * created. Raised by `AttributeValidationPass` at container compile and by
+ * `AttributeHelper::validateProperty()` at translate time.
  */
 final class AttributeConflictException extends \LogicException
 {
-    public function __construct(
-        private readonly string $className,
-        private readonly string $propertyName,
-        private readonly string $attribute1,
-        private readonly string $attribute2,
-    ) {
-        parent::__construct($this->buildMessage());
-    }
-
-    public function getClassName(): string
+    public static function forSharedAndEmpty(string $class, string $property): self
     {
-        return $this->className;
-    }
-
-    public function getPropertyName(): string
-    {
-        return $this->propertyName;
-    }
-
-    public function getAttribute1(): string
-    {
-        return $this->attribute1;
-    }
-
-    public function getAttribute2(): string
-    {
-        return $this->attribute2;
-    }
-
-    private function buildMessage(): string
-    {
-        return <<<MSG
-Attribute conflict on {$this->className}::\${$this->propertyName}
-
-The property has both #[{$this->attribute1}] and #[{$this->attribute2}] attributes.
-These attributes are mutually exclusive:
-- #[SharedAmongstTranslations]: Value is copied from the source when a translation is created
-  (and reconcilable later via tmi:translation:sync-shared)
-- #[EmptyOnTranslate]: Value is cleared when creating a new translation
-
-A value cannot both be copied AND be cleared when the translation is created.
-
-Solution: Remove one of the attributes.
-
-Example of valid usage:
-
-    // Option 1: Keep value across translations (shared content)
-    #[SharedAmongstTranslations]
-    #[ORM\\Column]
-    private string \$videoUrl;
-
-    // Option 2: Clear value for new translation (locale-specific cache)
-    #[EmptyOnTranslate]
-    #[ORM\\Column(nullable: true)]
-    private ?string \$cachedSlug = null;
-MSG;
+        return new self(\sprintf(
+            'Attribute conflict on %s::$%s: #[SharedAmongstTranslations] and #[EmptyOnTranslate] are mutually exclusive -- '
+            .'a value cannot both be copied from the source and cleared when a translation is created. '
+            .'Solution: keep #[SharedAmongstTranslations] for a value every locale shares, or #[EmptyOnTranslate] for one each locale fills in itself.',
+            $class,
+            $property,
+        ));
     }
 }

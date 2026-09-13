@@ -278,6 +278,6 @@ src/
 │   ├── EntityTranslator.php # Main orchestrator
 │   └── Handlers/         # Handler chain
 ├── Twig/                 # TmiTranslationExtension (the tmi_locales global)
-├── Utils/                # Helpers (AttributeHelper)
+├── Utils/                # Helpers (AttributeHelper, ReflectionHelper, PropertyLocation)
 └── ValueObject/          # Tuuid, LocaleCompleteness and TranslationStatus
 ```

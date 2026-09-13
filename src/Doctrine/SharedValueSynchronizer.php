@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\PropertyLocation;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
 use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
 
@@ -66,13 +67,11 @@ use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
  * ({@see SharedValueSyncReport::rootDrift()}),
  * never written -- see reconcile().
  *
- * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty, association: bool, root: bool, path: string, changeSetPaths: list<string>}
+ * @phpstan-type SharedProperty array{location: PropertyLocation, association: bool, root: bool, path: string, changeSetPaths: list<string>}
  */
 final class SharedValueSynchronizer
 {
     /** @var list<string> */
-    private const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
-
     /**
      * Per real entity class (proxies resolved through Doctrine's metadata).
      *
@@ -207,9 +206,9 @@ final class SharedValueSynchronizer
                 continue;
             }
 
-            $property     = $shared['property'];
-            $sourceOwner  = self::valueOwner($source, $shared);
-            $siblingOwner = self::valueOwner($sibling, $shared);
+            $property     = $shared['location']->property;
+            $sourceOwner  = $shared['location']->holderOf($source);
+            $siblingOwner = $shared['location']->holderOf($sibling);
 
             if (null === $sourceOwner || null === $siblingOwner || !$property->isInitialized($sourceOwner)) {
                 continue;
@@ -272,30 +271,6 @@ final class SharedValueSynchronizer
     }
 
     /**
-     * The object holding the value: the entity itself, or -- for an inner
-     * property of an embeddable -- the embeddable instance, which is null when
-     * the entity's embedded property is uninitialized or holds no object.
-     *
-     * @param SharedProperty $shared
-     */
-    private static function valueOwner(object $entity, array $shared): object|null
-    {
-        $owner = $shared['owner'];
-
-        if (null === $owner) {
-            return $entity;
-        }
-
-        if (!$owner->isInitialized($entity)) {
-            return null;
-        }
-
-        $embeddable = $owner->getValue($entity);
-
-        return \is_object($embeddable) ? $embeddable : null;
-    }
-
-    /**
      * Walks the whole class hierarchy (a private property on a mapped
      * superclass is a real column, see ReflectionHelper) and resolves each
      * property against Doctrine's metadata so only hydrated state is ever
@@ -313,7 +288,7 @@ final class SharedValueSynchronizer
         foreach (ReflectionHelper::getHierarchyProperties($metadata->getReflectionClass()) as $property) {
             $name = $property->getName();
 
-            if (\in_array($name, self::SYSTEM_PROPERTIES, true)) {
+            if (\in_array($name, TranslatableInterface::SYSTEM_PROPERTIES, true)) {
                 continue;
             }
 
@@ -411,8 +386,7 @@ final class SharedValueSynchronizer
     private static function entry(\ReflectionProperty|null $owner, \ReflectionProperty $property, bool $association, string $path, array $changeSetPaths, bool $root = false): array
     {
         return [
-            'owner'          => $owner,
-            'property'       => $property,
+            'location'       => new PropertyLocation($owner, $property),
             'association'    => $association,
             'root'           => $root,
             'path'           => $path,

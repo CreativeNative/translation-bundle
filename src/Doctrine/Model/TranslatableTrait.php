@@ -23,7 +23,7 @@ trait TranslatableTrait
     #[SharedAmongstTranslations]
     private Tuuid|null $tuuid = null;
 
-    #[ORM\Column(type: Types::STRING, length: 16, nullable: false)]
+    #[ORM\Column(type: Types::STRING, length: TranslatableInterface::LOCALE_LENGTH, nullable: false)]
     private string|null $locale = null;
 
     final public function generateTuuid(): void
@@ -79,8 +79,16 @@ trait TranslatableTrait
         return $this->tuuid;
     }
 
+    /**
+     * @throws \InvalidArgumentException for a locale longer than the column -- caught here, not
+     *                                   as a truncated value or a driver error at flush
+     */
     final public function setLocale(string|null $locale = null): self
     {
+        if (null !== $locale && \strlen($locale) > TranslatableInterface::LOCALE_LENGTH) {
+            throw new \InvalidArgumentException(\sprintf('Locale "%s" is longer than the %d characters the locale column holds.', $locale, TranslatableInterface::LOCALE_LENGTH));
+        }
+
         $this->locale = $locale;
 
         return $this;

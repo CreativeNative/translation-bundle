@@ -354,6 +354,36 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
         self::assertSame(TranslationStatus::Complete, $completeness->statusOf('de_DE'));
     }
 
+    /**
+     * A row whose embedded property was never initialized -- built without its
+     * constructor and flushed in the same unit of work, so the managed instance the
+     * finder hands back still has no embeddable object. Before 5.2 the resolver
+     * asserted Doctrine had hydrated one and died (Error: must not be accessed before
+     * initialization); an uninitialized embeddable holds nothing, so the variant is
+     * incomplete.
+     */
+    public function testAnUninitializedEmbeddableCountsAsNotFilled(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN');
+        $en->getClassShared()->setSharedByDefault('canonical')->setOverriddenToEmpty('EN note');
+        $en->getPropertyShared()->setReference('REF-1')->setLabel('English label');
+
+        $de = new \ReflectionClass(EmbeddedSharedTranslatable::class)->newInstanceWithoutConstructor();
+        $de->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE');
+
+        $this->entityManager()->persist($en);
+        $this->entityManager()->persist($de);
+        $this->entityManager()->flush();
+
+        self::assertFalse(new \ReflectionProperty(EmbeddedSharedTranslatable::class, 'classShared')->isInitialized($de), 'the managed row still has no embeddable');
+
+        $completeness = $this->resolver()->resolve(EmbeddedSharedTranslatable::class, $tuuid);
+
+        self::assertSame(TranslationStatus::Incomplete, $completeness->statusOf('de_DE'));
+    }
+
     private function resolver(): LocaleCompletenessResolver
     {
         $finder = new LocaleVariantFinder($this->entityManager());

@@ -18,7 +18,7 @@ final class EmptyOnTranslateTest extends TestCase
         $attributes = $reflection->getAttributes(EmptyOnTranslate::class);
 
         self::assertCount(1, $attributes);
-        $attribute = $attributes[0]->newInstance();
-        self::assertSame(EmptyOnTranslate::class, $attribute::class);
+        self::assertSame([], $attributes[0]->getArguments(), 'the marker takes no arguments');
+        self::assertTrue(new \ReflectionClass(EmptyOnTranslate::class)->isFinal());
     }
 }

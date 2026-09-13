@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Doctrine\EventSubscriber;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
-use Doctrine\Common\EventSubscriber;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PrePersistEventArgs;
@@ -37,7 +36,7 @@ use Tmi\TranslationBundle\Exception\OrphanTranslationException;
 #[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::onFlush)]
-final readonly class TranslatableEventSubscriber implements EventSubscriber
+final readonly class TranslatableEventSubscriber
 {
     /**
      * Entities persisted in a non-default locale before any Tuuid was assigned.
@@ -58,19 +57,6 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
         private bool $strictOrphanCheck = false,
     ) {
         $this->pendingOrphans = new \WeakMap();
-    }
-
-    /**
-     * @return list<string>
-     */
-    #[\Override]
-    public function getSubscribedEvents(): array
-    {
-        return [
-            Events::prePersist,
-            Events::postLoad,
-            Events::onFlush,
-        ];
     }
 
     public function prePersist(PrePersistEventArgs $args): void

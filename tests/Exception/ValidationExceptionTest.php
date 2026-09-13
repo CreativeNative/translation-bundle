@@ -64,4 +64,14 @@ final class ValidationExceptionTest extends TestCase
         self::assertStringContainsString('TMI Translation validation failed with 0 error(s)', $exception->getMessage());
         self::assertSame([], $exception->getErrors());
     }
+
+    /** The aggregate a compiler pass throws: a label, one line per message, and the messages as errors. */
+    public function testFromMessagesLabelsAndListsEveryMessage(): void
+    {
+        $exception = ValidationException::fromMessages('Compile-time validation', ['first thing', 'second thing']);
+
+        self::assertSame("TMI Translation Bundle: Compile-time validation failed with 2 error(s):\n\n- first thing\n- second thing", $exception->getMessage());
+        self::assertCount(2, $exception->getErrors());
+        self::assertSame('second thing', $exception->getErrors()[1]->getMessage());
+    }
 }

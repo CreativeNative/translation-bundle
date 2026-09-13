@@ -8,6 +8,17 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 interface TranslatableInterface
 {
+    /**
+     * The two columns every translatable row carries for the bundle itself, never
+     * shared, never checked for completeness, never unique on their own.
+     *
+     * @var list<string>
+     */
+    public const array SYSTEM_PROPERTIES = ['tuuid', 'locale'];
+
+    /** The width of the `locale` column; setLocale() refuses anything longer. */
+    public const int LOCALE_LENGTH = 16;
+
     public function generateTuuid(): void;
 
     /**

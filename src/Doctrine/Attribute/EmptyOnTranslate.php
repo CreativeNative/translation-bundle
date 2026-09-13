@@ -11,6 +11,6 @@ namespace Tmi\TranslationBundle\Doctrine\Attribute;
  * on a property without affecting the non-translatable classes that reuse it.
  */
 #[\Attribute(\Attribute::TARGET_PROPERTY | \Attribute::TARGET_CLASS)]
-class EmptyOnTranslate
+final class EmptyOnTranslate
 {
 }

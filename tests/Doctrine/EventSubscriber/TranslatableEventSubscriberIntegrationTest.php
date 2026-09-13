@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Doctrine\EventSubscriber;
 
 use Doctrine\ORM\Event\PrePersistEventArgs;
+use Doctrine\ORM\Events;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Psr\Log\AbstractLogger;
@@ -28,7 +29,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
 
         $this->subscriber = new TranslatableEventSubscriber('en_US');
 
-        $this->entityManager()->getEventManager()->addEventSubscriber($this->subscriber);
+        $this->entityManager()->getEventManager()->addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $this->subscriber);
     }
 
     public function testPrePersistGeneratesTuuid(): void
@@ -153,7 +154,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     {
         $logger     = $this->createSpyLogger();
         $subscriber = new TranslatableEventSubscriber('en_US', $logger, false);
-        $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
+        $this->entityManager()->getEventManager()->addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber);
 
         $entity = new Scalar();
         $entity->setTitle('Non-default source');
@@ -175,7 +176,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
     {
         $logger     = $this->createSpyLogger();
         $subscriber = new TranslatableEventSubscriber('en_US', $logger, false);
-        $this->entityManager()->getEventManager()->addEventSubscriber($subscriber);
+        $this->entityManager()->getEventManager()->addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber);
 
         $entity = new Scalar();
         $entity->setTitle('True orphan');
