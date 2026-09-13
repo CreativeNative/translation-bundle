@@ -7,11 +7,13 @@ namespace Tmi\TranslationBundle\Test\Doctrine\Type;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(TuuidType::class)]
 final class TuuidTypeTest extends TestCase
 {
     private TuuidType $type;

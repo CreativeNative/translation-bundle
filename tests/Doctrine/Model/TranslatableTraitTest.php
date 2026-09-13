@@ -9,13 +9,16 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\OptimisticLockException;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversTrait(TranslatableTrait::class)]
 final class TranslatableTraitTest extends IntegrationTestCase
 {
     /**

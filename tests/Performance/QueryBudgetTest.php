@@ -15,6 +15,7 @@ use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
 use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
+use Tmi\TranslationBundle\Fixtures\Entity\Bughunt\Node;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Estate;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\EstateA;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Listing;
@@ -665,6 +666,37 @@ final class QueryBudgetTest extends IntegrationTestCase
         $tester = $this->adoptRoot([]);
         self::assertStringContainsString('3 group(s) adopted', $tester->getDisplay());
         self::assertSame(1 + 1 + 3 + 6 + 1, $this->counter()->count());
+    }
+
+    /**
+     * A self-referential bidirectional tree (Node::$parent inversedBy $children):
+     * translating a leaf walks up to its parent (the direct ManyToOne form) and, from
+     * there, back down through the parent's collection to every sibling. Each Node's
+     * own lookup is a preload() miss and the parent's children collection is one
+     * batched lookup: the leaf, its parent, the parent's own parent lookup (null, no
+     * query) and one batched children query. Pinned here as a regression number for
+     * the WP4 self-reference fix (#54).
+     */
+    public function testTranslateALeafOfASelfReferentialTreeCostsThreeQueries(): void
+    {
+        $root  = new Node('root');
+        $child = new Node('child');
+        $other = new Node('other');
+        $root->setLocale('en_US');
+        $child->setLocale('en_US');
+        $other->setLocale('en_US');
+        $root->addChild($child);
+        $root->addChild($other);
+        $this->entityManager()->persist($root);
+        $this->entityManager()->persist($child);
+        $this->entityManager()->persist($other);
+        $this->entityManager()->flush();
+
+        $this->counter()->reset();
+        $translated = $this->translator()->translate($child, 'de_DE');
+        self::assertInstanceOf(Node::class, $translated);
+        self::assertSame('de_DE', $translated->getParent()?->getLocale());
+        self::assertSame(3, $this->counter()->count());
     }
 
     private function counter(): QueryCounter

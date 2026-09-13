@@ -8,6 +8,7 @@ use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\AbstractLogger;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
@@ -18,6 +19,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\NonTranslatableManyToOneB
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(TranslatableEventSubscriber::class)]
 final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCase
 {
     private TranslatableEventSubscriber $subscriber;

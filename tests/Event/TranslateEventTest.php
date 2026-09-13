@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Event;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Event\TranslateEvent;
 
+#[CoversClass(TranslateEvent::class)]
 final class TranslateEventTest extends TestCase
 {
     public function testEventProperties(): void

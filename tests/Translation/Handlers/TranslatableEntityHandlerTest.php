@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use ReflectionException;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -19,6 +20,7 @@ use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(TranslatableEntityHandler::class)]
 final class TranslatableEntityHandlerTest extends UnitTestCase
 {
     private TranslatableEntityHandler $handler;

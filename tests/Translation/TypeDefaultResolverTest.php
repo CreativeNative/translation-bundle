@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
@@ -19,6 +20,7 @@ enum TestStringStatus: string
     case Published = 'published';
 }
 
+#[CoversClass(TypeDefaultResolver::class)]
 final class TypeDefaultResolverTest extends TestCase
 {
     private TypeDefaultResolver $resolver;

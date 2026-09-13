@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\ManyToManyInverseSideMapping;
 use Doctrine\ORM\Mapping\MappingException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
@@ -24,6 +25,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToManyHandler;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(BidirectionalManyToManyHandler::class)]
 final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 {
     private BidirectionalManyToManyHandler $handler;

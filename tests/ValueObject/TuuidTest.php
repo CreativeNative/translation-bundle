@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\ValueObject;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(Tuuid::class)]
 final class TuuidTest extends TestCase
 {
     public function testConstructWithValidUuid(): void

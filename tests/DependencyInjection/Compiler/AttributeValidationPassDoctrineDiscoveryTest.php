@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\DependencyInjection\Compiler;
 
 use Doctrine\Bundle\DoctrineBundle\DependencyInjection\DoctrineExtension;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\AttributeValidationPass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
@@ -34,6 +35,7 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
  * parameters, a future reshaping would fail this test loudly via the
  * strict_discovery LogicException rather than merely leave the parameter empty.
  */
+#[CoversClass(AttributeValidationPass::class)]
 final class AttributeValidationPassDoctrineDiscoveryTest extends IntegrationTestCase
 {
     public function testProcessDiscoversFixtureEntityThroughRealDoctrineBundleExtensionAndSetsTheParameter(): void
@@ -87,7 +89,7 @@ final class AttributeValidationPassDoctrineDiscoveryTest extends IntegrationTest
                     ],
                 ],
                 'filters' => [
-                    'tmi_translation_locale_filter' => [
+                    LocaleFilter::NAME => [
                         'class'   => LocaleFilter::class,
                         'enabled' => true,
                     ],

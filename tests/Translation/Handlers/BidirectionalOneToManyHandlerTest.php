@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\OneToManyAssociationMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
@@ -16,6 +17,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToManyHandler;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(BidirectionalOneToManyHandler::class)]
 final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 {
     /** ------------------------- Supports -------------------------.

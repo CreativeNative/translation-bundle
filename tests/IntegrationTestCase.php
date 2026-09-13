@@ -8,7 +8,6 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Events;
 use Doctrine\ORM\Tools\SchemaTool;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -80,10 +79,9 @@ class IntegrationTestCase extends KernelTestCase
 
         $entityManager = $this->entityManager();
 
-        $subscriber = new TranslatableEventSubscriber('en_US');
-
-        $eventManager = $entityManager->getEventManager();
-        $eventManager->addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber);
+        // TranslatableEventSubscriber is NOT registered by hand here: the bundle's own
+        // service definition (autoconfigured #[AsDoctrineListener] + explicit tags) wires
+        // it, and TranslatableEventSubscriberRegistrationTest proves that path is live.
 
         $metadata   = $entityManager->getMetadataFactory()->getAllMetadata();
         $schemaTool = new SchemaTool($entityManager);

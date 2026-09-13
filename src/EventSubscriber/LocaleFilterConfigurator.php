@@ -71,19 +71,19 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
     {
         $filters = $this->entityManager->getFilters();
 
-        if (!$filters->has('tmi_translation_locale_filter')) {
+        if (!$filters->has(LocaleFilter::NAME)) {
             return;
         }
 
         if ($this->isDisabledFirewall($request)) {
-            if ($filters->isEnabled('tmi_translation_locale_filter')) {
-                $filters->disable('tmi_translation_locale_filter');
+            if ($filters->isEnabled(LocaleFilter::NAME)) {
+                $filters->disable(LocaleFilter::NAME);
             }
 
             return;
         }
 
-        $filter = $filters->enable('tmi_translation_locale_filter');
+        $filter = $filters->enable(LocaleFilter::NAME);
         \assert($filter instanceof LocaleFilter);
         $filter->setLocale($request->getLocale());
     }

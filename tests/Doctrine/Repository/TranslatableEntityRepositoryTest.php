@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Doctrine\Repository;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Repository\TranslatableEntityRepository;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(TranslatableEntityRepository::class)]
 final class TranslatableEntityRepositoryTest extends IntegrationTestCase
 {
     public function testProvidesLocaleVariantHelpers(): void

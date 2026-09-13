@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\AttributeValidationPass;
@@ -14,6 +15,7 @@ use Tmi\TranslationBundle\DependencyInjection\Compiler\TuuidOrphanCounterPass;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(TmiTranslationBundle::class)]
 final class TmiTranslationBundleTest extends TestCase
 {
     public function testBundleCanBeInstantiated(): void

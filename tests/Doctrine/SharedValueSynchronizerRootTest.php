@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Doctrine;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
@@ -146,7 +147,7 @@ final class SharedValueSynchronizerRootTest extends IntegrationTestCase
     {
         self::assertNotNull($id);
 
-        $row = $this->entityManager()->getFilters()->isEnabled('tmi_translation_locale_filter')
+        $row = $this->entityManager()->getFilters()->isEnabled(LocaleFilter::NAME)
             ? new LocaleVariantFinder($this->entityManager())->withoutLocaleFilter(fn (): object|null => $this->entityManager()->find(EstateA::class, $id))
             : $this->entityManager()->find(EstateA::class, $id);
 

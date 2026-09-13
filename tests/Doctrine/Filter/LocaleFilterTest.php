@@ -24,10 +24,10 @@ final class LocaleFilterTest extends IntegrationTestCase
 
         // Enable the LocaleFilter through the real EntityManager
         $this->entityManager()->getConfiguration()->addFilter(
-            'tmi_translation_locale_filter',
+            LocaleFilter::NAME,
             LocaleFilter::class,
         );
-        $filter = $this->entityManager()->getFilters()->enable('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->enable(LocaleFilter::NAME);
         self::assertInstanceOf(LocaleFilter::class, $filter);
         $this->filter = $filter;
     }

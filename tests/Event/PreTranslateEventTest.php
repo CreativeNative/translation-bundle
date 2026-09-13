@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Event;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Tmi\TranslationBundle\Event\PreTranslateEvent;
 
+#[CoversClass(PreTranslateEvent::class)]
 final class PreTranslateEventTest extends TestCase
 {
     public function testExposesConstructorArgumentsThroughInheritedGetters(): void

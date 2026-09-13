@@ -11,10 +11,12 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
+use Tmi\TranslationBundle\DependencyInjection\Configuration;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
 use Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
@@ -28,6 +30,8 @@ use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(TmiTranslationExtension::class)]
+#[CoversClass(Configuration::class)]
 final class TmiTranslationExtensionTest extends IntegrationTestCase
 {
     /**

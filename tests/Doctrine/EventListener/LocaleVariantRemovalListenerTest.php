@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Doctrine\EventListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\PreRemoveEventArgs;
 use Doctrine\ORM\Events;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\EventListener\LocaleVariantRemovalListener;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -17,6 +18,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(LocaleVariantRemovalListener::class)]
 final class LocaleVariantRemovalListenerTest extends IntegrationTestCase
 {
     public function testEnabledCascadesAPlainRemoveToSiblingLocaleVariants(): void

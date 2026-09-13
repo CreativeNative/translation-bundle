@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
@@ -21,6 +23,7 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * duplicate row on every translate() call. LocaleVariantFinder fixes this by
  * suspending the filter for the duration of the lookup.
  */
+#[CoversClass(EntityTranslator::class)]
 final class EntityTranslatorLocaleFilterTest extends IntegrationTestCase
 {
     public function testTranslateReturnsExistingVariantWhileLocaleFilterIsActive(): void

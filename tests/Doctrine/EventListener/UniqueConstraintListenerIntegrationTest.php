@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Doctrine\EventListener;
 
 use Doctrine\ORM\Events;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\EventListener\TranslatableIndexListener;
 use Tmi\TranslationBundle\Doctrine\EventListener\UniqueConstraintListener;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -14,6 +15,7 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
  * listener with Doctrine's event manager, so the kernel boot in IntegrationTestCase::setUp()
  * (which loads every fixture's metadata) has already run it over the whole fixture set.
  */
+#[CoversClass(UniqueConstraintListener::class)]
 final class UniqueConstraintListenerIntegrationTest extends IntegrationTestCase
 {
     public function testTheBundleRegistersTheListenerAfterTheIndexListener(): void

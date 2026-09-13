@@ -16,6 +16,10 @@ use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
 use Tmi\TranslationBundle\Exception\EmptyOnTranslateTypeException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Exception\ValidationException;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Address;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\PropertySharedEmbeddable;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\SharedClassEmbeddable;
+use Tmi\TranslationBundle\Fixtures\Entity\Embedded\Translatable as EmbeddedTranslatable;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 #[CoversClass(AttributeHelper::class)]
@@ -617,5 +621,28 @@ final class AttributeHelperTest extends TestCase
         self::expectException(ValidationException::class);
 
         $this->attributeHelper->validateEmbeddableClass($reflection, $logger);
+    }
+
+    public function testIsEmbeddableSharedFollowsTheThreeLevelCascade(): void
+    {
+        $address  = self::reflect(Address::class);
+        $onParent = new \ReflectionProperty(EmbeddedTranslatable::class, 'sharedAddress');
+        $plain    = new \ReflectionProperty(EmbeddedTranslatable::class, 'address');
+
+        self::assertTrue($this->attributeHelper->isEmbeddableShared($address, $onParent), 'the entity property carries the attribute');
+        self::assertFalse($this->attributeHelper->isEmbeddableShared($address, $plain), 'nothing on the property, the class or any inner property');
+        self::assertFalse($this->attributeHelper->isEmbeddableShared($address), 'no parent property at all');
+        self::assertTrue($this->attributeHelper->isEmbeddableShared(self::reflect(SharedClassEmbeddable::class)), 'the embeddable class carries the attribute');
+        self::assertTrue($this->attributeHelper->isEmbeddableShared(self::reflect(PropertySharedEmbeddable::class)), 'one inner property carries the attribute');
+    }
+
+    /**
+     * @param class-string $class
+     *
+     * @return \ReflectionClass<object>
+     */
+    private static function reflect(string $class): \ReflectionClass
+    {
+        return new \ReflectionClass($class);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Doctrine;
 
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\TranslatableRemover;
@@ -14,6 +15,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(TranslatableRemover::class)]
 final class TranslatableRemoverTest extends IntegrationTestCase
 {
     public function testRemoveAllLocaleVariantsSchedulesEveryVariantAndReturnsThem(): void

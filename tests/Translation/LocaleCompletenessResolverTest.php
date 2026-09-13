@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Translation;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
@@ -17,9 +18,12 @@ use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiToy;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
+use Tmi\TranslationBundle\ValueObject\LocaleCompleteness;
 use Tmi\TranslationBundle\ValueObject\TranslationStatus;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(LocaleCompletenessResolver::class)]
+#[CoversClass(LocaleCompleteness::class)]
 final class LocaleCompletenessResolverTest extends IntegrationTestCase
 {
     public function testAllLocalesCompleteWhenEveryVariantMirrorsTheBaseline(): void
@@ -252,7 +256,7 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
         $this->entityManager()->clear();
 
         $filters = $this->entityManager()->getFilters();
-        $filter  = $filters->enable('tmi_translation_locale_filter');
+        $filter  = $filters->enable(LocaleFilter::NAME);
         self::assertInstanceOf(LocaleFilter::class, $filter);
         $filter->setLocale('en_US');
 
@@ -260,9 +264,9 @@ final class LocaleCompletenessResolverTest extends IntegrationTestCase
             $completeness = $this->resolver()->resolve(Scalar::class, $tuuid);
 
             self::assertTrue($completeness->isFullyTranslated());
-            self::assertTrue($filters->isEnabled('tmi_translation_locale_filter'));
+            self::assertTrue($filters->isEnabled(LocaleFilter::NAME));
         } finally {
-            $filters->disable('tmi_translation_locale_filter');
+            $filters->disable(LocaleFilter::NAME);
         }
     }
 

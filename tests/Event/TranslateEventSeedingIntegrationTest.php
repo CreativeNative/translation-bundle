@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Event;
 
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Event\PostTranslateEvent;
 use Tmi\TranslationBundle\Fixtures\Entity\Seeding\EmptySeeded;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -55,7 +56,7 @@ final class TranslateEventSeedingIntegrationTest extends IntegrationTestCase
 
             // The placeholder reached the database row.
             $this->entityManager()->clear();
-            $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+            $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
 
             $reloaded = $this->entityManager()->find(EmptySeeded::class, $variantId);
             self::assertInstanceOf(EmptySeeded::class, $reloaded);

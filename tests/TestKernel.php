@@ -84,7 +84,7 @@ final class TestKernel extends BaseKernel
                     ],
                 ],
                 'filters' => [
-                    'tmi_translation_locale_filter' => [
+                    LocaleFilter::NAME => [
                         'class'   => LocaleFilter::class,
                         'enabled' => true,
                     ],
@@ -120,11 +120,6 @@ final class TestKernel extends BaseKernel
             ->autowire()
             ->autoconfigure()
             ->bind('array $locales', $locales);
-
-        $container->services()
-            ->set(TranslatableEventSubscriber::class)
-            ->public()
-            ->tag('doctrine.event_subscriber');
 
         // EntityTranslator (and everything it needs) is private in the bundle's own
         // services.yaml (v4.0) -- correctly so, since a real consuming application

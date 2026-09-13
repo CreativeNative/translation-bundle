@@ -6,10 +6,12 @@ namespace Tmi\TranslationBundle\Test\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
+use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
@@ -29,6 +31,7 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(SyncSharedTranslationsCommand::class)]
 final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
 {
     public function testPropagatesSharedValueToSiblings(): void
@@ -293,7 +296,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $reloaded = $this->entityManager()->find(StiBook::class, $deId);
         self::assertInstanceOf(StiBook::class, $reloaded);
         self::assertSame('978-EN', $reloaded->getIsbn());
@@ -317,7 +320,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $reloaded = $this->entityManager()->find(StiBook::class, $deId);
         self::assertInstanceOf(StiBook::class, $reloaded);
         self::assertSame('978-EN', $reloaded->getIsbn());
@@ -350,7 +353,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $toy = $this->entityManager()->find(StiToy::class, $toyDeId);
         self::assertInstanceOf(StiToy::class, $toy);
         self::assertSame('Plastic', $toy->getMaterial());
@@ -378,7 +381,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $reloaded = $this->entityManager()->find(SharedDate::class, $siblingId);
         self::assertInstanceOf(SharedDate::class, $reloaded);
         self::assertEquals(new \DateTimeImmutable('2020-01-01 00:00:00'), $reloaded->getPublishedAt());
@@ -506,7 +509,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $reloaded = $this->entityManager()->find(InheritedIdEntity::class, $deId);
         self::assertInstanceOf(InheritedIdEntity::class, $reloaded);
         self::assertSame('canonical', $reloaded->getSharedCode());
@@ -626,7 +629,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         self::assertStringContainsString('de_DE', $display);
 
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
         $reloaded = $this->entityManager()->find(ReadonlyShared::class, $deId);
         self::assertInstanceOf(ReadonlyShared::class, $reloaded);
 
@@ -1092,7 +1095,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     private function reloadEmbeddedShared(int $id): EmbeddedSharedTranslatable
     {
         $this->entityManager()->clear();
-        $this->entityManager()->getFilters()->disable('tmi_translation_locale_filter');
+        $this->entityManager()->getFilters()->disable(LocaleFilter::NAME);
 
         $entity = $this->entityManager()->find(EmbeddedSharedTranslatable::class, $id);
         self::assertInstanceOf(EmbeddedSharedTranslatable::class, $entity);
@@ -1129,8 +1132,8 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $this->entityManager()->clear();
 
         $filters = $this->entityManager()->getFilters();
-        if ($filters->isEnabled('tmi_translation_locale_filter')) {
-            $filters->disable('tmi_translation_locale_filter');
+        if ($filters->isEnabled(LocaleFilter::NAME)) {
+            $filters->disable(LocaleFilter::NAME);
         }
 
         $entity = $this->entityManager()->find(Scalar::class, $id);

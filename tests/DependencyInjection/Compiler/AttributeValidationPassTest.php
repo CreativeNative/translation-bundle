@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\DependencyInjection\Compiler;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\AttributeValidationPass;
 
+#[CoversClass(AttributeValidationPass::class)]
 final class AttributeValidationPassTest extends TestCase
 {
     public function testProcessSkipsWhenDoctrineNotConfigured(): void

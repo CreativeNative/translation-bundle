@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Test\Command;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
@@ -18,6 +19,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversClass(TranslationDoctorCommand::class)]
 final class TranslationDoctorCommandTest extends IntegrationTestCase
 {
     /** @var list<string> */

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\DependencyInjection\Compiler;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
 
+#[CoversClass(TranslationHandlerPass::class)]
 final class TranslationHandlerPassTest extends TestCase
 {
     public function testProcessReturnsIfTranslatorServiceMissing(): void

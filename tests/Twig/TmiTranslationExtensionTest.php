@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Twig;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
 use Tmi\TranslationBundle\Twig\TmiTranslationExtension;
 use Twig\TwigTest;
 
+#[CoversClass(TmiTranslationExtension::class)]
 final class TmiTranslationExtensionTest extends TestCase
 {
     public function testGetTestsReturnsTwigTestForTranslatableInterface(): void

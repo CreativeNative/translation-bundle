@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
@@ -15,6 +16,7 @@ use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
 use Tmi\TranslationBundle\Translation\Handlers\BidirectionalOneToOneHandler;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(BidirectionalOneToOneHandler::class)]
 final class BidirectionalOneToOneHandlerTest extends UnitTestCase
 {
     /** ------------------------- Supports ------------------------- */

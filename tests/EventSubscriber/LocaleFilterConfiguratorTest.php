@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\EventSubscriber;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\FilterCollection;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Bundle\SecurityBundle\Security\FirewallConfig;
 use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,7 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 #[AllowMockObjectsWithoutExpectations]
+#[CoversClass(LocaleFilterConfigurator::class)]
 final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 {
     public function testGetSubscribedEvents(): void
@@ -183,14 +185,14 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
         // Sub-request is on an allowed firewall, so the filter is enabled for it
         $subscriber->onKernelRequest(new RequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST));
-        self::assertTrue($this->entityManager()->getFilters()->isEnabled('tmi_translation_locale_filter'));
+        self::assertTrue($this->entityManager()->getFilters()->isEnabled(LocaleFilter::NAME));
 
         // Restoring the parent must reapply the parent's disabled-firewall rule, not its locale
         $subscriber->onKernelFinishRequest(
             new FinishRequestEvent($kernel, $subRequest, HttpKernelInterface::SUB_REQUEST),
         );
 
-        self::assertFalse($this->entityManager()->getFilters()->isEnabled('tmi_translation_locale_filter'));
+        self::assertFalse($this->entityManager()->getFilters()->isEnabled(LocaleFilter::NAME));
     }
 
     public function testFilterIsEnabledAndLocaleSet(): void
@@ -205,7 +207,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $subscriber = new LocaleFilterConfigurator($this->entityManager(), []);
         $subscriber->onKernelRequest($event);
 
-        $filter = $this->entityManager()->getFilters()->getFilter('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->getFilter(LocaleFilter::NAME);
 
         self::assertInstanceOf(LocaleFilter::class, $filter);
         self::assertSame("'en_US'", $filter->getParameter('locale')); // Doctrine stores parameter in SQL form
@@ -222,7 +224,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $subscriber = new LocaleFilterConfigurator($this->entityManager(), []);
         $subscriber->onKernelRequest($event);
 
-        $filter = $this->entityManager()->getFilters()->getFilter('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->getFilter(LocaleFilter::NAME);
         self::assertInstanceOf(LocaleFilter::class, $filter);
         self::assertSame("'fr'", $filter->getParameter('locale'));
     }
@@ -246,7 +248,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
         $filters = $this->entityManager()->getFilters();
         self::assertFalse(
-            $filters->isEnabled('tmi_translation_locale_filter'),
+            $filters->isEnabled(LocaleFilter::NAME),
             'Filter should not be active for a disabled firewall',
         );
     }
@@ -263,7 +265,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
         $subscriber = new LocaleFilterConfigurator($this->entityManager(), [], null);
         $subscriber->onKernelRequest($event);
 
-        $filter = $this->entityManager()->getFilters()->getFilter('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->getFilter(LocaleFilter::NAME);
         self::assertInstanceOf(LocaleFilter::class, $filter);
         self::assertSame("'de_DE'", $filter->getParameter('locale'));
     }
@@ -330,7 +332,7 @@ final class LocaleFilterConfiguratorTest extends IntegrationTestCase
 
     private function filterLocale(): mixed
     {
-        $filter = $this->entityManager()->getFilters()->getFilter('tmi_translation_locale_filter');
+        $filter = $this->entityManager()->getFilters()->getFilter(LocaleFilter::NAME);
         self::assertInstanceOf(LocaleFilter::class, $filter);
 
         // Doctrine stores the parameter in SQL form

@@ -7,11 +7,13 @@ namespace Tmi\TranslationBundle\Test\Doctrine\EventListener;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\Persistence\Mapping\RuntimeReflectionService;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\EventListener\TranslatableIndexListener;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\NonTranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 
+#[CoversClass(TranslatableIndexListener::class)]
 final class TranslatableIndexListenerTest extends IntegrationTestCase
 {
     public function testInjectsPlainIndexForTranslatableEntities(): void

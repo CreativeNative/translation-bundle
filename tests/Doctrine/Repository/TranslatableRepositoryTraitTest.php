@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test\Doctrine\Repository;
 
+use PHPUnit\Framework\Attributes\CoversTrait;
+use Tmi\TranslationBundle\Doctrine\Repository\TranslatableRepositoryTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\ScalarRepository;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
+#[CoversTrait(TranslatableRepositoryTrait::class)]
 final class TranslatableRepositoryTraitTest extends IntegrationTestCase
 {
     private ScalarRepository $repository;

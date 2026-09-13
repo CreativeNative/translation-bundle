@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Test\Translation;
 
 use Doctrine\ORM\UnitOfWork;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\Translation\EntityTranslator;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
@@ -22,6 +24,7 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * miss, falls through to the regular lookup, and gets overwritten in the cache with a
  * freshly resolved, managed instance.
  */
+#[CoversClass(EntityTranslator::class)]
 final class EntityTranslatorCacheIdentityTest extends IntegrationTestCase
 {
     public function testGetOrTranslateReusesExistingRowAcrossEntityManagerClear(): void
