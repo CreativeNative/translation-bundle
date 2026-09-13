@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\UnitOfWork;
 use Doctrine\Persistence\Proxy;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Service\ResetInterface;
@@ -40,8 +41,6 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      */
     private array $knownMisses = [];
 
-    private LoggerInterface|null $logger = null;
-
     /**
      * @param array<string> $locales
      */
@@ -56,14 +55,8 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslationCacheInterface $cache,
         private readonly LocaleVariantFinder $finder,
-        LoggerInterface|null $logger = null,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
-        $this->logger = $logger;
-    }
-
-    public function setLogger(LoggerInterface|null $logger): void
-    {
-        $this->logger = $logger;
     }
 
     #[\Override]
@@ -467,9 +460,6 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      */
     private function logDebug(string $message, array $context = []): void
     {
-        if (null === $this->logger) {
-            return;
-        }
         $this->logger->debug('[TMI Translation] '.$message, $context);
     }
 
@@ -478,9 +468,6 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      */
     private function logInfo(string $message, array $context = []): void
     {
-        if (null === $this->logger) {
-            return;
-        }
         $this->logger->info('[TMI Translation] '.$message, $context);
     }
 

@@ -11,6 +11,7 @@ use Doctrine\ORM\Events;
 use Doctrine\ORM\PersistentCollection;
 use Doctrine\ORM\UnitOfWork;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Exception\SharedValueConflictException;
@@ -62,7 +63,7 @@ final class SharedValuePropagationListener
     public function __construct(
         private readonly SharedValueSynchronizer $synchronizer,
         private readonly bool $enabled,
-        private readonly LoggerInterface|null $logger = null,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -155,7 +156,7 @@ final class SharedValuePropagationListener
                 }
             }
 
-            $this->logger?->debug('[TMI Translation] Propagated shared values to sibling locale variants', [
+            $this->logger->debug('[TMI Translation] Propagated shared values to sibling locale variants', [
                 'class'      => $metadata->getName(),
                 'tuuid'      => (string) $entity->getTuuid(),
                 'locale'     => $entity->getLocale(),

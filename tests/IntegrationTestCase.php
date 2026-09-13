@@ -10,7 +10,6 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Psr\Container\ContainerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DependencyInjection\Container;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
@@ -18,7 +17,6 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
-use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 class IntegrationTestCase extends KernelTestCase
@@ -70,13 +68,6 @@ class IntegrationTestCase extends KernelTestCase
         $translator = $container->get('test.entity_translator');
         self::assertInstanceOf(EntityTranslator::class, $translator, 'EntityTranslator service must be an EntityTranslator instance');
         $this->translator = $translator;
-
-        $this->translator->setLogger(new NullLogger());
-
-        $embeddedHandler = $container->get(EmbeddedHandler::class);
-        if ($embeddedHandler instanceof EmbeddedHandler) {
-            $embeddedHandler->setLogger(new NullLogger());
-        }
 
         $attributeHelper = $container->get('tmi_translation.utils.attribute_helper');
         self::assertInstanceOf(AttributeHelper::class, $attributeHelper, 'Attribute helper service must be an AttributeHelper instance');

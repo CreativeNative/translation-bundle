@@ -8,9 +8,10 @@ use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
 use Psr\Log\AbstractLogger;
-use Psr\Log\LoggerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
+use Tmi\TranslationBundle\Event\PreTranslateEvent;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\NonTranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
@@ -68,17 +69,21 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
      * beforeUpdate/beforeRemove -- always a no-op, since prePersist/postLoad
      * already normalise the entity's own locale before onFlush ever runs, so
      * translate($e, $e->getLocale()) always hit the identity return. Against
-     * the pre-WP13 subscriber, this logger stub would see one info() call per
-     * flush below (three); the current subscriber makes no such call at all.
+     * the pre-WP13 subscriber, the PreTranslateEvent spy below would fire once
+     * per flush (three); the current subscriber never reaches the translator.
      *
      * @throws ORMException
      * @throws OptimisticLockException
      */
     public function testOnFlushNeverInvokesTheTranslator(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->never())->method('info');
-        $this->translator()->setLogger($logger);
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $translations = 0;
+        $dispatcher->addListener(PreTranslateEvent::class, static function () use (&$translations): void {
+            ++$translations;
+        });
 
         // --- Persist entity ---
         $entity = new Scalar();
@@ -102,6 +107,8 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
 
         // Verify entity is gone from database
         self::assertNull($this->entityManager()->find(Scalar::class, $entityId));
+
+        self::assertSame(0, $translations, 'onFlush must never route an entity through the translator');
     }
 
     public function testTranslationCloningAndLocale(): void

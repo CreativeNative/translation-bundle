@@ -16,6 +16,11 @@ and their notes in the GitHub releases.
 
 ### Changed
 
+- Logging contract: every logging service takes a non-nullable `LoggerInterface` whose
+  constructor default is a `NullLogger`; `enable_logging: false` injects the
+  `tmi_translation.null_logger` service instead of `null`. `AttributeHelper::validateProperty()`
+  and `validateEmbeddableClass()` take the same non-nullable parameter.
+
 - Tooling: PHPStan runs with eight more strictness options (`checkMissingOverrideMethodAttribute`,
   `checkBenevolentUnionTypes`, `checkMissingCallableSignature`, `checkImplicitMixed`,
   `checkExplicitMixed`, `reportUnmatchedIgnoredErrors`, `treatPhpDocTypesAsCertain`,
@@ -28,8 +33,17 @@ and their notes in the GitHub releases.
   relying on transitive resolution; `ext-mbstring` is a dev requirement now (one test uses it).
 - CI: a PHP 8.5 leg and a `doctrine/orm` floor leg (`3.5.7`) next to the Symfony floor leg.
 
+### Fixed
+
+- `EmbeddedHandler` never received the `$logger` argument `services.yaml` meant for it: with
+  Monolog installed, autowiring handed it the application's real logger regardless of
+  `enable_logging`, and without one its debug lines were silently dead. It is now wired like
+  the other three logging services and obeys the switch.
+
 ### Removed
 
+- `EntityTranslator::setLogger()` and `EmbeddedHandler::setLogger()` — the logger is a
+  constructor dependency.
 - `symfony/translation-contracts` from `require` — the bundle never imported it. An application
   that relied on the bundle pulling it in gets it from `symfony/translation` or `symfony/validator`.
 - The dead Rector configuration (`rector.php`, `composer rector`): Rector was never installed,

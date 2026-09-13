@@ -12,13 +12,28 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader;
+use Symfony\Component\DependencyInjection\Reference;
 use Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 
 final class TmiTranslationExtension extends Extension implements PrependExtensionInterface
 {
+    /**
+     * The services that take a `$logger`; `enable_logging: false` hands each of them the
+     * NullLogger service (`tmi_translation.null_logger`).
+     *
+     * @var list<class-string>
+     */
+    private const array LOGGING_SERVICES = [
+        EntityTranslator::class,
+        EmbeddedHandler::class,
+        TranslatableEventSubscriber::class,
+        SharedValuePropagationListener::class,
+    ];
+
     // Matches the "locale" column's own length (TranslatableTrait) and the
     // shape of a locale tag (language, optionally underscore-joined
     // subtags) -- kept here rather than in Configuration because locales
@@ -113,16 +128,17 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
 
-        // Logging is opt-in: without enable_logging, strip the logger from every
-        // service that services.yaml would otherwise wire it into.
+        // Logging is opt-in: without enable_logging, every service that services.yaml
+        // wires '@?logger' into gets the bundle's NullLogger instead -- the logger
+        // contract is non-nullable, so "off" is a logger that drops everything, never
+        // a null. With it enabled the '@?logger' wiring stays as declared.
         if (!$config['enable_logging']) {
-            foreach ([EntityTranslator::class, TranslatableEventSubscriber::class, SharedValuePropagationListener::class] as $serviceWithLogger) {
+            foreach (self::LOGGING_SERVICES as $serviceWithLogger) {
                 if ($container->has($serviceWithLogger)) {
-                    $container->getDefinition($serviceWithLogger)->setArgument('$logger', null);
+                    $container->getDefinition($serviceWithLogger)->setArgument('$logger', new Reference('tmi_translation.null_logger'));
                 }
             }
         }
-        // If enabled, let autowiring handle it via services.yaml
     }
 
     /**

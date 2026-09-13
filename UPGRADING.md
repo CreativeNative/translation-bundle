@@ -10,6 +10,7 @@ the way it does.
 
 ## Contents
 
+- [UPGRADE FROM 5.1 to 5.2](#upgrade-from-51-to-52)
 - [UPGRADE FROM 5.0 to 5.1](#upgrade-from-50-to-51)
 - [UPGRADE FROM 4.1 to 5.0](#upgrade-from-41-to-50)
 - [UPGRADE FROM 4.0 to 4.1](#upgrade-from-40-to-41)
@@ -20,6 +21,55 @@ the way it does.
   - [UPGRADE FROM 3.0 to 3.1](#upgrade-from-30-to-31)
   - [UPGRADE FROM 2.x to 3.0](#upgrade-from-2x-to-30)
   - [UPGRADE FROM 1.x to 2.0](#upgrade-from-1x-to-20)
+
+---
+
+# UPGRADE FROM 5.1 to 5.2
+
+Version 5.2 is a hardening release: the audit and bug hunt that followed 5.1 turned into
+bug fixes, a few behavioural changes on paths that were wrong, and API clean-ups that no
+consumer used (verified in both applications before each removal). No default changes and
+no configuration key is introduced.
+
+## Table of Contents
+
+- [Behavioural Changes (5.2)](#behavioural-changes-52)
+- [Removed API (5.2)](#removed-api-52)
+- [Upgrade Checklist (5.2)](#upgrade-checklist-52)
+
+---
+
+## Behavioural Changes (5.2)
+
+### 1. `enable_logging: false` now silences `EmbeddedHandler` too
+
+`EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
+With Monolog installed, autowiring handed it the application's real logger regardless of
+`enable_logging`, so its `[TMI Translation][Embedded]` debug lines appeared with the switch
+off. They now follow the switch like the other three logging services (`EntityTranslator`,
+`TranslatableEventSubscriber`, `SharedValuePropagationListener`). Nothing to do unless you
+relied on those lines with logging disabled — turn `enable_logging` on.
+
+## Removed API (5.2)
+
+### 1. `setLogger()` on `EntityTranslator` and `EmbeddedHandler`
+
+The logger is a constructor dependency with a `NullLogger` default; the setters are gone.
+`AttributeHelper::validateProperty()` / `validateEmbeddableClass()` take a non-nullable
+`LoggerInterface` (default `new NullLogger()`) instead of `LoggerInterface|null`. A hand-built
+instance passes a logger to the constructor; a container-built one is unaffected.
+
+### 2. `symfony/translation-contracts` is no longer a bundle requirement
+
+The bundle never imported it. An application gets it from `symfony/translation`,
+`symfony/validator` or `symfony/form`; one that relied on the bundle pulling it in adds it to
+its own `composer.json`.
+
+## Upgrade Checklist (5.2)
+
+1. `composer update tmi/translation-bundle`.
+2. Grep for `->setLogger(` on bundle services — pass the logger to the constructor instead.
+3. If `enable_logging` is off and you relied on `EmbeddedHandler` debug output, turn it on.
 
 ---
 

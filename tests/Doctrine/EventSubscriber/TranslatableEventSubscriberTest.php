@@ -86,7 +86,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testOnFlushThrowsOnOrphanWhenStrict(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
         $entity->setLocale('de_DE');
@@ -140,7 +140,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testOnFlushDoesNotReportWhenTuuidAdoptedInSameFlush(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
         $entity->setLocale('de_DE');
@@ -180,7 +180,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testOnFlushDoesNotReportWhenLocaleResetToDefault(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
         $entity->setLocale('de_DE');
@@ -197,7 +197,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testPrePersistDoesNotFlagDefaultLocale(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
         $entity->setLocale('en_US');
@@ -210,7 +210,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testPrePersistDoesNotFlagNullLocale(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
 
@@ -222,7 +222,7 @@ final class TranslatableEventSubscriberTest extends TestCase
 
     public function testPrePersistDoesNotFlagWhenTuuidAlreadyShared(): void
     {
-        $subscriber = new TranslatableEventSubscriber('en_US', null, true);
+        $subscriber = new TranslatableEventSubscriber('en_US', strictOrphanCheck: true);
 
         $entity = new Scalar();
         $entity->setTuuid(Tuuid::generate());

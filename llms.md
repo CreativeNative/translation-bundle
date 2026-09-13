@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **934 tests, 8,453 assertions**, all green.
+  `failOnDeprecation`). As of this release: **934 tests, 8,472 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1580,7 +1580,10 @@ controls the reaction to an entity still orphaned at flush:
 | `null` (default) | *Auto* — throws when `kernel.debug` is on, warns otherwise   |
 
 The warning respects the bundle's opt-in logging: with `enable_logging: false` (the
-default) no logger is injected and nothing is logged. An entity flushed alone and only
+default) the four logging services — `EntityTranslator`, `EmbeddedHandler`,
+`TranslatableEventSubscriber`, `SharedValuePropagationListener` — receive a `NullLogger`
+instead of the application's logger, and nothing is logged. The logger is a non-nullable
+constructor dependency of each; there is no setter. An entity flushed alone and only
 linked in a *later* flush is still reported — `tmi:translation:doctor` is the authoritative
 audit for data at rest.
 

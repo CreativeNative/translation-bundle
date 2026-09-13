@@ -12,6 +12,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
@@ -196,7 +197,7 @@ class UnitTestCase extends TestCase
         );
     }
 
-    private function getTranslator(LoggerInterface|null $logger = null): EntityTranslator
+    private function getTranslator(LoggerInterface $logger = new NullLogger()): EntityTranslator
     {
         return new EntityTranslator(
             'en_US',

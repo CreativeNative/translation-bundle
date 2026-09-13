@@ -45,6 +45,16 @@ services:
     Tmi\TranslationBundle\Translation\TypeDefaultResolver: ~
 
     # ----------------------------
+    # Logging
+    # ----------------------------
+    # Every service that logs takes a non-nullable LoggerInterface. With
+    # enable_logging: true it is '@?logger' (the app's logger, or the
+    # constructor's own NullLogger default when the app has none); with
+    # enable_logging: false TmiTranslationExtension swaps this service in.
+    tmi_translation.null_logger:
+        class: Psr\Log\NullLogger
+
+    # ----------------------------
     # Compile-Time Validation
     # ----------------------------
     Tmi\TranslationBundle\CacheWarmer\TranslatableEntityValidationWarmer:
@@ -146,8 +156,9 @@ services:
 
     Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler:
         arguments:
-            - '@tmi_translation.utils.attribute_helper'
-            - '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $typeDefaultResolver: '@Tmi\TranslationBundle\Translation\TypeDefaultResolver'
+            $logger: '@?logger'
         tags: [ { name: tmi_translation.translation_handler, priority: 80 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler:

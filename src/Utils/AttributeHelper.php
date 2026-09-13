@@ -6,6 +6,7 @@ namespace Tmi\TranslationBundle\Utils;
 
 use Doctrine\ORM\Mapping as ORM;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Doctrine\Attribute as TranslationAttribute;
 use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
@@ -282,7 +283,7 @@ class AttributeHelper
      */
     public function validateEmbeddableClass(
         \ReflectionClass $class,
-        LoggerInterface|null $logger = null,
+        LoggerInterface $logger = new NullLogger(),
     ): void {
         $cacheKey = $class->getName();
 
@@ -308,7 +309,7 @@ class AttributeHelper
 
         if ([] !== $errors) {
             foreach ($errors as $error) {
-                $logger?->error('[TMI Translation][Embedded] '.$error->getMessage());
+                $logger->error('[TMI Translation][Embedded] '.$error->getMessage());
             }
 
             throw new ValidationException($errors);
@@ -324,7 +325,7 @@ class AttributeHelper
      */
     public function validateProperty(
         \ReflectionProperty $property,
-        LoggerInterface|null $logger = null,
+        LoggerInterface $logger = new NullLogger(),
     ): void {
         $cacheKey = $property->class.'::$'.$property->name;
 
@@ -338,7 +339,7 @@ class AttributeHelper
 
         if ([] !== $errors) {
             foreach ($errors as $error) {
-                $logger?->error('[TMI Translation] '.$error->getMessage());
+                $logger->error('[TMI Translation] '.$error->getMessage());
             }
 
             throw new ValidationException($errors);

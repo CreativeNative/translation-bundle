@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Doctrine\EventListener;
 use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
@@ -510,7 +511,7 @@ final class SharedValuePropagationListenerTest extends IntegrationTestCase
      */
     private function enable(AbstractLogger|null $logger = null, bool $enabled = true): AbstractLogger|null
     {
-        $listener = new SharedValuePropagationListener($this->synchronizer(), $enabled, $logger);
+        $listener = new SharedValuePropagationListener($this->synchronizer(), $enabled, $logger ?? new NullLogger());
 
         $this->entityManager()->getEventManager()->addEventListener(Events::onFlush, $listener);
 

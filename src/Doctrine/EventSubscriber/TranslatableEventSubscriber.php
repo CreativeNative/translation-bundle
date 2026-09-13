@@ -11,6 +11,7 @@ use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Events;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Exception\OrphanTranslationException;
@@ -52,7 +53,7 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
     public function __construct(
         #[Autowire(param: 'tmi_translation.default_locale')]
         private string $defaultLocale,
-        private LoggerInterface|null $logger = null,
+        private LoggerInterface $logger = new NullLogger(),
         #[Autowire(param: 'tmi_translation.strict_orphan_check')]
         private bool $strictOrphanCheck = false,
     ) {
@@ -191,7 +192,7 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
             throw OrphanTranslationException::forEntity($class, $locale);
         }
 
-        $this->logger?->warning(
+        $this->logger->warning(
             'Translatable {class} flushed in non-default locale "{locale}" without a shared Tuuid '
             .'— no other locale variant links to it. Use EntityTranslator::translate() to create '
             .'linked translations, or run tmi:translation:doctor to audit existing rows.',

@@ -11,7 +11,7 @@ use Doctrine\Persistence\Proxy;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
-use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
@@ -587,9 +587,10 @@ final class EntityTranslatorTest extends UnitTestCase
         self::assertTrue($this->cache()->isInProgress($sharedTuuid->getValue(), 'de_DE'));
     }
 
-    public function testLoggerIsOptional(): void
+    public function testLoggerDefaultsToANullLogger(): void
     {
-        // Create translator without logger (should not throw)
+        // Create translator without logger: the constructor default is a NullLogger,
+        // so nothing is nullable and nothing throws.
         $translator = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US'],
@@ -600,26 +601,21 @@ final class EntityTranslatorTest extends UnitTestCase
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
             $this->localeVariantFinder(),
-            null, // No logger
         );
 
-        // Verify the translator was created successfully
-        $this->addToAssertionCount(1);
+        self::assertInstanceOf(NullLogger::class, new \ReflectionProperty($translator, 'logger')->getValue($translator));
     }
 
-    public function testSetLoggerMethod(): void
+    public function testLogsThroughTheConstructorInjectedLogger(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
-
-        // Expect info log when translate is called
-        $logger->expects($this->atLeastOnce())
+        // Expect info log when translate is called -- the logger is a constructor
+        // dependency, there is no setter to swap it afterwards.
+        $this->logger()->expects($this->atLeastOnce())
             ->method('info')
             ->with(
                 $this->stringContains('[TMI Translation]'),
                 $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
-
-        $this->translator()->setLogger($logger);
 
         $entity = new Scalar();
         $entity->setLocale('en_US');
@@ -677,9 +673,9 @@ final class EntityTranslatorTest extends UnitTestCase
         $this->translator()->translate($entity, 'de_DE');
     }
 
-    public function testNoLoggingWhenLoggerIsNull(): void
+    public function testTheDefaultLoggerSwallowsEverything(): void
     {
-        // Create translator without logger
+        // Create translator without logger: translate() runs, nothing is logged anywhere.
         $translatorWithoutLogger = new EntityTranslator(
             'en_US',
             ['de_DE', 'en_US'],
@@ -690,7 +686,6 @@ final class EntityTranslatorTest extends UnitTestCase
             $this->createMock(EntityManagerInterface::class),
             $this->cache(),
             $this->localeVariantFinder(),
-            null,
         );
 
         $entity = new Scalar();

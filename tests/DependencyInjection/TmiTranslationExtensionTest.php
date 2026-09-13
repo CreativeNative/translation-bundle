@@ -11,8 +11,12 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Exception\TypesException;
 use Doctrine\DBAL\Types\Type;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Reference;
 use Tmi\TranslationBundle\DependencyInjection\TmiTranslationExtension;
+use Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener;
 use Tmi\TranslationBundle\Doctrine\EventSubscriber\TranslatableEventSubscriber;
 use Tmi\TranslationBundle\Doctrine\Type\TuuidType;
 use Tmi\TranslationBundle\EventSubscriber\LocaleFilterConfigurator;
@@ -20,6 +24,7 @@ use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
+use Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -199,19 +204,21 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
      * @throws Exception
      * @throws TypesException
      */
-    public function testLoadSetsLoggerToNullWhenLoggingDisabled(): void
+    public function testLoadInjectsTheNullLoggerWhenLoggingDisabled(): void
     {
         $containerBuilder = $this->createContainerBuilderFromKernel();
 
         $extension = new TmiTranslationExtension();
         $extension->load([['default_locale' => 'en_US', 'enable_logging' => false]], $containerBuilder);
 
-        $definition = $containerBuilder->getDefinition(EntityTranslator::class);
-        self::assertNull($definition->getArgument('$logger'));
+        // Every logging service, the embedded handler included: before 5.2 its
+        // definition carried no `$logger` argument at all, so autowiring handed it
+        // the application's real logger regardless of this switch.
+        foreach ([EntityTranslator::class, EmbeddedHandler::class, TranslatableEventSubscriber::class, SharedValuePropagationListener::class] as $service) {
+            self::assertSame('tmi_translation.null_logger', self::loggerReferenceOf($containerBuilder->getDefinition($service)), $service);
+        }
 
-        // The orphan warning respects the same opt-in: no logger, no warning.
-        $subscriber = $containerBuilder->getDefinition(TranslatableEventSubscriber::class);
-        self::assertNull($subscriber->getArgument('$logger'));
+        self::assertSame(NullLogger::class, $containerBuilder->getDefinition('tmi_translation.null_logger')->getClass());
     }
 
     /**
@@ -225,8 +232,9 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension = new TmiTranslationExtension();
         $extension->load([['default_locale' => 'en_US', 'enable_logging' => true]], $containerBuilder);
 
-        self::assertNotNull($containerBuilder->getDefinition(EntityTranslator::class)->getArgument('$logger'));
-        self::assertNotNull($containerBuilder->getDefinition(TranslatableEventSubscriber::class)->getArgument('$logger'));
+        foreach ([EntityTranslator::class, EmbeddedHandler::class, TranslatableEventSubscriber::class, SharedValuePropagationListener::class] as $service) {
+            self::assertSame('logger', self::loggerReferenceOf($containerBuilder->getDefinition($service)), $service);
+        }
     }
 
     public function testLoadThrowsWhenEnabledLocalesNotConfigured(): void
@@ -309,8 +317,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension = new TmiTranslationExtension();
         $extension->load([['default_locale' => 'en_US']], $containerBuilder);
 
-        $definition = $containerBuilder->getDefinition(EntityTranslator::class);
-        self::assertNull($definition->getArgument('$logger'));
+        self::assertSame('tmi_translation.null_logger', self::loggerReferenceOf($containerBuilder->getDefinition(EntityTranslator::class)));
     }
 
     public function testLoadThrowsOnRemovedLocalesConfigKey(): void
@@ -694,6 +701,14 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         // Guards the loop above against a services.yaml rewrite that silently stops
         // registering the bundle's own services under either id shape.
         self::assertGreaterThanOrEqual(25, $checked);
+    }
+
+    private static function loggerReferenceOf(Definition $definition): string
+    {
+        $argument = $definition->getArgument('$logger');
+        self::assertInstanceOf(Reference::class, $argument);
+
+        return (string) $argument;
     }
 
     private function createContainerBuilderFromKernel(): ContainerBuilder

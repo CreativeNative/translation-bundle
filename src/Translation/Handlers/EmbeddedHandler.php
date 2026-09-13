@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\TypeDefaultResolver;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -23,19 +24,11 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  */
 final class EmbeddedHandler implements TranslationHandlerInterface
 {
-    private LoggerInterface|null $logger = null;
-
     public function __construct(
         private readonly AttributeHelper $attributeHelper,
         private readonly TypeDefaultResolver $typeDefaultResolver,
-        LoggerInterface|null $logger = null,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
-        $this->logger = $logger;
-    }
-
-    public function setLogger(LoggerInterface|null $logger): void
-    {
-        $this->logger = $logger;
     }
 
     #[\Override]
@@ -267,6 +260,6 @@ final class EmbeddedHandler implements TranslationHandlerInterface
      */
     private function logDebug(string $message, array $context = []): void
     {
-        $this->logger?->debug('[TMI Translation][Embedded] '.$message, $context);
+        $this->logger->debug('[TMI Translation][Embedded] '.$message, $context);
     }
 }

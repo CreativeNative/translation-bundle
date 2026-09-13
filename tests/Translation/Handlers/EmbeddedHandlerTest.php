@@ -360,11 +360,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateLogsResolutionChainAtDebugLevel(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
-
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
-        $handler->setLogger($mockLogger);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver(), $mockLogger);
 
         $embeddable = new SharedClassEmbeddable();
         $embeddable->setSharedByDefault('value');
@@ -385,11 +383,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testTranslateLogsPropertyOverrideAtDebugLevel(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
-
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
-        $handler->setLogger($mockLogger);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver(), $mockLogger);
 
         // SharedClassEmbeddable has class-level Shared and property-level Empty on overriddenToEmpty
         $embeddable = new SharedClassEmbeddable();
@@ -480,11 +476,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testCopySourceFalseLogsRedundantEmptyOnTranslate(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
-
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
-        $handler->setLogger($mockLogger);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver(), $mockLogger);
 
         $address = new AddressWithEmptyAndSharedProperty();
         $address->setStreet('Test Street');
@@ -554,11 +548,9 @@ final class EmbeddedHandlerTest extends UnitTestCase
     public function testApplyTypeDefaultKeepsSourceForUnsupportedType(): void
     {
         $realHelper = new AttributeHelper();
-        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver());
-
         /** @var LoggerInterface&MockObject $mockLogger */
         $mockLogger = $this->createMock(LoggerInterface::class);
-        $handler->setLogger($mockLogger);
+        $handler    = new EmbeddedHandler($realHelper, new TypeDefaultResolver(), $mockLogger);
 
         // Embeddable with a non-nullable object property (enum or DateTime)
         $embeddable = new class {
