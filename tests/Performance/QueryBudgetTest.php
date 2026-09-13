@@ -16,6 +16,8 @@ use Tmi\TranslationBundle\Fixtures\Entity\Root\EstateA;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Listing;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\ListingA;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceChild;
+use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
@@ -565,6 +567,30 @@ final class QueryBudgetTest extends IntegrationTestCase
 
         self::assertSame(1, $count);
         self::assertSame(1, $this->counter()->count());
+    }
+
+    /**
+     * A child reached through its parent's OneToMany -- its back-reference declared
+     * #[SharedAmongstTranslations] -- is cached under its own (tuuid, locale) like any
+     * other translation, so translating it on its own afterwards is a cache hit.
+     * Negative proof against 5.1: the shared early return in runHandlers() skipped the
+     * cache for exactly this shape, and the same call cost 1 lookup query.
+     */
+    public function testTranslateAChildAlreadyClonedThroughItsParentCostsNoQuery(): void
+    {
+        $child  = new SharedBackReferenceChild()->setLocale('en_US')->setTitle('Day 1 EN');
+        $parent = new SharedBackReferenceParent()->setLocale('en_US')->setTitle('Itinerary EN')->addChild($child);
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $translatedParent = $this->translator()->translateAndPersist($parent, 'de_DE');
+        $this->entityManager()->flush();
+        self::assertInstanceOf(SharedBackReferenceParent::class, $translatedParent);
+
+        $this->counter()->reset();
+        $translatedChild = $this->translator()->translate($child, 'de_DE');
+        self::assertSame(0, $this->counter()->count(), 'the child clone is a cache hit, no lookup');
+        self::assertSame($translatedParent->getChildren()->first(), $translatedChild);
     }
 
     private function counter(): QueryCounter

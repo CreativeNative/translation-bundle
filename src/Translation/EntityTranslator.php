@@ -304,6 +304,13 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
     /**
      * Runs the handler chain for the given context, first match wins.
      *
+     * Every result a handler produces passes through recordTranslation() -- shared
+     * properties, copy_source: false defaults and EmptyOnTranslate included. The guard
+     * there, not the branch the value took, decides whether it is a translation that
+     * earns a PostTranslateEvent and a cache entry. Up to 5.1 the attribute branches
+     * returned early and skipped both, so a child reached through a shared back-reference
+     * was neither announced nor cached.
+     *
      * @return mixed the handler result, or the untouched data when no handler supports it
      */
     private function runHandlers(TranslationContext $context, string $locale): mixed
@@ -315,7 +322,6 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
                 continue;
             }
 
-            // Handle attribute logic if a specific property is set on the context
             $property = $context->getProperty();
 
             $this->logDebug('Handler selected for processing', [
@@ -331,128 +337,161 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
                 $this->eventDispatcher->dispatch(new PreTranslateEvent($subject, $locale));
             }
 
-            if ($property instanceof \ReflectionProperty) {
-                // Validate property attributes for conflicts
-                $this->attributeHelper->validateProperty($property, $this->logger);
+            $translated = $property instanceof \ReflectionProperty
+                ? $this->translateProperty($handler, $context, $property)
+                : $handler->translate($context);
 
-                // 1. Determine if the top-level property is Shared (always copies from source).
-                // Shared by attribute OR by being a translation root reference (5.1): the
-                // root is reaffirmed to the identical instance on every walk of the clone.
-                if ($this->attributeHelper->isEffectivelyShared($property)) {
-                    $this->logDebug('Attribute detected: SharedAmongstTranslations', [
-                        'property' => $property->name,
-                        'class'    => $property->class,
-                        'action'   => 'sharing value across translations',
-                    ]);
-
-                    return $handler->translate($context->setShared(true));
-                }
-
-                // 2. Handle copy_source: false -- type-safe defaults for all non-shared fields
-                if (false === $context->getCopySource()) {
-                    // Embedded properties: delegate to handler for per-property resolution
-                    if ($this->attributeHelper->isEmbedded($property)) {
-                        if ($this->attributeHelper->isEmptyOnTranslate($property)) {
-                            $this->logDebug('EmptyOnTranslate has no effect when copy_source is false', [
-                                'property' => $property->name,
-                                'class'    => $property->class,
-                            ]);
-                        }
-
-                        return $handler->translate($context);
-                    }
-
-                    // Log redundancy hint if EmptyOnTranslate is present
-                    if ($this->attributeHelper->isEmptyOnTranslate($property)) {
-                        $this->logDebug('EmptyOnTranslate has no effect when copy_source is false', [
-                            'property' => $property->name,
-                            'class'    => $property->class,
-                        ]);
-                    }
-
-                    // Non-nullable object safety fallback: copy from source
-                    $type = $property->getType();
-                    if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && !$type->allowsNull()) {
-                        $this->logDebug(\sprintf(
-                            'Property %s::$%s is non-nullable object -- copying from source despite copy_source: false',
-                            $property->class,
-                            $property->name,
-                        ), []);
-
-                        return $handler->translate($context);
-                    }
-
-                    // Resolve type-safe default
-                    $default = $this->typeDefaultResolver->resolve($property);
-
-                    $this->logDebug('Type-safe default for copy_source: false', [
-                        'property' => $property->name,
-                        'class'    => $property->class,
-                    ]);
-
-                    return $default;
-                }
-
-                // 3. Handle EmptyOnTranslate (copy_source: true path)
-                if ($this->attributeHelper->isEmptyOnTranslate($property)) {
-                    // A collection is emptied by handing back a fresh empty one, which is
-                    // what its handler does. There is no type-safe default to resolve for it,
-                    // and asking for one would fail as "non-nullable object".
-                    if (!$subject instanceof Collection && !$this->attributeHelper->isNullable($property)) {
-                        // Type-safe default instead of throwing
-                        $default = $this->typeDefaultResolver->resolve($property);
-
-                        $this->logDebug('Type-safe default for non-nullable EmptyOnTranslate property', [
-                            'property' => $property->name,
-                            'class'    => $property->class,
-                            'default'  => $default,
-                        ]);
-
-                        return $default;
-                    }
-
-                    $this->logDebug('Attribute detected: EmptyOnTranslate', [
-                        'property' => $property->name,
-                        'class'    => $property->class,
-                        'action'   => 'clearing value for translation',
-                    ]);
-
-                    return $handler->translate($context->setEmpty(true));
-                }
-
-                // Handle embeddable with unified per-property resolution
-                if ($this->attributeHelper->isEmbedded($property)) {
-                    $this->logDebug('Processing embedded property with per-property resolution', [
-                        'property' => $property->name,
-                        'class'    => $property->class,
-                    ]);
-
-                    return $handler->translate($context);
-                }
-            }
-
-            $translated = $handler->translate($context);
-
-            if ($subject instanceof TranslatableInterface && $translated instanceof TranslatableInterface) {
-                $this->eventDispatcher->dispatch(new PostTranslateEvent($subject, $locale, $translated));
-
-                $translatedTuuid  = $translated->getTuuid()->getValue();
-                $translatedLocale = $translated->getLocale() ?? $locale;
-                $this->cache->set($translatedTuuid, $translatedLocale, $translated);
-                // A translation just created for this pair makes any earlier preload()
-                // miss recorded for it stale -- see the preload() docblock.
-                unset($this->knownMisses[$translatedTuuid][$translatedLocale]);
-
-                $this->logDebug('Translation complete', [
-                    'class'         => $translated::class,
-                    'target_locale' => $translated->getLocale(),
-                ]);
-            }
+            $this->recordTranslation($subject, $translated, $locale);
 
             return $translated;
         }
 
         return $subject;
+    }
+
+    /**
+     * The attribute cascade for a property-level context: shared, copy_source: false,
+     * EmptyOnTranslate, embedded, plain -- in that order, first match wins.
+     */
+    private function translateProperty(TranslationHandlerInterface $handler, TranslationContext $context, \ReflectionProperty $property): mixed
+    {
+        $this->attributeHelper->validateProperty($property, $this->logger);
+
+        // 1. Shared (always copies from source) -- by attribute OR by being a translation
+        // root reference (5.1): the root is reaffirmed to the identical instance on every
+        // walk of the clone.
+        if ($this->attributeHelper->isEffectivelyShared($property)) {
+            $this->logDebug('Attribute detected: SharedAmongstTranslations', [
+                'property' => $property->name,
+                'class'    => $property->class,
+                'action'   => 'sharing value across translations',
+            ]);
+
+            return $handler->translate($context->setShared(true));
+        }
+
+        // 2. copy_source: false -- type-safe defaults for all non-shared fields
+        if (false === $context->getCopySource()) {
+            return $this->resolveWithoutCopySource($handler, $context, $property);
+        }
+
+        // 3. EmptyOnTranslate (copy_source: true path)
+        if ($this->attributeHelper->isEmptyOnTranslate($property)) {
+            return $this->resolveEmptyOnTranslate($handler, $context, $property);
+        }
+
+        if ($this->attributeHelper->isEmbedded($property)) {
+            $this->logDebug('Processing embedded property with per-property resolution', [
+                'property' => $property->name,
+                'class'    => $property->class,
+            ]);
+        }
+
+        return $handler->translate($context);
+    }
+
+    /**
+     * copy_source: false -- every non-shared field starts from its type-safe default,
+     * except an embeddable (its handler resolves per property) and a non-nullable
+     * object, which has no default and is copied instead.
+     */
+    private function resolveWithoutCopySource(TranslationHandlerInterface $handler, TranslationContext $context, \ReflectionProperty $property): mixed
+    {
+        if ($this->attributeHelper->isEmptyOnTranslate($property)) {
+            $this->logDebug('EmptyOnTranslate has no effect when copy_source is false', [
+                'property' => $property->name,
+                'class'    => $property->class,
+            ]);
+        }
+
+        // Embedded properties: delegate to handler for per-property resolution
+        if ($this->attributeHelper->isEmbedded($property)) {
+            return $handler->translate($context);
+        }
+
+        // Non-nullable object safety fallback: copy from source
+        $type = $property->getType();
+        if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && !$type->allowsNull()) {
+            $this->logDebug(\sprintf(
+                'Property %s::$%s is non-nullable object -- copying from source despite copy_source: false',
+                $property->class,
+                $property->name,
+            ), []);
+
+            return $handler->translate($context);
+        }
+
+        $default = $this->typeDefaultResolver->resolve($property);
+
+        $this->logDebug('Type-safe default for copy_source: false', [
+            'property' => $property->name,
+            'class'    => $property->class,
+        ]);
+
+        return $default;
+    }
+
+    /**
+     * EmptyOnTranslate under copy_source: true -- the handler empties the value, except a
+     * non-nullable, non-collection property, which takes its type-safe default instead.
+     */
+    private function resolveEmptyOnTranslate(TranslationHandlerInterface $handler, TranslationContext $context, \ReflectionProperty $property): mixed
+    {
+        // A collection is emptied by handing back a fresh empty one, which is what its
+        // handler does. There is no type-safe default to resolve for it, and asking for
+        // one would fail as "non-nullable object".
+        if (!$context->getSubject() instanceof Collection && !$this->attributeHelper->isNullable($property)) {
+            $default = $this->typeDefaultResolver->resolve($property);
+
+            $this->logDebug('Type-safe default for non-nullable EmptyOnTranslate property', [
+                'property' => $property->name,
+                'class'    => $property->class,
+                'default'  => $default,
+            ]);
+
+            return $default;
+        }
+
+        $this->logDebug('Attribute detected: EmptyOnTranslate', [
+            'property' => $property->name,
+            'class'    => $property->class,
+            'action'   => 'clearing value for translation',
+        ]);
+
+        return $handler->translate($context->setEmpty(true));
+    }
+
+    /**
+     * Announces and caches a handler result that is a translation of its subject.
+     *
+     * The guard is the whole contract: the subject must be translatable, the result
+     * must be a translatable instance other than the subject, and it must carry
+     * exactly the requested locale. Anything else -- a scalar, a shared value handed
+     * back untouched, the cycle-guard fallback (the subject itself), a value at the
+     * source locale -- is passed on by runHandlers() without an event or a cache entry.
+     */
+    private function recordTranslation(mixed $subject, mixed $translated, string $locale): void
+    {
+        if (!$subject instanceof TranslatableInterface || !$translated instanceof TranslatableInterface) {
+            return;
+        }
+
+        if ($translated === $subject || $translated->getLocale() !== $locale) {
+            return;
+        }
+
+        $this->eventDispatcher->dispatch(new PostTranslateEvent($subject, $locale, $translated));
+
+        $tuuid = $translated->getTuuid()->getValue();
+        $this->cache->set($tuuid, $locale, $translated);
+        // A translation just created for this pair makes any earlier preload()
+        // miss recorded for it stale -- see the preload() docblock.
+        unset($this->knownMisses[$tuuid][$locale]);
+
+        $this->logDebug('Translation complete', [
+            'class'         => $translated::class,
+            'target_locale' => $locale,
+        ]);
     }
 
     /**
@@ -481,6 +520,11 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      * translation has no identifier yet and reports STATE_NEW instead, and a
      * persisted-but-unflushed one is already recorded as STATE_MANAGED -- both remain
      * valid hits.
+     *
+     * A removed-and-flushed hit is NOT detected here: after the flush Doctrine nulls
+     * the generated id, so the instance reports STATE_NEW -- indistinguishable from a
+     * fresh clone. Such an entry is evicted by TranslationCacheEvictionListener on
+     * postRemove instead.
      */
     private function isDetachedCacheHit(TranslatableInterface $cached): bool
     {

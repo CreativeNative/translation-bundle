@@ -89,6 +89,30 @@ final class InMemoryTranslationCacheTest extends TestCase
         self::assertFalse($this->cache->isInProgress('tuuid-1', 'en'));
     }
 
+    public function testRemoveForgetsExactlyThatLocale(): void
+    {
+        $en = $this->createEntity('en');
+        $de = $this->createEntity('de');
+        $this->cache->set('tuuid-1', 'en', $en);
+        $this->cache->set('tuuid-1', 'de', $de);
+
+        $this->cache->remove('tuuid-1', 'de');
+
+        self::assertNull($this->cache->get('tuuid-1', 'de'));
+        self::assertSame($en, $this->cache->get('tuuid-1', 'en'), 'the sibling locale stays cached');
+    }
+
+    public function testRemoveOfAnUnknownPairIsANoOp(): void
+    {
+        $this->cache->remove('tuuid-1', 'en');
+        $this->cache->set('tuuid-1', 'en', $this->createEntity('en'));
+
+        $this->cache->remove('tuuid-1', 'de');
+        $this->cache->remove('tuuid-2', 'en');
+
+        self::assertNotNull($this->cache->get('tuuid-1', 'en'));
+    }
+
     public function testResetClearsCachedEntries(): void
     {
         $this->cache->set('tuuid-1', 'en', $this->createEntity('en'));

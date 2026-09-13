@@ -556,7 +556,8 @@ per test), not the code. The application's stage 1 is separately scoped in its o
 ## 13. Open questions (none blocking the build)
 
 - Whether the `PostTranslateEvent`/cache gap on the shared early return (§ 9) should be closed in
-  5.1 or 5.2 — no listener depends on it today.
+  5.1 or 5.2 — no listener depends on it today. **(Resolved in 5.2:** `runHandlers()` has one
+  exit, `recordTranslation()`; the child clone is announced and cached.**)**
 - (Resolved, not open.) `--entity` accepts a concrete STI leaf as the two existing commands do, but
   the class handed to `streamGroupedByTuuid()` is **always** the adopter's hierarchy root: a group
   whose rows span two leaves must be seen whole, otherwise a leaf-scoped run mints a root for its

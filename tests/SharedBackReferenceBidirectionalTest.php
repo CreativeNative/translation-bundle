@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Test;
 
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Event\PostTranslateEvent;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceChild;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceParent;
 
@@ -99,5 +102,77 @@ final class SharedBackReferenceBidirectionalTest extends IntegrationTestCase
         $second = $this->translator()->translate($parent, self::TARGET_LOCALE);
 
         self::assertSame($first, $second);
+    }
+
+    /**
+     * Negative proof against 5.1: the child's clone came back through the shared early
+     * return in EntityTranslator::runHandlers(), which dispatched no PostTranslateEvent
+     * for it -- K children, one event (the parent's). recordTranslation() announces
+     * every translation a handler produces, so listeners see 1 + K.
+     */
+    public function testEveryChildCloneIsAnnouncedByAPostTranslateEvent(): void
+    {
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $parent = new SharedBackReferenceParent()->setLocale('en_US')->setTitle('Itinerary EN');
+        $parent->addChild(new SharedBackReferenceChild()->setLocale('en_US')->setTitle('Day 1 EN'));
+        $parent->addChild(new SharedBackReferenceChild()->setLocale('en_US')->setTitle('Day 2 EN'));
+        $parent->addChild(new SharedBackReferenceChild()->setLocale('en_US')->setTitle('Day 3 EN'));
+
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $events   = new \ArrayObject();
+        $listener = static function (PostTranslateEvent $event) use ($events): void {
+            $events->append($event);
+        };
+        $dispatcher->addListener(PostTranslateEvent::class, $listener);
+
+        try {
+            $translated = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        } finally {
+            $dispatcher->removeListener(PostTranslateEvent::class, $listener);
+        }
+
+        self::assertInstanceOf(SharedBackReferenceParent::class, $translated);
+        self::assertCount(1 + 3, $events, 'one event for the parent, one per child clone');
+
+        $childEvents = 0;
+        foreach ($events as $event) {
+            $source     = $event->getSourceEntity();
+            $translated = $event->getTranslatedEntity();
+            self::assertInstanceOf(TranslatableInterface::class, $translated);
+            self::assertSame(self::TARGET_LOCALE, $translated->getLocale());
+            self::assertSame(self::TARGET_LOCALE, $event->getLocale());
+            self::assertNotSame($source, $translated, 'the event carries a clone, never the source');
+
+            if ($source instanceof SharedBackReferenceChild) {
+                ++$childEvents;
+                self::assertInstanceOf(SharedBackReferenceChild::class, $translated);
+                self::assertTrue($parent->getChildren()->contains($source), 'the source is the parent\'s own child');
+            }
+        }
+        self::assertSame(3, $childEvents);
+    }
+
+    /**
+     * The same gap, seen from the cache: the child's clone was never stored, so
+     * translating the child on its own after the parent cost a lookup query (see
+     * QueryBudgetTest). Now the clone is a cache hit.
+     */
+    public function testTheChildCloneIsCachedUnderItsOwnTuuidAndTheTargetLocale(): void
+    {
+        $child  = new SharedBackReferenceChild()->setLocale('en_US')->setTitle('Day 1 EN');
+        $parent = new SharedBackReferenceParent()->setLocale('en_US')->addChild($child);
+
+        $this->entityManager()->persist($parent);
+        $this->entityManager()->flush();
+
+        $translated = $this->translator()->translate($parent, self::TARGET_LOCALE);
+        self::assertInstanceOf(SharedBackReferenceParent::class, $translated);
+
+        $cachedChild = $this->translationCache()->get($child->getTuuid()->getValue(), self::TARGET_LOCALE);
+        self::assertSame($translated->getChildren()->first(), $cachedChild);
     }
 }

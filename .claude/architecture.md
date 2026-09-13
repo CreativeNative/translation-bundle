@@ -118,6 +118,12 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 | `PreTranslateEvent` | Before translation starts |
 | `PostTranslateEvent` | After successful translation |
 
+`EntityTranslator::runHandlers()` has **one exit**: every handler result passes through
+`recordTranslation()`, whose guard — translatable subject, translatable result other than the
+subject, at exactly the requested locale — decides on `PostTranslateEvent` and the cache entry.
+No attribute branch (shared, `copy_source: false`, `#[EmptyOnTranslate]`) returns past it, so a
+child clone reached through a shared back-reference is announced and cached like any other.
+
 ## Tuuid Linkage Integrity
 
 - `Doctrine/EventListener/TranslatableIndexListener` — injects a composite `(tuuid, locale)`
@@ -146,6 +152,11 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
   registered; `cascade_remove_locale_variants` decides at runtime whether it does anything)
   that calls `TranslatableRemover::cascadeFromPreRemove()` so a plain `$em->remove()` on any
   translatable entity cascades to its sibling locale variants automatically.
+- `Doctrine/EventListener/TranslationCacheEvictionListener` — `postRemove` listener, always on,
+  no config: calls `TranslationCacheInterface::remove(tuuid, locale)` for every removed
+  translatable row, so a removed-and-flushed translation (its generated id nulled, hence
+  `STATE_NEW` like a fresh clone) is never handed back and re-persisted. `postRemove`, not
+  `preRemove`: only then is the row gone; a rollback afterwards costs one reload, accepted.
 
 ## Per-Locale Completeness
 
@@ -254,6 +265,9 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 - `TranslatableEntityHandler` no longer checks for an existing target-locale variant itself —
   that question is resolved exactly once, by `processTranslation()`'s own
   `preload()`-then-cache-check, before any handler runs; the handler always clones.
+- A removed row's cache entry is evicted on `postRemove` (`TranslationCacheEvictionListener`),
+  so a translation created, flushed and removed in one request is translated afresh next time
+  instead of being re-persisted from the cache; `tests/TranslationCacheEvictionTest.php` proves it.
 - `InMemoryTranslationCache` **and** `EntityTranslator` are tagged `kernel.reset`
   (`ResetInterface`, explicit tag — Symfony does not autoconfigure it) so a long-running
   worker resets the cache, and forgets `preload()`'s miss memory, between units of work.

@@ -269,6 +269,14 @@ services:
         tags: [ { name: doctrine.event_listener, event: preRemove } ]
 
     # ----------------------------
+    # Doctrine Listener — evicts a removed row's translation cache entry (always on)
+    # ----------------------------
+    Tmi\TranslationBundle\Doctrine\EventListener\TranslationCacheEvictionListener:
+        arguments:
+            $cache: '@Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface'
+        tags: [ { name: doctrine.event_listener, event: postRemove } ]
+
+    # ----------------------------
     # Doctrine Listener — flush-time propagation of shared values
     # ----------------------------
     Tmi\TranslationBundle\Doctrine\EventListener\SharedValuePropagationListener:

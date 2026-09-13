@@ -148,6 +148,12 @@ gates it at runtime) calling `TranslatableRemover::cascadeFromPreRemove()`. With
 `removeSingleLocaleVariant()` is the escape hatch for removing one variant while its siblings
 stay online.
 
+`TranslationCacheEvictionListener` (`postRemove`, always registered) forgets a removed row's
+translation-cache entry. Without it a translation created, flushed, removed and flushed in one
+request stayed cached as an object whose generated id the flush had nulled — `STATE_NEW`, the
+state of a fresh clone, so `EntityTranslator::isDetachedCacheHit()` cannot tell them apart —
+and the next `getOrTranslate()` persisted the dead instance as a new row with the old content.
+
 ## Shared-Value Propagation
 
 `SharedValueSynchronizer` copies `#[SharedAmongstTranslations]` values from one locale variant
@@ -253,9 +259,9 @@ cross-check requires them.
    back-reference form apart by the flag the OneToMany handler sets, never by mapping shape. **Exception since 5.1:** a `#[SharedAmongstTranslations]` `ManyToOne`
    **back-reference** reached through its parent's `OneToMany` (the child's own FK to the parent
    being translated) is not rejected — `BidirectionalManyToOneHandler` consumes the flag and the
-   child's clone points at the parent's clone, the non-shared outcome. Known gap kept: that
-   value returns through the shared early return in `EntityTranslator::runHandlers()`, which
-   skips `PostTranslateEvent` and the translation cache for it.
+   child's clone points at the parent's clone, the non-shared outcome — and, like every other
+   translation, the clone is announced by `PostTranslateEvent` and cached under its own
+   (tuuid, locale): `runHandlers()` has one exit, `recordTranslation()`, whose guard decides.
 2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
    validation at `cache:warmup` — use a composite `field + locale` constraint.
 3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to

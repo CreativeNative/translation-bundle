@@ -12,10 +12,12 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\NullLogger;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Uid\Uuid;
 use Tmi\TranslationBundle\Doctrine\Attribute\EmptyOnTranslate;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Event\PostTranslateEvent;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Seeding\EmptySeeded;
@@ -1371,6 +1373,84 @@ final class EntityTranslatorTest extends UnitTestCase
     }
 
     /**
+     * The one exit of runHandlers() announces and caches a result only when it IS a
+     * translation of the subject. A handler that hands the subject itself back for a
+     * shared property (the shape the cycle guard and a shared value take) earns neither
+     * a PostTranslateEvent nor a cache entry. Negative proof: without the guard, the
+     * single exit would announce the subject as its own translation.
+     */
+    public function testAHandlerReturningTheSubjectItselfIsNeitherAnnouncedNorCached(): void
+    {
+        $subject = new Scalar();
+        $subject->setTuuid(Tuuid::generate());
+        $subject->setLocale('en_US');
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(true);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')
+            ->with($this->callback(static fn (TranslationContext $context): bool => $context->isShared()))
+            ->willReturn($subject);
+
+        [$translator, $events] = $this->translatorWithARealDispatcher();
+        $translator->addTranslationHandler($handler);
+
+        $result = $translator->processTranslation($this->entityContext($subject, new \ReflectionProperty(Scalar::class, 'shared')));
+
+        self::assertSame($subject, $result);
+        self::assertCount(0, $events, 'the subject is not its own translation');
+        self::assertNull($this->cache()->get($subject->getTuuid()->getValue(), 'de_DE'));
+    }
+
+    public function testAHandlerResultAtTheSourceLocaleIsNeitherAnnouncedNorCached(): void
+    {
+        $subject = new Scalar();
+        $subject->setTuuid(Tuuid::generate());
+        $subject->setLocale('en_US');
+        $stillSource = clone $subject;
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($stillSource);
+
+        [$translator, $events] = $this->translatorWithARealDispatcher();
+        $translator->addTranslationHandler($handler);
+
+        $result = $translator->processTranslation($this->entityContext($subject));
+
+        self::assertSame($stillSource, $result);
+        self::assertCount(0, $events);
+        self::assertNull($this->cache()->get($subject->getTuuid()->getValue(), 'de_DE'));
+    }
+
+    public function testAHandlerResultAtTheTargetLocaleIsAnnouncedAndCachedEvenForASharedProperty(): void
+    {
+        $subject = new Scalar();
+        $subject->setTuuid(Tuuid::generate());
+        $subject->setLocale('en_US');
+        $translated = clone $subject;
+        $translated->setLocale('de_DE');
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(true);
+
+        $handler = $this->createMock(TranslationHandlerInterface::class);
+        $handler->method('supports')->willReturn(true);
+        $handler->expects($this->once())->method('translate')->willReturn($translated);
+
+        [$translator, $events] = $this->translatorWithARealDispatcher();
+        $translator->addTranslationHandler($handler);
+
+        $result = $translator->processTranslation($this->entityContext($subject, new \ReflectionProperty(Scalar::class, 'shared')));
+
+        self::assertSame($translated, $result);
+        self::assertCount(1, $events);
+        $event = $events[0];
+        self::assertInstanceOf(PostTranslateEvent::class, $event);
+        self::assertSame($subject, $event->getSourceEntity());
+        self::assertSame($translated, $event->getTranslatedEntity());
+        self::assertSame($translated, $this->cache()->get($subject->getTuuid()->getValue(), 'de_DE'));
+    }
+
+    /**
      * @return array{EntityTranslator, MockObject&EntityManagerInterface}
      */
     private function createTranslatorWithMockEntityManager(): array
@@ -1438,5 +1518,31 @@ final class EntityTranslatorTest extends UnitTestCase
         $handler->expects($this->never())->method('translate');
 
         return $handler;
+    }
+
+    /**
+     * @return array{0: EntityTranslator, 1: \ArrayObject<int, object>}
+     */
+    private function translatorWithARealDispatcher(): array
+    {
+        $events     = new \ArrayObject();
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(PostTranslateEvent::class, static function (PostTranslateEvent $event) use ($events): void {
+            $events->append($event);
+        });
+
+        $translator = new EntityTranslator(
+            'en_US',
+            ['de_DE', 'en_US', 'it_IT'],
+            false,
+            $dispatcher,
+            $this->attributeHelper(),
+            new TypeDefaultResolver(),
+            self::createStub(EntityManagerInterface::class),
+            $this->cache(),
+            $this->localeVariantFinder(),
+        );
+
+        return [$translator, $events];
     }
 }

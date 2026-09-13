@@ -34,6 +34,9 @@ and their notes in the GitHub releases.
 - `ValidationException::fromMessages()`: the aggregate a compiler pass throws (label, one line per
   message, the messages as errors); `ReadonlyPropertyException::forWriteDuringTranslate()` for the
   readonly write `DoctrineObjectHandler` refuses (was a bare `\LogicException`).
+- `TranslationCacheInterface::remove(string $tuuid, string $locale)` and
+  `Doctrine\EventListener\TranslationCacheEvictionListener` (`postRemove`, always on): a removed
+  and flushed translatable row is forgotten by the translation cache the moment it is gone.
 - `tmi:translation:doctor --strict`: counts untranslated and incomplete records as anomalies
   (the pre-5.2 verdict).
 - `TranslatableEntityLocator::isTranslatableEntity()`: the `--entity` test the three commands
@@ -65,6 +68,13 @@ and their notes in the GitHub releases.
 - `TranslatableEventSubscriber` is registered through `doctrine.event_listener` tags for its three
   events (plus its `#[AsDoctrineListener]` attributes); `#[EmptyOnTranslate]`,
   `#[SharedAmongstTranslations]` are `final`.
+- `EntityTranslator::runHandlers()` has one exit: every handler result passes through
+  `recordTranslation()`, whose guard (a translatable subject, a translatable result other than
+  the subject, at exactly the requested locale) decides on `PostTranslateEvent` and the cache
+  entry — the attribute branches (shared, `copy_source: false`, `#[EmptyOnTranslate]`) no
+  longer return early past both. Listeners see one `PostTranslateEvent` per child clone reached
+  through a `#[SharedAmongstTranslations]` back-reference (1 + *K* for a parent with *K*
+  children, was 1), and translating such a child on its own afterwards is a cache hit (#47).
 - `tmi:translation:sync-shared` and `tmi:translation:adopt-root` take their run mode from one
   `RunMode` and their batching from one `GroupBatch`; the `Source:` and error lines say `Tuuid`.
 
@@ -99,6 +109,11 @@ and their notes in the GitHub releases.
   run) but Doctrine no longer manages it, so `recomputeSingleEntityChangeSet()` threw
   `ORMInvalidArgumentException` for "edit a shared value and delete a translation" in one form.
   A row about to disappear now receives nothing.
+- A translation that was removed and flushed no longer comes back from the translation cache.
+  The flush nulls the generated id, so the dead instance reported `STATE_NEW` — the state of a
+  fresh clone — and the next `getOrTranslate()` handed it back and persisted it as a new row
+  carrying the old content. `TranslationCacheEvictionListener` evicts the entry on `postRemove`
+  (#55).
 - `EmbeddedHandler` never received the `$logger` argument `services.yaml` meant for it: with
   Monolog installed, autowiring handed it the application's real logger regardless of
   `enable_logging`, and without one its debug lines were silently dead. It is now wired like

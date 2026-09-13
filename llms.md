@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **953 tests, 8,743 assertions**, all green.
+  `failOnDeprecation`). As of this release: **967 tests, 8,909 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -238,6 +238,7 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - Translating an entity into the locale it already carries is the **identity operation**: the same instance comes back, nothing is cloned and nothing is cached, and nothing is logged. `TranslatableEventSubscriber`'s own `prePersist`/`postLoad` normalise an entity's locale before `translate()` is ever consulted, so `translate($entity, $entity->getLocale())` is the call shape every flush makes -- not usually, always. Because that call is a guaranteed no-op, the bundle installs no `EntityTranslator` lifecycle hook to intercept it: reading and flushing a translatable entity costs nothing beyond ordinary Doctrine work.
 - Translating into a **different** locale is **get-or-create, not a live sync**: if a variant for the source's Tuuid and the target locale already exists (see `TranslatableEntityHandler` below), `translate()` returns it as-is instead of re-running the handler chain — in-memory edits made to the source *after* that variant was created are not propagated into it. That is deliberate for the same idempotency reason as the identity operation above. Propagating a changed value into existing siblings is `#[SharedAmongstTranslations]`'s job — via `propagate_shared_on_flush` or `tmi:translation:sync-shared` — not `translate()`'s.
 - `#[EmptyOnTranslate]` on a **collection** property is emptied by its handler (a fresh empty collection). Only non-collection, non-nullable properties fall back to `TypeDefaultResolver`.
+- `runHandlers()` has **one exit**: whatever branch produced a handler's result (shared, `copy_source: false`, `#[EmptyOnTranslate]`, embedded, plain), it passes through `recordTranslation()`, whose guard -- translatable subject, translatable result other than the subject, carrying exactly the requested locale -- decides whether `PostTranslateEvent` fires and the result is cached. A shared value handed back untouched, a scalar, or the cycle-guard fallback (the subject itself) earns neither.
 
 ### Translation Handlers
 
@@ -297,7 +298,7 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 - **Methods:**
   - `supports()` — Returns true for an `EntityTranslationContext` with a ManyToOne association having `inversedBy`.
   - `translate()`:
-    - `isShared()` — Throws in the **direct form** (sharing an association to a translatable target is unsupported). In the **back-reference form** (5.1) the flag is consumed instead: the property is the child's own FK back to the parent being translated, so the child is cloned through the full pipeline and its back-reference resolves to the parent's clone -- exactly the non-shared outcome. Before 5.1 a child declaring its back-reference `#[SharedAmongstTranslations]` made the whole parent untranslatable.
+    - `isShared()` — Throws in the **direct form** (sharing an association to a translatable target is unsupported). In the **back-reference form** (5.1) the flag is consumed instead: the property is the child's own FK back to the parent being translated, so the child is cloned through the full pipeline and its back-reference resolves to the parent's clone -- exactly the non-shared outcome. The clone returns through `runHandlers()`'s one exit like any other: `recordTranslation()` dispatches `PostTranslateEvent` for it and caches it under the child's (tuuid, locale). Before 5.1 a child declaring its back-reference `#[SharedAmongstTranslations]` made the whole parent untranslatable.
     - `isEmpty()` — Returns `null`.
     - Otherwise — Delegates the clone itself to `TranslatableEntityHandler::translate()` (the entity's own property pipeline, generated-id reset, locale -- existence of a target-locale variant was already resolved before this handler ran, by `EntityTranslator::processTranslation()`'s own `preload()`-then-cache-check for this same subject). Direct form: the translated target is returned as-is (get-or-create) -- there is no scalar back-reference field to repair. Back-reference form: the entity's own field matching `$propertyName` is repaired to the parent already known to be under translation, since the pipeline's own recursive lookup for that same field hits the translator's in-progress guard and would otherwise leave the untranslated source in place.
 - **Notes:** Never mutates the source; integrates with `TranslatableEntityHandler`/`EntityTranslator` for nested translations.
@@ -421,6 +422,7 @@ Abstraction for translation caching and circular-reference detection.
 **Interface methods:**
 - `get(string $tuuid, string $locale): TranslatableInterface|null` -- Get cached translation
 - `set(string $tuuid, string $locale, TranslatableInterface $entity): void` -- Store translation
+- `remove(string $tuuid, string $locale): void` -- Forget one entry (no-op when absent); called by `TranslationCacheEvictionListener` on `postRemove`
 - `markInProgress(string $tuuid, string $locale): void` -- Mark translation as in-progress (cycle detection)
 - `unmarkInProgress(string $tuuid, string $locale): void` -- Remove in-progress mark
 - `isInProgress(string $tuuid, string $locale): bool` -- Check if translation is in-progress
@@ -434,6 +436,8 @@ as reusable -- the `UnitOfWork` no longer tracks it, so `getOrTranslate()`'s `pe
 would re-insert that detached instance as a brand-new row instead of reusing the existing one,
 silently, no exception. A detached hit is therefore a miss: it falls through to a fresh lookup,
 which reloads (or reuses) a managed instance and overwrites the stale cache entry.
+
+**Evicted on removal:** `Doctrine\EventListener\TranslationCacheEvictionListener` (a `postRemove` Doctrine listener, always registered, independent of `cascade_remove_locale_variants`) calls `remove(tuuid, locale)` for every removed translatable row. Without it a translation created, flushed, removed and flushed again in one request stayed in the cache as an object whose generated id the flush had nulled -- `STATE_NEW`, the state of a fresh clone, which the detached-hit check above cannot tell apart -- and the next `getOrTranslate()` handed it back and `persist()`ed it as a new row carrying the old content. `postRemove`, not `preRemove`: only then is the row gone; a transaction rolled back afterwards costs one reload on the next hit, accepted.
 
 **No `has()` on the contract:** `TranslationCacheInterface` deliberately has no existence check besides `get()`. On a persistent backend key presence proves nothing: a row deleted since it was cached, or an entry written in an older format, leaves the key behind while the entry no longer loads, and a check-then-get pattern lets that gap surface as a `TypeError`. The one reliable check is `get() !== null`, which also costs one pool round-trip instead of two. A custom cache implementation that declares a `has()` method of its own keeps working (an extra public method is harmless) -- the bundle simply never calls it.
 
@@ -1885,6 +1889,7 @@ inflates a budget).
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
 | `translate()` a parent with *K* already-translated association children       | 2             |
+| `translate()` a child already cloned through its parent's collection          | 0             |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |

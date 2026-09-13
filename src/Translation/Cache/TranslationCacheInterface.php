@@ -32,6 +32,15 @@ interface TranslationCacheInterface
     public function set(string $tuuid, string $locale, TranslatableInterface $entity): void;
 
     /**
+     * Forget the entry for a tuuid+locale; a no-op when there is none.
+     *
+     * Called by TranslationCacheEvictionListener on postRemove: a removed and flushed
+     * row's instance is still an object, so without eviction the next get() would hand
+     * it back and getOrTranslate() would persist() it as a brand-new row.
+     */
+    public function remove(string $tuuid, string $locale): void;
+
+    /**
      * Mark a tuuid+locale as currently being translated (cycle detection).
      *
      * An in-progress mark is only meaningful for the duration of the translation frame

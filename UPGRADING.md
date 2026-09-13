@@ -101,7 +101,33 @@ If you gated on the old verdict, pass `--strict`: it counts untranslated and inc
 records again. The doctor's constructor takes `LocaleVariantFinder` and the default locale
 (relevant only to a hand-built instance).
 
-### 6. `enable_logging: false` now silences `EmbeddedHandler` too
+### 6. One `PostTranslateEvent` per child clone, shared back-references included
+
+Up to 5.1 a child reached through its parent's `OneToMany` whose back-reference carried
+`#[SharedAmongstTranslations]` came back through an early return in
+`EntityTranslator::runHandlers()` that skipped both `PostTranslateEvent` and the translation
+cache (the "known gap" of the 5.1 notes below). `runHandlers()` has one exit now: every
+handler result passes a guard — translatable subject, translatable result other than the
+subject, at exactly the requested locale — and passing it earns the event and the cache entry
+whatever branch produced the value. A listener on `PostTranslateEvent` sees **1 + K** events
+for a parent with *K* such children (was 1), each carrying the child's clone at the target
+locale; translating such a child on its own afterwards costs no query.
+
+**Action:** none, unless a listener counted events or assumed it only ever saw top-level
+entities — it always saw association children in the non-shared case, so this only closes an
+inconsistency.
+
+### 7. A removed translation is not resurrected from the cache
+
+Removing and flushing a translation that `translate()` had created in the same request left
+its instance in the translation cache. The flush nulled its generated id, so the UnitOfWork
+reported `STATE_NEW`, indistinguishable from a fresh clone, and the next `getOrTranslate()` for
+the pair handed the dead instance back and persisted it as a **new row with the old content**.
+`TranslationCacheEvictionListener` (`postRemove`, always registered, independent of
+`cascade_remove_locale_variants`) forgets the entry the moment the row is gone; the next call
+translates the current source afresh. **Action:** none.
+
+### 8. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -155,7 +181,12 @@ instead of the two keys `owner` and `property`. `path`, `changeSetPaths`, `assoc
 no longer takes `EntityManagerInterface`. Relevant only to a hand-built instance — the container
 wires both.
 
-### 7. `symfony/translation-contracts` is no longer a bundle requirement
+### 7. `TranslationCacheInterface` gained `remove()`
+
+`remove(string $tuuid, string $locale): void` forgets one entry (a no-op when there is none).
+A custom cache implementation adds the method; the bundled `InMemoryTranslationCache` has it.
+
+### 8. `symfony/translation-contracts` is no longer a bundle requirement
 
 The bundle never imported it. An application gets it from `symfony/translation`,
 `symfony/validator` or `symfony/form`; one that relied on the bundle pulling it in adds it to
@@ -170,6 +201,7 @@ its own `composer.json`.
 5. Under `copy_source: false`: audit every nullable value-object property on a translatable
    entity — share it or accept the empty seed (Behavioural Changes 1).
 6. `#[EmptyOnTranslate]` on a non-nullable object type fails `cache:clear` now — make it nullable.
+7. A custom `TranslationCacheInterface` implementation adds `remove()`.
 
 ---
 
@@ -242,6 +274,7 @@ source parent).
 such a back-reference is now harmless redundancy; drop it or keep it. Known gap, unchanged: the
 shared early return in `EntityTranslator::runHandlers()` skips `PostTranslateEvent` and the
 translation cache for the value it hands back, and the repaired child now passes through it too.
+(Closed in 5.2 — see Behavioural Changes (5.2) § 6.)
 
 ### 2. `sync-shared` reports a root reference the siblings disagree on, and exits non-zero
 

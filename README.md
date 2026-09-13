@@ -25,7 +25,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 **Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **953 tests, 8,743 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **967 tests, 8,909 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -672,6 +672,7 @@ executed statement.
 | `find()` a translatable entity under the active locale filter                | 1             |
 | `translate()` into an already-existing variant                               | 1 (0 inserts) |
 | `translate()` a parent with *K* already-translated association children       | 2             |
+| `translate()` a child already cloned through its parent's collection          | 0             |
 | `LocaleCompletenessResolver::resolveBatch()` for 100 Tuuids                   | 1             |
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
@@ -685,6 +686,12 @@ own `translate()` call to query for itself. The parent's own `preload()` lookup 
 it is what triggered the translation) is the other query. A collection mixing several child
 classes costs one query per class, not per child; a non-translatable item mixed into a
 `ManyToMany` collection is skipped by `preload()` and never queried at all.
+
+**Why the child row is `0`.** Every translation a handler produces is cached under its own
+(tuuid, locale) — a child cloned while its parent was translated included, whether or not its
+back-reference is `#[SharedAmongstTranslations]`. Translating that child on its own afterwards
+is a cache hit. A removed row's entry is evicted on `postRemove`, so the hit is never a dead
+instance.
 
 **Why the import row is `1 + N`, not `1 + 3N`.** The upfront `preload()` remembers every Tuuid
 its one batched query looked up and found nothing for, so each entity's own internal `preload()`

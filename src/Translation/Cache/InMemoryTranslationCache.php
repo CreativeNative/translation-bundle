@@ -41,6 +41,12 @@ final class InMemoryTranslationCache implements TranslationCacheInterface, Reset
     }
 
     #[\Override]
+    public function remove(string $tuuid, string $locale): void
+    {
+        unset($this->cache[$tuuid][$locale]);
+    }
+
+    #[\Override]
     public function markInProgress(string $tuuid, string $locale): void
     {
         $this->inProgress[$tuuid.':'.$locale] = true;
