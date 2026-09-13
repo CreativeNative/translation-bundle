@@ -173,7 +173,8 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
   `propagate_shared_on_flush` gates it at runtime. Snapshot of scheduled updates → intersect
   each translatable's change set with the shared paths (minus paths the listener itself wrote
   onto that entity: per-(entity, path) ping-pong guard) → siblings from the database **plus**
-  same-Tuuid entities scheduled for insertion → conflict check (`SharedValueConflictException`
+  same-Tuuid entities scheduled for insertion, **minus** any sibling scheduled for deletion in
+  the same flush (hydrated but no longer managed — it receives nothing) → conflict check (`SharedValueConflictException`
   when an update-scheduled sibling carries a *different* new value for the same path; an
   insertion never conflicts, the updated source wins) → `sync()` each sibling →
   `UnitOfWork::recomputeSingleEntityChangeSet()` on every sibling that changed (merges into an

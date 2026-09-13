@@ -495,6 +495,37 @@ final class SharedValuePropagationListenerTest extends IntegrationTestCase
         self::assertSame('Holz', $this->find(StiToy::class, $deId)->getMaterial());
     }
 
+    /**
+     * "Delete this translation and save" in one admin form: a shared edit on one
+     * variant and the removal of another land in the same flush. Before 5.2 the
+     * sibling lookup handed the removed it_IT row back (a removed entity stays
+     * hydrated in the identity map until the deletions run, but is no longer
+     * managed), sync() wrote onto it and recomputeSingleEntityChangeSet() threw
+     * ORMInvalidArgumentException ("is not managed"). The row about to disappear
+     * receives nothing; the surviving sibling still gets the value.
+     */
+    public function testASiblingScheduledForDeletionInTheSameFlushIsSkipped(): void
+    {
+        $this->enable();
+        $tuuid    = Tuuid::generate();
+        $variants = $this->seedScalars($tuuid, ['en_US' => 'old', 'de_DE' => 'old', 'it_IT' => 'old']);
+        $itId     = $variants['it_IT']->getId();
+        self::assertNotNull($itId);
+
+        $variants['en_US']->setShared('new');
+        $this->entityManager()->remove($variants['it_IT']);
+        $this->entityManager()->flush();
+
+        $rows = $this->reloadScalars($tuuid);
+        ksort($rows);
+
+        self::assertSame(['de_DE', 'en_US'], array_keys($rows));
+        self::assertSame('new', $rows['de_DE']->getShared());
+        self::assertNull(
+            new LocaleVariantFinder($this->entityManager())->withoutLocaleFilter(fn (): object|null => $this->entityManager()->find(Scalar::class, $itId)),
+        );
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------

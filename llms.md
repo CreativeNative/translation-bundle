@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **934 tests, 8,472 assertions**, all green.
+  `failOnDeprecation`). As of this release: **935 tests, 8,500 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1786,7 +1786,10 @@ Doctrine's `onFlush` rules — no `flush()`, no `persist()`, only change-set rec
    shared properties in one flush both propagate.
 3. Siblings = the other variants in the database (`SharedValueSynchronizer::siblingsOf()`) **plus**
    any variant of the same Tuuid scheduled for **insertion** in this flush (created with
-   `translate()` earlier in the request, carrying clone-time values, invisible to a query).
+   `translate()` earlier in the request, carrying clone-time values, invisible to a query),
+   **minus** any sibling scheduled for **deletion** in this flush: the lookup still hydrates it,
+   but it is no longer managed, so it receives nothing and cannot conflict ("delete this
+   translation and save" in one form is a plain flush, not an exception).
 4. **Conflict rule**: a sibling itself scheduled for update with a *different* new value for the
    same shared path throws `SharedValueConflictException` (class, path, Tuuid, both locales, both
    values) before anything is written — never last-wins. Only update-scheduled siblings can

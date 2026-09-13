@@ -35,6 +35,11 @@ and their notes in the GitHub releases.
 
 ### Fixed
 
+- `SharedValuePropagationListener` no longer writes onto a sibling that the same flush removes.
+  The sibling lookup hydrates a removed row (it stays in the identity map until the deletions
+  run) but Doctrine no longer manages it, so `recomputeSingleEntityChangeSet()` threw
+  `ORMInvalidArgumentException` for "edit a shared value and delete a translation" in one form.
+  A row about to disappear now receives nothing.
 - `EmbeddedHandler` never received the `$logger` argument `services.yaml` meant for it: with
   Monolog installed, autowiring handed it the application's real logger regardless of
   `enable_logging`, and without one its debug lines were silently dead. It is now wired like

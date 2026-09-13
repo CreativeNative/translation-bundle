@@ -42,7 +42,12 @@ use Tmi\TranslationBundle\Exception\SharedValueConflictException;
  *    for INSERTION in this flush: a variant created by `translate()` earlier
  *    in the request carries the shared values the source had at clone time,
  *    and a query cannot see it yet. It receives the update like any sibling,
- *    so the new row is created from the updated source.
+ *    so the new row is created from the updated source. MINUS any sibling
+ *    scheduled for deletion in this flush: the lookup still hydrates it (a
+ *    removed entity stays in the identity map until the deletions run) but it
+ *    is no longer managed, so writing onto it would make the recomputation in
+ *    step 5 throw. A row about to disappear receives nothing and cannot
+ *    conflict.
  * 4. Conflict rule: a sibling that is itself scheduled for update with a
  *    DIFFERENT new value for the same shared path throws
  *    {@see SharedValueConflictException} before anything is written -- never
@@ -99,7 +104,7 @@ final class SharedValuePropagationListener
             }
 
             $changeSet       = $uow->getEntityChangeSet($entity);
-            $alreadyReceived = $received->contains($entity) ? $received[$entity] : [];
+            $alreadyReceived = self::receivedPaths($received, $entity);
 
             /** @var array<string, true> $changedPaths */
             $changedPaths = [];
@@ -134,10 +139,14 @@ final class SharedValuePropagationListener
             }
 
             $metadata = $entityManager->getClassMetadata($entity::class);
-            $siblings = [
-                ...$this->synchronizer->siblingsOf($entity),
-                ...$this->scheduledSiblings($entityManager, $insertions, $entity, $metadata->rootEntityName),
-            ];
+            $siblings = array_values(array_filter(
+                [
+                    ...$this->synchronizer->siblingsOf($entity),
+                    ...$this->scheduledSiblings($entityManager, $insertions, $entity, $metadata->rootEntityName),
+                ],
+                // Step 3: a sibling this same flush removes is hydrated but not managed.
+                static fn (TranslatableInterface $sibling): bool => !$uow->isScheduledForDelete($sibling),
+            ));
 
             $this->assertNoConflict($uow, $metadata->getName(), $entity, $changeSet, array_keys($changedPaths), $siblings, $received);
 
@@ -148,7 +157,7 @@ final class SharedValuePropagationListener
 
                 // Mark even a sibling that already held the value: the path is settled for
                 // it, so it must not propagate the same value back around the ring.
-                $received[$sibling] = ($received->contains($sibling) ? $received[$sibling] : []) + $changedPaths;
+                $received[$sibling] = self::receivedPaths($received, $sibling) + $changedPaths;
 
                 if ($report->hasChanges()) {
                     $uow->recomputeSingleEntityChangeSet($entityManager->getClassMetadata($sibling::class), $sibling);
@@ -213,7 +222,7 @@ final class SharedValuePropagationListener
             }
 
             $siblingChangeSet = $uow->getEntityChangeSet($sibling);
-            $siblingReceived  = $received->contains($sibling) ? $received[$sibling] : [];
+            $siblingReceived  = self::receivedPaths($received, $sibling);
 
             foreach ($paths as $path) {
                 if (!isset($siblingChangeSet[$path]) || isset($siblingReceived[$path])) {
@@ -230,6 +239,19 @@ final class SharedValuePropagationListener
                 throw SharedValueConflictException::forProperty($class, (string) $source->getTuuid(), $path, $source->getLocale() ?? '', $mine, $sibling->getLocale() ?? '', $theirs);
             }
         }
+    }
+
+    /**
+     * The change-set paths this listener already wrote onto $entity in this flush
+     * (step 2), or nothing for an entity it has not touched.
+     *
+     * @param \SplObjectStorage<object, array<string, true>> $received
+     *
+     * @return array<string, true>
+     */
+    private static function receivedPaths(\SplObjectStorage $received, object $entity): array
+    {
+        return $received->contains($entity) ? $received[$entity] : [];
     }
 
     /**

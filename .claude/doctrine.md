@@ -165,7 +165,8 @@ tmi_translation:
 
 With the flag on — the default — `SharedValuePropagationListener` (`onFlush`, always registered) makes the
 attribute a flush-time invariant: a shared property edited on *any* variant reaches every other
-variant of the Tuuid — including one scheduled for insertion in the same flush — before the
+variant of the Tuuid — including one scheduled for insertion in the same flush, excluding one
+scheduled for deletion in it — before the
 statements run, field by field, via `recomputeSingleEntityChangeSet()`. Two variants flushed
 with *different* new values for the same shared property throw `SharedValueConflictException`
 and nothing is written. Enable it only after `tmi:translation:sync-shared --check` reports zero
