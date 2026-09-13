@@ -72,7 +72,7 @@ final class TranslationDoctorCommand extends Command
             // (see TranslatableEntityLocator), so --entity must still accept a
             // concrete subclass that is not itself one of $classes's entries.
             if (!$this->isTranslatableEntity($only)) {
-                $io->error(sprintf('"%s" is not a known translatable entity.', $only));
+                $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
 
                 return Command::FAILURE;
             }
@@ -85,7 +85,7 @@ final class TranslationDoctorCommand extends Command
             return Command::SUCCESS;
         }
 
-        $expectedLocaleCount = count($this->locales);
+        $expectedLocaleCount = \count($this->locales);
         $anomalies           = 0;
 
         $filters    = $this->entityManager->getFilters();
@@ -106,7 +106,7 @@ final class TranslationDoctorCommand extends Command
         }
 
         if ($anomalies > 0) {
-            $io->error(sprintf('%d translation linkage anomaly/anomalies detected.', $anomalies));
+            $io->error(\sprintf('%d translation linkage anomaly/anomalies detected.', $anomalies));
 
             return Command::FAILURE;
         }
@@ -130,7 +130,7 @@ final class TranslationDoctorCommand extends Command
 
         /** @var list<array{tuuid: mixed, locale: mixed, cnt: mixed}> $rows */
         $rows = $this->entityManager->createQueryBuilder()
-            ->select('t.tuuid AS tuuid', 't.locale AS locale', sprintf('COUNT(t.%s) AS cnt', $idField))
+            ->select('t.tuuid AS tuuid', 't.locale AS locale', \sprintf('COUNT(t.%s) AS cnt', $idField))
             ->from($class, 't')
             ->where('t.tuuid IS NOT NULL')
             ->groupBy('t.tuuid')
@@ -159,7 +159,7 @@ final class TranslationDoctorCommand extends Command
                 }
             }
 
-            $localeCount = count($localeCounts);
+            $localeCount = \count($localeCounts);
 
             if ($localeCount < $expectedLocaleCount) {
                 if (1 === $localeCount) {
@@ -172,7 +172,7 @@ final class TranslationDoctorCommand extends Command
 
         $nullTuuid = $this->inspectNullTuuid($class, $idField);
 
-        $total = count($standalone) + count($incomplete) + count($duplicates) + count($nullTuuid);
+        $total = \count($standalone) + \count($incomplete) + \count($duplicates) + \count($nullTuuid);
 
         if (0 === $total) {
             $io->writeln('<info>OK</info> — no anomalies.');
@@ -181,12 +181,12 @@ final class TranslationDoctorCommand extends Command
         }
 
         if ([] !== $standalone) {
-            $io->writeln(sprintf('<comment>Standalone translations (%d):</comment>', count($standalone)));
+            $io->writeln(\sprintf('<comment>Standalone translations (%d):</comment>', \count($standalone)));
             $io->table(['Tuuid', 'Only locale'], $standalone);
         }
 
         if ([] !== $incomplete) {
-            $io->writeln(sprintf('<comment>Incomplete translations (%d):</comment>', count($incomplete)));
+            $io->writeln(\sprintf('<comment>Incomplete translations (%d):</comment>', \count($incomplete)));
             $io->table(
                 ['Tuuid', 'Locale rows', 'Locales present'],
                 array_map(
@@ -197,7 +197,7 @@ final class TranslationDoctorCommand extends Command
         }
 
         if ([] !== $duplicates) {
-            $io->writeln(sprintf('<comment>Duplicate (tuuid, locale) pairs (%d):</comment>', count($duplicates)));
+            $io->writeln(\sprintf('<comment>Duplicate (tuuid, locale) pairs (%d):</comment>', \count($duplicates)));
             $io->table(
                 ['Tuuid', 'Locale', 'Rows'],
                 array_map(
@@ -208,7 +208,7 @@ final class TranslationDoctorCommand extends Command
         }
 
         if ([] !== $nullTuuid) {
-            $io->writeln(sprintf('<comment>NULL-tuuid rows (%d):</comment>', count($nullTuuid)));
+            $io->writeln(\sprintf('<comment>NULL-tuuid rows (%d):</comment>', \count($nullTuuid)));
             $io->table(['Id', 'Locale'], $nullTuuid);
         }
 
@@ -234,7 +234,7 @@ final class TranslationDoctorCommand extends Command
     {
         /** @var list<array{id: mixed, locale: mixed}> $rows */
         $rows = $this->entityManager->createQueryBuilder()
-            ->select(sprintf('t.%s AS id', $idField), 't.locale AS locale')
+            ->select(\sprintf('t.%s AS id', $idField), 't.locale AS locale')
             ->from($class, 't')
             ->where('t.tuuid IS NULL')
             ->getQuery()
@@ -279,7 +279,7 @@ final class TranslationDoctorCommand extends Command
     {
         // tuuid hydrates as a Tuuid value object, locale as a nullable string,
         // an id as an int or a string depending on the entity's identifier type.
-        assert(null === $value || is_scalar($value) || $value instanceof \Stringable);
+        \assert(null === $value || \is_scalar($value) || $value instanceof \Stringable);
 
         return (string) $value;
     }
@@ -287,7 +287,7 @@ final class TranslationDoctorCommand extends Command
     private static function asInt(mixed $value): int
     {
         // COUNT() hydrates as an int or a numeric string depending on the platform.
-        assert(is_numeric($value));
+        \assert(is_numeric($value));
 
         return (int) $value;
     }

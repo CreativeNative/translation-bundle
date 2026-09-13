@@ -616,7 +616,7 @@ final class EntityTranslatorTest extends UnitTestCase
             ->method('info')
             ->with(
                 $this->stringContains('[TMI Translation]'),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $this->translator()->setLogger($logger);
@@ -663,7 +663,7 @@ final class EntityTranslatorTest extends UnitTestCase
             ->method('debug')
             ->with(
                 $this->stringContains('[TMI Translation]'),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $entity = new Scalar();
@@ -727,7 +727,7 @@ final class EntityTranslatorTest extends UnitTestCase
                     $this->stringContains('Handler selected'),
                     $this->stringContains('SharedAmongstTranslations'),
                 ),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -760,7 +760,7 @@ final class EntityTranslatorTest extends UnitTestCase
                     $this->stringContains('Handler selected'),
                     $this->stringContains('EmptyOnTranslate'),
                 ),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -980,7 +980,7 @@ final class EntityTranslatorTest extends UnitTestCase
                     $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
                     $this->stringContains('Type-safe default'),
                 ),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -1083,7 +1083,7 @@ final class EntityTranslatorTest extends UnitTestCase
                     $this->stringContains('Handler selected'),
                     $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
                 ),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $embeddedResult = new \stdClass();
@@ -1275,7 +1275,7 @@ final class EntityTranslatorTest extends UnitTestCase
                     $this->stringContains('EmptyOnTranslate has no effect when copy_source is false'),
                     $this->stringContains('non-nullable object'),
                 ),
-                $this->callback(static fn (mixed $value): bool => is_array($value)),
+                $this->callback(static fn (mixed $value): bool => \is_array($value)),
             );
 
         $handler = $this->createMock(TranslationHandlerInterface::class);

@@ -108,7 +108,7 @@ final class AttributeValidationPassDoctrineDiscoveryTest extends IntegrationTest
         $container        = self::getContainer();
 
         foreach ($container->getParameterBag()->all() as $key => $value) {
-            if (is_scalar($value) || is_array($value) || null === $value || $value instanceof \UnitEnum) {
+            if (\is_scalar($value) || \is_array($value) || null === $value || $value instanceof \UnitEnum) {
                 $containerBuilder->setParameter((string) $key, $value);
             }
         }

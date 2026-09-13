@@ -61,7 +61,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         $container->setParameter('tmi_translation.discovered_translatable_classes', $discoveredClassNames);
 
         if ([] === $translatableClasses) {
-            $message = sprintf(
+            $message = \sprintf(
                 '0 translatable entities discovered under the configured Doctrine attribute mapping directories. '
                 .'This can be legitimate (no %s entities yet), but it can also mean doctrine-bundle changed the '
                 .'shape of its attribute metadata driver service definitions and this bundle\'s compile-time '
@@ -73,7 +73,7 @@ final class AttributeValidationPass implements CompilerPassInterface
                 && true === $container->getParameter('tmi_translation.strict_discovery');
 
             if ($strictDiscovery) {
-                throw new \LogicException(sprintf('%s "tmi_translation.strict_discovery" is enabled, which turns this into a hard failure -- set it to false to allow a legitimately empty result instead.', $message));
+                throw new \LogicException(\sprintf('%s "tmi_translation.strict_discovery" is enabled, which turns this into a hard failure -- set it to false to allow a legitimately empty result instead.', $message));
             }
 
             $container->log($this, $message);
@@ -95,7 +95,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         $container->setParameter(self::ROOT_CLASSES_PARAMETER, $rootClasses);
 
         if ([] !== $errors) {
-            throw new \LogicException(sprintf("TMI Translation Bundle: Compile-time validation failed with %d error(s):\n\n%s", count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
+            throw new \LogicException(\sprintf("TMI Translation Bundle: Compile-time validation failed with %d error(s):\n\n%s", \count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
         }
     }
 
@@ -121,12 +121,12 @@ final class AttributeValidationPass implements CompilerPassInterface
 
             // First argument is an array of entity directory paths
             $directories = $arguments[0] ?? [];
-            if (!is_array($directories)) {
+            if (!\is_array($directories)) {
                 continue;
             }
 
             foreach ($directories as $directory) {
-                if (is_string($directory)) {
+                if (\is_string($directory)) {
                     $this->scanDirectoryForTranslatables($directory, $classes);
                 }
             }
@@ -228,7 +228,7 @@ final class AttributeValidationPass implements CompilerPassInterface
      */
     private function nextSignificantToken(array $tokens, int $index): \PhpToken|null
     {
-        $count = count($tokens);
+        $count = \count($tokens);
         $i     = $index + 1;
         while ($i < $count && $tokens[$i]->isIgnorable()) {
             ++$i;
@@ -263,7 +263,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         // Check class-level attribute conflicts
         if ($attributeHelper->classHasSharedAmongstTranslations($class)
             && $attributeHelper->classHasEmptyOnTranslate($class)) {
-            $errors[] = sprintf(
+            $errors[] = \sprintf(
                 '%s: Class-level attribute conflict - cannot use both #[SharedAmongstTranslations] and #[EmptyOnTranslate] on the same class',
                 $class->getName(),
             );
@@ -275,7 +275,7 @@ final class AttributeValidationPass implements CompilerPassInterface
                 $attributeHelper->validateProperty($property);
             } catch (ValidationException $e) {
                 foreach ($e->getErrors() as $error) {
-                    $errors[] = sprintf('%s: %s', $class->getName(), $error->getMessage());
+                    $errors[] = \sprintf('%s: %s', $class->getName(), $error->getMessage());
                 }
             }
         }
@@ -310,8 +310,8 @@ final class AttributeValidationPass implements CompilerPassInterface
             return false;
         }
 
-        if (count($rootReferences) > 1) {
-            $errors[] = sprintf('%s: %s', $class->getName(), TranslationRootContractException::forAmbiguousRootProperty(
+        if (\count($rootReferences) > 1) {
+            $errors[] = \sprintf('%s: %s', $class->getName(), TranslationRootContractException::forAmbiguousRootProperty(
                 $class->getName(),
                 array_map(static fn (\ReflectionProperty $p): string => $p->getName(), $rootReferences),
             )->getMessage());
@@ -322,7 +322,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         $reference = $rootReferences[0];
 
         if (!$attributeHelper->isNullable($reference) && !self::constructorRequiresRoot($class)) {
-            $errors[] = sprintf('%s: %s', $class->getName(), TranslationRootContractException::forMissingRootConstructorParameter(
+            $errors[] = \sprintf('%s: %s', $class->getName(), TranslationRootContractException::forMissingRootConstructorParameter(
                 $class->getName(),
                 $reference->getName(),
             )->getMessage());
@@ -374,7 +374,7 @@ final class AttributeValidationPass implements CompilerPassInterface
         }
 
         // No locale property found
-        $errors[] = sprintf(
+        $errors[] = \sprintf(
             '%s: Missing locale property - TranslatableInterface requires a locale property. Use TranslatableTrait or manually define a "locale" property.',
             $class->getName(),
         );

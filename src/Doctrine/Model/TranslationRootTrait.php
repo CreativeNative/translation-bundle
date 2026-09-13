@@ -49,7 +49,7 @@ trait TranslationRootTrait
     final public function mintTuuid(): void
     {
         if (null !== $this->tuuid) {
-            throw new \LogicException(sprintf('%s already carries tuuid %s; a translation root is identified exactly once -- mintTuuid() is for a brand-new object, adoptTuuid() for taking over an existing group.', static::class, $this->tuuid));
+            throw new \LogicException(\sprintf('%s already carries tuuid %s; a translation root is identified exactly once -- mintTuuid() is for a brand-new object, adoptTuuid() for taking over an existing group.', static::class, $this->tuuid));
         }
 
         $this->tuuid = Tuuid::generate();
@@ -73,7 +73,7 @@ trait TranslationRootTrait
             return;
         }
 
-        throw new \LogicException(sprintf('%s already carries tuuid %s and cannot adopt %s; a translation root is identified exactly once.', static::class, $this->tuuid, $tuuid));
+        throw new \LogicException(\sprintf('%s already carries tuuid %s and cannot adopt %s; a translation root is identified exactly once.', static::class, $this->tuuid, $tuuid));
     }
 
     /**
@@ -82,7 +82,7 @@ trait TranslationRootTrait
     final public function getTuuid(): Tuuid
     {
         if (null === $this->tuuid) {
-            throw new \LogicException(sprintf('%s has no tuuid yet: call mintTuuid() on a new root, or adoptTuuid() to take over an existing group -- a translation root never mints one lazily, because its translation rows copy their identity from it.', static::class));
+            throw new \LogicException(\sprintf('%s has no tuuid yet: call mintTuuid() on a new root, or adoptTuuid() to take over an existing group -- a translation root never mints one lazily, because its translation rows copy their identity from it.', static::class));
         }
 
         return $this->tuuid;

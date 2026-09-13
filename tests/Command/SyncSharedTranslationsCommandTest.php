@@ -370,10 +370,10 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $tester = $this->run_();
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString(sprintf('%d translation(s) updated', $groupCount), $tester->getDisplay());
+        self::assertStringContainsString(\sprintf('%d translation(s) updated', $groupCount), $tester->getDisplay());
 
         for ($i = 0; $i < $groupCount; ++$i) {
-            self::assertSame('canonical'.$i, $this->reloadShared($siblingIds[$i]), sprintf('group %d did not sync', $i));
+            self::assertSame('canonical'.$i, $this->reloadShared($siblingIds[$i]), \sprintf('group %d did not sync', $i));
         }
     }
 

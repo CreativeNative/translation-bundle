@@ -42,7 +42,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         }
 
         $attributes = $property->getAttributes(OneToOne::class);
-        if (0 === count($attributes)) {
+        if (0 === \count($attributes)) {
             return false;
         }
 
@@ -80,7 +80,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         $data = $context->getEntity();
 
         $property = $context->getProperty();
-        assert(null !== $property);
+        \assert(null !== $property);
 
         // Delegate the clone itself to the entity pipeline: translateProperties() over the
         // related entity's own fields (shared/empty/translatable, not just the

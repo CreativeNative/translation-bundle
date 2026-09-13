@@ -77,10 +77,10 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
             // Check for SharedAmongstTranslations attribute
             $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-            if (count($sharedAttrs) > 0) {
+            if (\count($sharedAttrs) > 0) {
                 $data = $context->getValue();
 
-                throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), \is_object($data) ? $data::class : 'unknown'));
+                throw new \RuntimeException(\sprintf('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), \is_object($data) ? $data::class : 'unknown'));
             }
 
             return $this->translateCollection($context);
@@ -113,7 +113,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         }
 
         if (null === $property) {
-            throw new \RuntimeException(sprintf('No property given for parent of class "%s".', $newOwner::class));
+            throw new \RuntimeException(\sprintf('No property given for parent of class "%s".', $newOwner::class));
         }
 
         $meta         = $this->entityManager->getClassMetadata($newOwner::class);
@@ -121,17 +121,17 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $association  = $associations[$property->name] ?? null;
 
         if (null === $association) {
-            throw new \RuntimeException(sprintf('Property "%s" is not a valid association in class "%s".', $property->name, $newOwner::class));
+            throw new \RuntimeException(\sprintf('Property "%s" is not a valid association in class "%s".', $property->name, $newOwner::class));
         }
 
         if (!$association->isOwningSide()) {
-            throw new \RuntimeException(sprintf('Property "%s" on "%s" is not the owning side of the relation.', $property->name, $newOwner::class));
+            throw new \RuntimeException(\sprintf('Property "%s" on "%s" is not the owning side of the relation.', $property->name, $newOwner::class));
         }
 
         $fieldName = $association->fieldName;
 
         if (!property_exists($newOwner, $fieldName)) {
-            throw new \RuntimeException(sprintf('Field "%s" not found in class "%s".', $fieldName, $newOwner::class));
+            throw new \RuntimeException(\sprintf('Field "%s" not found in class "%s".', $fieldName, $newOwner::class));
         }
 
         $sourceData = $context->getValue();
@@ -139,7 +139,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $itemsToTranslate = [];
         if ($sourceData instanceof Collection) {
             $itemsToTranslate = $sourceData->toArray();
-        } elseif (\is_iterable($sourceData)) {
+        } elseif (is_iterable($sourceData)) {
             /** @var iterable<mixed> $sourceData */
             foreach ($sourceData as $item) {
                 $itemsToTranslate[] = $item;

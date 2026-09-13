@@ -106,7 +106,7 @@ final class TranslatableTraitTest extends IntegrationTestCase
         $invalidTuuid = 'not-a-valid-uuid';
 
         self::expectException(\InvalidArgumentException::class);
-        self::expectExceptionMessage(sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
+        self::expectExceptionMessage(\sprintf('Invalid Tuuid value: "%s"', $invalidTuuid));
 
         new Tuuid($invalidTuuid);
     }

@@ -56,7 +56,7 @@ final class RootCheckAggregator
     public function countRootsWithoutRows(string $rootClass, string $translatableClass, string $rootProperty): int
     {
         return $this->finder->withoutLocaleFilter(function () use ($rootClass, $translatableClass, $rootProperty): int {
-            $count = $this->entityManager->createQuery(sprintf(
+            $count = $this->entityManager->createQuery(\sprintf(
                 'SELECT COUNT(r) FROM %s r WHERE NOT EXISTS (SELECT t FROM %s t WHERE t.%s = r)',
                 $rootClass,
                 $translatableClass,

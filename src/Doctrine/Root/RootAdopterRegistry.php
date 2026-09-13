@@ -25,7 +25,7 @@ final class RootAdopterRegistry
     public function addAdopter(RootAdopterInterface $adopter, string $class): void
     {
         if ($adopter->getTranslatableClass() !== $class) {
-            throw new \LogicException(sprintf('Root adopter %s is tagged for %s but getTranslatableClass() returns %s. Solution: make the tag\'s `class` attribute and the method agree.', $adopter::class, $class, $adopter->getTranslatableClass()));
+            throw new \LogicException(\sprintf('Root adopter %s is tagged for %s but getTranslatableClass() returns %s. Solution: make the tag\'s `class` attribute and the method agree.', $adopter::class, $class, $adopter->getTranslatableClass()));
         }
 
         $this->adopters[$class] = $adopter;

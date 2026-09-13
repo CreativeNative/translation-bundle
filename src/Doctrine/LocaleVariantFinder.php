@@ -163,7 +163,7 @@ final readonly class LocaleVariantFinder
             $group = [];
 
             foreach ($query->toIterable() as $entity) {
-                assert($entity instanceof TranslatableInterface);
+                \assert($entity instanceof TranslatableInterface);
 
                 $tuuid = (string) $entity->getTuuid();
 

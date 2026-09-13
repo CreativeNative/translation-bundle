@@ -186,7 +186,7 @@ final class SharedValueSynchronizer
             return ($a <=> $b) === 0;
         }
 
-        if (is_object($a) && is_object($b)) {
+        if (\is_object($a) && \is_object($b)) {
             return $a::class === $b::class && serialize($a) === serialize($b);
         }
 
@@ -250,7 +250,7 @@ final class SharedValueSynchronizer
             if ($write) {
                 $property->setValue(
                     $siblingOwner,
-                    $shared['association'] || !is_object($value) || $value instanceof \UnitEnum ? $value : clone $value,
+                    $shared['association'] || !\is_object($value) || $value instanceof \UnitEnum ? $value : clone $value,
                 );
             }
         }
@@ -267,7 +267,7 @@ final class SharedValueSynchronizer
      */
     private static function isSelected(array $shared, array $onlyProperties): bool
     {
-        return in_array($shared['path'], $onlyProperties, true)
+        return \in_array($shared['path'], $onlyProperties, true)
             || [] !== array_intersect($shared['changeSetPaths'], $onlyProperties);
     }
 
@@ -292,7 +292,7 @@ final class SharedValueSynchronizer
 
         $embeddable = $owner->getValue($entity);
 
-        return is_object($embeddable) ? $embeddable : null;
+        return \is_object($embeddable) ? $embeddable : null;
     }
 
     /**
@@ -313,7 +313,7 @@ final class SharedValueSynchronizer
         foreach (ReflectionHelper::getHierarchyProperties($metadata->getReflectionClass()) as $property) {
             $name = $property->getName();
 
-            if (in_array($name, self::SYSTEM_PROPERTIES, true)) {
+            if (\in_array($name, self::SYSTEM_PROPERTIES, true)) {
                 continue;
             }
 

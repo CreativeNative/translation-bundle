@@ -38,6 +38,7 @@ return new PhpCsFixer\Config()
         'multiline_whitespace_before_semicolons' => true,
         'no_trailing_whitespace_in_string' => true,
         'php_unit_set_up_tear_down_visibility' => true,
+        'native_function_invocation' => ['include' => ['@compiler_optimized'], 'scope' => 'namespaced', 'strict' => true],
     ])
     ->setParallelConfig(PhpCsFixer\Runner\Parallel\ParallelConfigFactory::detect())
     ->setFinder($finder)

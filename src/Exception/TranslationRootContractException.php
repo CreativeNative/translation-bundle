@@ -20,18 +20,18 @@ final class TranslationRootContractException extends \LogicException
      */
     public static function forAmbiguousRootProperty(string $class, array $properties): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s: %d properties are root references (%s), but a translation row copies its tuuid from exactly one root. '
             .'Solution: keep one ManyToOne typed to a TranslationRootInterface implementation and give the others a non-root type.',
             $class,
-            count($properties),
+            \count($properties),
             implode(', ', array_map(static fn (string $p): string => '$'.$p, $properties)),
         ));
     }
 
     public static function forTranslatableRootType(string $class, string $property, string $type): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s::$%s: its type %s implements TranslationRootInterface AND TranslatableInterface, but a root is one row per object and has no locale -- the locale listeners would stamp and orphan-check it. '
             .'Solution: drop TranslatableInterface/TranslatableTrait from the root class and use TranslationRootTrait alone.',
             $class,
@@ -42,7 +42,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forIdRootProperty(string $class, string $property): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s::$%s: the root reference carries #[ORM\Id], but PrimaryKeyHandler nulls every identifier on a clone before sharing is considered, so the reference would be lost on every translate(). '
             .'Solution: give the translation row its own generated identifier and keep the root reference a plain ManyToOne.',
             $class,
@@ -52,7 +52,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forEmptyOnTranslate(string $class, string $property): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s::$%s: the root reference carries #[EmptyOnTranslate], but every locale variant must point at the same root -- emptying it on translate() would orphan the new variant from its object. '
             .'Solution: remove #[EmptyOnTranslate] from the root reference.',
             $class,
@@ -62,7 +62,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forUniqueJoinColumn(string $class, string $property): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s::$%s: its #[ORM\JoinColumn] is unique, but one root has two or more translation rows by construction -- the second locale\'s INSERT would fail. '
             .'Solution: remove `unique: true` from the join column (and use ManyToOne, never OneToOne, for a root reference).',
             $class,
@@ -72,7 +72,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forMarkerWithoutRoot(string $class, string $property): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s::$%s: the property carries #[TranslationRoot] but is not a root reference -- a root reference is a #[ORM\ManyToOne] whose declared type implements TranslationRootInterface. '
             .'Solution: type the property to a TranslationRootInterface implementation and map it ManyToOne, or remove the marker.',
             $class,
@@ -82,7 +82,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forMissingRootConstructorParameter(string $class, string $property): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated on %s: its root reference $%s is non-nullable, so the class is past the migration phase, but its constructor has no required, non-nullable parameter typed to TranslationRootInterface (or a subtype) -- a `new` without the root would let TranslatableTrait::getTuuid() lazily mint an identity the root never had. '
             .'Solution: add the root as a required constructor parameter and call $this->setTuuid($root->getTuuid()) there, or make the property nullable while the rows are still being adopted.',
             $class,
@@ -92,7 +92,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forMissingAdopter(string $class): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated: %s declares a root reference but no service tagged `tmi_translation.root_adopter` names it (or an ancestor) in its `class` attribute, so tmi:translation:adopt-root cannot create roots for its existing rows. '
             .'Solution: register a RootAdopterInterface implementation tagged `tmi_translation.root_adopter` with `class: %s` (or the hierarchy root it belongs to).',
             $class,
@@ -105,18 +105,18 @@ final class TranslationRootContractException extends \LogicException
      */
     public static function forDuplicateAdopter(string $class, array $serviceIds): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated: %s is served by %d root adopters (%s), but exactly one adopter decides how a group gets its root. '
             .'Solution: keep one `tmi_translation.root_adopter` service per translatable hierarchy.',
             $class,
-            count($serviceIds),
+            \count($serviceIds),
             implode(', ', $serviceIds),
         ));
     }
 
     public static function forAdopterWithoutRoot(string $serviceId, string $class): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated: service "%s" is tagged `tmi_translation.root_adopter` for %s, but no concrete translatable class under it declares a root reference. '
             .'Solution: point the tag\'s `class` attribute at the translatable hierarchy whose rows reference a TranslationRootInterface, or remove the adopter.',
             $serviceId,
@@ -126,7 +126,7 @@ final class TranslationRootContractException extends \LogicException
 
     public static function forAdopterTagWithoutClass(string $serviceId): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translation root contract violated: service "%s" is tagged `tmi_translation.root_adopter` without the required `class` attribute, so the container cannot verify at compile time which translatable hierarchy it serves. '
             .'Solution: tag it as { name: tmi_translation.root_adopter, class: App\Entity\Property }.',
             $serviceId,

@@ -179,7 +179,7 @@ final class AdoptRootCommandTest extends IntegrationTestCase
         $tester = $this->run_(['--check' => true]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString(sprintf('root is %s, rows imply %s', ListingB::class, ListingA::class), $tester->getDisplay());
+        self::assertStringContainsString(\sprintf('root is %s, rows imply %s', ListingB::class, ListingA::class), $tester->getDisplay());
     }
 
     public function testARootWithoutAnIdentityIsDrift(): void
@@ -232,7 +232,7 @@ final class AdoptRootCommandTest extends IntegrationTestCase
         $tester = $this->run_(['--check' => true]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString(sprintf('root classes: %s, %s', ListingA::class, ListingB::class), $tester->getDisplay());
+        self::assertStringContainsString(\sprintf('root classes: %s, %s', ListingA::class, ListingB::class), $tester->getDisplay());
     }
 
     // ------------------------------------------------------------------
@@ -271,8 +271,8 @@ final class AdoptRootCommandTest extends IntegrationTestCase
             $this->run_([], adopters: [$adopter]);
             self::fail('Expected RootAdoptionException');
         } catch (RootAdoptionException $e) {
-            self::assertStringContainsString(sprintf('returned a %s', ListingB::class), $e->getMessage());
-            self::assertStringContainsString(sprintf('rows imply %s', ListingA::class), $e->getMessage());
+            self::assertStringContainsString(\sprintf('returned a %s', ListingB::class), $e->getMessage());
+            self::assertStringContainsString(\sprintf('rows imply %s', ListingA::class), $e->getMessage());
         }
 
         $this->entityManager()->clear();
@@ -582,7 +582,7 @@ final class AdoptRootCommandTest extends IntegrationTestCase
     private function countRoots(): int
     {
         /** @var int|string $count */
-        $count = $this->entityManager()->createQuery(sprintf('SELECT COUNT(r) FROM %s r', Listing::class))->getSingleScalarResult();
+        $count = $this->entityManager()->createQuery(\sprintf('SELECT COUNT(r) FROM %s r', Listing::class))->getSingleScalarResult();
 
         return (int) $count;
     }

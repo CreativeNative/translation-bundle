@@ -165,7 +165,7 @@ final class LocaleCompletenessResolver
         if (null !== $owner) {
             // Doctrine always hydrates embeddables on a loaded entity.
             $embeddable = $owner->getValue($entity);
-            assert(is_object($embeddable));
+            \assert(\is_object($embeddable));
             $holder = $embeddable;
         }
 
@@ -175,7 +175,7 @@ final class LocaleCompletenessResolver
             return false;
         }
 
-        if (is_string($value)) {
+        if (\is_string($value)) {
             return '' !== trim($value);
         }
 
@@ -208,7 +208,7 @@ final class LocaleCompletenessResolver
         foreach (ReflectionHelper::getHierarchyProperties($reflection) as $property) {
             $name = $property->getName();
 
-            if (in_array($name, self::SYSTEM_PROPERTIES, true) || isset($shared[$name])) {
+            if (\in_array($name, self::SYSTEM_PROPERTIES, true) || isset($shared[$name])) {
                 continue;
             }
 

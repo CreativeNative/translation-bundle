@@ -43,7 +43,7 @@ final class TranslationRootTraitTest extends IntegrationTestCase
         $first = $root->getTuuid();
 
         self::expectException(\LogicException::class);
-        self::expectExceptionMessage(sprintf('already carries tuuid %s', $first));
+        self::expectExceptionMessage(\sprintf('already carries tuuid %s', $first));
 
         $root->mintTuuid();
     }

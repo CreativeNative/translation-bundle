@@ -279,7 +279,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $extension = new TmiTranslationExtension();
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage(sprintf('The locale "%s" in framework.enabled_locales is not a valid locale, or is longer than the 16 characters the "locale" column can hold.', $tooLong));
+        $this->expectExceptionMessage(\sprintf('The locale "%s" in framework.enabled_locales is not a valid locale, or is longer than the 16 characters the "locale" column can hold.', $tooLong));
 
         $extension->load([['default_locale' => $tooLong]], $containerBuilder);
     }
@@ -678,7 +678,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
                 continue;
             }
 
-            self::assertFalse($definition->isPublic(), sprintf('Service "%s" must stay private.', $id));
+            self::assertFalse($definition->isPublic(), \sprintf('Service "%s" must stay private.', $id));
             ++$checked;
         }
 
@@ -687,7 +687,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
                 continue;
             }
 
-            self::assertFalse($alias->isPublic(), sprintf('Alias "%s" must stay private.', $id));
+            self::assertFalse($alias->isPublic(), \sprintf('Alias "%s" must stay private.', $id));
             ++$checked;
         }
 
@@ -705,7 +705,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
         $container = self::getContainer();
 
         foreach ($container->getParameterBag()->all() as $key => $value) {
-            if (is_scalar($value) || is_array($value) || null === $value || $value instanceof \UnitEnum) {
+            if (\is_scalar($value) || \is_array($value) || null === $value || $value instanceof \UnitEnum) {
                 $containerBuilder->setParameter((string) $key, $value);
             }
         }

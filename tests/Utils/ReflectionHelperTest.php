@@ -61,7 +61,7 @@ final class ReflectionHelperTest extends TestCase
         $child = new InheritedBackReferenceChild();
 
         self::expectException(\ReflectionException::class);
-        self::expectExceptionMessage(sprintf('Property "missing" does not exist on class "%s" or any of its parent classes.', $child::class));
+        self::expectExceptionMessage(\sprintf('Property "missing" does not exist on class "%s" or any of its parent classes.', $child::class));
 
         ReflectionHelper::getProperty($child::class, 'missing');
     }

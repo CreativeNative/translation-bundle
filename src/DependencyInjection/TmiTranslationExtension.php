@@ -161,7 +161,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
     {
         foreach ($params as $key => $value) {
             $name = $parent.'.'.$key;
-            assert(is_array($value) || is_scalar($value) || $value instanceof \UnitEnum || null === $value);
+            \assert(\is_array($value) || \is_scalar($value) || $value instanceof \UnitEnum || null === $value);
             $container->setParameter($name, $value);
 
             if (\is_array($value)) {

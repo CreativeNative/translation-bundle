@@ -23,7 +23,7 @@ final readonly class Tuuid implements \Stringable
     public function __construct(string $value)
     {
         if (!Uuid::isValid($value)) {
-            throw new \InvalidArgumentException(sprintf('Invalid Tuuid value: "%s".', $value));
+            throw new \InvalidArgumentException(\sprintf('Invalid Tuuid value: "%s".', $value));
         }
 
         // Normalize to lowercase RFC4122 format

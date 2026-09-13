@@ -358,7 +358,7 @@ final class DoctrineObjectHandlerTest extends UnitTestCase
             static function (TranslationContext $subContext): mixed {
                 $value = $subContext->getSubject();
 
-                return is_object($value) ? clone $value : $value;
+                return \is_object($value) ? clone $value : $value;
             },
         );
 

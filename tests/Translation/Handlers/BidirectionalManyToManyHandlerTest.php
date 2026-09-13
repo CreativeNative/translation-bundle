@@ -239,7 +239,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
             $reflection = new \ReflectionObject($owner);
 
             if (!$reflection->hasProperty($name)) {
-                throw new \RuntimeException(sprintf('Property "%s" does not exist on class "%s".', $name, get_class($owner)));
+                throw new \RuntimeException(\sprintf('Property "%s" does not exist on class "%s".', $name, \get_class($owner)));
             }
 
             return $reflection->getProperty($name)->getValue($owner);
@@ -410,7 +410,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage(
-            sprintf(
+            \sprintf(
                 'SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. '
                 .'Property "%s" of class "%s" is invalid.',
                 'sharedChildren',

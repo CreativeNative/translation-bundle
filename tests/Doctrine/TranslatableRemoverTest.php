@@ -36,9 +36,9 @@ final class TranslatableRemoverTest extends IntegrationTestCase
         $removed = $remover->removeAllLocaleVariants($en);
 
         self::assertCount(3, $removed);
-        self::assertTrue(in_array($en, $removed, true));
-        self::assertTrue(in_array($de, $removed, true));
-        self::assertTrue(in_array($it, $removed, true));
+        self::assertTrue(\in_array($en, $removed, true));
+        self::assertTrue(\in_array($de, $removed, true));
+        self::assertTrue(\in_array($it, $removed, true));
 
         $em->flush();
         $em->clear();
@@ -68,7 +68,7 @@ final class TranslatableRemoverTest extends IntegrationTestCase
         $removed = $remover->removeAllLocaleVariants($it);
 
         self::assertCount(3, $removed);
-        self::assertTrue(in_array($it, $removed, true));
+        self::assertTrue(\in_array($it, $removed, true));
     }
 
     public function testRemoveAllLocaleVariantsWithNoSiblingsReturnsJustTheEntity(): void

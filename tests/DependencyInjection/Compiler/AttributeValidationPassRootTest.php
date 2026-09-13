@@ -137,7 +137,7 @@ final class AttributeValidationPassRootTest extends TestCase
             return $e->getMessage();
         }
 
-        self::fail(sprintf('Expected the pass to refuse tests/Fixtures/Validation/Root/%s.', $fixtureDirectory));
+        self::fail(\sprintf('Expected the pass to refuse tests/Fixtures/Validation/Root/%s.', $fixtureDirectory));
     }
 
     private function containerScanning(string $fixtureDirectory): ContainerBuilder

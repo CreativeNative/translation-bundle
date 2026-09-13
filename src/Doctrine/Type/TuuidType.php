@@ -41,11 +41,11 @@ final class TuuidType extends GuidType
             return $value;
         }
 
-        if (is_string($value) && Uuid::isValid($value)) {
+        if (\is_string($value) && Uuid::isValid($value)) {
             return new Tuuid($value);
         }
 
-        throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid (PHPValue)', get_debug_type($value)));
+        throw new ConversionException(\sprintf('Cannot convert "%s" to Tuuid (PHPValue)', get_debug_type($value)));
     }
 
     #[\Override]
@@ -59,11 +59,11 @@ final class TuuidType extends GuidType
             return $value->getValue();
         }
 
-        if (is_string($value) && Uuid::isValid($value)) {
+        if (\is_string($value) && Uuid::isValid($value)) {
             return new Tuuid($value)->getValue();
         }
 
-        throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid (DatabaseValue)', get_debug_type($value)));
+        throw new ConversionException(\sprintf('Cannot convert "%s" to Tuuid (DatabaseValue)', get_debug_type($value)));
     }
 
     public function getName(): string

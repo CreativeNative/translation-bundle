@@ -135,7 +135,7 @@ final class SyncSharedTranslationsCommand extends Command
             // (see TranslatableEntityLocator), so --entity must still accept a
             // concrete subclass that is not itself one of $classes's entries.
             if (!$this->isTranslatableEntity($only)) {
-                $io->error(sprintf('"%s" is not a known translatable entity.', $only));
+                $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
 
                 return Command::FAILURE;
             }
@@ -168,7 +168,7 @@ final class SyncSharedTranslationsCommand extends Command
                 // default-locale row, so a record edited in another locale is
                 // reverted to the stale default-locale values. Say so once, before
                 // the first UPDATE, rather than leaving it to the documentation.
-                $io->note(sprintf(
+                $io->note(\sprintf(
                     'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
                     .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
                     .'to the stale default-locale values by this run -- repair those one at a time first with '
@@ -197,18 +197,18 @@ final class SyncSharedTranslationsCommand extends Command
     private function summarize(SymfonyStyle $io, int $totalUpdated, array $readonlyDrift, bool $check, bool $dryRun): int
     {
         if ([] !== $readonlyDrift) {
-            $io->warning(sprintf(
+            $io->warning(\sprintf(
                 '%d readonly shared value(s) differ from the source and were left untouched.',
-                count($readonlyDrift),
+                \count($readonlyDrift),
             ));
             $io->listing($readonlyDrift);
             $io->note('A readonly property cannot be written after hydration. Correct these rows manually or at the database level.');
         }
 
         if ([] !== $this->rootDrift) {
-            $io->warning(sprintf(
+            $io->warning(\sprintf(
                 '%d translation root reference(s) differ between sibling rows and were left untouched.',
-                count($this->rootDrift),
+                \count($this->rootDrift),
             ));
             $io->listing($this->rootDrift);
             $io->note('A root reference is an identity, not a value: this command never re-points it, because copying the default-locale row\'s root over its siblings would silently merge two objects into one. Run tmi:translation:adopt-root --check to classify the group.');
@@ -227,7 +227,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         if ($check) {
-            $io->error(sprintf(
+            $io->error(\sprintf(
                 '%d translation(s) carry shared values that differ from their source. Run tmi:translation:sync-shared to repair.',
                 $totalUpdated,
             ));
@@ -235,7 +235,7 @@ final class SyncSharedTranslationsCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success(sprintf(
+        $io->success(\sprintf(
             $dryRun ? '%d translation(s) would be updated.' : '%d translation(s) updated.',
             $totalUpdated,
         ));
@@ -283,7 +283,7 @@ final class SyncSharedTranslationsCommand extends Command
     private function syncOneRecord(SymfonyStyle $io, array $classes, string $tuuidOption, string|null $sourceLocale, bool $apply, array &$readonlyDrift): int|null
     {
         if (!Uuid::isValid($tuuidOption)) {
-            $io->error(sprintf('"%s" is not a valid Tuuid.', $tuuidOption));
+            $io->error(\sprintf('"%s" is not a valid Tuuid.', $tuuidOption));
 
             return null;
         }
@@ -303,7 +303,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         if (null === $found) {
-            $io->error(sprintf('No locale variant of tuuid %s found in %s.', $tuuid, 1 === count($classes) ? $classes[0] : 'any translatable entity'));
+            $io->error(\sprintf('No locale variant of tuuid %s found in %s.', $tuuid, 1 === \count($classes) ? $classes[0] : 'any translatable entity'));
 
             return null;
         }
@@ -320,13 +320,13 @@ final class SyncSharedTranslationsCommand extends Command
                 $locales = array_keys($variants);
                 sort($locales);
 
-                $io->error(sprintf('Tuuid %s has no "%s" variant — available locales: %s.', $tuuid, $sourceLocale, implode(', ', $locales)));
+                $io->error(\sprintf('Tuuid %s has no "%s" variant — available locales: %s.', $tuuid, $sourceLocale, implode(', ', $locales)));
 
                 return null;
             }
         }
 
-        $io->section(sprintf('%s — tuuid %s', $found, $tuuid));
+        $io->section(\sprintf('%s — tuuid %s', $found, $tuuid));
         $io->writeln($this->describeSource($source, null !== $sourceLocale));
 
         /** @var array<string, SharedDrift> $drift */
@@ -362,18 +362,18 @@ final class SyncSharedTranslationsCommand extends Command
         $locale = $source->getLocale() ?? 'none';
 
         if ($named) {
-            return sprintf('Source: locale <info>%s</info> — named by --source-locale.', $locale);
+            return \sprintf('Source: locale <info>%s</info> — named by --source-locale.', $locale);
         }
 
         if ($locale === $this->defaultLocale) {
-            return sprintf(
+            return \sprintf(
                 'Source: locale <info>%s</info> — the default-locale rule, applied in every mode. '
                 .'Pass --source-locale to copy from another row.',
                 $locale,
             );
         }
 
-        return sprintf(
+        return \sprintf(
             'Source: locale <info>%s</info> — the group\'s first row: this record has no "%s" variant '
             .'for the default-locale rule to pick. Pass --source-locale to copy from another row.',
             $locale,
@@ -414,7 +414,7 @@ final class SyncSharedTranslationsCommand extends Command
     {
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
-            : sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
+            : \sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
 
         if ([] !== $drift) {
             $io->table(['Property', 'Tuuids', 'Rows', 'Writable'], self::driftRows($drift));
@@ -562,7 +562,7 @@ final class SyncSharedTranslationsCommand extends Command
             : $this->synchronizer->compare($source, $sibling);
 
         foreach ($report->readonlyDrift() as $path) {
-            $readonlyDrift[] = sprintf(
+            $readonlyDrift[] = \sprintf(
                 '%s::$%s (tuuid %s, locale %s)',
                 $sibling::class,
                 $path,
@@ -574,7 +574,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         foreach ($report->rootDrift() as $path) {
-            $this->rootDrift[] = sprintf(
+            $this->rootDrift[] = \sprintf(
                 '%s::$%s (tuuid %s, locale %s)',
                 $sibling::class,
                 $path,
@@ -622,7 +622,7 @@ final class SyncSharedTranslationsCommand extends Command
         $rows = [];
 
         foreach ($drift as $property => $entry) {
-            $rows[] = [$property, count($entry['tuuids']), $entry['rows'], $entry['readonly']];
+            $rows[] = [$property, \count($entry['tuuids']), $entry['rows'], $entry['readonly']];
         }
 
         usort($rows, static fn (array $a, array $b): int => $b[2] <=> $a[2]);

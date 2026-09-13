@@ -72,7 +72,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
     public function translate(TranslationContext $context): mixed
     {
         $embeddable = $context->getSubject();
-        assert(\is_object($embeddable));
+        \assert(\is_object($embeddable));
 
         if ($context->isShared()) {
             return clone $embeddable;

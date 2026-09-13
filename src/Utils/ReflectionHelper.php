@@ -102,6 +102,6 @@ final class ReflectionHelper
             $current = $current->getParentClass();
         } while (false !== $current);
 
-        throw new \ReflectionException(sprintf('Property "%s" does not exist on class "%s" or any of its parent classes.', $name, $reflect->getName()));
+        throw new \ReflectionException(\sprintf('Property "%s" does not exist on class "%s" or any of its parent classes.', $name, $reflect->getName()));
     }
 }

@@ -68,7 +68,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
         }
 
         if ([] !== $errors) {
-            throw new \LogicException(sprintf("TMI Translation Bundle: Unique constraint validation failed with %d error(s):\n\n%s", count($errors), implode("\n\n", $errors)));
+            throw new \LogicException(\sprintf("TMI Translation Bundle: Unique constraint validation failed with %d error(s):\n\n%s", \count($errors), implode("\n\n", $errors)));
         }
 
         return [];
@@ -84,7 +84,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
 
         foreach ($metadata->fieldMappings as $fieldName => $fieldMapping) {
             // Skip system fields that are legitimately unique
-            if (in_array($fieldName, ['id', 'tuuid', 'locale'], true)) {
+            if (\in_array($fieldName, ['id', 'tuuid', 'locale'], true)) {
                 continue;
             }
 
@@ -98,7 +98,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
             }
 
             if (true === $fieldMapping->unique) {
-                $errors[] = sprintf(
+                $errors[] = \sprintf(
                     'Entity "%s": field "%s" has a single-column unique constraint. '
                     .'For translatable entities, unique values must be scoped per locale. '
                     .'Replace `unique: true` with a composite unique constraint: '
@@ -133,16 +133,16 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
             }
 
             // Skip if locale already included
-            if (in_array('locale', $fields, true)) {
+            if (\in_array('locale', $fields, true)) {
                 continue;
             }
 
             // Skip system-only constraints
-            if (1 === count($fields) && in_array($fields[0], ['id', 'tuuid', 'locale'], true)) {
+            if (1 === \count($fields) && \in_array($fields[0], ['id', 'tuuid', 'locale'], true)) {
                 continue;
             }
 
-            $errors[] = sprintf(
+            $errors[] = \sprintf(
                 'Entity "%s": unique constraint "%s" on fields %s does not include the locale column. '
                 .'For translatable entities, add "locale" to the constraint fields: '
                 .'#[ORM\UniqueConstraint(name: "%s", fields: %s)]',

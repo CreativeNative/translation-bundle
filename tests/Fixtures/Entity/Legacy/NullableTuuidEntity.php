@@ -65,7 +65,7 @@ class NullableTuuidEntity implements TranslatableInterface
         }
 
         // PHPStan doesn't understand that generateTuuid() guarantees non-null
-        assert(null !== $this->tuuid);
+        \assert(null !== $this->tuuid);
 
         return $this->tuuid;
     }

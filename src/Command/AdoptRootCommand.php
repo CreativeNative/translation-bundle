@@ -139,7 +139,7 @@ final class AdoptRootCommand extends Command
 
         if (null !== $only) {
             if (!$this->isTranslatableEntity($only)) {
-                $io->error(sprintf('"%s" is not a known translatable entity.', $only));
+                $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
 
                 return Command::FAILURE;
             }
@@ -147,7 +147,7 @@ final class AdoptRootCommand extends Command
             $adopter = $this->adopters->adopterFor($only);
 
             if (null === $adopter) {
-                $io->error(sprintf('"%s" declares no translation root: no tmi_translation.root_adopter serves it or any of its ancestors.', $only));
+                $io->error(\sprintf('"%s" declares no translation root: no tmi_translation.root_adopter serves it or any of its ancestors.', $only));
 
                 return Command::FAILURE;
             }
@@ -186,7 +186,7 @@ final class AdoptRootCommand extends Command
                 } elseif ($pending > 0) {
                     $count = $this->adoptClass($adopter, $class);
                     $adopted += $count;
-                    $io->writeln(sprintf('<info>%d group(s) adopted.</info>', $count));
+                    $io->writeln(\sprintf('<info>%d group(s) adopted.</info>', $count));
                 }
             }
 
@@ -211,7 +211,7 @@ final class AdoptRootCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success($dryRun ? 'Dry run complete -- nothing written.' : sprintf('%d group(s) adopted.', $adopted));
+        $io->success($dryRun ? 'Dry run complete -- nothing written.' : \sprintf('%d group(s) adopted.', $adopted));
 
         return Command::SUCCESS;
     }
@@ -237,7 +237,7 @@ final class AdoptRootCommand extends Command
 
             ++$tally[$kind];
 
-            if (self::KIND_COMPLETE !== $kind && count($listed[$kind] ?? []) < self::MAX_LISTED_GROUPS) {
+            if (self::KIND_COMPLETE !== $kind && \count($listed[$kind] ?? []) < self::MAX_LISTED_GROUPS) {
                 $listed[$kind][] = $classification;
             }
 
@@ -256,14 +256,14 @@ final class AdoptRootCommand extends Command
                 continue;
             }
 
-            $io->writeln(sprintf('<comment>%s groups</comment>', ucfirst($kind)));
+            $io->writeln(\sprintf('<comment>%s groups</comment>', ucfirst($kind)));
             $io->table(
                 ['Tuuid', 'Locales', 'Detail'],
                 array_map(static fn (array $c): array => [$c['tuuid'], $c['locales'], $c['detail']], $listed[$kind]),
             );
 
             if ($tally[$kind] > self::MAX_LISTED_GROUPS) {
-                $io->writeln(sprintf('… and %d more %s group(s).', $tally[$kind] - self::MAX_LISTED_GROUPS, $kind));
+                $io->writeln(\sprintf('… and %d more %s group(s).', $tally[$kind] - self::MAX_LISTED_GROUPS, $kind));
             }
         }
 
@@ -412,29 +412,29 @@ final class AdoptRootCommand extends Command
             $roots[spl_object_id($root)] = $root;
 
             if (!$root->hasTuuid() || (string) $root->getTuuid() !== (string) $row->getTuuid()) {
-                $drift[] = sprintf('%s: root tuuid %s', $row->getLocale() ?? 'none', $root->hasTuuid() ? (string) $root->getTuuid() : 'none');
+                $drift[] = \sprintf('%s: root tuuid %s', $row->getLocale() ?? 'none', $root->hasTuuid() ? (string) $root->getTuuid() : 'none');
             }
 
             if (!$root instanceof $rootClass) {
-                $drift[] = sprintf('%s: root is %s, rows imply %s', $row->getLocale() ?? 'none', $root::class, $rootClass);
+                $drift[] = \sprintf('%s: root is %s, rows imply %s', $row->getLocale() ?? 'none', $root::class, $rootClass);
             }
         }
 
         $result = static fn (string $kind, string $detail): array => ['kind' => $kind, 'tuuid' => $tuuid, 'locales' => $locales, 'detail' => $detail];
 
-        if (count($rootClasses) > 1 || count($keys) > 1) {
+        if (\count($rootClasses) > 1 || \count($keys) > 1) {
             ksort($rootClasses);
             ksort($keys);
 
-            return $result(self::KIND_MISMATCHED, sprintf('root classes: %s; coherence keys: %s', implode(', ', array_keys($rootClasses)), implode(', ', array_map(static fn (string $k): string => '"'.$k.'"', array_keys($keys)))));
+            return $result(self::KIND_MISMATCHED, \sprintf('root classes: %s; coherence keys: %s', implode(', ', array_keys($rootClasses)), implode(', ', array_map(static fn (string $k): string => '"'.$k.'"', array_keys($keys)))));
         }
 
         if ([] === $roots) {
-            return $result(self::KIND_NEW, sprintf('%d row(s) without a root', $missing));
+            return $result(self::KIND_NEW, \sprintf('%d row(s) without a root', $missing));
         }
 
-        if (count($roots) > 1) {
-            return $result(self::KIND_AMBIGUOUS, sprintf('%d distinct roots', count($roots)));
+        if (\count($roots) > 1) {
+            return $result(self::KIND_AMBIGUOUS, \sprintf('%d distinct roots', \count($roots)));
         }
 
         if ([] !== $drift) {
@@ -442,7 +442,7 @@ final class AdoptRootCommand extends Command
         }
 
         if ($missing > 0) {
-            return $result(self::KIND_PARTIAL, sprintf('%d of %d row(s) attached', count($group) - $missing, count($group)));
+            return $result(self::KIND_PARTIAL, \sprintf('%d of %d row(s) attached', \count($group) - $missing, \count($group)));
         }
 
         return $result(self::KIND_COMPLETE, '');
@@ -463,10 +463,10 @@ final class AdoptRootCommand extends Command
         foreach ($this->rootReferences($class) as $reference) {
             try {
                 $count  = $this->checks->countRootsWithoutRows($reference['root'], $reference['class'], $reference['property']);
-                $rows[] = [$reference['root'], sprintf('%s::$%s', $reference['class'], $reference['property']), (string) $count];
+                $rows[] = [$reference['root'], \sprintf('%s::$%s', $reference['class'], $reference['property']), (string) $count];
                 $failed = $failed || $count > 0;
             } catch (\Throwable $e) {
-                $rows[] = [$reference['root'], sprintf('%s::$%s', $reference['class'], $reference['property']), 'ERROR ('.$e::class.')'];
+                $rows[] = [$reference['root'], \sprintf('%s::$%s', $reference['class'], $reference['property']), 'ERROR ('.$e::class.')'];
                 $failed = true;
             }
         }

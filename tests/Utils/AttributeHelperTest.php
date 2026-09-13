@@ -370,7 +370,7 @@ final class AttributeHelperTest extends TestCase
             $this->attributeHelper->validateEmbeddableClass($reflection);
         } catch (ValidationException $e) {
             $errors = $e->getErrors();
-            self::assertGreaterThanOrEqual(1, count($errors));
+            self::assertGreaterThanOrEqual(1, \count($errors));
             self::assertInstanceOf(ClassLevelAttributeConflictException::class, $errors[0]);
             self::assertStringContainsString($className, $errors[0]->getMessage());
 
@@ -401,7 +401,7 @@ final class AttributeHelperTest extends TestCase
             $this->attributeHelper->validateEmbeddableClass($reflection);
         } catch (ValidationException $e) {
             $errors = $e->getErrors();
-            self::assertGreaterThanOrEqual(1, count($errors));
+            self::assertGreaterThanOrEqual(1, \count($errors));
             self::assertInstanceOf(ReadonlyPropertyException::class, $errors[0]);
 
             throw $e;
@@ -433,7 +433,7 @@ final class AttributeHelperTest extends TestCase
             $this->attributeHelper->validateEmbeddableClass($reflection);
         } catch (ValidationException $e) {
             $errors = $e->getErrors();
-            self::assertGreaterThanOrEqual(2, count($errors));
+            self::assertGreaterThanOrEqual(2, \count($errors));
             // First error: class-level conflict
             self::assertInstanceOf(ClassLevelAttributeConflictException::class, $errors[0]);
             // Second error: readonly + EmptyOnTranslate on property

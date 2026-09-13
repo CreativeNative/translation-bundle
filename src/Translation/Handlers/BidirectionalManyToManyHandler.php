@@ -100,11 +100,11 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
             // Check for SharedAmongstTranslations attribute
             $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-            if (count($sharedAttrs) > 0) {
+            if (\count($sharedAttrs) > 0) {
                 $owner      = $context->getTranslatedParent();
                 $ownerClass = null !== $owner ? $owner::class : $prop->getDeclaringClass()->getName();
 
-                throw new \RuntimeException(sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
+                throw new \RuntimeException(\sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
             }
 
             // If we reach here, no shared attribute exists - proceed with normal translation
@@ -161,7 +161,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
 
         $mappedBy = $this->resolveBackReferenceField($prop, $newOwner);
         if (null === $mappedBy) {
-            throw new \RuntimeException(sprintf('Association "%s::%s" is not a bidirectional ManyToMany (neither mappedBy nor inversedBy).', $newOwner::class, $prop->getName()));
+            throw new \RuntimeException(\sprintf('Association "%s::%s" is not a bidirectional ManyToMany (neither mappedBy nor inversedBy).', $newOwner::class, $prop->getName()));
         }
 
         $newCollection = new ArrayCollection();

@@ -84,7 +84,7 @@ final readonly class LocaleFilterConfigurator implements EventSubscriberInterfac
         }
 
         $filter = $filters->enable('tmi_translation_locale_filter');
-        assert($filter instanceof LocaleFilter);
+        \assert($filter instanceof LocaleFilter);
         $filter->setLocale($request->getLocale());
     }
 

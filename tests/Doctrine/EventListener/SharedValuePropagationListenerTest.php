@@ -57,7 +57,7 @@ final class SharedValuePropagationListenerTest extends IntegrationTestCase
         $this->entityManager()->flush();
 
         foreach ($this->reloadScalars($tuuid) as $locale => $row) {
-            self::assertSame('120000', $row->getShared(), sprintf('%s must carry the value edited on it_IT.', $locale));
+            self::assertSame('120000', $row->getShared(), \sprintf('%s must carry the value edited on it_IT.', $locale));
         }
     }
 
@@ -351,7 +351,7 @@ final class SharedValuePropagationListenerTest extends IntegrationTestCase
         // The EntityManager is closed after a failed flush; the connection is not.
         $table = $this->entityManager()->getClassMetadata(Scalar::class)->getTableName();
         $rows  = $this->entityManager()->getConnection()->fetchFirstColumn(
-            sprintf('SELECT shared FROM %s WHERE tuuid = ? ORDER BY locale', $table),
+            \sprintf('SELECT shared FROM %s WHERE tuuid = ? ORDER BY locale', $table),
             [(string) $tuuid],
         );
 

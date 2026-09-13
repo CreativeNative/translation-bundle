@@ -56,7 +56,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         }
 
         $attributes = $property->getAttributes(OneToMany::class);
-        if (0 === count($attributes)) {
+        if (0 === \count($attributes)) {
             return false;
         }
 
@@ -91,7 +91,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         }
 
         $children = $context->getValue();
-        assert($children instanceof Collection);
+        \assert($children instanceof Collection);
 
         $translatedParent = $context->getTranslatedParent();
         $property         = $context->getProperty();

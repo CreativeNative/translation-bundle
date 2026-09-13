@@ -214,8 +214,8 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         $locale  = $context->getTargetLocale() ?? $this->defaultLocale;
 
         // Validate that the requested locale is allowed
-        if (!in_array($locale, $this->locales, true)) {
-            throw new \LogicException(sprintf('Locale "%s" is not allowed. Allowed locales: %s', $locale, implode(', ', $this->locales)));
+        if (!\in_array($locale, $this->locales, true)) {
+            throw new \LogicException(\sprintf('Locale "%s" is not allowed. Allowed locales: %s', $locale, implode(', ', $this->locales)));
         }
 
         // Handle top-level entities that implement TranslatableInterface
@@ -328,7 +328,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
             $this->logDebug('Handler selected for processing', [
                 'handler'   => $handler::class,
                 'property'  => $property?->name,
-                'data_type' => is_object($subject) ? $subject::class : gettype($subject),
+                'data_type' => \is_object($subject) ? $subject::class : \gettype($subject),
             ]);
 
             // Dispatch PreTranslateEvent for top-level entities. Passing no event

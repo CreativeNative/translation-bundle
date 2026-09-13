@@ -65,7 +65,7 @@ final class RootCheckAggregatorTest extends IntegrationTestCase
 
         self::assertSame(1, $this->aggregator()->countRootsWithoutRows(Listing::class, Estate::class, 'listing'));
 
-        $notIn = $this->entityManager()->createQuery(sprintf(
+        $notIn = $this->entityManager()->createQuery(\sprintf(
             'SELECT COUNT(r) FROM %s r WHERE r.id NOT IN (SELECT IDENTITY(t.listing) FROM %s t)',
             Listing::class,
             Estate::class,

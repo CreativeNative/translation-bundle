@@ -25,7 +25,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
         foreach ($methods as $method) {
             self::assertTrue(
                 $reflection->hasMethod($method),
-                sprintf('Method %s should exist in EntityTranslatorInterface', $method),
+                \sprintf('Method %s should exist in EntityTranslatorInterface', $method),
             );
         }
     }
@@ -46,7 +46,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
         foreach (['afterLoad', 'beforePersist', 'beforeUpdate', 'beforeRemove'] as $method) {
             self::assertFalse(
                 $reflection->hasMethod($method),
-                sprintf('Method %s should no longer exist on EntityTranslatorInterface', $method),
+                \sprintf('Method %s should no longer exist on EntityTranslatorInterface', $method),
             );
         }
     }
@@ -86,7 +86,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
 
         self::assertCount(1, $parameters);
         $param = $parameters[0];
-        self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
+        self::assertNotNull($param->getType(), \sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
 
         $type = $param->getType();
         self::assertInstanceOf(\ReflectionNamedType::class, $type);
@@ -107,7 +107,7 @@ final class EntityTranslatorInterfaceTest extends TestCase
 
         self::assertCount($expectedParameterCount, $parameters);
         $param = $parameters[0];
-        self::assertNotNull($param->getType(), sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
+        self::assertNotNull($param->getType(), \sprintf('Parameter %s::$%s should have a type', EntityTranslatorInterface::class, $param->getName()));
 
         $type = $param->getType();
         self::assertInstanceOf(\ReflectionNamedType::class, $type);

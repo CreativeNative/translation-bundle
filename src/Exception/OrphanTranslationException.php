@@ -17,7 +17,7 @@ final class OrphanTranslationException extends \LogicException
 {
     public static function forEntity(string $class, string $locale): self
     {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Translatable "%s" is being flushed in non-default locale "%s" without a shared Tuuid. '
             .'This creates a standalone entity linked to no other locale variant. '
             .'Use EntityTranslator::translate() to create linked translations, '

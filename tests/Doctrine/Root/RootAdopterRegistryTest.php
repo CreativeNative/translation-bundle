@@ -45,7 +45,7 @@ final class RootAdopterRegistryTest extends TestCase
         $registry = new RootAdopterRegistry();
 
         self::expectException(\LogicException::class);
-        self::expectExceptionMessage(sprintf('is tagged for %s but getTranslatableClass() returns %s', Article::class, Estate::class));
+        self::expectExceptionMessage(\sprintf('is tagged for %s but getTranslatableClass() returns %s', Article::class, Estate::class));
 
         $registry->addAdopter(new EstateRootAdopter(), Article::class);
     }

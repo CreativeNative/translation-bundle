@@ -26,9 +26,9 @@ final class ValidationException extends \LogicException
             $errors,
         );
 
-        parent::__construct(sprintf(
+        parent::__construct(\sprintf(
             "TMI Translation validation failed with %d error(s):\n\n%s",
-            count($errors),
+            \count($errors),
             implode("\n\n", $messages),
         ));
     }

@@ -136,7 +136,7 @@ final class SharedValueSynchronizerTest extends IntegrationTestCase
         $this->entityManager()->flush();
 
         foreach ($this->reloadScalars($tuuid) as $locale => $row) {
-            self::assertSame('from de_DE', $row->getShared(), sprintf('%s must carry the edited value.', $locale));
+            self::assertSame('from de_DE', $row->getShared(), \sprintf('%s must carry the edited value.', $locale));
         }
     }
 

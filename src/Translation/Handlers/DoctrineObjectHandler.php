@@ -53,7 +53,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
             return !$this->entityManager->getMetadataFactory()->isTransient($className);
         } catch (\Throwable $e) {
             // Rewrap low-level exceptions for clearer runtime reporting
-            throw new \RuntimeException(sprintf('DoctrineObjectHandler::supports: failed to determine metadata for "%s": %s', $className, $e->getMessage()), 0, $e);
+            throw new \RuntimeException(\sprintf('DoctrineObjectHandler::supports: failed to determine metadata for "%s": %s', $className, $e->getMessage()), 0, $e);
         }
     }
 
@@ -166,7 +166,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
                     continue;
                 }
 
-                throw new \LogicException(sprintf('Property %s::$%s is readonly and cannot be reassigned while translating. Mark it #[SharedAmongstTranslations] so every locale keeps the same value, or drop the readonly modifier.', $property->class, $property->name));
+                throw new \LogicException(\sprintf('Property %s::$%s is readonly and cannot be reassigned while translating. Mark it #[SharedAmongstTranslations] so every locale keeps the same value, or drop the readonly modifier.', $property->class, $property->name));
             }
 
             // try to set via accessor; if it throws NoSuchPropertyException, fallback to reflection
@@ -190,8 +190,8 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
             return true;
         }
 
-        return is_object($current)
-            && is_object($resolved)
+        return \is_object($current)
+            && \is_object($resolved)
             && $current::class     === $resolved::class
             && serialize($current) === serialize($resolved);
     }

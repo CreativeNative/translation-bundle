@@ -30,7 +30,7 @@ final class TranslateEventSeedingIntegrationTest extends IntegrationTestCase
                 return;
             }
 
-            $variant->setSlug(sprintf('draft-%s-%s', $event->getLocale(), (string) $variant->getTuuid()));
+            $variant->setSlug(\sprintf('draft-%s-%s', $event->getLocale(), (string) $variant->getTuuid()));
         };
 
         $dispatcher->addListener(PostTranslateEvent::class, $listener);

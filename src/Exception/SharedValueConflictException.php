@@ -27,7 +27,7 @@ final class SharedValueConflictException extends \RuntimeException
         string $localeB,
         mixed $valueB,
     ): self {
-        return new self(sprintf(
+        return new self(\sprintf(
             'Shared property %s::$%s of tuuid %s is being flushed with two different values at once: '
             .'%s on locale "%s" and %s on locale "%s". A #[SharedAmongstTranslations] value must be edited '
             .'on one locale variant per flush -- while propagate_shared_on_flush is on the bundle refuses '
@@ -53,13 +53,13 @@ final class SharedValueConflictException extends \RuntimeException
     {
         return match (true) {
             null === $value                      => 'null',
-            is_bool($value)                      => $value ? 'true' : 'false',
-            is_scalar($value)                    => sprintf('"%s"', (string) $value),
+            \is_bool($value)                     => $value ? 'true' : 'false',
+            \is_scalar($value)                   => \sprintf('"%s"', (string) $value),
             $value instanceof \UnitEnum          => $value::class.'::'.$value->name,
             $value instanceof \DateTimeInterface => $value->format(\DateTimeInterface::ATOM),
-            $value instanceof \Stringable        => sprintf('"%s"', (string) $value),
-            is_object($value)                    => $value::class,
-            default                              => gettype($value),
+            $value instanceof \Stringable        => \sprintf('"%s"', (string) $value),
+            \is_object($value)                   => $value::class,
+            default                              => \gettype($value),
         };
     }
 }

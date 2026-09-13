@@ -78,7 +78,7 @@ final class RootAdopterPass implements CompilerPassInterface
 
             if ([] === $serving) {
                 $errors[] = TranslationRootContractException::forMissingAdopter($rootClass)->getMessage();
-            } elseif (count($serving) > 1) {
+            } elseif (\count($serving) > 1) {
                 $errors[] = TranslationRootContractException::forDuplicateAdopter($rootClass, $serving)->getMessage();
             }
         }
@@ -90,7 +90,7 @@ final class RootAdopterPass implements CompilerPassInterface
         }
 
         if ([] !== $errors) {
-            throw new \LogicException(sprintf("TMI Translation Bundle: Root adopter validation failed with %d error(s):\n\n%s", count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
+            throw new \LogicException(\sprintf("TMI Translation Bundle: Root adopter validation failed with %d error(s):\n\n%s", \count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
         }
     }
 }
