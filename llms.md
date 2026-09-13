@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **968 tests, 8,929 assertions**, all green.
+  `failOnDeprecation`). As of this release: **992 tests, 9,113 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1644,7 +1644,11 @@ created *after* the value was set, so data translated later keeps stale siblings
 drifted — a CI gate for "no shared property has diverged"), `--entity=<FQCN>` (restrict to one
 class), and `--tuuid=<uuid>` (restrict to ONE record) with `--source-locale=<locale>`
 (copy from that row instead of the default-locale row: the targeted repair for a record edited in
-a non-default locale; refused without `--tuuid`). The command is a thin client of
+a non-default locale; refused without `--tuuid`). `-v` prints one line per changed value,
+`<tuuid> <locale> <path>: <old> → <new>` (a managed entity as `ShortClass#id`, an embeddable as
+`ShortClass{…}`, dates in ATOM, enums by case, strings cut at 60 characters), in write mode and
+`--dry-run` alike -- the values come from `SharedValueSyncReport::changes()`, rendered by the
+command. The command is a thin client of
 `SharedValueSynchronizer`, `SharedDriftScanner::pickSource()` and
 `LocaleVariantFinder::streamGroupedByTuuid()` (see "Shared-Value Propagation"), so its
 discovery also covers to-one associations to a **non**-translatable target; a shared collection,
@@ -1667,8 +1671,10 @@ entirely when nothing drifted.
 **Every run says which row it treats as the source**, because getting that wrong is how the
 command destroys an edit. A whole-table run in **write** mode prints one note before the first
 `UPDATE`: it copies each record from its default-locale row, so a record edited in another
-locale is reverted — repair those first with `--tuuid --source-locale`. `--dry-run` and
-`--check` write nothing and print no such note. A `--tuuid` run prints a `Source:` line naming
+locale is reverted — repair those first with `--tuuid --source-locale`. On an interactive
+terminal it then asks `Continue? [no]` and, declined, prints `Aborted, nothing written.` and
+exits 0; a script passes `-n` (`--no-interaction`) and writes without the question. `--dry-run`
+and `--check` write nothing, print no such note and never ask. A `--tuuid` run prints a `Source:` line naming
 the **rule** that picked the row, not only the locale it landed on: `named by --source-locale`,
 `the default-locale rule, applied in every mode`, or `the group's first row` when the record
 has no default-locale variant. `--source-locale` is honoured in `--check` exactly as in write
@@ -1775,6 +1781,10 @@ public static function valuesEqual(mixed $a, mixed $b): bool;
   instance); enums assigned, never cloned; associations the identical instance; a readonly
   property that differs is reported in `SharedValueSyncReport::readonlyDrift()`, never written;
   an uninitialized typed property on the source is skipped, on the sibling it reads as null.
+- **What changed**: `SharedValueSyncReport::changes()` carries one `SharedValueChange` per path in
+  `changed()` -- `path`, `association`, the sibling's `old` value and the source's `new` one, raw
+  (an association change carries the instance itself). `compare()` fills it exactly as `sync()`
+  does, so a preview shows what a write would overwrite; `sync-shared -v` renders it.
 - `$onlyProperties` accepts either path shape; naming one column of a whole shared embeddable
   selects the embeddable.
 - `tmi:translation:sync-shared` is a thin client of this service (same discovery, so the

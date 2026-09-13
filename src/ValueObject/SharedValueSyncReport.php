@@ -25,11 +25,14 @@ final readonly class SharedValueSyncReport
      * @param list<string> $rootDrift     root references that differ between the siblings --
      *                                    never written by the shared-value machinery, only by
      *                                    `tmi:translation:adopt-root`'s own classification
+     * @param list<SharedValueChange> $changes one entry per path in $changed, carrying the
+     *                                         sibling's old value and the source's new one
      */
     public function __construct(
         private array $changed,
         private array $readonlyDrift,
         private array $rootDrift = [],
+        private array $changes = [],
     ) {
     }
 
@@ -55,6 +58,17 @@ final readonly class SharedValueSyncReport
     public function rootDrift(): array
     {
         return $this->rootDrift;
+    }
+
+    /**
+     * The values behind {@see changed()}, in the same order: what the sibling held and
+     * what the source gave it (or would give it, for a comparison).
+     *
+     * @return list<SharedValueChange>
+     */
+    public function changes(): array
+    {
+        return $this->changes;
     }
 
     public function hasChanges(): bool

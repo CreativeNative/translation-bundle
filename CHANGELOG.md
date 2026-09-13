@@ -34,6 +34,12 @@ and their notes in the GitHub releases.
 - `ValidationException::fromMessages()`: the aggregate a compiler pass throws (label, one line per
   message, the messages as errors); `ReadonlyPropertyException::forWriteDuringTranslate()` for the
   readonly write `DoctrineObjectHandler` refuses (was a bare `\LogicException`).
+- `ValueObject\SharedValueChange` and `SharedValueSyncReport::changes()`: the values behind every
+  changed path (the sibling's old value, the source's new one, association or not) — filled by
+  `SharedValueSynchronizer::sync()` and `compare()` alike.
+- `tmi:translation:sync-shared -v` prints one line per changed value,
+  `<tuuid> <locale> <path>: <old> → <new>` (a managed entity as `ShortClass#id`, an embeddable
+  as `ShortClass{…}`, dates in ATOM, enums by case), in write mode and `--dry-run` alike.
 - `Doctrine\UniqueConstraintValidator` (the two unique-constraint rules for one class's metadata)
   and `Doctrine\EventListener\UniqueConstraintListener` (`loadClassMetadata`, priority -10): a
   translatable entity whose unique constraints ignore the locale column fails the moment
@@ -73,6 +79,10 @@ and their notes in the GitHub releases.
 - `TranslatableEventSubscriber` is registered through `doctrine.event_listener` tags for its three
   events (plus its `#[AsDoctrineListener]` attributes); `#[EmptyOnTranslate]`,
   `#[SharedAmongstTranslations]` are `final`.
+- `tmi:translation:sync-shared` in whole-table write mode asks for confirmation on an
+  interactive terminal, right after the note that names its source rule — the mode reverts a
+  record edited in another locale, and a count is no substitute for a question. Scripts pass
+  `-n` and get the previous behaviour; `--dry-run`, `--check` and `--tuuid` never ask (#46).
 - The unique-constraint gate runs at metadata load, not as a cache warmer. The warmer was
   optional, and Symfony skips optional warmers on the lazy container rebuild
   `Kernel::initializeContainer()` performs when the cache is absent — a fresh deploy without an

@@ -118,7 +118,8 @@ final class SyncSharedTranslationsCommandRootTest extends IntegrationTestCase
         );
 
         $tester = new CommandTester($command);
-        $tester->execute($input);
+        // Non-interactive, like a script (-n): the whole-table write mode would otherwise ask.
+        $tester->execute($input, ['interactive' => false]);
 
         return $tester;
     }

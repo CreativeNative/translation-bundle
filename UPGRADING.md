@@ -139,7 +139,16 @@ command, `doctrine:schema:*`, a test kernel's boot — fails with the same messa
 a mapping fails at boot now instead of passing. **Action:** none for a clean mapping; a bad one
 was already refused by `cache:warmup`.
 
-### 9. `enable_logging: false` now silences `EmbeddedHandler` too
+### 9. `sync-shared`'s whole-table write asks first
+
+On an interactive terminal `tmi:translation:sync-shared` (no `--dry-run`, no `--check`, no
+`--tuuid`) prints its source-rule note and then asks `Continue? [no]` before the first write;
+answering no prints `Aborted, nothing written.` and exits 0. A cron job or deploy script passes
+`-n` (`--no-interaction`) and behaves as before. `-v` now lists every value the run changes (or
+would change), `<tuuid> <locale> <path>: <old> → <new>`, so the decision can be an informed one:
+run `--dry-run -v` first. **Action:** add `-n` to any scripted whole-table write.
+
+### 10. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -221,6 +230,7 @@ its own `composer.json`.
    entity — share it or accept the empty seed (Behavioural Changes 1).
 6. `#[EmptyOnTranslate]` on a non-nullable object type fails `cache:clear` now — make it nullable.
 7. A custom `TranslationCacheInterface` implementation adds `remove()`.
+8. A scripted whole-table `tmi:translation:sync-shared` write adds `-n`.
 
 ---
 

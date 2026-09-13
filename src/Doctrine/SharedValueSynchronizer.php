@@ -10,6 +10,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\PropertyLocation;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
+use Tmi\TranslationBundle\ValueObject\SharedValueChange;
 use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
 
 /**
@@ -198,6 +199,7 @@ final class SharedValueSynchronizer
     private function reconcile(TranslatableInterface $source, TranslatableInterface $sibling, array|null $onlyProperties, bool $write): SharedValueSyncReport
     {
         $changed       = [];
+        $changes       = [];
         $readonlyDrift = [];
         $rootDrift     = [];
 
@@ -245,6 +247,7 @@ final class SharedValueSynchronizer
             }
 
             $changed[] = $shared['path'];
+            $changes[] = new SharedValueChange($shared['path'], $shared['association'], $current, $value);
 
             if ($write) {
                 $property->setValue(
@@ -254,7 +257,7 @@ final class SharedValueSynchronizer
             }
         }
 
-        return new SharedValueSyncReport($changed, $readonlyDrift, $rootDrift);
+        return new SharedValueSyncReport($changed, $readonlyDrift, $rootDrift, $changes);
     }
 
     /**

@@ -23,6 +23,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneUnid
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Enum\Priority;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
+use Tmi\TranslationBundle\ValueObject\SharedValueChange;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
@@ -281,6 +282,14 @@ final class SharedValueSynchronizerTest extends IntegrationTestCase
         self::assertSame(['sku'], $report->readonlyDrift());
         self::assertTrue($report->hasChanges());
         self::assertSame('stale', $de->getNote(), 'compare() must not write.');
+
+        self::assertCount(1, $report->changes());
+        $change = $report->changes()[0];
+        self::assertSame('note', $change->path);
+        self::assertFalse($change->association);
+        self::assertSame('stale', $change->old);
+        self::assertSame('canonical', $change->new);
+        self::assertSame([], array_filter($report->changes(), static fn (SharedValueChange $change): bool => 'sku' === $change->path), 'readonly drift is not a change');
     }
 
     public function testSyncWritesTheWritableDriftAndReportsTheReadonlyOne(): void
@@ -298,6 +307,38 @@ final class SharedValueSynchronizerTest extends IntegrationTestCase
         self::assertSame(['sku'], $report->readonlyDrift());
         self::assertSame('canonical', $de->getNote());
         self::assertSame('SKU-DE', $de->getSku(), 'A readonly property is reported, never written.');
+    }
+
+    public function testChangesCarryTheIdenticalInstanceForAnAssociationAndTheValuesForAnEmbeddedPath(): void
+    {
+        $tuuid = Tuuid::generate();
+        $child = new NonTranslatableManyToOneBidirectionalChild();
+
+        $en = new TranslatableManyToOneUnidirectional()->setTuuid($tuuid)->setLocale('en_US')->setSharedToNonTranslatable($child);
+        $de = new TranslatableManyToOneUnidirectional()->setTuuid($tuuid)->setLocale('de_DE');
+        $this->persistAll($en, $de);
+
+        $association = $this->synchronizer()->compare($en, $de)->changes();
+        self::assertCount(1, $association);
+        self::assertSame('sharedToNonTranslatable', $association[0]->path);
+        self::assertTrue($association[0]->association);
+        self::assertNull($association[0]->old);
+        self::assertSame($child, $association[0]->new, 'an association change carries the instance itself, never a clone');
+
+        $embeddedTuuid = Tuuid::generate();
+        $sourceRow     = new EmbeddedSharedTranslatable()->setTuuid($embeddedTuuid)->setLocale('en_US');
+        $sourceRow->getPropertyShared()->setReference('REF-EN');
+        $siblingRow = new EmbeddedSharedTranslatable()->setTuuid($embeddedTuuid)->setLocale('de_DE');
+        $siblingRow->getPropertyShared()->setReference('REF-OLD');
+        $this->persistAll($sourceRow, $siblingRow);
+
+        $embedded = $this->synchronizer()->sync($sourceRow, $siblingRow)->changes();
+        self::assertCount(1, $embedded);
+        self::assertSame('propertyShared.reference', $embedded[0]->path);
+        self::assertFalse($embedded[0]->association);
+        self::assertSame('REF-OLD', $embedded[0]->old);
+        self::assertSame('REF-EN', $embedded[0]->new);
+        self::assertSame('REF-EN', $siblingRow->getPropertyShared()->getReference(), 'sync() writes and reports the same change');
     }
 
     public function testAnUninitializedSourcePropertyIsSkipped(): void

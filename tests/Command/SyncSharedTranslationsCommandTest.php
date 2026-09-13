@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Command;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadataFactory;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
@@ -22,6 +23,8 @@ use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiToy;
 use Tmi\TranslationBundle\Fixtures\Entity\ReadonlyShared\ReadonlyShared;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\SharedDate\SharedDate;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\NonTranslatableManyToOneBidirectionalChild;
+use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneUnidirectional;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -59,6 +62,107 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
             'Write mode copies each record',
             self::normalizeTable($this->run_(['--check' => true])->getDisplay()),
         );
+    }
+
+    /**
+     * Negative proof against 5.1: an interactive whole-table write asked nothing and
+     * wrote; here the operator says no and the stale sibling stays as it was.
+     */
+    public function testAnInteractiveWholeTableWriteAsksFirstAndAbortsOnNo(): void
+    {
+        $deId = $this->seedPair('English shared', 'Stale german shared');
+
+        $tester = $this->tester();
+        $tester->setInputs(['no']);
+        $tester->execute([]);
+
+        $display = self::normalizeTable($tester->getDisplay());
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Write mode reverts records edited in another locale to the default-locale values. Continue? (yes/no) [no]:', $display);
+        self::assertStringContainsString('Aborted, nothing written.', $display);
+        self::assertStringNotContainsString('translation(s) updated', $display);
+        self::assertSame('Stale german shared', $this->reloadShared($deId));
+    }
+
+    public function testAnInteractiveWholeTableWriteProceedsOnYes(): void
+    {
+        $deId = $this->seedPair('English shared', 'Stale german shared');
+
+        $tester = $this->tester();
+        $tester->setInputs(['yes']);
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());
+        self::assertStringNotContainsString('Aborted', $tester->getDisplay());
+        self::assertSame('English shared', $this->reloadShared($deId));
+    }
+
+    public function testNeitherDryRunNorCheckAsks(): void
+    {
+        $this->seedPair('English shared', 'Stale german shared');
+
+        foreach ([['--dry-run' => true], ['--check' => true]] as $input) {
+            $tester = $this->tester();
+            $tester->setInputs(['no']);
+            $tester->execute($input);
+
+            self::assertStringNotContainsString('Continue?', $tester->getDisplay());
+            self::assertStringNotContainsString('Aborted', $tester->getDisplay());
+        }
+    }
+
+    /**
+     * Negative proof against 5.1: -v printed no values at all; the operator saw a count
+     * and a drift table, never WHAT a write had overwritten.
+     */
+    public function testVerboseShowsEveryChangedValueForScalarsAndAssociations(): void
+    {
+        $tuuid = Tuuid::generate();
+        $this->seedPair('English shared', 'Stale german shared');
+
+        $child = new NonTranslatableManyToOneBidirectionalChild();
+        $en    = new TranslatableManyToOneUnidirectional()->setTuuid($tuuid)->setLocale('en_US')->setSharedToNonTranslatable($child);
+        $de    = new TranslatableManyToOneUnidirectional()->setTuuid($tuuid)->setLocale('de_DE');
+        $this->persistPair($en, $de);
+        $childId = $child->getId();
+        self::assertNotNull($childId);
+
+        $display = self::normalizeTable($this->run_([], ['verbosity' => OutputInterface::VERBOSITY_VERBOSE])->getDisplay());
+
+        self::assertMatchesRegularExpression('/[0-9a-f-]{36} de_DE shared: "Stale german shared" → "English shared"/', $display);
+        self::assertStringContainsString(
+            \sprintf('%s de_DE sharedToNonTranslatable: null → NonTranslatableManyToOneBidirectionalChild#%d', $tuuid, $childId),
+            $display,
+        );
+        self::assertStringContainsString('2 translation(s) updated', $display);
+    }
+
+    public function testVerboseShowsAnEmbeddedPathAndDryRunShowsWhatWouldChange(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $en = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('en_US');
+        $en->getPropertyShared()->setReference('REF-EN');
+        $de = new EmbeddedSharedTranslatable()->setTuuid($tuuid)->setLocale('de_DE');
+        $de->getPropertyShared()->setReference('REF-OLD');
+        $this->persistPair($en, $de);
+
+        $display = self::normalizeTable($this->run_(['--dry-run' => true], ['verbosity' => OutputInterface::VERBOSITY_VERBOSE])->getDisplay());
+
+        self::assertStringContainsString(\sprintf('%s de_DE propertyShared.reference: "REF-OLD" → "REF-EN"', $tuuid), $display);
+        self::assertStringContainsString('would be updated', $display);
+    }
+
+    public function testWithoutVerboseNoValueIsShown(): void
+    {
+        $this->seedPair('English shared', 'Stale german shared');
+
+        $display = $this->run_()->getDisplay();
+
+        self::assertStringNotContainsString('→', $display);
+        self::assertStringNotContainsString('Stale german shared', $display);
+        self::assertStringContainsString('1 translation(s) updated', $display);
     }
 
     public function testDryRunDoesNotWrite(): void
@@ -1036,9 +1140,21 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
     }
 
     /**
+     * Runs the command non-interactively (the way a script does, `-n`), so the
+     * whole-table write mode's confirmation prompt never blocks a test.
+     *
      * @param array<string, bool|string> $input
+     * @param array<string, mixed>       $options CommandTester options merged over `interactive: false`
      */
-    private function run_(array $input = []): CommandTester
+    private function run_(array $input = [], array $options = []): CommandTester
+    {
+        $tester = $this->tester();
+        $tester->execute($input, ['interactive' => false, ...$options]);
+
+        return $tester;
+    }
+
+    private function tester(): CommandTester
     {
         $synchronizer = self::getContainer()->get('test.shared_value_synchronizer');
         self::assertInstanceOf(SharedValueSynchronizer::class, $synchronizer);
@@ -1054,9 +1170,6 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
             'en_US',
         );
 
-        $tester = new CommandTester($command);
-        $tester->execute($input);
-
-        return $tester;
+        return new CommandTester($command);
     }
 }

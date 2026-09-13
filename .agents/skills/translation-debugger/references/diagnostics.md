@@ -487,9 +487,10 @@ because the value was set in one locale and the entity translated to others *aft
 **How to check / fix:**
 
 ```bash
-php bin/console tmi:translation:sync-shared --dry-run   # preview
-php bin/console tmi:translation:sync-shared             # apply
-php bin/console tmi:translation:sync-shared --check     # CI gate: exit non-zero on drift
+php bin/console tmi:translation:sync-shared --dry-run -v  # preview, one line per changed value
+php bin/console tmi:translation:sync-shared               # apply (asks Continue? on a terminal)
+php bin/console tmi:translation:sync-shared -n            # apply from a script, no question
+php bin/console tmi:translation:sync-shared --check       # CI gate: exit non-zero on drift
 ```
 
 The command copies every `#[SharedAmongstTranslations]` value from the default-locale row to

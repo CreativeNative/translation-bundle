@@ -228,8 +228,10 @@ cross-check requires them.
   values from the default-locale row to all sibling locale variants — columns, embeddables and
   to-one associations to a non-translatable target, the same discovery as the flush-time
   propagation (`--dry-run`, `--check` for a CI drift gate, `--entity=<FQCN>`, and
-  `--tuuid=<uuid> --source-locale=<locale>` to repair one record from the row you name); prints
-  a `Property | Tuuids | Rows | Writable` table naming every drifted property. The read
+  `--tuuid=<uuid> --source-locale=<locale>` to repair one record from the row you name, `-v` for
+  one `<tuuid> <locale> <path>: <old> → <new>` line per changed value); prints a
+  `Property | Tuuids | Rows | Writable` table naming every drifted property; the interactive
+  whole-table write asks `Continue? [no]` first (scripts pass `-n`). The read
   side is also a service: `SharedDriftScanner::scan($class)` streams one `SharedDrift` per
   drifted sibling row and property, on top of `LocaleVariantFinder::streamGroupedByTuuid()`.
 

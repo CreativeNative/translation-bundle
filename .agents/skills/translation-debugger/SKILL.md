@@ -112,7 +112,8 @@ Run `tmi:translation:doctor` (Layer 6) — likely a standalone Tuuid created by 
 `EntityTranslator::translate()`. See diagnostics Check 6.1.
 
 ### "Shared field differs between locales"
-Run `tmi:translation:sync-shared --dry-run`, then without `--dry-run`. Drift on a fresh
+Run `tmi:translation:sync-shared --dry-run -v` (one line per value that would change), then
+without `--dry-run` — it asks `Continue?` on a terminal; scripts pass `-n`. Drift on a fresh
 database means `propagate_shared_on_flush` is off (it is on by default) — or the field is one
 the application varies per locale on purpose and should not carry the attribute at all. See
 diagnostics Check 6.2. A `listing`-style path listed as **not writable** with a warning naming

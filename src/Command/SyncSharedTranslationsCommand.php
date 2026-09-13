@@ -18,6 +18,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
+use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
 
 /**
@@ -67,6 +68,8 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 )]
 final class SyncSharedTranslationsCommand extends Command
 {
+    private readonly SharedValueRenderer $renderer;
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
@@ -76,6 +79,8 @@ final class SyncSharedTranslationsCommand extends Command
         private readonly string $defaultLocale,
     ) {
         parent::__construct();
+
+        $this->renderer = new SharedValueRenderer($entityManager);
     }
 
     #[\Override]
@@ -119,6 +124,10 @@ final class SyncSharedTranslationsCommand extends Command
         if ([] === $classes) {
             $io->warning('No translatable entities found.');
 
+            return Command::SUCCESS;
+        }
+
+        if (null === $tuuidOption && $mode->writes() && !$this->confirmWholeTableWrite($io, $input)) {
             return Command::SUCCESS;
         }
 
@@ -166,23 +175,6 @@ final class SyncSharedTranslationsCommand extends Command
      */
     private function runWholeTable(SymfonyStyle $io, array $classes, RunMode $mode, SyncSharedRun $run): int
     {
-        if ($mode->writes()) {
-            // The whole-table write mode has no per-group source line to carry
-            // the warning describeSource() carries for --tuuid, and it is the
-            // mode that can destroy an edit: every group is copied FROM its
-            // default-locale row, so a record edited in another locale is
-            // reverted to the stale default-locale values. Say so once, before
-            // the first UPDATE, rather than leaving it to the documentation.
-            $io->note(\sprintf(
-                'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
-                .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
-                .'to the stale default-locale values by this run -- repair those one at a time first with '
-                .'--tuuid=<uuid> --source-locale=<locale>, then re-run this. --dry-run and --check never write.',
-                $this->defaultLocale,
-                $this->defaultLocale,
-            ));
-        }
-
         $totalUpdated = 0;
 
         foreach ($classes as $class) {
@@ -192,6 +184,65 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         return $totalUpdated;
+    }
+
+    /**
+     * The whole-table write mode has no per-group source line to carry the warning
+     * describeSource() carries for --tuuid, and it is the mode that can destroy an
+     * edit: every group is copied FROM its default-locale row, so a record edited in
+     * another locale is reverted to the stale default-locale values. Say so once,
+     * before the first UPDATE -- and, on an interactive terminal, ask. A script
+     * passes -n (--no-interaction) and gets the pre-5.2 behaviour: note, then write.
+     * --dry-run and --check never reach this method.
+     *
+     * @return bool false when the operator declined; nothing was written
+     */
+    private function confirmWholeTableWrite(SymfonyStyle $io, InputInterface $input): bool
+    {
+        $io->note(\sprintf(
+            'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
+            .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
+            .'to the stale default-locale values by this run -- repair those one at a time first with '
+            .'--tuuid=<uuid> --source-locale=<locale>, then re-run this. --dry-run and --check never write.',
+            $this->defaultLocale,
+            $this->defaultLocale,
+        ));
+
+        if (!$input->isInteractive()) {
+            return true;
+        }
+
+        if ($io->confirm('Write mode reverts records edited in another locale to the default-locale values. Continue?', false)) {
+            return true;
+        }
+
+        $io->note('Aborted, nothing written.');
+
+        return false;
+    }
+
+    /**
+     * With -v, one line per changed value: `<tuuid> <locale> <path>: <old> -> <new>`, so
+     * an operator sees what a write overwrote (or what --dry-run would) instead of a
+     * count. The synchronizer hands over raw values; {@see SharedValueRenderer} formats them,
+     * which keeps the synchronizer free of Doctrine display concerns.
+     */
+    private function logChanges(SymfonyStyle $io, TranslatableInterface $sibling, SharedValueSyncReport $report): void
+    {
+        if (!$io->isVerbose()) {
+            return;
+        }
+
+        foreach ($report->changes() as $change) {
+            $io->text(\sprintf(
+                '  %s %s %s: %s → %s',
+                $sibling->getTuuid(),
+                $sibling->getLocale() ?? '?',
+                $change->path,
+                $this->renderer->render($change->old),
+                $this->renderer->render($change->new),
+            ));
+        }
     }
 
     /**
@@ -305,7 +356,7 @@ final class SyncSharedTranslationsCommand extends Command
 
         $run->beginClass();
 
-        $updated = $this->syncGroup($group, $source, $mode, $run);
+        $updated = $this->syncGroup($io, $group, $source, $mode, $run);
 
         if ($mode->writes()) {
             $this->entityManager->flush();
@@ -371,7 +422,7 @@ final class SyncSharedTranslationsCommand extends Command
 
         $run->beginClass();
 
-        $updated = $this->syncStream($class, $mode, $run);
+        $updated = $this->syncStream($io, $class, $mode, $run);
 
         $this->reportClass($io, $updated, $run);
 
@@ -421,13 +472,13 @@ final class SyncSharedTranslationsCommand extends Command
      *
      * @param class-string $class
      */
-    private function syncStream(string $class, RunMode $mode, SyncSharedRun $run): int
+    private function syncStream(SymfonyStyle $io, string $class, RunMode $mode, SyncSharedRun $run): int
     {
         $updated = 0;
         $batch   = new GroupBatch($this->entityManager, $mode->writes());
 
         foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
-            $updated += $this->syncGroup($group, $this->scanner->pickSource($group), $mode, $run);
+            $updated += $this->syncGroup($io, $group, $this->scanner->pickSource($group), $mode, $run);
 
             $batch->settle($group);
             $batch->tick();
@@ -450,7 +501,7 @@ final class SyncSharedTranslationsCommand extends Command
      *
      * @param list<TranslatableInterface> $variants
      */
-    private function syncGroup(array $variants, TranslatableInterface $source, RunMode $mode, SyncSharedRun $run): int
+    private function syncGroup(SymfonyStyle $io, array $variants, TranslatableInterface $source, RunMode $mode, SyncSharedRun $run): int
     {
         $count = 0;
 
@@ -459,7 +510,7 @@ final class SyncSharedTranslationsCommand extends Command
                 continue;
             }
 
-            if ($this->syncSibling($source, $sibling, $mode, $run)) {
+            if ($this->syncSibling($io, $source, $sibling, $mode, $run)) {
                 ++$count;
             }
         }
@@ -467,11 +518,13 @@ final class SyncSharedTranslationsCommand extends Command
         return $count;
     }
 
-    private function syncSibling(TranslatableInterface $source, TranslatableInterface $sibling, RunMode $mode, SyncSharedRun $run): bool
+    private function syncSibling(SymfonyStyle $io, TranslatableInterface $source, TranslatableInterface $sibling, RunMode $mode, SyncSharedRun $run): bool
     {
         $report = $mode->writes()
             ? $this->synchronizer->sync($source, $sibling)
             : $this->synchronizer->compare($source, $sibling);
+
+        $this->logChanges($io, $sibling, $report);
 
         foreach ($report->readonlyDrift() as $path) {
             $run->noteUnwritable($sibling, $path, false);

@@ -180,7 +180,8 @@ child clone reached through a shared back-reference is announced and cached like
 - `Doctrine/SharedValueSynchronizer` — the one discovery + copy of `#[SharedAmongstTranslations]`
   values with the **edited row as source**: `syncFrom()` (every sibling, returns the changed
   ones managed and unflushed), `siblingsOf()`, `sync()`/`compare()` (one sibling, with/without
-  writing → `ValueObject/SharedValueSyncReport`: `changed()`, `readonlyDrift()`), memoized
+  writing → `ValueObject/SharedValueSyncReport`: `changed()`, `readonlyDrift()`, `rootDrift()`,
+  `changes()` = one `ValueObject/SharedValueChange` per changed path with the raw old/new values), memoized
   `sharedProperties(class)` — mapped columns, embeddables in all three declaration places, to-one
   associations to a non-translatable target; never a collection or an association to a
   translatable target. Every entry carries the printed property path and the UnitOfWork
@@ -218,7 +219,7 @@ child clone reached through a shared back-reference is announced and cached like
 | Command | Purpose |
 |---------|---------|
 | `tmi:translation:doctor` | Scan for broken linkage: orphan (non-default-locale-only) Tuuids, duplicate `(tuuid, locale)` pairs and `null-tuuid` rows (a literal DB `NULL`, only reachable via a write outside the entity layer) fail the run; untranslated (default-locale-only) and incomplete records are listed for information, counted with `--strict`; `--entity=<FQCN>` restricts the scan |
-| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table; a translation root reference the siblings disagree on is reported as not writable and fails the run |
+| `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row), `-v` (one `<tuuid> <locale> <path>: <old> → <new>` line per changed value, rendered by the command from `changes()`); prints a `Property \| Tuuids \| Rows \| Writable` drift table; the interactive whole-table write asks `Continue? [no]` after its source-rule note (`-n` in scripts; `--dry-run`/`--check`/`--tuuid` never ask); a translation root reference the siblings disagree on is reported as not writable and fails the run |
 | `tmi:translation:adopt-root` | Create translation roots for the `tuuid` groups that predate them, through the registered `RootAdopterInterface` per hierarchy; classifies every group before writing (`mismatched`/`new`/`complete`/`partial`/`drift`/`ambiguous`), aborts write mode on mismatched/drift/ambiguous; `--dry-run`, `--check` (CI gate: only `complete` groups, no root without rows, every `tuuid_orphan_counter` at 0), `--entity` (streams the hierarchy root) |
 
 ## Translation Roots
@@ -286,7 +287,7 @@ child clone reached through a shared back-reference is announced and cached like
 
 ```
 src/
-├── Command/              # Diagnostic / maintenance console commands; RunMode (--check/--dry-run), SyncSharedRun (sync-shared's run state)
+├── Command/              # Diagnostic / maintenance console commands; RunMode (--check/--dry-run), SyncSharedRun (sync-shared's run state), SharedValueRenderer (-v value lines)
 ├── DependencyInjection/  # Bundle configuration
 ├── Doctrine/             # ORM integration (models, types, filters, listeners); GroupBatch (flush/detach cycle of the streaming commands)
 │   └── Root/             # RootAdopterInterface, RootAdopterRegistry, TuuidOrphanCounterInterface, RootCheckAggregator (5.1)
