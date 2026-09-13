@@ -134,14 +134,23 @@ final readonly class LocaleVariantFinder
      * suspended for the duration of the iteration and restored when the
      * generator finishes or is destroyed.
      *
-     * Shared by {@see SharedDriftScanner} (read-only drift report) and
-     * `tmi:translation:sync-shared` (back-fill), so both walk a table the same way.
+     * Shared by {@see SharedDriftScanner} (read-only drift report),
+     * `tmi:translation:sync-shared` (back-fill) and `tmi:translation:adopt-root`, so
+     * all three walk a table the same way.
+     *
+     * `$fetchJoins` names to-one associations of `$class` to hydrate in the same
+     * query (`LEFT JOIN` + `ADD SELECT`). Without it, a to-one target that has
+     * subclasses (an STI/JOINED root) cannot be a lazy proxy -- Doctrine loads it
+     * with one `find()` per row during hydration -- and a plain target is a proxy
+     * the first read initializes: one extra query per group either way. To-one only:
+     * `toIterable()` refuses a fetch-joined collection.
      *
      * @param class-string $class
+     * @param list<string> $fetchJoins
      *
      * @return \Generator<int, non-empty-list<TranslatableInterface>>
      */
-    public function streamGroupedByTuuid(string $class): \Generator
+    public function streamGroupedByTuuid(string $class, array $fetchJoins = []): \Generator
     {
         $filters    = $this->entityManager->getFilters();
         $wasEnabled = $filters->has(LocaleFilter::NAME) && $filters->isEnabled(LocaleFilter::NAME);
@@ -151,11 +160,16 @@ final readonly class LocaleVariantFinder
         }
 
         try {
-            $query = $this->entityManager->createQueryBuilder()
+            $builder = $this->entityManager->createQueryBuilder()
                 ->select('t')
                 ->from($class, 't')
-                ->orderBy('t.tuuid')
-                ->getQuery();
+                ->orderBy('t.tuuid');
+
+            foreach ($fetchJoins as $index => $association) {
+                $builder->leftJoin('t.'.$association, 'j'.$index)->addSelect('j'.$index);
+            }
+
+            $query = $builder->getQuery();
 
             $currentTuuid = null;
 

@@ -202,8 +202,11 @@ child clone reached through a shared back-reference is announced and cached like
   `enable_logging`.
 - `Doctrine/LocaleVariantFinder::streamGroupedByTuuid()` — streams a whole table grouped by
   Tuuid (managed, locale filter suspended for the iteration, restored in the generator's
-  `finally`); the shared core of the scanner and the command. Consumers detach each group
-  themselves and never `clear()` mid-iteration (the next group's first row is already hydrated).
+  `finally`); the shared core of the scanner and both commands. Optional `$fetchJoins` (to-one
+  association names) hydrate e.g. the root reference in the same query — `adopt-root` needs it
+  because a root with subclasses can never be a lazy proxy (Doctrine `find()`s it per row).
+  Consumers detach each group themselves — `adopt-root` its roots too — and never `clear()`
+  mid-iteration (the next group's first row is already hydrated).
 - `Doctrine/SharedDriftScanner` — read-only `scan(class)` → `\Generator<ValueObject/SharedDrift>`
   (entity class, Tuuid, path, source locale, drifted locale, readonly flag; locations, never
   values), one per drifted sibling row and property, detaching each group as it goes;
@@ -279,6 +282,9 @@ child clone reached through a shared back-reference is announced and cached like
 - `InMemoryTranslationCache` **and** `EntityTranslator` are tagged `kernel.reset`
   (`ResetInterface`, explicit tag — Symfony does not autoconfigure it) so a long-running
   worker resets the cache, and forgets `preload()`'s miss memory, between units of work.
+- `sync-shared` and `adopt-root` cost one streamed query per class/hierarchy in read-only modes
+  (`adopt-root` plus its `NOT EXISTS` count), one `UPDATE` per drifted row / one `INSERT` per new
+  root and one `UPDATE` per attached row in write mode, and leave the UnitOfWork empty.
 - `tests/Performance/QueryBudgetTest.php` asserts an exact query count (`assertSame`, not a
   ceiling) for every operation in this list, via `tests/Support/QueryCounter.php` behind
   DBAL's logging middleware — see README.md § Performance for the numbers.

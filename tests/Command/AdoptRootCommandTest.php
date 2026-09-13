@@ -150,6 +150,31 @@ final class AdoptRootCommandTest extends IntegrationTestCase
         }
     }
 
+    /**
+     * Negative proof against 5.1: only the rows were settled, so every classified
+     * group left its root proxy managed -- 25 complete groups, at least 25 managed
+     * roots after a --dry-run, and a --check over a large table grew the UnitOfWork by
+     * one root per group. Roots are settled with their rows now.
+     */
+    public function testARunLeavesNothingManagedRootsIncluded(): void
+    {
+        for ($i = 0; $i < 25; ++$i) {
+            $this->seedGroup(EstateA::class, ['en_US', 'de_DE']);
+        }
+
+        self::assertSame(Command::SUCCESS, $this->run_()->getStatusCode());
+        self::assertSame(25, $this->countRoots());
+        $this->entityManager()->clear();
+
+        $tester = $this->run_(['--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertSame(0, $this->entityManager()->getUnitOfWork()->size(), 'rows and roots of every settled group are detached');
+
+        self::assertSame(Command::SUCCESS, $this->run_()->getStatusCode());
+        self::assertSame(0, $this->entityManager()->getUnitOfWork()->size(), 'write mode too');
+    }
+
     // ------------------------------------------------------------------
     // Write mode refuses: drift / ambiguous / mismatched -- before the first write
     // ------------------------------------------------------------------

@@ -54,8 +54,11 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * every row; a PARTIAL group has its missing rows attached to the EXISTING root
  * (self-healing). A group's persist and every attach complete before the batch's flush,
  * and the batch counter increments per group, never per row -- an interruption never
- * commits a half-attached group. Settled entities are detached individually (the
- * finder's lookahead row is already hydrated; never a blanket clear()).
+ * commits a half-attached group. Settled entities -- the rows AND their roots -- are
+ * detached individually (the finder's lookahead row is already hydrated; never a
+ * blanket clear()), so peak memory is a small multiple of the locale count however
+ * large the table. The stream fetch-joins the root references, so a pass is one
+ * query however many groups it classifies (see rootReferenceJoins()).
  *
  * --dry-run classifies and reports, writes nothing. --check implies --dry-run and fails
  * on ANY new, partial, drift, ambiguous or mismatched group, on any root without rows
@@ -261,7 +264,7 @@ final class AdoptRootCommand extends Command
         $listed = [];
         $batch  = new GroupBatch($this->entityManager, false);
 
-        foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
+        foreach ($this->finder->streamGroupedByTuuid($class, $this->rootReferenceJoins($class)) as $group) {
             $classification = $this->classify($adopter, $group);
             $kind           = $classification['kind'];
 
@@ -272,6 +275,7 @@ final class AdoptRootCommand extends Command
             }
 
             $batch->settle($group);
+            $batch->settle($this->rootsOf($adopter, $group));
             $batch->tick();
         }
 
@@ -314,24 +318,77 @@ final class AdoptRootCommand extends Command
         $adopted = 0;
         $batch   = new GroupBatch($this->entityManager, true);
 
-        foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
+        foreach ($this->finder->streamGroupedByTuuid($class, $this->rootReferenceJoins($class)) as $group) {
             $kind = $this->classify($adopter, $group)['kind'];
 
             if (self::KIND_NEW === $kind) {
-                $batch->settle([$this->adoptNewGroup($adopter, $group)]);
+                $this->adoptNewGroup($adopter, $group);
                 ++$adopted;
             } elseif (self::KIND_PARTIAL === $kind) {
                 $this->healPartialGroup($adopter, $group);
                 ++$adopted;
             }
 
+            // The group's root -- existing, healed onto, or just minted and persisted
+            // -- is settled with its rows: detached after the batch's flush.
             $batch->settle($group);
+            $batch->settle($this->rootsOf($adopter, $group));
             $batch->tick();
         }
 
         $batch->finish();
 
         return $adopted;
+    }
+
+    /**
+     * The root-reference associations declared on $class itself, for the stream's
+     * fetch join. A root is an STI/JOINED hierarchy more often than not, and Doctrine
+     * cannot proxy a to-one target that has subclasses: it loads it with one find()
+     * per row during hydration -- 1 + G queries for G groups. A plain root class is a
+     * proxy that classify()'s first read initializes, the same 1 + G. Joined, the
+     * stream is one query. A reference a subclass alone declares cannot be joined
+     * from the hierarchy root's alias and keeps Doctrine's own loading.
+     *
+     * @param class-string $class
+     *
+     * @return list<string>
+     */
+    private function rootReferenceJoins(string $class): array
+    {
+        $metadata = $this->entityManager->getClassMetadata($class);
+        $joins    = [];
+
+        foreach ($this->rootReferences($class) as $reference) {
+            if ($reference['class'] === $class && $metadata->hasAssociation($reference['property'])) {
+                $joins[] = $reference['property'];
+            }
+        }
+
+        return $joins;
+    }
+
+    /**
+     * The distinct roots the rows of $group point at (none for a NEW group).
+     *
+     * @param non-empty-list<TranslatableInterface> $group
+     *
+     * @return list<TranslationRootInterface>
+     */
+    private function rootsOf(RootAdopterInterface $adopter, array $group): array
+    {
+        /** @var array<int, TranslationRootInterface> $roots */
+        $roots = [];
+
+        foreach ($group as $row) {
+            $root = $adopter->getRoot($row);
+
+            if (null !== $root) {
+                $roots[spl_object_id($root)] = $root;
+            }
+        }
+
+        return array_values($roots);
     }
 
     /**
@@ -383,8 +440,11 @@ final class AdoptRootCommand extends Command
 
     /**
      * The whole-group classification -- see the class docblock for the six kinds.
-     * Comparisons are by tuuid STRING, never object identity: identity is not
-     * observable across a cold process, and this is what --check runs in.
+     * Tuuids compare by STRING, never by object identity: identity is not observable
+     * across a cold process, and this is what --check runs in. Distinct roots inside
+     * one group ARE told apart by identity (spl_object_id) -- within one UnitOfWork
+     * the identity map makes that equivalent to comparing their ids, and the rows of
+     * a group were hydrated by the same stream.
      *
      * @param non-empty-list<TranslatableInterface> $group
      *

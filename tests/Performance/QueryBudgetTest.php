@@ -6,9 +6,13 @@ namespace Tmi\TranslationBundle\Test\Performance;
 
 use Doctrine\ORM\UnitOfWork;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tmi\TranslationBundle\Command\AdoptRootCommand;
+use Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry;
 use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
+use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Estate;
@@ -26,6 +30,7 @@ use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidi
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\IntegrationTestCase;
 use Tmi\TranslationBundle\Test\Support\QueryCounter;
+use Tmi\TranslationBundle\Test\Support\Root\EstateRootAdopter;
 use Tmi\TranslationBundle\Translation\Cache\InMemoryTranslationCache;
 use Tmi\TranslationBundle\Translation\LocaleCompletenessResolver;
 use Tmi\TranslationBundle\ValueObject\Tuuid;
@@ -593,6 +598,75 @@ final class QueryBudgetTest extends IntegrationTestCase
         self::assertSame($translatedParent->getChildren()->first(), $translatedChild);
     }
 
+    /**
+     * A read-only sync-shared run over one class is the stream and nothing else:
+     * shared-property discovery is reflection, group comparison is in memory, and
+     * GroupBatch flushes nothing in --dry-run / --check.
+     */
+    public function testSyncSharedDryRunCostsOneQueryPerClass(): void
+    {
+        $this->seedScalarGroups(5, drifted: 3);
+
+        $this->counter()->reset();
+        $tester = $this->syncShared(['--dry-run' => true, '--entity' => Scalar::class]);
+        self::assertStringContainsString('3 translation(s) would be updated', $tester->getDisplay());
+        self::assertSame(1, $this->counter()->count());
+    }
+
+    /**
+     * Write mode adds exactly one UPDATE per drifted sibling row: the stream, then
+     * GroupBatch's flush every 10 groups -- no re-read, no per-row SELECT.
+     */
+    public function testSyncSharedWriteCostsTheStreamPlusOneUpdatePerDriftedRow(): void
+    {
+        $this->seedScalarGroups(5, drifted: 3);
+
+        $this->counter()->reset();
+        $tester = $this->syncShared(['--entity' => Scalar::class]);
+        self::assertStringContainsString('3 translation(s) updated', $tester->getDisplay());
+        self::assertSame(1 + 3, $this->counter()->count());
+    }
+
+    /**
+     * adopt-root --dry-run / --check over G complete groups: the stream -- with the
+     * root reference fetch-joined, since a root that is an STI/JOINED hierarchy can
+     * never be a lazy proxy and Doctrine would otherwise find() it once per row --
+     * and the roots-without-rows NOT EXISTS count. Independent of G: 25 groups, 2.
+     * Negative proof against 5.1: 27 (one root load per group).
+     */
+    public function testAdoptRootCheckCostsTheStreamPlusTheRootsWithoutRowsCount(): void
+    {
+        for ($i = 0; $i < 25; ++$i) {
+            $this->seedEstateGroup();
+        }
+        self::assertSame(0, $this->adoptRoot([])->getStatusCode());
+        $this->entityManager()->clear();
+
+        $this->counter()->reset();
+        $tester = $this->adoptRoot(['--check' => true]);
+        self::assertSame(0, $tester->getStatusCode());
+        self::assertSame(1 + 1, $this->counter()->count());
+        self::assertSame(0, $this->entityManager()->getUnitOfWork()->size(), 'rows and roots detached, nothing left managed');
+    }
+
+    /**
+     * adopt-root write mode over K new groups of R rows in total: pass 1 streams and
+     * classifies (no root to load), pass 2 streams again and adopts -- K root INSERTs
+     * and R row UPDATEs on the batch flush -- then the roots-without-rows count.
+     * 3 groups of 2 rows: 1 + 1 + 3 + 6 + 1.
+     */
+    public function testAdoptRootWriteCostsTwoStreamsPlusOneInsertPerGroupPlusOneUpdatePerRow(): void
+    {
+        for ($i = 0; $i < 3; ++$i) {
+            $this->seedEstateGroup();
+        }
+
+        $this->counter()->reset();
+        $tester = $this->adoptRoot([]);
+        self::assertStringContainsString('3 group(s) adopted', $tester->getDisplay());
+        self::assertSame(1 + 1 + 3 + 6 + 1, $this->counter()->count());
+    }
+
     private function counter(): QueryCounter
     {
         $counter = self::getContainer()->get(QueryCounter::class);
@@ -644,5 +718,73 @@ final class QueryBudgetTest extends IntegrationTestCase
         $this->entityManager()->clear();
 
         return $entities;
+    }
+
+    /**
+     * @param int $drifted how many of the groups get a stale de_DE shared value
+     */
+    private function seedScalarGroups(int $groups, int $drifted): void
+    {
+        for ($i = 0; $i < $groups; ++$i) {
+            $tuuid = Tuuid::generate();
+            $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN')->setShared('shared '.$i));
+            $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE')->setShared($i < $drifted ? 'stale '.$i : 'shared '.$i));
+        }
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+    }
+
+    private function seedEstateGroup(): void
+    {
+        $tuuid = Tuuid::generate();
+        $this->entityManager()->persist(new EstateA()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN'));
+        $this->entityManager()->persist(new EstateA()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE'));
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+    }
+
+    /**
+     * @param array<string, bool|string> $input
+     */
+    private function syncShared(array $input): CommandTester
+    {
+        $synchronizer = self::getContainer()->get('test.shared_value_synchronizer');
+        self::assertInstanceOf(SharedValueSynchronizer::class, $synchronizer);
+        $finder = new LocaleVariantFinder($this->entityManager());
+
+        $tester = new CommandTester(new SyncSharedTranslationsCommand(
+            $this->entityManager(),
+            new TranslatableEntityLocator($this->entityManager()),
+            $finder,
+            $synchronizer,
+            new SharedDriftScanner($this->entityManager(), $finder, $synchronizer, 'en_US'),
+            'en_US',
+        ));
+        $tester->execute($input, ['interactive' => false]);
+
+        return $tester;
+    }
+
+    /**
+     * @param array<string, bool|string> $input
+     */
+    private function adoptRoot(array $input): CommandTester
+    {
+        $registry = new RootAdopterRegistry();
+        $adopter  = new EstateRootAdopter();
+        $registry->addAdopter($adopter, $adopter->getTranslatableClass());
+        $finder = new LocaleVariantFinder($this->entityManager());
+
+        $tester = new CommandTester(new AdoptRootCommand(
+            $this->entityManager(),
+            $finder,
+            $registry,
+            new RootCheckAggregator($this->entityManager(), $finder),
+            $this->attributeHelper(),
+            new TranslatableEntityLocator($this->entityManager()),
+        ));
+        $tester->execute([...$input, '--entity' => Estate::class]);
+
+        return $tester;
     }
 }

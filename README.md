@@ -25,7 +25,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 **Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **992 tests, 9,113 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **997 tests, 9,444 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -677,6 +677,10 @@ executed statement.
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
 | Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + *N*       |
+| `tmi:translation:sync-shared --dry-run` / `--check` (per class, any number of groups) | 1 |
+| `tmi:translation:sync-shared` write mode (per class, *D* drifted sibling rows)  | 1 + *D*       |
+| `tmi:translation:adopt-root --dry-run` / `--check` (per hierarchy, any number of groups) | 2 |
+| `tmi:translation:adopt-root` write mode (*K* new groups holding *R* rows)       | 3 + *K* + *R* |
 
 **Why the association-children row is `2`, not `1 + K`.** `BidirectionalOneToManyHandler`,
 `BidirectionalManyToManyHandler` and `UnidirectionalManyToManyHandler` each hand their whole
@@ -701,6 +705,14 @@ caveat: a variant for a remembered Tuuid created by anything other than this tra
 `persist()`, another process) stays invisible to it until this translator creates one for that
 pair or the service is reset — `EntityTranslator` is tagged `kernel.reset` for exactly this (see
 [`preload()`](src/Translation/EntityTranslator.php)'s docblock).
+
+**Why the command rows do not grow with the table.** Both commands walk a table through one
+streamed query grouped by Tuuid, compare in memory and detach each settled group. `sync-shared`
+adds exactly one `UPDATE` per drifted sibling row on its batch flush. `adopt-root` fetch-joins
+the root reference into that stream: a translation root is usually an inheritance hierarchy, and
+Doctrine cannot proxy a to-one target that has subclasses — it would `find()` it once per row.
+The second query is the `NOT EXISTS` count of roots without rows; write mode streams once more
+for pass 2 and pays one `INSERT` per new root and one `UPDATE` per attached row.
 
 **Reflection is cached, not repeated.** `AttributeHelper` and
 `ReflectionHelper::getHierarchyProperties()` memoize per (proxy-unwrapped) class — the hot

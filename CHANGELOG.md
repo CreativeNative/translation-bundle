@@ -79,6 +79,12 @@ and their notes in the GitHub releases.
 - `TranslatableEventSubscriber` is registered through `doctrine.event_listener` tags for its three
   events (plus its `#[AsDoctrineListener]` attributes); `#[EmptyOnTranslate]`,
   `#[SharedAmongstTranslations]` are `final`.
+- `tmi:translation:adopt-root` fetch-joins the root reference into its stream and detaches each
+  group's root with its rows. Before, a hierarchy root (STI/JOINED) was loaded with one `find()`
+  per row during hydration — 1 + *G* queries for *G* groups — and every root stayed managed until
+  the command returned; `--check` is 2 queries per hierarchy now, whatever the table size, and
+  the UnitOfWork is empty afterwards. `LocaleVariantFinder::streamGroupedByTuuid()` takes the
+  optional `$fetchJoins` (to-one association names) that makes this possible.
 - `tmi:translation:sync-shared` in whole-table write mode asks for confirmation on an
   interactive terminal, right after the note that names its source rule — the mode reverts a
   record edited in another locale, and a count is no substitute for a question. Scripts pass

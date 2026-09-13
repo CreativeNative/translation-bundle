@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **992 tests, 9,113 assertions**, all green.
+  `failOnDeprecation`). As of this release: **997 tests, 9,444 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1860,7 +1860,10 @@ parsing `sync-shared --check` output. Do not `EntityManager::clear()` mid-iterat
 public function streamGroupedByTuuid(string $class): \Generator; // Generator<int, non-empty-list<TranslatableInterface>>
 ```
 
-The shared streaming core of the scanner and `tmi:translation:sync-shared`: one indexed query
+The shared streaming core of the scanner, `tmi:translation:sync-shared` and
+`tmi:translation:adopt-root` (which passes its root-reference associations as `$fetchJoins`, so the
+roots ride along in the same query -- a to-one target with subclasses can never be a lazy proxy
+and would otherwise cost one `find()` per row): one indexed query
 ordered by Tuuid, `toIterable()`, one yielded list per Tuuid group, all managed, the locale
 filter suspended for the iteration and restored when the generator completes. The consumer
 detaches each group itself (or flushes and detaches in batches) and never `clear()`s
@@ -1904,6 +1907,10 @@ inflates a budget).
 | `LocaleVariantFinder::findAllLocaleVariantsBatch()`                          | 1             |
 | `tmi:translation:doctor` (per root class scanned, or with `--entity`)         | 2             |
 | Import of *N* new entities via `preload()` + `getOrTranslate()` + `flush()`   | 1 + *N*       |
+| `tmi:translation:sync-shared --dry-run` / `--check` (per class, any number of groups) | 1 |
+| `tmi:translation:sync-shared` write mode (per class, *D* drifted sibling rows)  | 1 + *D*       |
+| `tmi:translation:adopt-root --dry-run` / `--check` (per hierarchy, any number of groups) | 2 |
+| `tmi:translation:adopt-root` write mode (*K* new groups holding *R* rows)       | 3 + *K* + *R* |
 
 ### `preload()`: batch import lookups per class, not per entity, and remembered misses
 
