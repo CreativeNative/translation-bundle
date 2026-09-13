@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **967 tests, 8,909 assertions**, all green.
+  `failOnDeprecation`). As of this release: **968 tests, 8,929 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -717,7 +717,7 @@ property, constructor requires the root (the compile-time rule turns on), `--che
 
 ## Compile-Time Validation
 
-The bundle validates translatable entity configuration at compile time (`cache:warmup` / `cache:clear`), catching errors before production.
+The bundle validates translatable entity configuration before any row is written: attribute usage at container compile time (`cache:warmup` / `cache:clear`, and the lazy rebuild on a fresh deploy), unique constraints the moment Doctrine loads the mapping.
 
 ### AttributeValidationPass (Compiler Pass)
 
@@ -746,9 +746,9 @@ service definitions instead of the pass just finding nothing. Either way,
 `tmi_translation.discovered_translatable_classes` (sorted `list<class-string>`, `[]` when
 Doctrine itself is not configured).
 
-### TranslatableEntityValidationWarmer (Cache Warmer)
+### UniqueConstraintListener (metadata load)
 
-Runs at `cache:warmup` time (after container compilation, with EntityManager access).
+`Doctrine\EventListener\UniqueConstraintListener` runs at `loadClassMetadata` (priority -10, after `TranslatableIndexListener`) and hands every translatable entity's metadata to `Doctrine\UniqueConstraintValidator`. It fires wherever the mapping is loaded -- the first request, a console command, `doctrine:schema:*`, `cache:warmup`, a test kernel's boot -- and a mapping Doctrine has already cached passed it once. It is deliberately **not a cache warmer any more**: the former warmer was optional, and Symfony skips optional warmers on the lazy container rebuild `Kernel::initializeContainer()` performs when the cache is absent, so a fresh deploy without an explicit `cache:warmup` never ran the check. Failure is a `ValidationException` (a `\LogicException`) listing every violation of that class.
 
 **Validates:**
 - No single-column `unique: true` on translatable entity fields (except id, tuuid, locale)
@@ -1359,7 +1359,7 @@ class Photo implements TranslatableInterface
 
 ### Unique Constraint Validation Error
 
-**Symptom:** `LogicException: TMI Translation Bundle: Unique constraint validation failed` during `cache:warmup`
+**Symptom:** `ValidationException: TMI Translation Bundle: Unique constraint validation failed` the first time the entity's mapping is loaded -- a request, a console command, `doctrine:schema:*` or `cache:warmup`
 
 **Cause:** Translatable entity has single-column unique constraints that would conflict across locales
 

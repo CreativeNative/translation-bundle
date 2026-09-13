@@ -129,6 +129,13 @@ child clone reached through a shared back-reference is announced and cached like
 - `Doctrine/EventListener/TranslatableIndexListener` — injects a composite `(tuuid, locale)`
   index into every translatable entity at `loadClassMetadata`. `unique_locale_variants: true`
   promotes it to a `UNIQUE` constraint.
+- `Doctrine/EventListener/UniqueConstraintListener` (+ `Doctrine/UniqueConstraintValidator`) —
+  refuses, at `loadClassMetadata` (priority -10, after the index listener), a translatable
+  entity with a single-column `unique: true` or a table-level unique constraint without the
+  locale column: `ValidationException::fromMessages('Unique constraint validation', …)`. A
+  listener, not a cache warmer, so it runs on the lazy container rebuild too; skips mapped
+  superclasses, non-translatables, inherited fields and an STI subclass's mirrored table
+  constraints (a JOINED subclass owns its table and is checked).
 - `TranslatableEventSubscriber` — flags entities persisted in a non-default locale without
   a shared Tuuid; the verdict is settled at flush time (a same-flush translation adopting
   the Tuuid clears the flag). `strict_orphan_check` (`true` / `false` / `null` = auto on
@@ -279,7 +286,6 @@ child clone reached through a shared back-reference is announced and cached like
 
 ```
 src/
-├── CacheWarmer/          # TranslatableEntityValidationWarmer (cache:warmup validation pass)
 ├── Command/              # Diagnostic / maintenance console commands; RunMode (--check/--dry-run), SyncSharedRun (sync-shared's run state)
 ├── DependencyInjection/  # Bundle configuration
 ├── Doctrine/             # ORM integration (models, types, filters, listeners); GroupBatch (flush/detach cycle of the streaming commands)

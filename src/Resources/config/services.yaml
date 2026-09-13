@@ -55,15 +55,6 @@ services:
         class: Psr\Log\NullLogger
 
     # ----------------------------
-    # Compile-Time Validation
-    # ----------------------------
-    Tmi\TranslationBundle\CacheWarmer\TranslatableEntityValidationWarmer:
-        arguments:
-            $entityManager: '@doctrine.orm.entity_manager'
-        tags:
-            - { name: kernel.cache_warmer, priority: -100 }
-
-    # ----------------------------
     # Entity Translator
     # ----------------------------
     # Symfony does not autoconfigure ResetInterface into the kernel.reset tag -- it
@@ -258,6 +249,19 @@ services:
         arguments:
             $unique: '%tmi_translation.unique_locale_variants%'
         tags: [ { name: doctrine.event_listener, event: loadClassMetadata } ]
+
+    # ----------------------------
+    # Doctrine Metadata Listener — unique constraints must include the locale column
+    # ----------------------------
+    # Runs after TranslatableIndexListener (priority -10) so it sees the final mapping.
+    # A loadClassMetadata listener, not a cache warmer: it runs wherever the mapping is
+    # loaded, the lazy container rebuild included, which an optional warmer never covered.
+    Tmi\TranslationBundle\Doctrine\UniqueConstraintValidator: ~
+
+    Tmi\TranslationBundle\Doctrine\EventListener\UniqueConstraintListener:
+        arguments:
+            $validator: '@Tmi\TranslationBundle\Doctrine\UniqueConstraintValidator'
+        tags: [ { name: doctrine.event_listener, event: loadClassMetadata, priority: -10 } ]
 
     # ----------------------------
     # Doctrine Listener — opt-in cascade removal of locale variants

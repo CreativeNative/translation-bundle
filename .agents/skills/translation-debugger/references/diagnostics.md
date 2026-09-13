@@ -390,13 +390,15 @@ bin/console cache:warmup
 - **Fix:** Remove conflicting attributes, add TranslatableTrait for locale
 - **llms.md:** See "Compile-Time Validation" section
 
-### Check 5.2: Unique Constraint Validation (TranslatableEntityValidationWarmer)
+### Check 5.2: Unique Constraint Validation (UniqueConstraintListener)
 
-**What to look for:** Single-column unique constraints on translatable entity fields
+**What to look for:** Single-column unique constraints on translatable entity fields, or a
+table-level unique constraint without the locale column. The check runs at `loadClassMetadata`,
+so anything that loads the mapping triggers it.
 
 **How to check:**
 ```bash
-bin/console cache:warmup
+bin/console doctrine:mapping:info
 # Look for: "TMI Translation Bundle: Unique constraint validation failed"
 ```
 

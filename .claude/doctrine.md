@@ -262,8 +262,9 @@ cross-check requires them.
    child's clone points at the parent's clone, the non-shared outcome — and, like every other
    translation, the clone is announced by `PostTranslateEvent` and cached under its own
    (tuuid, locale): `runHandlers()` has one exit, `recordTranslation()`, whose guard decides.
-2. **Unique constraints**: A single-column `unique: true` on a translatable field fails
-   validation at `cache:warmup` — use a composite `field + locale` constraint.
+2. **Unique constraints**: A single-column `unique: true` on a translatable field fails the
+   moment the mapping is loaded (`UniqueConstraintListener`) — use a composite
+   `field + locale` constraint.
 3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to
    *N*× the rows for a translatable entity, paid regardless of how many locales are actually
    filled in.

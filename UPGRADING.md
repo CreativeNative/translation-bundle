@@ -127,7 +127,19 @@ the pair handed the dead instance back and persisted it as a **new row with the 
 `cascade_remove_locale_variants`) forgets the entry the moment the row is gone; the next call
 translates the current source afresh. **Action:** none.
 
-### 8. `enable_logging: false` now silences `EmbeddedHandler` too
+### 8. The unique-constraint check fires wherever the mapping is loaded
+
+A translatable entity with a single-column `unique: true`, or a table-level unique constraint
+without the locale column, was refused by an optional cache warmer — which `cache:warmup` and
+`cache:clear` run, but the lazy container rebuild on a fresh deploy does not, so the check
+silently never ran on that path. It is a `loadClassMetadata` listener now
+(`UniqueConstraintListener`): the first thing that loads the mapping — a request, a console
+command, `doctrine:schema:*`, a test kernel's boot — fails with the same messages, as a
+`ValidationException` (a `\LogicException`, as before). A test suite carrying a fixture with such
+a mapping fails at boot now instead of passing. **Action:** none for a clean mapping; a bad one
+was already refused by `cache:warmup`.
+
+### 9. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -186,7 +198,14 @@ wires both.
 `remove(string $tuuid, string $locale): void` forgets one entry (a no-op when there is none).
 A custom cache implementation adds the method; the bundled `InMemoryTranslationCache` has it.
 
-### 8. `symfony/translation-contracts` is no longer a bundle requirement
+### 8. `TranslatableEntityValidationWarmer` is gone
+
+The cache warmer (a private service, `kernel.cache_warmer` tag) is replaced by
+`Doctrine\EventListener\UniqueConstraintListener` and `Doctrine\UniqueConstraintValidator`
+(Behavioural Changes 8). Nothing referenced the warmer by id; a `cache:warmup` still passes or
+fails on the same mappings, because warming the Doctrine metadata loads it.
+
+### 9. `symfony/translation-contracts` is no longer a bundle requirement
 
 The bundle never imported it. An application gets it from `symfony/translation`,
 `symfony/validator` or `symfony/form`; one that relied on the bundle pulling it in adds it to

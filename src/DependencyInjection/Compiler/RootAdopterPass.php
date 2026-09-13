@@ -20,10 +20,10 @@ use Tmi\TranslationBundle\Exception\ValidationException;
  * translatable declares a root reference.
  *
  * The adopter's class is read from the tag attribute `class`; no service is
- * instantiated at compile time. This lives in a compiler pass and NOT in the optional
- * cache warmer on purpose: `TranslatableEntityValidationWarmer::isOptional()` is true,
- * and Symfony's aggregate skips optional warmers on the ordinary rebuild path, so a
- * check placed there would never run after `cache:clear` + first request.
+ * instantiated at compile time, and the pass needs no EntityManager -- it works on the
+ * container alone, so it runs on every container build, the lazy rebuild after
+ * `cache:clear` included. (The unique-constraint check, which does need the mapping,
+ * runs at metadata load instead -- {@see \Tmi\TranslationBundle\Doctrine\EventListener\UniqueConstraintListener}.)
  *
  * Without a Doctrine entity manager in the container the cross-check is skipped (there
  * is no mapping to have discovered root references from); the registry is still

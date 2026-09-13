@@ -317,4 +317,4 @@ Show the fix:
 // And: #[ORM\Column(length: 255)]  // without unique: true
 ```
 
-The bundle validates this at cache:warmup and will throw an error if single-column unique constraints are found.
+The bundle validates this the moment Doctrine loads the entity's mapping (`UniqueConstraintListener`) and throws a `ValidationException` listing every single-column unique constraint and every table-level constraint without the locale column.

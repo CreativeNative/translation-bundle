@@ -34,6 +34,11 @@ and their notes in the GitHub releases.
 - `ValidationException::fromMessages()`: the aggregate a compiler pass throws (label, one line per
   message, the messages as errors); `ReadonlyPropertyException::forWriteDuringTranslate()` for the
   readonly write `DoctrineObjectHandler` refuses (was a bare `\LogicException`).
+- `Doctrine\UniqueConstraintValidator` (the two unique-constraint rules for one class's metadata)
+  and `Doctrine\EventListener\UniqueConstraintListener` (`loadClassMetadata`, priority -10): a
+  translatable entity whose unique constraints ignore the locale column fails the moment
+  Doctrine loads its mapping — first request, console command, schema tool, test boot alike —
+  with a `ValidationException` listing every violation and its composite fix.
 - `TranslationCacheInterface::remove(string $tuuid, string $locale)` and
   `Doctrine\EventListener\TranslationCacheEvictionListener` (`postRemove`, always on): a removed
   and flushed translatable row is forgotten by the translation cache the moment it is gone.
@@ -68,6 +73,11 @@ and their notes in the GitHub releases.
 - `TranslatableEventSubscriber` is registered through `doctrine.event_listener` tags for its three
   events (plus its `#[AsDoctrineListener]` attributes); `#[EmptyOnTranslate]`,
   `#[SharedAmongstTranslations]` are `final`.
+- The unique-constraint gate runs at metadata load, not as a cache warmer. The warmer was
+  optional, and Symfony skips optional warmers on the lazy container rebuild
+  `Kernel::initializeContainer()` performs when the cache is absent — a fresh deploy without an
+  explicit `cache:warmup` never ran the check (#45). The messages are unchanged; they arrive as
+  a `ValidationException` (a `\LogicException`, as before), one line per violation.
 - `EntityTranslator::runHandlers()` has one exit: every handler result passes through
   `recordTranslation()`, whose guard (a translatable subject, a translatable result other than
   the subject, at exactly the requested locale) decides on `PostTranslateEvent` and the cache
@@ -123,6 +133,8 @@ and their notes in the GitHub releases.
 
 - `EntityTranslator::setLogger()` and `EmbeddedHandler::setLogger()` — the logger is a
   constructor dependency.
+- `CacheWarmer\TranslatableEntityValidationWarmer` and its `kernel.cache_warmer` service — a
+  private service no consumer referenced; `UniqueConstraintListener` is its replacement.
 - The public constructors and getters of `AttributeConflictException`,
   `ClassLevelAttributeConflictException` and `ReadonlyPropertyException` (`getClassName()`,
   `getPropertyName()`, `getAttribute1()`, `getAttribute2()`) — the message is the contract.
