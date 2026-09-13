@@ -11,6 +11,8 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
+use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceChild;
+use Tmi\TranslationBundle\Fixtures\Entity\SharedBackReference\SharedBackReferenceParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Test\Translation\UnitTestCase;
@@ -115,6 +117,9 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
     }
 
     /** ------------------------- Shared / Empty Tests -------------------------.
+     * The direct form: the property is not an association on the entity's own class, so
+     * sharing it would leave the relation's ownership ambiguous across locales -- refused.
+     *
      * @throws \ReflectionException
      */
     public function testTranslateThrowsWhenShared(): void
@@ -129,6 +134,84 @@ final class BidirectionalManyToOneHandlerTest extends UnitTestCase
         self::expectExceptionMessageMatches('/::sharedChildren is a Bidirectional ManyToOne/');
 
         $handler->translate($context);
+    }
+
+    /**
+     * A translated parent on the context is not enough to make it the back-reference
+     * form: the property must also be an association declared on the entity's own class.
+     * Here it is borrowed from the child (declared on another class), so the entity's own
+     * metadata does not know it and the direct-form refusal still applies.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateOfSharedDirectFormStillThrowsWithATranslatedParentPresent(): void
+    {
+        $handler = $this->createHandler();
+        $target  = new SharedBackReferenceParent()->setLocale('en_US');
+
+        $metadata                      = new ClassMetadata(SharedBackReferenceParent::class);
+        $metadata->associationMappings = [];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(SharedBackReferenceParent::class)
+            ->willReturn($metadata);
+
+        $prop    = new \ReflectionProperty(SharedBackReferenceChild::class, 'parent');
+        $context = $this->entityContext($target, $prop)->setShared(true);
+        $context->setTranslatedParent(new SharedBackReferenceChild());
+
+        self::expectException(\RuntimeException::class);
+        self::expectExceptionMessageMatches('/SharedBackReferenceParent::parent is a Bidirectional ManyToOne/');
+
+        $handler->translate($context);
+    }
+
+    /**
+     * The back-reference form with #[SharedAmongstTranslations] on the child's own
+     * ManyToOne (5.1): the property IS the child's FK back to the parent the OneToMany
+     * handler is translating, so the child is cloned through the full pipeline and its
+     * back-reference resolves to the parent's CLONE -- a distinct instance from the source
+     * parent, never the identical one "shared" would otherwise mean.
+     *
+     * Negative proof: against 5.0.0 this dies in the unconditional isShared() throw.
+     *
+     * @throws \ReflectionException
+     */
+    public function testTranslateOfSharedBackReferenceFormResolvesToTheParentClone(): void
+    {
+        $handler = $this->createHandler();
+
+        $sourceParent = new SharedBackReferenceParent()->setLocale('en_US');
+        $parentClone  = new SharedBackReferenceParent()->setLocale('it_IT');
+        $child        = new SharedBackReferenceChild()->setLocale('en_US')->setParent($sourceParent);
+
+        $metadata                      = new ClassMetadata(SharedBackReferenceChild::class);
+        $metadata->associationMappings = [
+            'parent' => new ManyToOneAssociationMapping(
+                fieldName: 'parent',
+                sourceEntity: SharedBackReferenceChild::class,
+                targetEntity: SharedBackReferenceParent::class,
+            ),
+        ];
+
+        $this->entityManager()->method('getClassMetadata')
+            ->with(SharedBackReferenceChild::class)
+            ->willReturn($metadata);
+
+        $prop    = new \ReflectionProperty($child, 'parent');
+        $context = $this->entityContext($child, $prop)->setShared(true);
+        $context->setTargetLocale('it_IT');
+        $context->setTranslatedParent($parentClone);
+
+        $result = $handler->translate($context);
+
+        self::assertInstanceOf(SharedBackReferenceChild::class, $result);
+        self::assertNotSame($child, $result, 'The child must be cloned, not handed back as the shared instance');
+        self::assertSame('it_IT', $result->getLocale());
+        self::assertSame($parentClone, $result->getParent(), 'The back-reference must point at the parent clone');
+        self::assertNotSame($sourceParent, $result->getParent());
+        self::assertSame($sourceParent, $child->getParent(), 'The source child is left untouched');
+        self::assertFalse($context->isShared(), 'The flag is consumed here, not passed on to TranslatableEntityHandler');
     }
 
     public function testTranslateReturnsNullWhenEmpty(): void

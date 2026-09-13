@@ -63,27 +63,54 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
     {
         \assert($context instanceof EntityTranslationContext);
 
-        if ($context->isShared()) {
-            $property = $context->getProperty();
-            $message  = '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
+        $entity           = $context->getEntity();
+        $property         = $context->getProperty();
+        $translatedParent = $context->getTranslatedParent();
+
+        // The back-reference form is told apart from the direct form by one fact:
+        // $propertyName names an association declared on the entity's OWN class (the
+        // child's ManyToOne pointing back at the parent), and BidirectionalOneToManyHandler
+        // handed us the parent's clone to point it at. Resolved up front because the shared
+        // branch below depends on it, not only the repair at the end.
+        $propertyName        = $property?->name;
+        $isBackReferenceForm = false;
+
+        if (null !== $propertyName) {
+            $associations        = $this->entityManager->getClassMetadata($entity::class)->getAssociationMappings();
+            $isBackReferenceForm = isset($associations[$propertyName]) && null !== $translatedParent;
+        }
+
+        // Sharing a bidirectional ManyToOne is refused in the direct form only: the
+        // association's target is itself translatable, so "the identical instance on every
+        // locale" would leave the relation's ownership ambiguous across variants.
+        //
+        // In the back-reference form the SAME attribute means something else entirely. The
+        // child was reached by walking the parent's OneToMany, so the property being
+        // resolved is the child's FK back to that parent -- and the only correct value for
+        // it on the child's clone is the parent's clone, which is exactly what the repair
+        // at the end of this method writes for the non-shared case. Throwing here made the
+        // parent untranslatable the moment a child declared its back-reference shared, for
+        // an attribute that changes nothing about the outcome. (5.1)
+        if ($context->isShared() && !$isBackReferenceForm) {
+            $message = '%class%::%prop% is a Bidirectional ManyToOne, it cannot be shared '.
                 'amongst translations. Either remove the @SharedAmongstTranslation '.
                 'annotation or choose another association type.';
 
-            throw new \RuntimeException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => null !== $property ? $property->name : 'unknown']));
+            throw new \RuntimeException(strtr($message, ['%class%' => $entity::class, '%prop%' => $propertyName ?? 'unknown']));
         }
 
         if ($context->isEmpty()) {
             return null;
         }
 
-        $entity   = $context->getEntity();
-        $property = $context->getProperty();
-        if (null === $property) {
+        if (null === $propertyName) {
             return $entity;
         }
 
-        $propertyName = $property->name;
-        $associations = $this->entityManager->getClassMetadata($entity::class)->getAssociationMappings();
+        // TranslatableEntityHandler::translate() receives this very context object and
+        // throws on the same flag for the same reason as the direct form above; the flag
+        // has been resolved here, so it is cleared before delegating.
+        $context->setShared(false);
 
         // Delegate the clone itself to the entity pipeline: translateProperties() over the
         // entity's own fields (shared/empty/translatable, not just the back-reference),
@@ -107,8 +134,7 @@ final readonly class BidirectionalManyToOneHandler implements TranslationHandler
         // this handler already knows is being translated. The direct form (property declared
         // on a different, owning class) never matches here -- $translated is simply the
         // related entity translated to the matching locale, nothing left to repair.
-        $translatedParent = $context->getTranslatedParent();
-        if (isset($associations[$propertyName]) && null !== $translatedParent) {
+        if ($isBackReferenceForm) {
             $this->propertyAccessor->setValue($translated, $propertyName, $translatedParent);
         }
 
