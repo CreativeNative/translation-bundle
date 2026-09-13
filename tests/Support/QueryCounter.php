@@ -25,6 +25,7 @@ final class QueryCounter extends AbstractLogger
     /**
      * @param array<mixed> $context
      */
+    #[\Override]
     public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
         $message = (string) $message;

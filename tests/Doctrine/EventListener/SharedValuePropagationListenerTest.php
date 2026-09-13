@@ -617,6 +617,7 @@ final class SharedValuePropagationListenerTest extends IntegrationTestCase
             /**
              * @param array<mixed> $context
              */
+            #[\Override]
             public function log(mixed $level, \Stringable|string $message, array $context = []): void
             {
                 $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];

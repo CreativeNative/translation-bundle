@@ -40,6 +40,7 @@ final class AttributeValidationPass implements CompilerPassInterface
 {
     public const string ROOT_CLASSES_PARAMETER = 'tmi_translation.translation_root_classes';
 
+    #[\Override]
     public function process(ContainerBuilder $container): void
     {
         // Early return if Doctrine is not configured
@@ -188,6 +189,7 @@ final class AttributeValidationPass implements CompilerPassInterface
      */
     private function extractClassNames(string $filePath): array
     {
+        /** @var list<\PhpToken> $tokens */
         $tokens = \PhpToken::tokenize((string) file_get_contents($filePath));
 
         $namespace  = null;
@@ -222,7 +224,7 @@ final class AttributeValidationPass implements CompilerPassInterface
     /**
      * The next token that is not whitespace, a comment, or an opening tag.
      *
-     * @param array<\PhpToken> $tokens
+     * @param list<\PhpToken> $tokens
      */
     private function nextSignificantToken(array $tokens, int $index): \PhpToken|null
     {
@@ -238,7 +240,7 @@ final class AttributeValidationPass implements CompilerPassInterface
     /**
      * The previous token that is not whitespace, a comment, or an opening tag.
      *
-     * @param array<\PhpToken> $tokens
+     * @param list<\PhpToken> $tokens
      */
     private function previousSignificantToken(array $tokens, int $index): \PhpToken|null
     {

@@ -93,6 +93,7 @@ final class SyncSharedTranslationsCommand extends Command
         parent::__construct();
     }
 
+    #[\Override]
     protected function configure(): void
     {
         $this
@@ -103,6 +104,7 @@ final class SyncSharedTranslationsCommand extends Command
             ->addOption('source-locale', null, InputOption::VALUE_REQUIRED, 'With --tuuid: copy FROM this locale\'s row instead of the default-locale row — the targeted repair for a record edited in a non-default locale.');
     }
 
+    #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io     = new SymfonyStyle($input, $output);

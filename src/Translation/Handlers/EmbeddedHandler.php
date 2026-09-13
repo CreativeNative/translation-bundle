@@ -38,6 +38,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         $this->logger = $logger;
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         return null !== $context->getProperty() && $this->attributeHelper->isEmbedded($context->getProperty());
@@ -67,6 +68,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
      *
      * @throws \ReflectionException
      */
+    #[\Override]
     public function translate(TranslationContext $context): mixed
     {
         $embeddable = $context->getSubject();

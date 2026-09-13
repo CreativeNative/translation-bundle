@@ -33,11 +33,13 @@ final class EntityTranslationContext extends TranslationContext
         return $this->entity;
     }
 
+    #[\Override]
     public function getSubject(): mixed
     {
         return $this->entity;
     }
 
+    #[\Override]
     public function setSubject(mixed $subject): static
     {
         \assert($subject instanceof TranslatableInterface);

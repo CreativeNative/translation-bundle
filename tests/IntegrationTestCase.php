@@ -40,7 +40,8 @@ class IntegrationTestCase extends KernelTestCase
      *
      * @throws TypesException|\Doctrine\DBAL\Exception
      */
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -104,7 +105,7 @@ class IntegrationTestCase extends KernelTestCase
     }
 
     #[\Override]
-    final public function tearDown(): void
+    final protected function tearDown(): void
     {
         restore_exception_handler();
 

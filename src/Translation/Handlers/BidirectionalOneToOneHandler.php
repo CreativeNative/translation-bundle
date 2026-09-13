@@ -29,6 +29,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     ) {
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         if (!$context instanceof EntityTranslationContext) {
@@ -54,6 +55,7 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     /**
      * @throws \RuntimeException
      */
+    #[\Override]
     public function translate(TranslationContext $context): mixed
     {
         \assert($context instanceof EntityTranslationContext);

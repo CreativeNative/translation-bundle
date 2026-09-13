@@ -17,7 +17,8 @@ final class TuuidTypeTest extends TestCase
     private TuuidType $type;
     private AbstractPlatform $platform;
 
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         parent::setUp();
         $this->type     = new TuuidType();

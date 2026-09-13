@@ -23,6 +23,7 @@ final class TypeDefaultResolverTest extends TestCase
 {
     private TypeDefaultResolver $resolver;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();

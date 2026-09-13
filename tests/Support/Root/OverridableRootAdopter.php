@@ -28,21 +28,25 @@ final class OverridableRootAdopter implements RootAdopterInterface
     ) {
     }
 
+    #[\Override]
     public function getTranslatableClass(): string
     {
         return $this->inner->getTranslatableClass();
     }
 
+    #[\Override]
     public function getRoot(TranslatableInterface $row): TranslationRootInterface|null
     {
         return null !== $this->getRoot ? ($this->getRoot)($row) : $this->inner->getRoot($row);
     }
 
+    #[\Override]
     public function createRootFor(array $group): TranslationRootInterface
     {
         return null !== $this->createRootFor ? ($this->createRootFor)($group) : $this->inner->createRootFor($group);
     }
 
+    #[\Override]
     public function attach(TranslatableInterface $row, TranslationRootInterface $root): void
     {
         if (null !== $this->attach) {
@@ -54,11 +58,13 @@ final class OverridableRootAdopter implements RootAdopterInterface
         $this->inner->attach($row, $root);
     }
 
+    #[\Override]
     public function rootClassFor(TranslatableInterface $row): string
     {
         return $this->inner->rootClassFor($row);
     }
 
+    #[\Override]
     public function coherenceKey(TranslatableInterface $row): string
     {
         return $this->inner->coherenceKey($row);

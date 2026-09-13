@@ -36,6 +36,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
     /**
      * True when $context->getSubject() is a Doctrine-managed class. *.
      */
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         $data = $context->getSubject();
@@ -68,6 +69,7 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
      *
      * @throws \ReflectionException
      */
+    #[\Override]
     public function translate(TranslationContext $context): mixed
     {
         if ($context->isShared()) {

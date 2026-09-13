@@ -1210,10 +1210,12 @@ final class EntityTranslatorTest extends UnitTestCase
     public function testResolveCopySourceUnwrapsAProxyToSeeTheRealClasssAttribute(): void
     {
         $proxy = new class extends EmptySeeded implements Proxy {
+            #[\Override]
             public function __load(): void
             {
             }
 
+            #[\Override]
             public function __isInitialized(): bool
             {
                 return true;
@@ -1408,6 +1410,9 @@ final class EntityTranslatorTest extends UnitTestCase
         return [$translator, $em];
     }
 
+    /**
+     * @param (callable(TranslationHandlerInterface&MockObject): void)|null $assert
+     */
     private function handlerSupporting(
         PropertyTranslationContext $expectedContext,
         mixed $return,

@@ -14,7 +14,7 @@ final class TranslatableRepositoryTraitTest extends IntegrationTestCase
     private ScalarRepository $repository;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 

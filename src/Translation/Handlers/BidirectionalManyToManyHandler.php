@@ -24,8 +24,12 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  */
 final readonly class BidirectionalManyToManyHandler implements TranslationHandlerInterface
 {
+    /** @var \Closure(\ReflectionProperty, object): mixed */
     private \Closure $propertyAccessor;
 
+    /**
+     * @param (callable(\ReflectionProperty, object): mixed)|null $propertyAccessor
+     */
     public function __construct(
         private AttributeHelper $attributeHelper,
         private EntityManagerInterface $entityManager,
@@ -38,6 +42,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
             : (static fn (\ReflectionProperty $p, object $o): mixed => $p->getValue($o));
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         // The value of a ManyToMany property is the Collection, never the entity itself --
@@ -77,6 +82,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
      *
      * @return Collection<int, mixed>
      */
+    #[\Override]
     public function translate(TranslationContext $context): Collection
     {
         \assert($context instanceof PropertyTranslationContext);

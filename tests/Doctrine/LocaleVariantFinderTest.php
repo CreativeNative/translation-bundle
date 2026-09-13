@@ -16,7 +16,7 @@ final class LocaleVariantFinderTest extends IntegrationTestCase
     private LocaleVariantFinder $finder;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 

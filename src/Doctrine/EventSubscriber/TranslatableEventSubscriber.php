@@ -62,6 +62,7 @@ final readonly class TranslatableEventSubscriber implements EventSubscriber
     /**
      * @return list<string>
      */
+    #[\Override]
     public function getSubscribedEvents(): array
     {
         return [

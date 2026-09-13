@@ -16,6 +16,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
     ) {
     }
 
+    #[\Override]
     public function isOptional(): bool
     {
         return true;
@@ -24,6 +25,7 @@ final class TranslatableEntityValidationWarmer implements CacheWarmerInterface
     /**
      * @return list<string>
      */
+    #[\Override]
     public function warmUp(string $cacheDir, string|null $buildDir = null): array
     {
         /** @var list<string> $errors */

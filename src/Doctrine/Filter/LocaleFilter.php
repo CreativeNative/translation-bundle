@@ -33,6 +33,7 @@ final class LocaleFilter extends SQLFilter
         return $this;
     }
 
+    #[\Override]
     public function addFilterConstraint(ClassMetadata $targetEntity, string $targetTableAlias): string
     {
         if (!$this->hasParameter('locale')) {

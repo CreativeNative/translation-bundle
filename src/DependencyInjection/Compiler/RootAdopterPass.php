@@ -32,6 +32,7 @@ final class RootAdopterPass implements CompilerPassInterface
 {
     public const string TAG = 'tmi_translation.root_adopter';
 
+    #[\Override]
     public function process(ContainerBuilder $container): void
     {
         if (!$container->has(RootAdopterRegistry::class)) {

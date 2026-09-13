@@ -23,6 +23,7 @@ final class AttributeHelperTest extends TestCase
 {
     private AttributeHelper $attributeHelper;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -175,6 +176,7 @@ final class AttributeHelperTest extends TestCase
         $spy = new class($class, 'shared') extends \ReflectionProperty {
             public int $attributeCalls = 0;
 
+            #[\Override]
             public function getAttributes(string|null $name = null, int $flags = 0): array
             {
                 ++$this->attributeCalls;

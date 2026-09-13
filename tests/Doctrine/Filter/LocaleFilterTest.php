@@ -18,7 +18,7 @@ final class LocaleFilterTest extends IntegrationTestCase
     private LocaleFilter $filter;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 

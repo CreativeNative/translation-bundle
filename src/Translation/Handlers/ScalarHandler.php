@@ -11,6 +11,7 @@ use Tmi\TranslationBundle\Translation\Context\TranslationContext;
  */
 final class ScalarHandler implements TranslationHandlerInterface
 {
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         $data = $context->getSubject();
@@ -24,6 +25,7 @@ final class ScalarHandler implements TranslationHandlerInterface
      * falls back to TypeDefaultResolver for a non-nullable scalar property before
      * ever reaching here, so a scalar handler only sees isEmpty() on a nullable one.
      */
+    #[\Override]
     public function translate(TranslationContext $context): mixed
     {
         if ($context->isEmpty()) {

@@ -12,6 +12,29 @@ Only the 4.x line and later is supported. Entries for 1.x–3.x are deliberately
 migration paths are kept in [`UPGRADING.md`](UPGRADING.md#archive--unsupported-upgrade-paths)
 and their notes in the GitHub releases.
 
+## [Unreleased]
+
+### Changed
+
+- Tooling: PHPStan runs with eight more strictness options (`checkMissingOverrideMethodAttribute`,
+  `checkBenevolentUnionTypes`, `checkMissingCallableSignature`, `checkImplicitMixed`,
+  `checkExplicitMixed`, `reportUnmatchedIgnoredErrors`, `treatPhpDocTypesAsCertain`,
+  `checkTooWideReturnTypesInProtectedAndPublicMethods`), so every overriding method carries
+  `#[\Override]`; php-cs-fixer enforces `php_unit_set_up_tear_down_visibility` and
+  `native_function_invocation` for the compiler-optimised functions.
+- `composer.json` declares every package the bundle imports directly (`psr/log`,
+  `doctrine/persistence`, `doctrine/collections`, `doctrine/dbal`, `symfony/http-kernel`,
+  `symfony/event-dispatcher`, `symfony/config`, `symfony/dependency-injection`) instead of
+  relying on transitive resolution; `ext-mbstring` is a dev requirement now (one test uses it).
+- CI: a PHP 8.5 leg and a `doctrine/orm` floor leg (`3.5.7`) next to the Symfony floor leg.
+
+### Removed
+
+- `symfony/translation-contracts` from `require` — the bundle never imported it. An application
+  that relied on the bundle pulling it in gets it from `symfony/translation` or `symfony/validator`.
+- The dead Rector configuration (`rector.php`, `composer rector`): Rector was never installed,
+  and the config referenced a set that no longer exists.
+
 ## [5.1.0] — 2026-09-13
 
 Translation roots — one non-translatable row per object that owns the `tuuid` — and the command

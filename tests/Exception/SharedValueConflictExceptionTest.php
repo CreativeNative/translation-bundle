@@ -68,6 +68,7 @@ final class SharedValueConflictExceptionTest extends TestCase
         yield 'date' => [new \DateTimeImmutable('2026-09-05T10:00:00+02:00'), '2026-09-05T10:00:00+02:00'];
         yield 'stringable' => [
             new class implements \Stringable {
+                #[\Override]
                 public function __toString(): string
                 {
                     return 'tuuid-like';

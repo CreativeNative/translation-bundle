@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Reference;
 
 final class TranslationHandlerPass implements CompilerPassInterface
 {
+    #[\Override]
     public function process(ContainerBuilder $container): void
     {
         if (!$container->has('tmi_translation.translation.entity_translator')) {

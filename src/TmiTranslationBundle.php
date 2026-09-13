@@ -13,6 +13,7 @@ use Tmi\TranslationBundle\DependencyInjection\Compiler\TuuidOrphanCounterPass;
 
 final class TmiTranslationBundle extends Bundle
 {
+    #[\Override]
     public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new TranslationHandlerPass());

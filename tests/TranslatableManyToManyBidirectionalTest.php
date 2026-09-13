@@ -17,7 +17,7 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
     private BidirectionalManyToManyHandler $handler;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
         $this->handler = new BidirectionalManyToManyHandler(

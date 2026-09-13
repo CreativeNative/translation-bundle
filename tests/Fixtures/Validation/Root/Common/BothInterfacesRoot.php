@@ -19,31 +19,37 @@ class BothInterfacesRoot implements TranslationRootInterface, TranslatableInterf
 
     private string|null $locale = null;
 
+    #[\Override]
     public function hasTuuid(): bool
     {
         return null !== $this->tuuid;
     }
 
+    #[\Override]
     public function adoptTuuid(Tuuid $tuuid): void
     {
         $this->tuuid = $tuuid;
     }
 
+    #[\Override]
     public function getTuuid(): Tuuid
     {
         return $this->tuuid ??= Tuuid::generate();
     }
 
+    #[\Override]
     public function generateTuuid(): void
     {
         $this->tuuid ??= Tuuid::generate();
     }
 
+    #[\Override]
     public function getLocale(): string|null
     {
         return $this->locale;
     }
 
+    #[\Override]
     public function setLocale(string|null $locale = null): self
     {
         $this->locale = $locale;

@@ -31,6 +31,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
      *
      * @throws \Exception|\Doctrine\DBAL\Exception|TypesException
      */
+    #[\Override]
     public function load(array $configs, ContainerBuilder $container): void
     {
         // Detect removed v1.x config keys and provide migration guidance
@@ -135,6 +136,7 @@ final class TmiTranslationExtension extends Extension implements PrependExtensio
      * process that never boots the full container (a cache warmer worker, for
      * instance) still relies on.
      */
+    #[\Override]
     public function prepend(ContainerBuilder $container): void
     {
         if (!$container->hasExtension('doctrine')) {

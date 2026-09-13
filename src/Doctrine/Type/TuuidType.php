@@ -30,6 +30,7 @@ final class TuuidType extends GuidType
      * TranslationDoctorCommand's "null-tuuid" check exists to catch exactly
      * that.
      */
+    #[\Override]
     public function convertToPHPValue(mixed $value, AbstractPlatform $platform): Tuuid|null
     {
         if (null === $value) {
@@ -47,6 +48,7 @@ final class TuuidType extends GuidType
         throw new ConversionException(sprintf('Cannot convert "%s" to Tuuid (PHPValue)', get_debug_type($value)));
     }
 
+    #[\Override]
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): string|null
     {
         if (null === $value) {
@@ -72,6 +74,7 @@ final class TuuidType extends GuidType
     /**
      * @return list<string>
      */
+    #[\Override]
     public function getMappedDatabaseTypes(AbstractPlatform $platform): array
     {
         // So that SchemaTool does not cause any problems during mapping

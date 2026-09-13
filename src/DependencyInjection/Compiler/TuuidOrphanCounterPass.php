@@ -18,6 +18,7 @@ final class TuuidOrphanCounterPass implements CompilerPassInterface
 {
     public const string TAG = 'tmi_translation.tuuid_orphan_counter';
 
+    #[\Override]
     public function process(ContainerBuilder $container): void
     {
         if (!$container->has(RootCheckAggregator::class)) {

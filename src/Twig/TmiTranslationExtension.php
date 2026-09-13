@@ -32,6 +32,7 @@ final class TmiTranslationExtension extends AbstractExtension implements Globals
     /**
      * @return array<string, mixed>
      */
+    #[\Override]
     public function getGlobals(): array
     {
         return [

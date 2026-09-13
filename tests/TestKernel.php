@@ -43,6 +43,7 @@ final class TestKernel extends BaseKernel
      *
      * @return list<FrameworkBundle|DoctrineBundle|TmiTranslationBundle>
      */
+    #[\Override]
     public function registerBundles(): iterable
     {
         return [

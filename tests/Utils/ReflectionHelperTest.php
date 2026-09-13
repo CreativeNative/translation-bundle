@@ -92,10 +92,12 @@ final class ReflectionHelperTest extends TestCase
     public function testGetHierarchyPropertiesUnwrapsAProxyToTheRealClasssCacheEntry(): void
     {
         $proxy = new class extends Scalar implements Proxy {
+            #[\Override]
             public function __load(): void
             {
             }
 
+            #[\Override]
             public function __isInitialized(): bool
             {
                 return true;

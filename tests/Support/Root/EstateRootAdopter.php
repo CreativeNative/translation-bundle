@@ -21,11 +21,13 @@ use Tmi\TranslationBundle\Fixtures\Entity\Root\ListingB;
  */
 final class EstateRootAdopter implements RootAdopterInterface
 {
+    #[\Override]
     public function getTranslatableClass(): string
     {
         return Estate::class;
     }
 
+    #[\Override]
     public function getRoot(TranslatableInterface $row): TranslationRootInterface|null
     {
         \assert($row instanceof Estate);
@@ -33,6 +35,7 @@ final class EstateRootAdopter implements RootAdopterInterface
         return $row->getListing();
     }
 
+    #[\Override]
     public function createRootFor(array $group): TranslationRootInterface
     {
         $first = $group[0];
@@ -43,6 +46,7 @@ final class EstateRootAdopter implements RootAdopterInterface
         return new $class($first->getFamily());
     }
 
+    #[\Override]
     public function attach(TranslatableInterface $row, TranslationRootInterface $root): void
     {
         \assert($row instanceof Estate && $root instanceof Listing);
@@ -50,11 +54,13 @@ final class EstateRootAdopter implements RootAdopterInterface
         $row->setListing($root);
     }
 
+    #[\Override]
     public function rootClassFor(TranslatableInterface $row): string
     {
         return $row instanceof EstateA ? ListingA::class : ListingB::class;
     }
 
+    #[\Override]
     public function coherenceKey(TranslatableInterface $row): string
     {
         \assert($row instanceof Estate);

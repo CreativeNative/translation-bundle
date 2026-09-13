@@ -46,6 +46,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
     ) {
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         return $context instanceof EntityTranslationContext;
@@ -55,6 +56,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
      * @throws \ReflectionException
      * @throws \RuntimeException
      */
+    #[\Override]
     public function translate(TranslationContext $context): TranslatableInterface|null
     {
         \assert($context instanceof EntityTranslationContext);

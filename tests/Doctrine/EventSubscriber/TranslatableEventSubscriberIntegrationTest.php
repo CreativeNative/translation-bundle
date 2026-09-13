@@ -20,7 +20,8 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
 {
     private TranslatableEventSubscriber $subscriber;
 
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -196,6 +197,7 @@ final class TranslatableEventSubscriberIntegrationTest extends IntegrationTestCa
             /**
              * @param array<mixed> $context
              */
+            #[\Override]
             public function log(mixed $level, \Stringable|string $message, array $context = []): void
             {
                 $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];

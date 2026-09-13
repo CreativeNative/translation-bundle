@@ -25,11 +25,13 @@ final class PropertyTranslationContext extends TranslationContext
         return $this->value;
     }
 
+    #[\Override]
     public function getSubject(): mixed
     {
         return $this->value;
     }
 
+    #[\Override]
     public function setSubject(mixed $subject): static
     {
         $this->value = $subject;

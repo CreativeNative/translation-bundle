@@ -706,7 +706,7 @@ final class TmiTranslationExtensionTest extends IntegrationTestCase
 
         foreach ($container->getParameterBag()->all() as $key => $value) {
             if (is_scalar($value) || is_array($value) || null === $value || $value instanceof \UnitEnum) {
-                $containerBuilder->setParameter($key, $value);
+                $containerBuilder->setParameter((string) $key, $value);
             }
         }
 

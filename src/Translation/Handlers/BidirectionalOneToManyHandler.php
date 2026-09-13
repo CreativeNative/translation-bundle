@@ -41,6 +41,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     ) {
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         // The value of a OneToMany property is the children Collection, never the entity
@@ -70,6 +71,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
      *
      * @return Collection<int, mixed>
      */
+    #[\Override]
     public function translate(TranslationContext $context): Collection
     {
         \assert($context instanceof PropertyTranslationContext);

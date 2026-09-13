@@ -39,6 +39,7 @@ final class AttributeHelperTranslationRootTest extends TestCase
 {
     private AttributeHelper $helper;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();

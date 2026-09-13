@@ -28,24 +28,31 @@
     ],
     "require": {
         "php": ">=8.4",
+        "ext-json": "*",
+        "doctrine/collections": "^2.2 || ^3.0",
+        "doctrine/dbal": "^4.2",
         "doctrine/doctrine-bundle": "^2.18 || ^3.0",
         "doctrine/orm": "^3.5.7",
+        "doctrine/persistence": "^4.0",
+        "psr/log": "^3.0",
+        "symfony/config": "^8.0",
         "symfony/console": "^8.0",
+        "symfony/dependency-injection": "^8.0",
+        "symfony/event-dispatcher": "^8.0",
         "symfony/framework-bundle": "^8.0",
-        "symfony/security-bundle": "^8.0",
-        "symfony/yaml": "^8.0",
+        "symfony/http-kernel": "^8.0",
         "symfony/property-access": "^8.0",
+        "symfony/security-bundle": "^8.0",
         "symfony/service-contracts": "^3.6",
-        "twig/twig": "^3.22.0",
-        "symfony/translation-contracts": "^3.6.1",
-        "ext-json": "*",
-        "ext-mbstring": "*",
-        "symfony/uid": "^8.0"
+        "symfony/uid": "^8.0",
+        "symfony/yaml": "^8.0",
+        "twig/twig": "^3.22.0"
     },
     "conflict": {
         "symfony/doctrine-bridge": "<8.1"
     },
     "require-dev": {
+        "ext-mbstring": "*",
         "ext-pdo": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",
@@ -87,10 +94,6 @@
             "vendor/bin/php-cs-fixer fix"
         ],
         "stan": "vendor/bin/phpstan analyse --memory-limit=512M --ansi",
-        "rector": [
-            "Composer\\Config::disableProcessTimeout",
-            "vendor/bin/rector process --dry-run"
-        ],
         "check": [
             "@cs-fix",
             "@stan",

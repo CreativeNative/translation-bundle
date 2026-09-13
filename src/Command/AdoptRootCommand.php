@@ -115,6 +115,7 @@ final class AdoptRootCommand extends Command
         parent::__construct();
     }
 
+    #[\Override]
     protected function configure(): void
     {
         $this
@@ -123,6 +124,7 @@ final class AdoptRootCommand extends Command
             ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the run to one translatable class (its whole hierarchy is streamed).');
     }
 
+    #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io     = new SymfonyStyle($input, $output);

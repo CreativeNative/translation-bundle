@@ -28,31 +28,37 @@ final class InMemoryTranslationCache implements TranslationCacheInterface, Reset
     /** @var array<string, true> */
     private array $inProgress = [];
 
+    #[\Override]
     public function get(string $tuuid, string $locale): TranslatableInterface|null
     {
         return $this->cache[$tuuid][$locale] ?? null;
     }
 
+    #[\Override]
     public function set(string $tuuid, string $locale, TranslatableInterface $entity): void
     {
         $this->cache[$tuuid][$locale] = $entity;
     }
 
+    #[\Override]
     public function markInProgress(string $tuuid, string $locale): void
     {
         $this->inProgress[$tuuid.':'.$locale] = true;
     }
 
+    #[\Override]
     public function unmarkInProgress(string $tuuid, string $locale): void
     {
         unset($this->inProgress[$tuuid.':'.$locale]);
     }
 
+    #[\Override]
     public function isInProgress(string $tuuid, string $locale): bool
     {
         return isset($this->inProgress[$tuuid.':'.$locale]);
     }
 
+    #[\Override]
     public function reset(): void
     {
         $this->cache      = [];

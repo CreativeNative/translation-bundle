@@ -19,7 +19,7 @@ final class TranslatableManyToManyUnidirectionalTest extends IntegrationTestCase
     private UnidirectionalManyToManyHandler $handler;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
         $this->handler = new UnidirectionalManyToManyHandler(

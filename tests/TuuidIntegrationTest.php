@@ -21,7 +21,8 @@ final class TuuidIntegrationTest extends IntegrationTestCase
 {
     private EntityManagerInterface $em;
 
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         parent::setUp();
 

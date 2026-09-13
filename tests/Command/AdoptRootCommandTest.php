@@ -594,11 +594,13 @@ final class AdoptRootCommandTest extends IntegrationTestCase
             {
             }
 
+            #[\Override]
             public function getName(): string
             {
                 return $this->name;
             }
 
+            #[\Override]
             public function countOrphans(): int
             {
                 if ($this->throws) {

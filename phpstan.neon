@@ -6,6 +6,14 @@ parameters:
     paths:
       - src
       - tests
+    checkMissingOverrideMethodAttribute: true
+    checkBenevolentUnionTypes: true
+    checkMissingCallableSignature: true
+    checkImplicitMixed: true
+    checkExplicitMixed: true
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: true
+    checkTooWideReturnTypesInProtectedAndPublicMethods: true
     strictRules:
         disallowedLooseComparison: true
         booleansInConditions: true

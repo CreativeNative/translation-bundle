@@ -49,11 +49,13 @@ final class TranslationDoctorCommand extends Command
         parent::__construct();
     }
 
+    #[\Override]
     protected function configure(): void
     {
         $this->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the scan to a single entity class.');
     }
 
+    #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);

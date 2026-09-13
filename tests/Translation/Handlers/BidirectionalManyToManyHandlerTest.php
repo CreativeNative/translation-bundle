@@ -28,7 +28,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     private BidirectionalManyToManyHandler $handler;
 
     #[\Override]
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 

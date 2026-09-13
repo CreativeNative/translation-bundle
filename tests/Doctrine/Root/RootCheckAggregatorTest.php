@@ -119,11 +119,13 @@ final class RootCheckAggregatorTest extends IntegrationTestCase
             {
             }
 
+            #[\Override]
             public function getName(): string
             {
                 return $this->name;
             }
 
+            #[\Override]
             public function countOrphans(): int
             {
                 return $this->count;

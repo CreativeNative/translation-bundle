@@ -27,6 +27,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     ) {
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         // The value of a ManyToMany property is the Collection, never the entity itself --
@@ -63,6 +64,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
      *
      * @return Collection<int, mixed>
      */
+    #[\Override]
     public function translate(TranslationContext $context): Collection
     {
         \assert($context instanceof PropertyTranslationContext);

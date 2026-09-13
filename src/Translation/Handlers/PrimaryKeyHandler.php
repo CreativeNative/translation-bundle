@@ -17,11 +17,13 @@ final readonly class PrimaryKeyHandler implements TranslationHandlerInterface
     ) {
     }
 
+    #[\Override]
     public function supports(TranslationContext $context): bool
     {
         return null !== $context->getProperty() && $this->attributeHelper->isId($context->getProperty());
     }
 
+    #[\Override]
     public function translate(TranslationContext $context): null
     {
         return null;

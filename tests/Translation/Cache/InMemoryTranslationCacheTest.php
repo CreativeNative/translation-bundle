@@ -15,6 +15,7 @@ final class InMemoryTranslationCacheTest extends TestCase
 {
     private InMemoryTranslationCache $cache;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->cache = new InMemoryTranslationCache();

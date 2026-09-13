@@ -66,6 +66,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         $this->logger = $logger;
     }
 
+    #[\Override]
     public function translate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
         $result = $this->processTranslation(new EntityTranslationContext($entity, $entity->getLocale(), $locale));
@@ -74,6 +75,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         return $result;
     }
 
+    #[\Override]
     public function translateAndPersist(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
         $result = $this->translate($entity, $locale);
@@ -82,6 +84,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         return $result;
     }
 
+    #[\Override]
     public function getOrTranslate(TranslatableInterface $entity, string $locale): TranslatableInterface
     {
         $result = $this->translate($entity, $locale);
@@ -133,6 +136,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      *
      * @param iterable<mixed> $entities
      */
+    #[\Override]
     public function preload(iterable $entities, string $locale): void
     {
         /** @var array<class-string, list<string>> $byClass */
@@ -185,6 +189,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      * translator becomes visible again immediately, matching
      * InMemoryTranslationCache's own kernel.reset behaviour.
      */
+    #[\Override]
     public function reset(): void
     {
         $this->knownMisses = [];
@@ -202,6 +207,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      *
      * @return mixed Translated entity, embedded, or property value according to attribute rules
      */
+    #[\Override]
     public function processTranslation(TranslationContext $context): mixed
     {
         $subject = $context->getSubject();

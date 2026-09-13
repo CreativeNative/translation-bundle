@@ -28,7 +28,8 @@ final class TranslatableEventSubscriberTest extends TestCase
     private EntityManagerInterface&MockObject $entityManager;
     private TranslatableEventSubscriber $subscriber;
 
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
         $this->subscriber    = new TranslatableEventSubscriber('en_US');

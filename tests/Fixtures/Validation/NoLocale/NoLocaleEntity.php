@@ -15,6 +15,7 @@ class NoLocaleEntity implements TranslatableInterface
 {
     private Tuuid|null $tuuid = null;
 
+    #[\Override]
     public function generateTuuid(): void
     {
         if (null === $this->tuuid) {
@@ -22,11 +23,13 @@ class NoLocaleEntity implements TranslatableInterface
         }
     }
 
+    #[\Override]
     public function hasTuuid(): bool
     {
         return null !== $this->tuuid;
     }
 
+    #[\Override]
     public function getTuuid(): Tuuid
     {
         if (null === $this->tuuid) {
@@ -39,12 +42,14 @@ class NoLocaleEntity implements TranslatableInterface
         return $this->tuuid;
     }
 
+    #[\Override]
     public function getLocale(): string|null
     {
         // No locale property, so return null
         return null;
     }
 
+    #[\Override]
     public function setLocale(string|null $locale = null): self
     {
         // No locale property, so this is a no-op

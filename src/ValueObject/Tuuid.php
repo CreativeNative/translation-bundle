@@ -33,6 +33,7 @@ final readonly class Tuuid implements \Stringable
     /**
      * Returns the UUID string.
      */
+    #[\Override]
     public function __toString(): string
     {
         return $this->value;

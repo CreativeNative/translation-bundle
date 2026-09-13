@@ -37,6 +37,7 @@ return new PhpCsFixer\Config()
         'no_blank_lines_after_class_opening' => true,
         'multiline_whitespace_before_semicolons' => true,
         'no_trailing_whitespace_in_string' => true,
+        'php_unit_set_up_tear_down_visibility' => true,
     ])
     ->setParallelConfig(PhpCsFixer\Runner\Parallel\ParallelConfigFactory::detect())
     ->setFinder($finder)

@@ -19,11 +19,13 @@ use Tmi\TranslationBundle\Fixtures\Entity\Root\ArticleRoot;
  */
 final class ArticleRootAdopter implements RootAdopterInterface
 {
+    #[\Override]
     public function getTranslatableClass(): string
     {
         return Article::class;
     }
 
+    #[\Override]
     public function getRoot(TranslatableInterface $row): TranslationRootInterface|null
     {
         \assert($row instanceof Article);
@@ -33,21 +35,25 @@ final class ArticleRootAdopter implements RootAdopterInterface
         return $property->isInitialized($row) ? $row->getRoot() : null;
     }
 
+    #[\Override]
     public function createRootFor(array $group): TranslationRootInterface
     {
         return new ArticleRoot();
     }
 
+    #[\Override]
     public function attach(TranslatableInterface $row, TranslationRootInterface $root): void
     {
         new \ReflectionProperty(Article::class, 'root')->setValue($row, $root);
     }
 
+    #[\Override]
     public function rootClassFor(TranslatableInterface $row): string
     {
         return ArticleRoot::class;
     }
 
+    #[\Override]
     public function coherenceKey(TranslatableInterface $row): string
     {
         return '';

@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: [8.4]
+        # 8.4 is the floor and the primary leg; 8.5 proves the suite on the
+        # current PHP release without repeating the framework-floor leg there.
+        php-version: ['8.4', '8.5']
         # '8.1.*' pins the framework to the floor this bundle actually supports,
         # so the advertised minimum is exercised. It is 8.1 rather than 8.0
         # because composer.json conflicts with symfony/doctrine-bridge <8.1:
@@ -28,11 +30,24 @@ jobs:
         # '8.*' is whatever Symfony 8 resolves to today and carries the full
         # check suite.
         symfony-version: ['8.1.*', '8.*']
+        # 'latest' resolves doctrine/orm to whatever the constraint allows today;
+        # the 'orm-floor' leg (added under `include`) pins it to the advertised
+        # minimum instead, so a call into an ORM API newer than the floor fails
+        # here and not on a consumer's machine.
+        deps: ['latest']
+        exclude:
+          - php-version: '8.5'
+            symfony-version: '8.1.*'
         include:
-          - symfony-version: '8.*'
+          - php-version: '8.4'
+            symfony-version: '8.*'
+            deps: 'latest'
             primary: true
+          - php-version: '8.4'
+            symfony-version: '8.*'
+            deps: 'orm-floor'
 
-    name: PHP ${{ matrix.php-version }} / Symfony ${{ matrix.symfony-version }}
+    name: PHP ${{ matrix.php-version }} / Symfony ${{ matrix.symfony-version }} / deps ${{ matrix.deps }}
 
     steps:
       - uses: actions/checkout@v7
@@ -55,9 +70,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ matrix.symfony-version }}-${{ hashFiles('composer.json') }}
+          key: ${{ runner.os }}-composer-${{ matrix.php-version }}-${{ matrix.symfony-version }}-${{ matrix.deps }}-${{ hashFiles('composer.json') }}
           restore-keys: |
-            ${{ runner.os }}-composer-${{ matrix.symfony-version }}-
+            ${{ runner.os }}-composer-${{ matrix.php-version }}-${{ matrix.symfony-version }}-${{ matrix.deps }}-
             ${{ runner.os }}-composer-
 
       # Create var/cache folder for PHP-CS-Fixer
@@ -73,6 +88,14 @@ jobs:
       # resolving with --no-install writes the pinned lock without them.
       # Flex is then removed and the install runs from that lock, plugin-free.
       # It is installed globally so it never enters the bundle's own manifest.
+      # The ORM-floor leg pins doctrine/orm to the minimum composer.json
+      # advertises. A plain constraint edit (no --update) is enough: the
+      # resolve step below writes the lock from it. The edited manifest is
+      # never committed -- the checkout is discarded with the runner.
+      - name: Pin doctrine/orm to the floor
+        if: matrix.deps == 'orm-floor'
+        run: composer require --no-update --no-interaction doctrine/orm:3.5.7
+
       - name: Pin Symfony version
         run: |
           composer global config --no-plugins allow-plugins.symfony/flex true
@@ -85,8 +108,10 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: Show resolved Symfony version
-        run: composer show symfony/framework-bundle | head -3
+      - name: Show resolved Symfony and ORM versions
+        run: |
+          composer show symfony/framework-bundle | head -3
+          composer show doctrine/orm | head -3
 
       # Fast checks first (fail early). Style and static analysis are
       # version-independent, so they run once on the primary leg rather than

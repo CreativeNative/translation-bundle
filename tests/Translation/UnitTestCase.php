@@ -47,7 +47,8 @@ class UnitTestCase extends TestCase
     /**
      * {@inheritDoc}
      */
-    public function setUp(): void
+    #[\Override]
+    protected function setUp(): void
     {
         parent::setUp();
 

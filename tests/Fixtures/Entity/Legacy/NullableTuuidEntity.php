@@ -43,6 +43,7 @@ class NullableTuuidEntity implements TranslatableInterface
         return $this->id;
     }
 
+    #[\Override]
     public function generateTuuid(): void
     {
         if (null === $this->tuuid) {
@@ -50,11 +51,13 @@ class NullableTuuidEntity implements TranslatableInterface
         }
     }
 
+    #[\Override]
     public function hasTuuid(): bool
     {
         return null !== $this->tuuid;
     }
 
+    #[\Override]
     public function getTuuid(): Tuuid
     {
         if (null === $this->tuuid) {
@@ -67,11 +70,13 @@ class NullableTuuidEntity implements TranslatableInterface
         return $this->tuuid;
     }
 
+    #[\Override]
     public function getLocale(): string|null
     {
         return $this->locale;
     }
 
+    #[\Override]
     public function setLocale(string|null $locale = null): self
     {
         $this->locale = $locale;
