@@ -64,6 +64,12 @@ final readonly class SharedDriftScanner
                 foreach ($report->readonlyDrift() as $path) {
                     yield $this->drift($source, $sibling, $path, true);
                 }
+
+                // A root reference the siblings disagree on is drift the shared-value
+                // machinery may never repair -- reported as not writable, like readonly.
+                foreach ($report->rootDrift() as $path) {
+                    yield $this->drift($source, $sibling, $path, true);
+                }
             }
 
             foreach ($variants as $variant) {

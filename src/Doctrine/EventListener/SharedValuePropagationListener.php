@@ -106,6 +106,14 @@ final class SharedValuePropagationListener
             $selected = [];
 
             foreach ($shared as $property) {
+                // A translation root reference is never propagated -- neither written onto a
+                // sibling nor conflict-checked. Re-pointing a row at another root is an
+                // identity decision only tmi:translation:adopt-root's classification may
+                // make; the synchronizer reports such drift, and `--check` fails on it.
+                if ($property['root']) {
+                    continue;
+                }
+
                 $hit = false;
 
                 foreach ($property['changeSetPaths'] as $path) {

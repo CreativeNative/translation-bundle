@@ -7,6 +7,10 @@ namespace Tmi\TranslationBundle\Test;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\AttributeValidationPass;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\RootAdopterPass;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\TranslationHandlerPass;
+use Tmi\TranslationBundle\DependencyInjection\Compiler\TuuidOrphanCounterPass;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -27,6 +31,31 @@ final class TmiTranslationBundleTest extends TestCase
         // Test that the method can be called without throwing exceptions
         $bundle->build($container);
         $this->addToAssertionCount(1);
+    }
+
+    /**
+     * RootAdopterPass reads a parameter AttributeValidationPass computes, so the
+     * registration order is load-bearing.
+     */
+    public function testBuildRegistersTheFourPassesWithTheValidationPassBeforeTheAdopterPass(): void
+    {
+        $container = new ContainerBuilder();
+        new TmiTranslationBundle()->build($container);
+
+        $passes = array_values(array_filter(
+            array_map(
+                static fn (object $pass): string => $pass::class,
+                $container->getCompilerPassConfig()->getBeforeOptimizationPasses(),
+            ),
+            static fn (string $class): bool => str_starts_with($class, 'Tmi\\'),
+        ));
+
+        self::assertSame([
+            TranslationHandlerPass::class,
+            AttributeValidationPass::class,
+            RootAdopterPass::class,
+            TuuidOrphanCounterPass::class,
+        ], $passes);
     }
 
     public function testBundleInheritance(): void

@@ -43,6 +43,7 @@ final class DocumentationReferencesTest extends TestCase
         'llms.md',
         'llms.txt',
         'UPGRADING.md',
+        'SPEC-translation-root.md',
         'CLAUDE.md',
         '.claude/architecture.md',
         '.claude/code-style.md',

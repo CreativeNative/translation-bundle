@@ -336,8 +336,10 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
                 // Validate property attributes for conflicts
                 $this->attributeHelper->validateProperty($property, $this->logger);
 
-                // 1. Determine if the top-level property is Shared (always copies from source)
-                if ($this->attributeHelper->isSharedAmongstTranslations($property)) {
+                // 1. Determine if the top-level property is Shared (always copies from source).
+                // Shared by attribute OR by being a translation root reference (5.1): the
+                // root is reaffirmed to the identical instance on every walk of the clone.
+                if ($this->attributeHelper->isEffectivelyShared($property)) {
                     $this->logDebug('Attribute detected: SharedAmongstTranslations', [
                         'property' => $property->name,
                         'class'    => $property->class,

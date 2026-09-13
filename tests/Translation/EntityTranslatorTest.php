@@ -80,7 +80,7 @@ final class EntityTranslatorTest extends UnitTestCase
             public string|null $title = null;
         };
         $prop = new \ReflectionProperty($propClass, 'title');
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(true);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -103,7 +103,7 @@ final class EntityTranslatorTest extends UnitTestCase
             public string|null $body = null;
         };
         $prop = new \ReflectionProperty($propClass, 'body');
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(true);
 
@@ -128,7 +128,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop    = new \ReflectionProperty($propClass, 'slug');
         $context = $this->propertyContext('unused', $prop);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
         $handler = $this->handlerSupporting($context, 'unused');
@@ -149,7 +149,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop    = new \ReflectionProperty($propClass, 'count');
         $context = $this->propertyContext('unused', $prop);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
         $handler = $this->handlerSupporting($context, 'unused');
@@ -170,7 +170,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop    = new \ReflectionProperty($propClass, 'active');
         $context = $this->propertyContext('unused', $prop);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(true);
         $this->attributeHelper()->method('isNullable')->with($prop)->willReturn(false);
         $handler = $this->handlerSupporting($context, 'unused');
@@ -191,7 +191,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop    = new \ReflectionProperty($propClass, 'n');
         $context = $this->propertyContext('unused', $prop);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->with($prop)->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->with($prop)->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->with($prop)->willReturn(false);
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->expects($this->once())->method('supports')->with($context)->willReturn(true);
@@ -717,7 +717,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop = new \ReflectionProperty($propClass, 'title');
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(true);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(true);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
         $this->logger()->expects($this->atLeastOnce())
@@ -749,7 +749,7 @@ final class EntityTranslatorTest extends UnitTestCase
         };
         $prop = new \ReflectionProperty($propClass, 'body');
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
         $this->attributeHelper()->method('isNullable')->willReturn(true);
 
@@ -794,7 +794,7 @@ final class EntityTranslatorTest extends UnitTestCase
             ]));
 
         // These methods should NOT be called because validation fails first
-        $this->attributeHelper()->expects($this->never())->method('isSharedAmongstTranslations');
+        $this->attributeHelper()->expects($this->never())->method('isEffectivelyShared');
         $this->attributeHelper()->expects($this->never())->method('isEmptyOnTranslate');
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -822,7 +822,7 @@ final class EntityTranslatorTest extends UnitTestCase
             ->method('validateProperty')
             ->with($prop, $this->logger());
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -916,7 +916,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext('original', $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(false);
 
@@ -942,7 +942,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext('shared-value', $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(true);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(true);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
         $handler->method('supports')->willReturn(true);
@@ -968,7 +968,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext('original', $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
         $this->attributeHelper()->method('isEmbedded')->willReturn(false);
 
@@ -1009,7 +1009,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext($propClass->created, $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(false);
 
@@ -1040,7 +1040,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext($propClass->address, $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(true);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
@@ -1072,7 +1072,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext($propClass->address, $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(true);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
 
@@ -1109,7 +1109,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext('some text', $prop);
         $context->setCopySource(true);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
         $this->attributeHelper()->method('isNullable')->willReturn(true);
 
@@ -1133,7 +1133,7 @@ final class EntityTranslatorTest extends UnitTestCase
         // Configure attributeHelper to return a Translatable attribute with copySource=true
         $attribute = new \Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: true);
         $this->attributeHelper()->method('getTranslatableAttribute')->willReturn($attribute);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -1156,7 +1156,7 @@ final class EntityTranslatorTest extends UnitTestCase
 
         // No entity-level attribute
         $this->attributeHelper()->method('getTranslatableAttribute')->willReturn(null);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -1179,7 +1179,7 @@ final class EntityTranslatorTest extends UnitTestCase
         // Entity-level attribute with null copySource (defer to global)
         $attribute = new \Tmi\TranslationBundle\Doctrine\Attribute\Translatable(copySource: null);
         $this->attributeHelper()->method('getTranslatableAttribute')->willReturn($attribute);
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
 
         $handler = $this->createMock(TranslationHandlerInterface::class);
@@ -1261,7 +1261,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext($propClass->created, $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(true);
         $this->attributeHelper()->method('isEmbedded')->willReturn(false);
 
@@ -1298,7 +1298,7 @@ final class EntityTranslatorTest extends UnitTestCase
         $context = $this->propertyContext('original', $prop);
         $context->setCopySource(false);
 
-        $this->attributeHelper()->method('isSharedAmongstTranslations')->willReturn(false);
+        $this->attributeHelper()->method('isEffectivelyShared')->willReturn(false);
         $this->attributeHelper()->method('isEmptyOnTranslate')->willReturn(false);
         $this->attributeHelper()->method('isEmbedded')->willReturn(false);
 

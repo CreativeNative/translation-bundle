@@ -8,8 +8,13 @@ use Doctrine\ORM\UnitOfWork;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
+use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
+use Tmi\TranslationBundle\Fixtures\Entity\Root\Estate;
+use Tmi\TranslationBundle\Fixtures\Entity\Root\EstateA;
+use Tmi\TranslationBundle\Fixtures\Entity\Root\Listing;
+use Tmi\TranslationBundle\Fixtures\Entity\Root\ListingA;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
@@ -531,6 +536,33 @@ final class QueryBudgetTest extends IntegrationTestCase
         $this->counter()->reset();
         $this->translator()->translate($entity, 'de_DE');
         self::assertSame(1, $this->counter()->count(), 'reset() must forget the known miss, so translate()\'s own internal preload() queries again instead of skipping it');
+    }
+
+    /**
+     * `tmi:translation:adopt-root --check`'s roots-without-rows count (5.1): ONE
+     * NOT EXISTS query per root reference, whatever the table sizes.
+     */
+    public function testRootsWithoutRowsIsOneQueryPerRootReference(): void
+    {
+        $tuuid = Tuuid::generate();
+        $root  = new ListingA();
+        $root->adoptTuuid($tuuid);
+        $orphan = new ListingA();
+        $orphan->mintTuuid();
+        $this->entityManager()->persist($root);
+        $this->entityManager()->persist($orphan);
+        $this->entityManager()->persist(new EstateA()->setTuuid($tuuid)->setLocale('en_US')->setListing($root));
+        $this->entityManager()->persist(new EstateA()->setTuuid($tuuid)->setLocale('de_DE')->setListing($root));
+        $this->entityManager()->flush();
+        $this->entityManager()->clear();
+
+        $aggregator = new RootCheckAggregator($this->entityManager(), new LocaleVariantFinder($this->entityManager()));
+
+        $this->counter()->reset();
+        $count = $aggregator->countRootsWithoutRows(Listing::class, Estate::class, 'listing');
+
+        self::assertSame(1, $count);
+        self::assertSame(1, $this->counter()->count());
     }
 
     private function counter(): QueryCounter

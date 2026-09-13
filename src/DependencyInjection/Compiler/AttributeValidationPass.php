@@ -7,6 +7,8 @@ namespace Tmi\TranslationBundle\DependencyInjection\Compiler;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\Model\TranslationRootInterface;
+use Tmi\TranslationBundle\Exception\TranslationRootContractException;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -18,16 +20,32 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * - Class-level attribute conflicts (Shared + Empty)
  * - Property-level attribute conflicts (Shared + Empty, readonly + Empty)
  * - Missing locale property
+ * - The translation root contract (5.1): the per-property checks through
+ *   AttributeHelper::validateProperty(), plus the two per-class rules only the whole
+ *   class can answer -- at most one root reference, and, once that reference is
+ *   non-nullable (the "migration is done" switch), a constructor that requires the root.
+ *
+ * All checks are reflection-only (no EntityManager). ONE AttributeHelper serves the whole
+ * run: its per-`declaringClass::$property` validation cache is what keeps a property
+ * declared on an abstract SINGLE_TABLE ancestor from being reported once per concrete
+ * leaf. The constructor rule is keyed by concrete class and exempt from that dedup by
+ * design.
+ *
+ * Exposes `tmi_translation.translation_root_classes` -- the concrete translatable classes
+ * that declare a root reference -- for RootAdopterPass's cross-check.
  *
  * Throws LogicException during cache:warmup if validation fails.
  */
 final class AttributeValidationPass implements CompilerPassInterface
 {
+    public const string ROOT_CLASSES_PARAMETER = 'tmi_translation.translation_root_classes';
+
     public function process(ContainerBuilder $container): void
     {
         // Early return if Doctrine is not configured
         if (!$container->has('doctrine.orm.entity_manager')) {
             $container->setParameter('tmi_translation.discovered_translatable_classes', []);
+            $container->setParameter(self::ROOT_CLASSES_PARAMETER, []);
 
             return;
         }
@@ -60,10 +78,20 @@ final class AttributeValidationPass implements CompilerPassInterface
             $container->log($this, $message);
         }
 
-        $errors = [];
+        $attributeHelper = new AttributeHelper();
+        $errors          = [];
+        $rootClasses     = [];
+
         foreach ($translatableClasses as $class) {
-            $this->validateEntity($class, $errors);
+            $this->validateEntity($attributeHelper, $class, $errors);
+
+            if ($this->validateTranslationRoot($attributeHelper, $class, $errors)) {
+                $rootClasses[] = $class->getName();
+            }
         }
+
+        sort($rootClasses);
+        $container->setParameter(self::ROOT_CLASSES_PARAMETER, $rootClasses);
 
         if ([] !== $errors) {
             throw new \LogicException(sprintf("TMI Translation Bundle: Compile-time validation failed with %d error(s):\n\n%s", count($errors), implode("\n", array_map(static fn (string $e) => "- {$e}", $errors))));
@@ -228,10 +256,8 @@ final class AttributeValidationPass implements CompilerPassInterface
      * @param \ReflectionClass<object> $class
      * @param array<string>            $errors
      */
-    private function validateEntity(\ReflectionClass $class, array &$errors): void
+    private function validateEntity(AttributeHelper $attributeHelper, \ReflectionClass $class, array &$errors): void
     {
-        $attributeHelper = new AttributeHelper();
-
         // Check class-level attribute conflicts
         if ($attributeHelper->classHasSharedAmongstTranslations($class)
             && $attributeHelper->classHasEmptyOnTranslate($class)) {
@@ -254,6 +280,81 @@ final class AttributeValidationPass implements CompilerPassInterface
 
         // Check locale field presence
         $this->validateLocaleField($class, $errors);
+    }
+
+    /**
+     * The per-class half of the translation root contract (5.1). Returns whether the
+     * concrete class declares a root reference at all.
+     *
+     * A NULLABLE root reference is phase 1 of the rollout: the FK column is nullable,
+     * `tmi:translation:adopt-root` fills it, and no constructor rule applies yet. Making
+     * the property non-nullable is the phase-2 act that turns the rule on -- one
+     * declaration change, no configuration key. The rule itself: the constructor `new`
+     * invokes must have a parameter without default, non-nullable, typed to
+     * TranslationRootInterface or a subtype; otherwise a `new` without the root would let
+     * TranslatableTrait::getTuuid() lazily mint an identity the root never had.
+     *
+     * @param \ReflectionClass<object> $class
+     * @param array<string>            $errors
+     */
+    private function validateTranslationRoot(AttributeHelper $attributeHelper, \ReflectionClass $class, array &$errors): bool
+    {
+        $rootReferences = array_values(array_filter(
+            ReflectionHelper::getHierarchyProperties($class),
+            $attributeHelper->isTranslationRootReference(...),
+        ));
+
+        if ([] === $rootReferences) {
+            return false;
+        }
+
+        if (count($rootReferences) > 1) {
+            $errors[] = sprintf('%s: %s', $class->getName(), TranslationRootContractException::forAmbiguousRootProperty(
+                $class->getName(),
+                array_map(static fn (\ReflectionProperty $p): string => $p->getName(), $rootReferences),
+            )->getMessage());
+
+            return true;
+        }
+
+        $reference = $rootReferences[0];
+
+        if (!$attributeHelper->isNullable($reference) && !self::constructorRequiresRoot($class)) {
+            $errors[] = sprintf('%s: %s', $class->getName(), TranslationRootContractException::forMissingRootConstructorParameter(
+                $class->getName(),
+                $reference->getName(),
+            )->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * @param \ReflectionClass<object> $class
+     */
+    private static function constructorRequiresRoot(\ReflectionClass $class): bool
+    {
+        $constructor = $class->getConstructor();
+
+        if (null === $constructor) {
+            return false;
+        }
+
+        foreach ($constructor->getParameters() as $parameter) {
+            $type = $parameter->getType();
+
+            if (
+                $type instanceof \ReflectionNamedType
+                && !$type->isBuiltin()
+                && !$type->allowsNull()
+                && !$parameter->isDefaultValueAvailable()
+                && is_a($type->getName(), TranslationRootInterface::class, true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

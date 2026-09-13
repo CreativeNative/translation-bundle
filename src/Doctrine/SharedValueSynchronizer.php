@@ -59,7 +59,14 @@ use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
  * is reported, not written; an uninitialized typed property on the source is
  * skipped, on the sibling it reads as null.
  *
- * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty, association: bool, path: string, changeSetPaths: list<string>}
+ * A translation root reference (5.1 -- a ManyToOne typed to a
+ * TranslationRootInterface, with or without #[TranslationRoot]) is discovered
+ * as a shared association too, but flagged `root`: it is compared by identity
+ * like every shared association and REPORTED when siblings disagree
+ * ({@see SharedValueSyncReport::rootDrift()}),
+ * never written -- see reconcile().
+ *
+ * @phpstan-type SharedProperty array{owner: \ReflectionProperty|null, property: \ReflectionProperty, association: bool, root: bool, path: string, changeSetPaths: list<string>}
  */
 final class SharedValueSynchronizer
 {
@@ -193,6 +200,7 @@ final class SharedValueSynchronizer
     {
         $changed       = [];
         $readonlyDrift = [];
+        $rootDrift     = [];
 
         foreach ($this->sharedProperties($source::class) as $shared) {
             if (null !== $onlyProperties && !self::isSelected($shared, $onlyProperties)) {
@@ -217,6 +225,18 @@ final class SharedValueSynchronizer
                 continue;
             }
 
+            // A translation root reference is NEVER written by the shared-value
+            // machinery -- reported, not applied. The routine `sync-shared` write mode
+            // names the default-locale row canonical; letting it re-point every other
+            // sibling's FK at that row's root would silently collapse an ambiguous group
+            // into one root and leave `adopt-root --check` clean afterwards: a data-loss
+            // event with a green gate. Only adopt-root's own classification resolves it.
+            if ($shared['root']) {
+                $rootDrift[] = $shared['path'];
+
+                continue;
+            }
+
             // readonly + shared is a legal combination, but an already-hydrated readonly
             // property cannot be written -- reporting the drift beats crashing mid-run.
             if ($property->isReadOnly()) {
@@ -235,7 +255,7 @@ final class SharedValueSynchronizer
             }
         }
 
-        return new SharedValueSyncReport($changed, $readonlyDrift);
+        return new SharedValueSyncReport($changed, $readonlyDrift, $rootDrift);
     }
 
     /**
@@ -307,7 +327,10 @@ final class SharedValueSynchronizer
                 continue;
             }
 
-            if (!$this->attributeHelper->isSharedAmongstTranslations($property)) {
+            // Shared by attribute, or a translation root reference (5.1) -- the latter is
+            // shared by its type alone and compared by identity like any shared
+            // association, but flagged so reconcile() reports instead of writes it.
+            if (!$this->attributeHelper->isEffectivelyShared($property)) {
                 continue;
             }
 
@@ -323,7 +346,7 @@ final class SharedValueSynchronizer
                 $metadata->isSingleValuedAssociation($name)
                 && !is_a($metadata->getAssociationTargetClass($name), TranslatableInterface::class, true)
             ) {
-                $shared[] = self::entry(null, $property, true, $name, [$name]);
+                $shared[] = self::entry(null, $property, true, $name, [$name], $this->attributeHelper->isTranslationRootReference($property));
             }
         }
 
@@ -385,12 +408,13 @@ final class SharedValueSynchronizer
      *
      * @return SharedProperty
      */
-    private static function entry(\ReflectionProperty|null $owner, \ReflectionProperty $property, bool $association, string $path, array $changeSetPaths): array
+    private static function entry(\ReflectionProperty|null $owner, \ReflectionProperty $property, bool $association, string $path, array $changeSetPaths, bool $root = false): array
     {
         return [
             'owner'          => $owner,
             'property'       => $property,
             'association'    => $association,
+            'root'           => $root,
             'path'           => $path,
             'changeSetPaths' => $changeSetPaths,
         ];

@@ -74,6 +74,14 @@ final class SyncSharedTranslationsCommand extends Command
      */
     private const int SYNC_BATCH_SIZE = 10;
 
+    /**
+     * Translation root references (5.1) that differ between sibling rows in this
+     * run -- reported, never written; reset at the start of every execute().
+     *
+     * @var list<string>
+     */
+    private array $rootDrift = [];
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
@@ -139,7 +147,8 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         /** @var list<string> $readonlyDrift */
-        $readonlyDrift = [];
+        $readonlyDrift   = [];
+        $this->rootDrift = [];
 
         if (null !== $tuuidOption) {
             $totalUpdated = $this->syncOneRecord($io, $classes, $tuuidOption, $sourceLocale, !$dryRun, $readonlyDrift);
@@ -194,8 +203,19 @@ final class SyncSharedTranslationsCommand extends Command
             $io->note('A readonly property cannot be written after hydration. Correct these rows manually or at the database level.');
         }
 
+        if ([] !== $this->rootDrift) {
+            $io->warning(sprintf(
+                '%d translation root reference(s) differ between sibling rows and were left untouched.',
+                count($this->rootDrift),
+            ));
+            $io->listing($this->rootDrift);
+            $io->note('A root reference is an identity, not a value: this command never re-points it, because copying the default-locale row\'s root over its siblings would silently merge two objects into one. Run tmi:translation:adopt-root --check to classify the group.');
+        }
+
+        $unwritable = [] === $readonlyDrift && [] === $this->rootDrift;
+
         if (0 === $totalUpdated) {
-            if ([] === $readonlyDrift) {
+            if ($unwritable) {
                 $io->success('All shared values are already in sync.');
 
                 return Command::SUCCESS;
@@ -218,7 +238,7 @@ final class SyncSharedTranslationsCommand extends Command
             $totalUpdated,
         ));
 
-        return [] === $readonlyDrift ? Command::SUCCESS : Command::FAILURE;
+        return $unwritable ? Command::SUCCESS : Command::FAILURE;
     }
 
     /**
@@ -541,6 +561,18 @@ final class SyncSharedTranslationsCommand extends Command
 
         foreach ($report->readonlyDrift() as $path) {
             $readonlyDrift[] = sprintf(
+                '%s::$%s (tuuid %s, locale %s)',
+                $sibling::class,
+                $path,
+                (string) $sibling->getTuuid(),
+                $sibling->getLocale() ?? 'none',
+            );
+
+            self::recordDrift($drift, $path, $sibling, true);
+        }
+
+        foreach ($report->rootDrift() as $path) {
+            $this->rootDrift[] = sprintf(
                 '%s::$%s (tuuid %s, locale %s)',
                 $sibling::class,
                 $path,

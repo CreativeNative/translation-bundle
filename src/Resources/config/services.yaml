@@ -279,3 +279,28 @@ services:
             $scanner: '@Tmi\TranslationBundle\Doctrine\SharedDriftScanner'
             $defaultLocale: '%tmi_translation.default_locale%'
         tags: [ { name: console.command } ]
+
+    # ----------------------------
+    # Translation Roots (v5.1)
+    # ----------------------------
+    # The two extension points of tmi:translation:adopt-root, filled by
+    # RootAdopterPass / TuuidOrphanCounterPass from their tags
+    # (tmi_translation.root_adopter with a `class` attribute,
+    # tmi_translation.tuuid_orphan_counter). Both registries are private and
+    # anchored by the command; an application registers its implementations,
+    # never these services.
+    Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry: ~
+
+    Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+
+    Tmi\TranslationBundle\Command\AdoptRootCommand:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
+            $adopters: '@Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry'
+            $checks: '@Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
+        tags: [ { name: console.command } ]
