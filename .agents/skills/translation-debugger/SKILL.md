@@ -28,7 +28,7 @@ Execute all checks from **references/diagnostics.md** in order:
 3. **Handler Chain Mapping Layer** - Handler compatibility
 4. **Runtime Configuration Layer** - Environment setup
 5. **Compile-Time Validation Layer** - attribute conflicts, unique constraints, `strict_discovery`
-6. **Tuuid Linkage Integrity Layer** - broken linkage (run `tmi:translation:doctor`, four anomaly classes), Removal Semantics, and — for an application declaring translation roots — the root invariant (`tmi:translation:adopt-root --check`, Check 6.5)
+6. **Tuuid Linkage Integrity Layer** - broken linkage (run `tmi:translation:doctor`: orphan, duplicate and null-tuuid fail; untranslated and incomplete are informational unless `--strict`), Removal Semantics, and — for an application declaring translation roots — the root invariant (`tmi:translation:adopt-root --check`, Check 6.5)
 
 ### Step 3: Present Results
 

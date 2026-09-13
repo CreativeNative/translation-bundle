@@ -25,7 +25,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 
 **Performance.** Every query-cost number this README states is enforced by an exact assertion (`assertSame`, not a ceiling) in [`tests/Performance/QueryBudgetTest.php`](tests/Performance/QueryBudgetTest.php) — see the full [Performance](#-performance) table below. Two headline numbers: finding a translatable entity under the active locale filter costs **1 query**; translating into an already-existing variant costs **1 query and 0 inserts**. Reading pays no per-row overhead — the bundle registers no lifecycle hook on load. Every cross-locale lookup is a single indexed `(tuuid, locale)` query, `preload()` batches import lookups per class instead of per entity, and the translation cache resets itself between jobs in long-running workers (`kernel.reset`).
 
-**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **935 tests, 8,500 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
+**Verified quality.** 100% **line** coverage is a CI gate (`composer test`, tracked by the Codecov badge above), not a one-time snapshot. PHPStan runs at **level max** with the strict-rules, doctrine, symfony and phpunit extensions installed (`composer stan`). PHPUnit runs in [strict mode](phpunit.xml) — `failOnWarning`, `failOnNotice`, `failOnRisky` and `failOnDeprecation` are all `true`, so a stray warning fails the build the same as an assertion failure. As of this release: **952 tests, 8,611 assertions**, all green — and those two numbers are themselves a CI gate ([`tools/check-doc-claims.php`](tools/check-doc-claims.php) fails the build when this sentence stops matching the suite), as is the documentation itself: [`tests/Documentation/DocumentationReferencesTest.php`](tests/Documentation/DocumentationReferencesTest.php) asserts that every link, anchor and class name in these docs still resolves. Every bug fix in this codebase ships with a negative-proof test — one demonstrably red against the old code before the fix, not merely green after it — the discipline is visible directly in the commit history.
 
 ## ✨ Features
 
@@ -33,7 +33,7 @@ Stores every locale variant as a row in the entity's own table — one indexed l
 - **Inheritance-aware** — `SINGLE_TABLE` and `JOINED` hierarchies are counted once per concrete row, not once per subclass scanned; properties declared privately on a parent class are inspected correctly, and a `mappedBy` property declared on a mapped superclass above the entity is found through the hierarchy walk, not just on the entity's own class.
 - **Relations translate through the full pipeline** — a `ManyToOne`/`OneToOne` association to another translatable entity is itself translated (get-or-create) through the same handler chain as a top-level entity, not a shallow clone with a dangling id.
 - **Removal semantics** — `TranslatableRemover` removes a Tuuid's sibling locale variants together, or exactly one variant while leaving its siblings; an opt-in `cascade_remove_locale_variants` listener does the former automatically on a plain `$em->remove()`.
-- **Diagnostics** — `tmi:translation:doctor` reports four anomaly classes (standalone, incomplete, duplicate, `null-tuuid`) for every entity or, with `--entity`, just one; `tmi:translation:sync-shared` names every drifted `#[SharedAmongstTranslations]` property, how many Tuuid groups and rows it touched, and whether it was writable; `strict_discovery` fails the container compile, instead of only logging, when compile-time attribute discovery finds zero translatable entities.
+- **Diagnostics** — `tmi:translation:doctor` fails on broken linkage (orphan, duplicate, `null-tuuid`) and lists untranslated and incomplete records for information (`--strict` counts those too), for every entity or, with `--entity`, just one; `tmi:translation:sync-shared` names every drifted `#[SharedAmongstTranslations]` property, how many Tuuid groups and rows it touched, and whether it was writable; `strict_discovery` fails the container compile, instead of only logging, when compile-time attribute discovery finds zero translatable entities.
 - **Shared values that stay shared** — `#[SharedAmongstTranslations]` copies a value onto a new locale variant, and a later edit on *any* variant reaches every sibling inside the same `flush()`, field by field, with a `SharedValueConflictException` instead of last-wins when two variants disagree. On by default (`propagate_shared_on_flush`), switchable off for content that varies per locale, and the copy logic is the public `SharedValueSynchronizer` service, with the edited row as source.
 - **Per-locale completeness** — `LocaleCompletenessResolver` answers, for one Tuuid or a batch of hundreds in a single query, whether each enabled locale has a variant and whether its content is complete relative to the baseline.
 - **AI-ready** — [AI skills](#-ai-assisted-development) for Claude Code and other assistants guide setup, debugging and custom handlers.
@@ -627,13 +627,16 @@ The bundle guards against this:
   reaction to an entity still orphaned at flush: `true` throws, `false` logs a warning
   (only when `enable_logging: true` — logging is opt-in), `null` (default) is *auto* —
   throws when `kernel.debug` is on, warns otherwise.
-- **`tmi:translation:doctor`** — scans every translatable table, or with `--entity`, just one,
-  and reports four anomaly classes: standalone translations (a Tuuid with no sibling),
-  incomplete translations (fewer locale rows than configured locales), duplicate
+- **`tmi:translation:doctor`** — scans every translatable table, or with `--entity`, just one.
+  Three findings are broken linkage and fail the run: orphan translations (a Tuuid whose only
+  row is in a non-default locale — a translation without its source), duplicate
   `(tuuid, locale)` pairs, and `null-tuuid` rows — a `tuuid` column that is a literal database
   `NULL`, only reachable through a write that bypasses the entity layer (a raw insert, a row
-  imported from elsewhere) since the column is mapped `NOT NULL`. Exits non-zero on findings, so
-  it works as a post-migration / CI integrity gate:
+  imported from elsewhere) since the column is mapped `NOT NULL`. Two are listed for
+  information only: untranslated records (default locale only — a translation that has not
+  happened yet) and incomplete ones (fewer locale rows than configured locales); `--strict`
+  counts those too. Exits non-zero on anomalies, so it works as a post-migration / CI
+  integrity gate:
 
   ```
   php bin/console tmi:translation:doctor

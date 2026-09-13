@@ -12,6 +12,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Uid\Uuid;
+use Tmi\TranslationBundle\Doctrine\GroupBatch;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\SharedDriftScanner;
@@ -35,12 +36,13 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * What counts as shared, and how a value is copied, is decided by
  * {@see SharedValueSynchronizer} — the same discovery the flush-time
  * propagation uses, so the two never disagree: mapped columns, embeddables in
- * all three places sharing can be declared, and (since v4.1) single-valued
- * associations to a non-translatable target. Tables are walked with
+ * all three places sharing can be declared, and single-valued associations to
+ * a non-translatable target. Tables are walked with
  * {@see LocaleVariantFinder::streamGroupedByTuuid()} and the source row is
  * chosen by {@see SharedDriftScanner::pickSource()}, both shared with the
  * read-only {@see SharedDriftScanner}. This command only adds the batched
- * flush/detach cycle of the write mode and the reporting around it.
+ * flush/detach cycle of the write mode ({@see GroupBatch}) and the reporting
+ * around it.
  *
  * With --check the command writes nothing and exits non-zero as soon as any
  * shared value has drifted — writable or readonly — so CI can gate on
@@ -58,8 +60,6 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
  * path, number of distinct tuuids affected, number of sibling rows affected,
  * and whether the property is writable — so an operator can see which fields
  * are diverging without re-running with --dry-run and reading source.
- *
- * @phpstan-type SharedDrift array{tuuids: array<string, true>, rows: int, readonly: bool}
  */
 #[AsCommand(
     name: 'tmi:translation:sync-shared',
@@ -67,21 +67,6 @@ use Tmi\TranslationBundle\ValueObject\Tuuid;
 )]
 final class SyncSharedTranslationsCommand extends Command
 {
-    /**
-     * Tuuid groups processed between EntityManager flush/clear cycles while streaming
-     * a class. Bounds peak memory to O(batch size × locale count) instead of O(table),
-     * no matter how many rows the class holds.
-     */
-    private const int SYNC_BATCH_SIZE = 10;
-
-    /**
-     * Translation root references (5.1) that differ between sibling rows in this
-     * run -- reported, never written; reset at the start of every execute().
-     *
-     * @var list<string>
-     */
-    private array $rootDrift = [];
-
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
@@ -107,16 +92,17 @@ final class SyncSharedTranslationsCommand extends Command
     #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io     = new SymfonyStyle($input, $output);
-        $check  = true           === $input->getOption('check');
-        $dryRun = $check || true === $input->getOption('dry-run');
+        $io   = new SymfonyStyle($input, $output);
+        $mode = RunMode::fromInput($input);
 
         /** @var string|null $tuuidOption */
         $tuuidOption = $input->getOption('tuuid');
         /** @var string|null $sourceLocale */
         $sourceLocale = $input->getOption('source-locale');
+        /** @var string|null $only */
+        $only = $input->getOption('entity');
 
-        $io->title('TMI Translation — Sync Shared Values'.($check ? ' (check)' : ($dryRun ? ' (dry run)' : '')));
+        $io->title('TMI Translation — Sync Shared Values'.$mode->titleSuffix());
 
         if (null !== $sourceLocale && null === $tuuidOption) {
             $io->error('--source-locale is only accepted together with --tuuid: which row is the source is a per-record decision, never a global one.');
@@ -124,22 +110,10 @@ final class SyncSharedTranslationsCommand extends Command
             return Command::FAILURE;
         }
 
-        $classes = $this->locator->locate();
+        $classes = $this->resolveClasses($io, $only);
 
-        /** @var string|null $only */
-        $only = $input->getOption('entity');
-
-        if (null !== $only) {
-            // Checked against Doctrine's metadata, not membership in $classes:
-            // the locator now names only the root of each inheritance hierarchy
-            // (see TranslatableEntityLocator), so --entity must still accept a
-            // concrete subclass that is not itself one of $classes's entries.
-            if (!$this->isTranslatableEntity($only)) {
-                $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
-
-                return Command::FAILURE;
-            }
-            $classes = [$only];
+        if (null === $classes) {
+            return Command::FAILURE;
         }
 
         if ([] === $classes) {
@@ -148,76 +122,106 @@ final class SyncSharedTranslationsCommand extends Command
             return Command::SUCCESS;
         }
 
-        /** @var list<string> $readonlyDrift */
-        $readonlyDrift   = [];
-        $this->rootDrift = [];
+        $run = new SyncSharedRun();
 
-        if (null !== $tuuidOption) {
-            $totalUpdated = $this->syncOneRecord($io, $classes, $tuuidOption, $sourceLocale, !$dryRun, $readonlyDrift);
+        $totalUpdated = null === $tuuidOption
+            ? $this->runWholeTable($io, $classes, $mode, $run)
+            : $this->syncOneRecord($io, $classes, $tuuidOption, $sourceLocale, $mode, $run);
 
-            if (null === $totalUpdated) {
-                return Command::FAILURE;
-            }
-        } else {
-            $totalUpdated = 0;
-
-            if (!$dryRun) {
-                // The whole-table write mode has no per-group source line to carry
-                // the warning describeSource() carries for --tuuid, and it is the
-                // mode that can destroy an edit: every group is copied FROM its
-                // default-locale row, so a record edited in another locale is
-                // reverted to the stale default-locale values. Say so once, before
-                // the first UPDATE, rather than leaving it to the documentation.
-                $io->note(\sprintf(
-                    'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
-                    .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
-                    .'to the stale default-locale values by this run -- repair those one at a time first with '
-                    .'--tuuid=<uuid> --source-locale=<locale>, then re-run this. --dry-run and --check never write.',
-                    $this->defaultLocale,
-                    $this->defaultLocale,
-                ));
-            }
-
-            foreach ($classes as $class) {
-                // syncClass() streams the class and flushes/clears its own batches, so
-                // no additional flush is needed here once the loop completes.
-                $totalUpdated += $this->syncClass($io, $class, !$dryRun, $readonlyDrift);
-            }
+        if (null === $totalUpdated) {
+            return Command::FAILURE;
         }
 
-        return $this->summarize($io, $totalUpdated, $readonlyDrift, $check, $dryRun);
+        return $this->summarize($io, $totalUpdated, $run, $mode);
+    }
+
+    /**
+     * The classes to walk: every translatable hierarchy root, or the one class
+     * `--entity` names. Null after an error (already reported to $io).
+     *
+     * @return list<class-string>|null
+     */
+    private function resolveClasses(SymfonyStyle $io, string|null $only): array|null
+    {
+        if (null === $only) {
+            return $this->locator->locate();
+        }
+
+        // Checked against Doctrine's metadata, not membership in locate()'s list:
+        // the locator names only the root of each inheritance hierarchy, and
+        // --entity must still accept a concrete subclass.
+        if (!$this->locator->isTranslatableEntity($only)) {
+            $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
+
+            return null;
+        }
+
+        return [$only];
+    }
+
+    /**
+     * Every class, every group, the default-locale row as the source.
+     *
+     * @param list<class-string> $classes
+     */
+    private function runWholeTable(SymfonyStyle $io, array $classes, RunMode $mode, SyncSharedRun $run): int
+    {
+        if ($mode->writes()) {
+            // The whole-table write mode has no per-group source line to carry
+            // the warning describeSource() carries for --tuuid, and it is the
+            // mode that can destroy an edit: every group is copied FROM its
+            // default-locale row, so a record edited in another locale is
+            // reverted to the stale default-locale values. Say so once, before
+            // the first UPDATE, rather than leaving it to the documentation.
+            $io->note(\sprintf(
+                'Write mode copies each record from its "%s" row (the default locale), or from the record\'s '
+                .'first row when it has no "%s" variant. A record that was edited in ANOTHER locale is reverted '
+                .'to the stale default-locale values by this run -- repair those one at a time first with '
+                .'--tuuid=<uuid> --source-locale=<locale>, then re-run this. --dry-run and --check never write.',
+                $this->defaultLocale,
+                $this->defaultLocale,
+            ));
+        }
+
+        $totalUpdated = 0;
+
+        foreach ($classes as $class) {
+            // syncClass() streams the class and flushes/detaches its own batches, so
+            // no additional flush is needed here once the loop completes.
+            $totalUpdated += $this->syncClass($io, $class, $mode, $run);
+        }
+
+        return $totalUpdated;
     }
 
     /**
      * The closing summary and exit code, identical for a whole-table run and a
      * --tuuid run.
-     *
-     * @param list<string> $readonlyDrift
      */
-    private function summarize(SymfonyStyle $io, int $totalUpdated, array $readonlyDrift, bool $check, bool $dryRun): int
+    private function summarize(SymfonyStyle $io, int $totalUpdated, SyncSharedRun $run, RunMode $mode): int
     {
-        if ([] !== $readonlyDrift) {
+        if ([] !== $run->readonlyDrift) {
             $io->warning(\sprintf(
                 '%d readonly shared value(s) differ from the source and were left untouched.',
-                \count($readonlyDrift),
+                \count($run->readonlyDrift),
             ));
-            $io->listing($readonlyDrift);
+            $io->listing($run->readonlyDrift);
             $io->note('A readonly property cannot be written after hydration. Correct these rows manually or at the database level.');
         }
 
-        if ([] !== $this->rootDrift) {
+        if ([] !== $run->rootDrift) {
             $io->warning(\sprintf(
                 '%d translation root reference(s) differ between sibling rows and were left untouched.',
-                \count($this->rootDrift),
+                \count($run->rootDrift),
             ));
-            $io->listing($this->rootDrift);
+            $io->listing($run->rootDrift);
             $io->note('A root reference is an identity, not a value: this command never re-points it, because copying the default-locale row\'s root over its siblings would silently merge two objects into one. Run tmi:translation:adopt-root --check to classify the group.');
         }
 
-        $unwritable = [] === $readonlyDrift && [] === $this->rootDrift;
+        $clean = !$run->hasUnwritable();
 
         if (0 === $totalUpdated) {
-            if ($unwritable) {
+            if ($clean) {
                 $io->success('All shared values are already in sync.');
 
                 return Command::SUCCESS;
@@ -226,7 +230,7 @@ final class SyncSharedTranslationsCommand extends Command
             return Command::FAILURE;
         }
 
-        if ($check) {
+        if ($mode->isCheck()) {
             $io->error(\sprintf(
                 '%d translation(s) carry shared values that differ from their source. Run tmi:translation:sync-shared to repair.',
                 $totalUpdated,
@@ -236,40 +240,11 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         $io->success(\sprintf(
-            $dryRun ? '%d translation(s) would be updated.' : '%d translation(s) updated.',
+            $mode->writes() ? '%d translation(s) updated.' : '%d translation(s) would be updated.',
             $totalUpdated,
         ));
 
-        return $unwritable ? Command::SUCCESS : Command::FAILURE;
-    }
-
-    /**
-     * Whether --entity names a real, mapped, translatable entity — checked
-     * against Doctrine's metadata directly (mirroring what
-     * {@see TranslatableEntityLocator::locate()} itself tests for a class it
-     * accepts) instead of membership in the already-resolved $classes list,
-     * which only ever names hierarchy roots and would wrongly reject a
-     * concrete subclass.
-     *
-     * @phpstan-assert-if-true class-string $class
-     */
-    private function isTranslatableEntity(string $class): bool
-    {
-        if (!class_exists($class)) {
-            return false;
-        }
-
-        if ($this->entityManager->getMetadataFactory()->isTransient($class)) {
-            return false;
-        }
-
-        $metadata = $this->entityManager->getClassMetadata($class);
-
-        if ($metadata->isMappedSuperclass) {
-            return false;
-        }
-
-        return $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
+        return $clean ? Command::SUCCESS : Command::FAILURE;
     }
 
     /**
@@ -278,9 +253,8 @@ final class SyncSharedTranslationsCommand extends Command
      * null after an error (already reported to $io).
      *
      * @param list<class-string> $classes
-     * @param list<string>      &$readonlyDrift
      */
-    private function syncOneRecord(SymfonyStyle $io, array $classes, string $tuuidOption, string|null $sourceLocale, bool $apply, array &$readonlyDrift): int|null
+    private function syncOneRecord(SymfonyStyle $io, array $classes, string $tuuidOption, string|null $sourceLocale, RunMode $mode, SyncSharedRun $run): int|null
     {
         if (!Uuid::isValid($tuuidOption)) {
             $io->error(\sprintf('"%s" is not a valid Tuuid.', $tuuidOption));
@@ -303,7 +277,7 @@ final class SyncSharedTranslationsCommand extends Command
         }
 
         if (null === $found) {
-            $io->error(\sprintf('No locale variant of tuuid %s found in %s.', $tuuid, 1 === \count($classes) ? $classes[0] : 'any translatable entity'));
+            $io->error(\sprintf('No locale variant of Tuuid %s found in %s.', $tuuid, 1 === \count($classes) ? $classes[0] : 'any translatable entity'));
 
             return null;
         }
@@ -326,19 +300,18 @@ final class SyncSharedTranslationsCommand extends Command
             }
         }
 
-        $io->section(\sprintf('%s — tuuid %s', $found, $tuuid));
+        $io->section(\sprintf('%s — Tuuid %s', $found, $tuuid));
         $io->writeln($this->describeSource($source, null !== $sourceLocale));
 
-        /** @var array<string, SharedDrift> $drift */
-        $drift = [];
+        $run->beginClass();
 
-        $updated = $this->syncGroup($group, $source, $apply, $readonlyDrift, $drift);
+        $updated = $this->syncGroup($group, $source, $mode, $run);
 
-        if ($apply) {
+        if ($mode->writes()) {
             $this->entityManager->flush();
         }
 
-        $this->reportClass($io, $updated, $drift);
+        $this->reportClass($io, $updated, $run);
 
         return $updated;
     }
@@ -382,12 +355,11 @@ final class SyncSharedTranslationsCommand extends Command
     }
 
     /**
-     * @param class-string  $class
-     * @param list<string> &$readonlyDrift collects readonly values that differ but cannot be written
+     * @param class-string $class
      *
      * @return int Number of sibling translations whose shared values changed
      */
-    private function syncClass(SymfonyStyle $io, string $class, bool $apply, array &$readonlyDrift): int
+    private function syncClass(SymfonyStyle $io, string $class, RunMode $mode, SyncSharedRun $run): int
     {
         $io->section($class);
 
@@ -397,27 +369,23 @@ final class SyncSharedTranslationsCommand extends Command
             return 0;
         }
 
-        /** @var array<string, SharedDrift> $drift */
-        $drift = [];
+        $run->beginClass();
 
-        $updated = $this->syncStream($class, $apply, $readonlyDrift, $drift);
+        $updated = $this->syncStream($class, $mode, $run);
 
-        $this->reportClass($io, $updated, $drift);
+        $this->reportClass($io, $updated, $run);
 
         return $updated;
     }
 
-    /**
-     * @param array<string, SharedDrift> $drift
-     */
-    private function reportClass(SymfonyStyle $io, int $updated, array $drift): void
+    private function reportClass(SymfonyStyle $io, int $updated, SyncSharedRun $run): void
     {
         $io->writeln(0 === $updated
             ? '<info>OK</info> — already in sync.'
             : \sprintf('<comment>%d translation(s) need updating.</comment>', $updated));
 
-        if ([] !== $drift) {
-            $io->table(['Property', 'Tuuids', 'Rows', 'Writable'], self::driftRows($drift));
+        if ([] !== $run->drift) {
+            $io->table(['Property', 'Tuuids', 'Rows', 'Writable'], $run->driftRows());
         }
     }
 
@@ -447,72 +415,27 @@ final class SyncSharedTranslationsCommand extends Command
 
     /**
      * Walks $class with {@see LocaleVariantFinder::streamGroupedByTuuid()} and
-     * syncs each Tuuid group as it completes, so peak memory stays a small,
-     * table-size-independent multiple of the locale count.
+     * syncs each Tuuid group as it completes; {@see GroupBatch} flushes (write
+     * mode) and detaches the settled groups in batches, so peak memory stays a
+     * small, table-size-independent multiple of the locale count.
      *
-     * In --apply mode the EntityManager is flushed and the just-completed groups are
-     * detached every self::SYNC_BATCH_SIZE groups (plus once more for the trailing
-     * partial batch); in --check/--dry-run mode entities are only detached, since
-     * nothing was written.
-     *
-     * Detaching is deliberately per-entity (self::flushBatch()'s $settled list), not a
-     * blanket EntityManager::clear(): the stream has already hydrated the *next*
-     * group's first row (the "lookahead" entity) by the time a group is yielded, and
-     * that entity has not been synced yet. clear() would detach it too, and a property
-     * write to a detached entity is invisible to every later flush(), so whichever
-     * group happens to land on a batch boundary would silently lose its update.
-     * Restricting detachment to $settled -- entities whose group has already been
-     * synced -- keeps the still-forming group's entities attached until their own
-     * turn to be flushed.
-     *
-     * @param class-string               $class
-     * @param list<string>              &$readonlyDrift
-     * @param array<string, SharedDrift> &$drift
+     * @param class-string $class
      */
-    private function syncStream(string $class, bool $apply, array &$readonlyDrift, array &$drift): int
+    private function syncStream(string $class, RunMode $mode, SyncSharedRun $run): int
     {
-        $updated       = 0;
-        $groupsInBatch = 0;
-
-        /** @var list<TranslatableInterface> $settled */
-        $settled = [];
+        $updated = 0;
+        $batch   = new GroupBatch($this->entityManager, $mode->writes());
 
         foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
-            $updated += $this->syncGroup($group, $this->scanner->pickSource($group), $apply, $readonlyDrift, $drift);
+            $updated += $this->syncGroup($group, $this->scanner->pickSource($group), $mode, $run);
 
-            foreach ($group as $settledEntity) {
-                $settled[] = $settledEntity;
-            }
-
-            if (++$groupsInBatch >= self::SYNC_BATCH_SIZE) {
-                $this->flushBatch($apply, $settled);
-                $settled       = [];
-                $groupsInBatch = 0;
-            }
+            $batch->settle($group);
+            $batch->tick();
         }
 
-        $this->flushBatch($apply, $settled);
+        $batch->finish();
 
         return $updated;
-    }
-
-    /**
-     * Persists whatever the given already-synced entities changed (apply mode only)
-     * and detaches them, so the identity map never grows past one batch regardless of
-     * table size. Only ever called with entities whose group has already run through
-     * syncGroup() -- see the "lookahead entity" note on syncStream().
-     *
-     * @param list<TranslatableInterface> $settled
-     */
-    private function flushBatch(bool $apply, array $settled): void
-    {
-        if ($apply) {
-            $this->entityManager->flush();
-        }
-
-        foreach ($settled as $entity) {
-            $this->entityManager->detach($entity);
-        }
     }
 
     /**
@@ -526,10 +449,8 @@ final class SyncSharedTranslationsCommand extends Command
      * concrete class -- resolving from the source already covers every sibling.
      *
      * @param list<TranslatableInterface> $variants
-     * @param list<string>               &$readonlyDrift
-     * @param array<string, SharedDrift>  &$drift
      */
-    private function syncGroup(array $variants, TranslatableInterface $source, bool $apply, array &$readonlyDrift, array &$drift): int
+    private function syncGroup(array $variants, TranslatableInterface $source, RunMode $mode, SyncSharedRun $run): int
     {
         $count = 0;
 
@@ -538,7 +459,7 @@ final class SyncSharedTranslationsCommand extends Command
                 continue;
             }
 
-            if ($this->syncSibling($source, $sibling, $apply, $readonlyDrift, $drift)) {
+            if ($this->syncSibling($source, $sibling, $mode, $run)) {
                 ++$count;
             }
         }
@@ -546,90 +467,24 @@ final class SyncSharedTranslationsCommand extends Command
         return $count;
     }
 
-    /**
-     * @param list<string>              &$readonlyDrift
-     * @param array<string, SharedDrift> &$drift
-     */
-    private function syncSibling(
-        TranslatableInterface $source,
-        TranslatableInterface $sibling,
-        bool $apply,
-        array &$readonlyDrift,
-        array &$drift,
-    ): bool {
-        $report = $apply
+    private function syncSibling(TranslatableInterface $source, TranslatableInterface $sibling, RunMode $mode, SyncSharedRun $run): bool
+    {
+        $report = $mode->writes()
             ? $this->synchronizer->sync($source, $sibling)
             : $this->synchronizer->compare($source, $sibling);
 
         foreach ($report->readonlyDrift() as $path) {
-            $readonlyDrift[] = \sprintf(
-                '%s::$%s (tuuid %s, locale %s)',
-                $sibling::class,
-                $path,
-                (string) $sibling->getTuuid(),
-                $sibling->getLocale() ?? 'none',
-            );
-
-            self::recordDrift($drift, $path, $sibling, true);
+            $run->noteUnwritable($sibling, $path, false);
         }
 
         foreach ($report->rootDrift() as $path) {
-            $this->rootDrift[] = \sprintf(
-                '%s::$%s (tuuid %s, locale %s)',
-                $sibling::class,
-                $path,
-                (string) $sibling->getTuuid(),
-                $sibling->getLocale() ?? 'none',
-            );
-
-            self::recordDrift($drift, $path, $sibling, true);
+            $run->noteUnwritable($sibling, $path, true);
         }
 
         foreach ($report->changed() as $path) {
-            self::recordDrift($drift, $path, $sibling, false);
+            $run->recordDrift($path, $sibling, false);
         }
 
         return $report->hasChanges();
-    }
-
-    /**
-     * Records one drifted (property, sibling row) pair into the per-class drift
-     * accumulator that {@see reportClass()} renders as a table -- keyed by property
-     * path so writable and readonly drift on the same property share one row, and
-     * counting distinct tuuids separately from row count so a property shared
-     * across many siblings of the same record is not overcounted.
-     *
-     * @param array<string, SharedDrift> &$drift
-     */
-    private static function recordDrift(array &$drift, string $path, TranslatableInterface $sibling, bool $readonly): void
-    {
-        $entry = $drift[$path] ?? ['tuuids' => [], 'rows' => 0, 'readonly' => $readonly];
-
-        $entry['tuuids'][(string) $sibling->getTuuid()] = true;
-        ++$entry['rows'];
-        $entry['readonly'] = $readonly;
-
-        $drift[$path] = $entry;
-    }
-
-    /**
-     * @param array<string, SharedDrift> $drift
-     *
-     * @return list<list<string>>
-     */
-    private static function driftRows(array $drift): array
-    {
-        $rows = [];
-
-        foreach ($drift as $property => $entry) {
-            $rows[] = [$property, \count($entry['tuuids']), $entry['rows'], $entry['readonly']];
-        }
-
-        usort($rows, static fn (array $a, array $b): int => $b[2] <=> $a[2]);
-
-        return array_map(
-            static fn (array $r): array => [$r[0], (string) $r[1], (string) $r[2], $r[3] ? 'no' : 'yes'],
-            $rows,
-        );
     }
 }

@@ -199,7 +199,7 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 
 | Command | Purpose |
 |---------|---------|
-| `tmi:translation:doctor` | Scan for standalone/incomplete/duplicate anomalies plus `null-tuuid` (a literal DB `NULL`, only reachable via a write outside the entity layer); `--entity=<FQCN>` restricts the scan; exits non-zero on findings |
+| `tmi:translation:doctor` | Scan for broken linkage: orphan (non-default-locale-only) Tuuids, duplicate `(tuuid, locale)` pairs and `null-tuuid` rows (a literal DB `NULL`, only reachable via a write outside the entity layer) fail the run; untranslated (default-locale-only) and incomplete records are listed for information, counted with `--strict`; `--entity=<FQCN>` restricts the scan |
 | `tmi:translation:sync-shared` | Back-fill `#[SharedAmongstTranslations]` values across existing locale variants from the default-locale row — columns, embeddables and to-one associations to a non-translatable target; `--dry-run`, `--check` (CI gate), `--entity`, `--tuuid` + `--source-locale` (one record from the named row); prints a `Property \| Tuuids \| Rows \| Writable` drift table; a translation root reference the siblings disagree on is reported as not writable and fails the run |
 | `tmi:translation:adopt-root` | Create translation roots for the `tuuid` groups that predate them, through the registered `RootAdopterInterface` per hierarchy; classifies every group before writing (`mismatched`/`new`/`complete`/`partial`/`drift`/`ambiguous`), aborts write mode on mismatched/drift/ambiguous; `--dry-run`, `--check` (CI gate: only `complete` groups, no root without rows, every `tuuid_orphan_counter` at 0), `--entity` (streams the hierarchy root) |
 
@@ -266,9 +266,9 @@ name — listen with `#[AsEventListener(event: PreTranslateEvent::class)]` or
 ```
 src/
 ├── CacheWarmer/          # TranslatableEntityValidationWarmer (cache:warmup validation pass)
-├── Command/              # Diagnostic / maintenance console commands
+├── Command/              # Diagnostic / maintenance console commands; RunMode (--check/--dry-run), SyncSharedRun (sync-shared's run state)
 ├── DependencyInjection/  # Bundle configuration
-├── Doctrine/             # ORM integration (models, types, filters, listeners)
+├── Doctrine/             # ORM integration (models, types, filters, listeners); GroupBatch (flush/detach cycle of the streaming commands)
 │   └── Root/             # RootAdopterInterface, RootAdopterRegistry, TuuidOrphanCounterInterface, RootCheckAggregator (5.1)
 ├── Event/                # Translation events
 ├── EventSubscriber/      # LocaleFilterConfigurator (toggles the locale filter per request)

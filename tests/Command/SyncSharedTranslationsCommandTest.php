@@ -733,7 +733,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $tester = $this->run_(['--tuuid' => (string) Tuuid::generate()]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('No locale variant of tuuid', $tester->getDisplay());
+        self::assertStringContainsString('No locale variant of Tuuid', $tester->getDisplay());
         self::assertStringContainsString('any translatable entity', $tester->getDisplay());
     }
 
@@ -754,7 +754,7 @@ final class SyncSharedTranslationsCommandTest extends IntegrationTestCase
         $tester = $this->run_(['--tuuid' => (string) $tuuidA]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertStringContainsString('tuuid '.$tuuidA, $tester->getDisplay());
+        self::assertStringContainsString('Tuuid '.$tuuidA, $tester->getDisplay());
         self::assertStringContainsString('Source: locale en_US', self::normalizeTable($tester->getDisplay()));
         self::assertStringContainsString('the default-locale rule, applied in every mode', self::normalizeTable($tester->getDisplay()));
         self::assertStringContainsString('1 translation(s) updated', $tester->getDisplay());

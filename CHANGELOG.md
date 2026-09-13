@@ -14,7 +14,26 @@ and their notes in the GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- `tmi:translation:doctor --strict`: counts untranslated and incomplete records as anomalies
+  (the pre-5.2 verdict).
+- `TranslatableEntityLocator::isTranslatableEntity()`: the `--entity` test the three commands
+  share (accepts a concrete inheritance leaf, refuses unmapped classes and mapped superclasses).
+- Internal building blocks of the commands: `Command\RunMode` (`--check` implies `--dry-run`),
+  `Doctrine\GroupBatch` (the flush/detach cycle of a streamed table, batch size 10, lookahead-safe),
+  `Command\SyncSharedRun` (`sync-shared`'s run state, replacing instance state and by-reference
+  parameters).
+
 ### Changed
+
+- `tmi:translation:doctor` no longer fails on a record that exists in the default locale only:
+  it is listed as *untranslated*, the normal state of a pending translation, and the former
+  *standalone* class is split — a non-default-locale-only row is an *orphan* (a translation
+  without its source) and still fails the run. *Incomplete* records are listed for information
+  too. Orphan, duplicate and `null-tuuid` decide the exit code; `--strict` restores the old gate.
+- `tmi:translation:sync-shared` and `tmi:translation:adopt-root` take their run mode from one
+  `RunMode` and their batching from one `GroupBatch`; the `Source:` and error lines say `Tuuid`.
 
 - Logging contract: every logging service takes a non-nullable `LoggerInterface` whose
   constructor default is a `NullLogger`; `enable_logging: false` injects the

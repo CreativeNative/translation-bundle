@@ -41,7 +41,20 @@ no configuration key is introduced.
 
 ## Behavioural Changes (5.2)
 
-### 1. `enable_logging: false` now silences `EmbeddedHandler` too
+### 1. `tmi:translation:doctor` no longer fails on untranslated or incomplete records
+
+A record that exists in the default locale only was reported as a "standalone" anomaly and
+failed the run — which made the doctor unusable as a gate on any database with one pending
+translation. The former class is split: a **default-locale-only** Tuuid is *untranslated*
+(listed, not counted), a **non-default-locale-only** Tuuid is an *orphan* — a translation
+without its source — and still fails. *Incomplete* records (fewer locale rows than enabled
+locales) are listed, not counted. Orphan, duplicate and `null-tuuid` decide the exit code.
+
+If you gated on the old verdict, pass `--strict`: it counts untranslated and incomplete
+records again. The doctor's constructor takes `LocaleVariantFinder` and the default locale
+(relevant only to a hand-built instance).
+
+### 2. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -70,6 +83,7 @@ its own `composer.json`.
 1. `composer update tmi/translation-bundle`.
 2. Grep for `->setLogger(` on bundle services — pass the logger to the constructor instead.
 3. If `enable_logging` is off and you relied on `EmbeddedHandler` debug output, turn it on.
+4. A CI step that ran `tmi:translation:doctor` as a full-coverage gate adds `--strict`.
 
 ---
 

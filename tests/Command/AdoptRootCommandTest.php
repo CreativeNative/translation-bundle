@@ -16,6 +16,7 @@ use Tmi\TranslationBundle\Doctrine\Root\RootAdopterInterface;
 use Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry;
 use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
 use Tmi\TranslationBundle\Doctrine\Root\TuuidOrphanCounterInterface;
+use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Exception\RootAdoptionException;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Estate;
@@ -499,7 +500,7 @@ final class AdoptRootCommandTest extends IntegrationTestCase
             $checks->addCounter($counter);
         }
 
-        $tester = new CommandTester(new AdoptRootCommand($this->entityManager(), $finder, $registry, $checks, $this->attributeHelper()));
+        $tester = new CommandTester(new AdoptRootCommand($this->entityManager(), $finder, $registry, $checks, $this->attributeHelper(), new TranslatableEntityLocator($this->entityManager())));
         $tester->execute($input);
 
         return $tester;

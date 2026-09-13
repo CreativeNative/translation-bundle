@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping\ClassMetadataFactory;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tmi\TranslationBundle\Command\TranslationDoctorCommand;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\PrivateIdSuperclass;
 use Tmi\TranslationBundle\Fixtures\Entity\Inheritance\Sti\StiBook;
@@ -38,19 +39,45 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
         self::assertStringContainsString('correctly linked', $tester->getDisplay());
     }
 
-    public function testDetectsStandaloneTranslation(): void
+    /**
+     * A record that exists in the default locale only is a translation that has
+     * not happened yet -- the normal state of a lazily translated application,
+     * not broken linkage. Before 5.2 the doctor counted it as a "standalone"
+     * anomaly and failed, which made it useless as a gate on any database with
+     * one untranslated record.
+     */
+    public function testADefaultLocaleOnlyRecordIsUntranslatedNotAnAnomaly(): void
     {
-        $entity = new Scalar()->setLocale('en_US')->setTitle('Lonely');
+        $entity = new Scalar()->setLocale('en_US')->setTitle('Pending');
+        $this->entityManager()->persist($entity);
+        $this->entityManager()->flush();
+
+        $tester = $this->run_();
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Untranslated (default locale only) (1)', $tester->getDisplay());
+        self::assertStringContainsString('correctly linked', $tester->getDisplay());
+    }
+
+    /**
+     * The same single row in a NON-default locale is a translation without the
+     * row it was translated from -- the orphan TranslatableEventSubscriber warns
+     * about at flush time, seen at rest. That one is counted.
+     */
+    public function testANonDefaultLocaleOnlyRecordIsAnOrphan(): void
+    {
+        $entity = new Scalar()->setLocale('de_DE')->setTitle('Waise');
         $this->entityManager()->persist($entity);
         $this->entityManager()->flush();
 
         $tester = $this->run_();
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('Standalone', $tester->getDisplay());
+        self::assertStringContainsString('Orphan translations (non-default locale only) (1)', $tester->getDisplay());
+        self::assertStringContainsString('1 translation linkage anomaly/anomalies detected.', $tester->getDisplay());
     }
 
-    public function testDetectsIncompleteTranslation(): void
+    public function testAnIncompleteRecordIsListedButNotCounted(): void
     {
         $tuuid = Tuuid::generate();
 
@@ -60,8 +87,25 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
 
         $tester = $this->run_();
 
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Incomplete translations (1)', $tester->getDisplay());
+        self::assertStringContainsString('pass --strict to count them', $tester->getDisplay());
+    }
+
+    /** --strict restores the pre-5.2 gate: every informational finding counts. */
+    public function testStrictCountsUntranslatedAndIncompleteRecords(): void
+    {
+        $tuuid = Tuuid::generate();
+
+        $this->entityManager()->persist(new Scalar()->setLocale('en_US')->setTitle('Pending'));
+        $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('en_US')->setTitle('EN'));
+        $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale('de_DE')->setTitle('DE'));
+        $this->entityManager()->flush();
+
+        $tester = $this->run_(['--strict' => true]);
+
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('Incomplete', $tester->getDisplay());
+        self::assertStringContainsString('2 translation linkage anomaly/anomalies detected.', $tester->getDisplay());
     }
 
     public function testDetectsDuplicateLocaleRows(): void
@@ -81,13 +125,13 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
     /**
      * Negative proof for the STI double-counting bug: before
      * TranslatableEntityLocator returned only the root of an inheritance
-     * hierarchy, this single standalone row was visited once through the
+     * hierarchy, this single orphan row was visited once through the
      * polymorphic StiRoot query AND again through a StiBook-specific query,
      * reporting the same anomaly twice ("2 ... anomalies" instead of "1").
      */
     public function testCountsEachStiRowOnceAcrossASubclassHierarchy(): void
     {
-        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('en_US'));
+        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('de_DE'));
         $this->entityManager()->flush();
 
         $tester = $this->run_();
@@ -107,7 +151,9 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
         $command = new TranslationDoctorCommand(
             $entityManager,
             new TranslatableEntityLocator($entityManager),
+            new LocaleVariantFinder($entityManager),
             self::LOCALES,
+            'en_US',
         );
 
         $tester = new CommandTester($command);
@@ -142,7 +188,7 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
 
     /**
      * --entity restricts the scan to one class: StiBook carries a genuine
-     * standalone anomaly here, but it must not surface when only Scalar (a
+     * orphan anomaly here, but it must not surface when only Scalar (a
      * fully healthy dataset) is named.
      */
     public function testEntityOptionRestrictsToOneClass(): void
@@ -152,7 +198,7 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
         foreach (self::LOCALES as $locale) {
             $this->entityManager()->persist(new Scalar()->setTuuid($tuuid)->setLocale($locale)->setTitle($locale));
         }
-        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('en_US'));
+        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('de_DE'));
         $this->entityManager()->flush();
 
         $tester = $this->run_(['--entity' => Scalar::class]);
@@ -202,13 +248,13 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
      */
     public function testEntityOptionAcceptsAConcreteSubclassNotNamedByTheLocator(): void
     {
-        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('en_US'));
+        $this->entityManager()->persist(new StiBook()->setName('Lonely')->setLocale('de_DE'));
         $this->entityManager()->flush();
 
         $tester = $this->run_(['--entity' => StiBook::class]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
-        self::assertStringContainsString('Standalone', $tester->getDisplay());
+        self::assertStringContainsString('Orphan', $tester->getDisplay());
     }
 
     /**
@@ -233,14 +279,16 @@ final class TranslationDoctorCommandTest extends IntegrationTestCase
     }
 
     /**
-     * @param array<string, string> $input
+     * @param array<string, string|bool> $input
      */
     private function run_(array $input = []): CommandTester
     {
         $command = new TranslationDoctorCommand(
             $this->entityManager(),
             new TranslatableEntityLocator($this->entityManager()),
+            new LocaleVariantFinder($this->entityManager()),
             self::LOCALES,
+            'en_US',
         );
 
         $tester = new CommandTester($command);

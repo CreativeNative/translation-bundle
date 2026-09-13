@@ -428,33 +428,41 @@ This layer inspects *data*, not configuration — broken linkage between locale 
 
 ### Check 6.1: Run the doctor command
 
-**What to look for:** Locale rows that share no `Tuuid`, incomplete translation sets,
-duplicate `(tuuid, locale)` pairs, or a literal database `NULL` in the `tuuid` column.
+**What to look for:** Translations without their source row, duplicate `(tuuid, locale)`
+pairs, or a literal database `NULL` in the `tuuid` column — plus, for information, records
+not yet translated into every locale.
 
 **How to check:**
 
 ```bash
 php bin/console tmi:translation:doctor
 php bin/console tmi:translation:doctor --entity="App\Entity\Product"   # restrict to one class
+php bin/console tmi:translation:doctor --strict                        # untranslated/incomplete fail too
 ```
 
 **Interpreting the output:**
 
-- **Standalone translations** — a `Tuuid` carried by a single locale row. Symptom: an entity
-  resolves only in its original locale; `hreflang` alternates and shared media are missing on
-  other locales. Cause: the row was created with `new Entity()` + `setLocale(...)` instead of
-  `EntityTranslator::translate()`, minting a fresh unlinked `Tuuid`.
-- **Incomplete translations** — a `Tuuid` with fewer locale rows than configured locales. The
-  entity simply has not been translated into every locale yet.
-- **Duplicate `(tuuid, locale)` pairs** — two rows claiming to be the same locale variant.
+- **Orphan translations (non-default locale only)** — a `Tuuid` whose only row is in a
+  non-default locale: a translation without the row it was translated from. Cause: the row was
+  created with `new Entity()` + `setLocale('de_DE')` instead of `EntityTranslator::translate()`,
+  minting a fresh unlinked `Tuuid` (the same thing `TranslatableEventSubscriber` warns about at
+  flush time). Counted.
+- **Duplicate `(tuuid, locale)` pairs** — two rows claiming to be the same locale variant. Counted.
 - **`null-tuuid`** — the `tuuid` column itself is a literal database `NULL`. The column is
   mapped `NOT NULL`, so this only happens through a write that bypassed the entity layer
-  entirely (a raw INSERT, or a row imported from another system).
+  entirely (a raw INSERT, or a row imported from another system). Counted.
+- **Untranslated (default locale only)** — a `Tuuid` whose only row is the default locale's:
+  the translation has not happened yet. Symptom: the entity resolves only in its original
+  locale; `hreflang` alternates are missing on other locales. Informational (counted with
+  `--strict`).
+- **Incomplete translations** — a `Tuuid` with fewer locale rows than configured locales.
+  Informational (counted with `--strict`).
 
-**Severity:** ERROR (standalone, duplicate, null-tuuid) / INFO (incomplete).
+**Severity:** ERROR (orphan, duplicate, null-tuuid) / INFO (untranslated, incomplete — unless
+`--strict`).
 
 **Fix:**
-- Standalone/duplicate/null-tuuid rows must be repaired in the database (re-point the
+- Orphan/duplicate/null-tuuid rows must be repaired in the database (re-point the
   `tuuid`, or remove the row). There is no automatic fix — the doctor is read-only by design.
 - Prevent recurrence: always create translations via `EntityTranslator::translate()` (or
   `translateAndPersist()` / `getOrTranslate()`), and enable `strict_orphan_check` so the
@@ -603,7 +611,7 @@ LAYER 5: Compile-Time Validation
   [X] strict_discovery not tripped
 
 LAYER 6: Tuuid Linkage Integrity & Removal Semantics
-  [X] tmi:translation:doctor reports no anomalies (incl. null-tuuid)
+  [X] tmi:translation:doctor reports no anomalies (orphan, duplicate, null-tuuid; --strict for a full-coverage gate)
   [X] Shared values in sync across locale variants
   [X] strict_orphan_check configured
   [X] Deletions go through TranslatableRemover, not a plain $em->remove()

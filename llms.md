@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **935 tests, 8,500 assertions**, all green.
+  `failOnDeprecation`). As of this release: **952 tests, 8,611 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -1597,14 +1597,25 @@ flush() call that actually created the inconsistency, not in some unrelated late
 
 ### `tmi:translation:doctor`
 
-Scans every translatable table (locale filter disabled) and reports four anomaly classes:
+Scans every translatable table (locale filter suspended through `LocaleVariantFinder`) and
+reports five classes of finding. Three are broken linkage and fail the run:
 
-1. **standalone** — a Tuuid carried by a single locale row;
-2. **incomplete** — a Tuuid with fewer locale rows than configured locales;
-3. **duplicate** — more than one row sharing a `(tuuid, locale)` pair;
-4. **null-tuuid** — a row whose `tuuid` column is a literal database `NULL`. Only reachable
+1. **orphan** — a Tuuid whose only row carries a *non-default* locale: a translation without
+   the row it was translated from (what `TranslatableEventSubscriber` warns about at flush
+   time, seen at rest);
+2. **duplicate** — more than one row sharing a `(tuuid, locale)` pair;
+3. **null-tuuid** — a row whose `tuuid` column is a literal database `NULL`. Only reachable
    through a write that bypasses the entity layer (a raw insert, a row imported from another
    system), since the column is mapped `NOT NULL` -- a normal `persist()` cannot produce one.
+
+Two are listed for information and never counted unless `--strict` is passed — a translation
+that has not happened yet is the normal state of a record in an application that translates
+lazily or on demand, not a defect:
+
+4. **untranslated** — a Tuuid whose only row carries the *default* locale;
+5. **incomplete** — a Tuuid with two or more locale rows but fewer than the configured locales.
+
+`--strict` counts all five: the gate that fails until every record exists in every enabled locale.
 
 `--entity=<FQCN>` restricts the scan to a single entity class -- validated against
 Doctrine's metadata directly, so a concrete subclass of an inheritance hierarchy is accepted
@@ -1616,6 +1627,7 @@ Exits non-zero when anomalies are found — run it as a post-migration / CI inte
 ```
 php bin/console tmi:translation:doctor
 php bin/console tmi:translation:doctor --entity="App\Entity\Product"
+php bin/console tmi:translation:doctor --strict     # untranslated and incomplete records fail too
 ```
 
 ### `tmi:translation:sync-shared`
@@ -1965,7 +1977,7 @@ visible again immediately instead of staying a remembered miss.
   Run `php bin/console tmi:translation:sync-shared` — it copies every `#[SharedAmongstTranslations]` column value from the default-locale row to its siblings. Use `--dry-run` to preview, `--check` to gate CI on drift, and `--entity=<FQCN>` to limit the scope.
 
 - **"How do I find translations that were accidentally unlinked?"**
-  Run `php bin/console tmi:translation:doctor`. It reports standalone/incomplete translations and duplicate `(tuuid, locale)` pairs, and exits non-zero so it can gate CI or post-migration checks.
+  Run `php bin/console tmi:translation:doctor`. It fails on orphan translations, duplicate `(tuuid, locale)` pairs and `null-tuuid` rows, lists untranslated and incomplete records for information (`--strict` counts them too), and exits non-zero so it can gate CI or post-migration checks.
 
 - **“How can I handle OneToMany relations differently for shared vs per‑locale?”**  
   If the relation should be shared: mark property `#[SharedAmongstTranslations]`. If per‑locale: leave un‑marked. Use or extend handler logic if custom merging is needed.

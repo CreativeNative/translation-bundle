@@ -63,4 +63,26 @@ final readonly class TranslatableEntityLocator
 
         return $classes;
     }
+
+    /**
+     * Whether $class names a real, mapped, translatable entity -- the test the
+     * commands' `--entity` option applies to a user-supplied class name. Checked
+     * against Doctrine's metadata directly, not against membership in locate()'s
+     * list: that list names only the root of each inheritance hierarchy, and
+     * `--entity` must still accept a concrete subclass. A mapped superclass is not
+     * transient and has metadata, but no table of its own, so it is refused too.
+     *
+     * @phpstan-assert-if-true class-string $class
+     */
+    public function isTranslatableEntity(string $class): bool
+    {
+        if (!class_exists($class) || $this->entityManager->getMetadataFactory()->isTransient($class)) {
+            return false;
+        }
+
+        $metadata = $this->entityManager->getClassMetadata($class);
+
+        return !$metadata->isMappedSuperclass
+            && $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
+    }
 }

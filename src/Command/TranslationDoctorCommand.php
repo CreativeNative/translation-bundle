@@ -11,24 +11,36 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 
 /**
  * Scans every translatable entity table for broken Tuuid linkage.
  *
- * Reports four anomaly classes and exits non-zero when any are found, so it
- * can run as a post-migration / CI integrity gate:
+ * Reports five classes of finding. Three are anomalies -- linkage that is
+ * broken -- and fail the run, so it can gate a post-migration check or CI:
  *
- *  1. standalone  — a Tuuid carried by a single locale row (no sibling);
- *  2. incomplete  — a Tuuid with fewer locale rows than configured locales;
- *  3. duplicate   — more than one row sharing the same (tuuid, locale) pair;
- *  4. null-tuuid  — a row whose tuuid column is NULL, e.g. from a raw insert
+ *  1. orphan      — a Tuuid whose only row carries a NON-default locale: a
+ *     translation without the row it was translated from (what
+ *     TranslatableEventSubscriber warns about at flush time, seen at rest);
+ *  2. duplicate   — more than one row sharing the same (tuuid, locale) pair;
+ *  3. null-tuuid  — a row whose tuuid column is NULL, e.g. from a raw insert
  *     that bypassed the entity layer (the column is NOT NULL as of v4, so a
  *     normal persist() can no longer produce one). Excluded from the query
- *     behind classes 1-3 (see inspectNullTuuid()) so distinct NULL rows are
- *     never folded into one fake shared group, and reported separately by
+ *     behind the other classes (see inspectNullTuuid()) so distinct NULL rows
+ *     are never folded into one fake shared group, and reported separately by
  *     id instead.
+ *
+ * Two are informational -- a translation that has not happened yet is the
+ * normal state of a record in an application that translates lazily or on
+ * demand, not a defect -- listed, but never counted unless `--strict` asks:
+ *
+ *  4. untranslated — a Tuuid whose only row carries the DEFAULT locale;
+ *  5. incomplete   — a Tuuid with two or more locale rows but fewer than the
+ *     configured locales.
+ *
+ * `--strict` counts all five and restores a gate that fails until every
+ * record exists in every enabled locale.
  */
 #[AsCommand(
     name: 'tmi:translation:doctor',
@@ -36,15 +48,15 @@ use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 )]
 final class TranslationDoctorCommand extends Command
 {
-    private const string LOCALE_FILTER = 'tmi_translation_locale_filter';
-
     /**
      * @param list<string> $locales
      */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatableEntityLocator $locator,
+        private readonly LocaleVariantFinder $finder,
         private readonly array $locales,
+        private readonly string $defaultLocale,
     ) {
         parent::__construct();
     }
@@ -52,7 +64,9 @@ final class TranslationDoctorCommand extends Command
     #[\Override]
     protected function configure(): void
     {
-        $this->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the scan to a single entity class.');
+        $this
+            ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Restrict the scan to a single entity class.')
+            ->addOption('strict', null, InputOption::VALUE_NONE, 'Also fail on untranslated (default-locale-only) and incomplete records, not only on broken linkage.');
     }
 
     #[\Override]
@@ -62,16 +76,16 @@ final class TranslationDoctorCommand extends Command
         $io->title('TMI Translation Doctor');
 
         $classes = $this->locator->locate();
+        $strict  = true === $input->getOption('strict');
 
         /** @var string|null $only */
         $only = $input->getOption('entity');
 
         if (null !== $only) {
-            // Checked against Doctrine's metadata, not membership in $classes:
-            // the locator names only the root of each inheritance hierarchy
-            // (see TranslatableEntityLocator), so --entity must still accept a
-            // concrete subclass that is not itself one of $classes's entries.
-            if (!$this->isTranslatableEntity($only)) {
+            // Checked against Doctrine's metadata, not membership in locate()'s list:
+            // the locator names only the root of each inheritance hierarchy, and
+            // --entity must still accept a concrete subclass.
+            if (!$this->locator->isTranslatableEntity($only)) {
                 $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
 
                 return Command::FAILURE;
@@ -86,24 +100,18 @@ final class TranslationDoctorCommand extends Command
         }
 
         $expectedLocaleCount = \count($this->locales);
-        $anomalies           = 0;
 
-        $filters    = $this->entityManager->getFilters();
-        $wasEnabled = $filters->has(self::LOCALE_FILTER) && $filters->isEnabled(self::LOCALE_FILTER);
+        // The scan must see every locale row; the finder suspends the locale
+        // filter for the duration and restores it afterwards, whatever happens.
+        $anomalies = $this->finder->withoutLocaleFilter(function () use ($io, $classes, $expectedLocaleCount, $strict): int {
+            $anomalies = 0;
 
-        if ($wasEnabled) {
-            $filters->disable(self::LOCALE_FILTER);
-        }
-
-        try {
             foreach ($classes as $class) {
-                $anomalies += $this->inspect($io, $class, $expectedLocaleCount);
+                $anomalies += $this->inspect($io, $class, $expectedLocaleCount, $strict);
             }
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable(self::LOCALE_FILTER);
-            }
-        }
+
+            return $anomalies;
+        });
 
         if ($anomalies > 0) {
             $io->error(\sprintf('%d translation linkage anomaly/anomalies detected.', $anomalies));
@@ -121,7 +129,7 @@ final class TranslationDoctorCommand extends Command
      *
      * @return int Number of anomalies found for this entity class
      */
-    private function inspect(SymfonyStyle $io, string $class, int $expectedLocaleCount): int
+    private function inspect(SymfonyStyle $io, string $class, int $expectedLocaleCount, bool $strict): int
     {
         $io->section($class);
 
@@ -145,8 +153,10 @@ final class TranslationDoctorCommand extends Command
             $byTuuid[self::asString($row['tuuid'])][self::asString($row['locale'])] = self::asInt($row['cnt']);
         }
 
-        /** @var list<array{0: string, 1: string}> $standalone */
-        $standalone = [];
+        /** @var list<array{0: string, 1: string}> $untranslated */
+        $untranslated = [];
+        /** @var list<array{0: string, 1: string}> $orphans */
+        $orphans = [];
         /** @var list<array{0: string, 1: int, 2: string}> $incomplete */
         $incomplete = [];
         /** @var list<array{0: string, 1: string, 2: int}> $duplicates */
@@ -161,28 +171,47 @@ final class TranslationDoctorCommand extends Command
 
             $localeCount = \count($localeCounts);
 
-            if ($localeCount < $expectedLocaleCount) {
-                if (1 === $localeCount) {
-                    $standalone[] = [$tuuid, array_key_first($localeCounts)];
-                } else {
-                    $incomplete[] = [$tuuid, $localeCount, implode(', ', array_keys($localeCounts))];
-                }
+            if ($localeCount >= $expectedLocaleCount) {
+                continue;
+            }
+
+            if (1 !== $localeCount) {
+                $incomplete[] = [$tuuid, $localeCount, implode(', ', array_keys($localeCounts))];
+
+                continue;
+            }
+
+            // One row only: pending translation when it is the default locale's,
+            // a translation without its source when it is any other locale's.
+            $onlyLocale = array_key_first($localeCounts);
+
+            if ($onlyLocale === $this->defaultLocale) {
+                $untranslated[] = [$tuuid, $onlyLocale];
+            } else {
+                $orphans[] = [$tuuid, $onlyLocale];
             }
         }
 
         $nullTuuid = $this->inspectNullTuuid($class, $idField);
 
-        $total = \count($standalone) + \count($incomplete) + \count($duplicates) + \count($nullTuuid);
+        $anomalies     = \count($orphans)      + \count($duplicates) + \count($nullTuuid);
+        $informational = \count($untranslated) + \count($incomplete);
+        $total         = $strict ? $anomalies  + $informational : $anomalies;
 
-        if (0 === $total) {
+        if (0 === $anomalies + $informational) {
             $io->writeln('<info>OK</info> — no anomalies.');
 
             return 0;
         }
 
-        if ([] !== $standalone) {
-            $io->writeln(\sprintf('<comment>Standalone translations (%d):</comment>', \count($standalone)));
-            $io->table(['Tuuid', 'Only locale'], $standalone);
+        if ([] !== $untranslated) {
+            $io->writeln(\sprintf('<comment>Untranslated (default locale only) (%d):</comment>', \count($untranslated)));
+            $io->table(['Tuuid', 'Only locale'], $untranslated);
+        }
+
+        if ([] !== $orphans) {
+            $io->writeln(\sprintf('<comment>Orphan translations (non-default locale only) (%d):</comment>', \count($orphans)));
+            $io->table(['Tuuid', 'Only locale'], $orphans);
         }
 
         if ([] !== $incomplete) {
@@ -210,6 +239,10 @@ final class TranslationDoctorCommand extends Command
         if ([] !== $nullTuuid) {
             $io->writeln(\sprintf('<comment>NULL-tuuid rows (%d):</comment>', \count($nullTuuid)));
             $io->table(['Id', 'Locale'], $nullTuuid);
+        }
+
+        if (0 === $total) {
+            $io->writeln('<info>OK</info> — no linkage anomalies; untranslated and incomplete records are listed for information (pass --strict to count them).');
         }
 
         return $total;
@@ -244,35 +277,6 @@ final class TranslationDoctorCommand extends Command
             static fn (array $row): array => [self::asString($row['id']), self::asString($row['locale'])],
             $rows,
         );
-    }
-
-    /**
-     * Whether --entity names a real, mapped, translatable entity — checked
-     * against Doctrine's metadata directly (mirroring what
-     * {@see TranslatableEntityLocator::locate()} itself tests for a class it
-     * accepts) instead of membership in the already-resolved $classes list,
-     * which only ever names hierarchy roots and would wrongly reject a
-     * concrete subclass.
-     *
-     * @phpstan-assert-if-true class-string $class
-     */
-    private function isTranslatableEntity(string $class): bool
-    {
-        if (!class_exists($class)) {
-            return false;
-        }
-
-        if ($this->entityManager->getMetadataFactory()->isTransient($class)) {
-            return false;
-        }
-
-        $metadata = $this->entityManager->getClassMetadata($class);
-
-        if ($metadata->isMappedSuperclass) {
-            return false;
-        }
-
-        return $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
     }
 
     private static function asString(mixed $value): string

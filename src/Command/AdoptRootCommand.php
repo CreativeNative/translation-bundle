@@ -11,12 +11,14 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tmi\TranslationBundle\Doctrine\GroupBatch;
 use Tmi\TranslationBundle\Doctrine\LocaleVariantFinder;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslationRootInterface;
 use Tmi\TranslationBundle\Doctrine\Root\RootAdopterInterface;
 use Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry;
 use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
+use Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator;
 use Tmi\TranslationBundle\Exception\RootAdoptionException;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 use Tmi\TranslationBundle\Utils\ReflectionHelper;
@@ -46,7 +48,7 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  *
  * Write mode refuses to touch the table while any group is mismatched, drift or
  * ambiguous: the full report is printed and the command exits FAILURE without a single
- * UPDATE. Otherwise it adopts, in batches of ADOPT_BATCH_SIZE GROUPS: a NEW group gets
+ * UPDATE. Otherwise it adopts, in batches of GroupBatch::SIZE GROUPS: a NEW group gets
  * `createRootFor()`'s root (refused if it already carries a tuuid or is not an instance
  * of rootClassFor()), which adopts the group's tuuid, is persisted, and is attached to
  * every row; a PARTIAL group has its missing rows attached to the EXISTING root
@@ -96,12 +98,6 @@ final class AdoptRootCommand extends Command
     /** @var list<string> a group of one of these kinds aborts write mode before the first write */
     private const array BLOCKING = [self::KIND_MISMATCHED, self::KIND_DRIFT, self::KIND_AMBIGUOUS];
 
-    /**
-     * Tuuid GROUPS adopted between flush/detach cycles -- bounds peak memory to
-     * O(batch size × locale count), and a group is never split across a flush.
-     */
-    private const int ADOPT_BATCH_SIZE = 10;
-
     /** Anomaly groups listed per kind before the table is cut off with a count of the rest. */
     private const int MAX_LISTED_GROUPS = 20;
 
@@ -111,6 +107,7 @@ final class AdoptRootCommand extends Command
         private readonly RootAdopterRegistry $adopters,
         private readonly RootCheckAggregator $checks,
         private readonly AttributeHelper $attributeHelper,
+        private readonly TranslatableEntityLocator $locator,
     ) {
         parent::__construct();
     }
@@ -127,32 +124,17 @@ final class AdoptRootCommand extends Command
     #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io     = new SymfonyStyle($input, $output);
-        $check  = true           === $input->getOption('check');
-        $dryRun = $check || true === $input->getOption('dry-run');
+        $io   = new SymfonyStyle($input, $output);
+        $mode = RunMode::fromInput($input);
 
-        $io->title('TMI Translation — Adopt Translation Roots'.($check ? ' (check)' : ($dryRun ? ' (dry run)' : '')));
+        $io->title('TMI Translation — Adopt Translation Roots'.$mode->titleSuffix());
 
         /** @var string|null $only */
         $only     = $input->getOption('entity');
-        $adopters = $this->adopters->all();
+        $adopters = $this->resolveAdopters($io, $only);
 
-        if (null !== $only) {
-            if (!$this->isTranslatableEntity($only)) {
-                $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
-
-                return Command::FAILURE;
-            }
-
-            $adopter = $this->adopters->adopterFor($only);
-
-            if (null === $adopter) {
-                $io->error(\sprintf('"%s" declares no translation root: no tmi_translation.root_adopter serves it or any of its ancestors.', $only));
-
-                return Command::FAILURE;
-            }
-
-            $adopters = [$adopter];
+        if (null === $adopters) {
+            return Command::FAILURE;
         }
 
         if ([] === $adopters) {
@@ -169,33 +151,16 @@ final class AdoptRootCommand extends Command
         $adopted  = 0;
 
         foreach ($adopters as $adopter) {
-            $class = $this->entityManager->getClassMetadata($adopter->getTranslatableClass())->rootEntityName;
+            ['violated' => $classViolated, 'aborted' => $classAborted, 'adopted' => $classAdopted] = $this->processAdopter($io, $adopter, $mode);
 
-            $io->section($class);
-
-            $tally = $this->classifyClass($io, $adopter, $class);
-
-            $blocking = array_sum(array_intersect_key($tally, array_flip(self::BLOCKING))) > 0;
-            $pending  = $tally[self::KIND_NEW] + $tally[self::KIND_PARTIAL];
-            $violated = $violated || $blocking || $pending > 0;
-
-            if (!$dryRun) {
-                if ($blocking) {
-                    $io->error('Mismatched, drifted or ambiguous groups present -- aborting before the first write. Resolve them by hand, then re-run.');
-                    $aborted = true;
-                } elseif ($pending > 0) {
-                    $count = $this->adoptClass($adopter, $class);
-                    $adopted += $count;
-                    $io->writeln(\sprintf('<info>%d group(s) adopted.</info>', $count));
-                }
-            }
-
-            $violated = $this->reportRootsWithoutRows($io, $class) || $violated;
+            $violated = $violated || $classViolated;
+            $aborted  = $aborted  || $classAborted;
+            $adopted += $classAdopted;
         }
 
         $violated = $this->reportOrphanCounters($io) || $violated;
 
-        if ($check) {
+        if ($mode->isCheck()) {
             if ($violated) {
                 $io->error('The translation root invariant does not hold. Run tmi:translation:adopt-root to adopt new and partial groups; mismatched, drifted and ambiguous groups and orphan rows need a manual decision.');
 
@@ -211,9 +176,73 @@ final class AdoptRootCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success($dryRun ? 'Dry run complete -- nothing written.' : \sprintf('%d group(s) adopted.', $adopted));
+        $io->success($mode->writes() ? \sprintf('%d group(s) adopted.', $adopted) : 'Dry run complete -- nothing written.');
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * The adopters to run: every registered one, or the one serving the class
+     * `--entity` names. Null after an error (already reported to $io).
+     *
+     * @return list<RootAdopterInterface>|null
+     */
+    private function resolveAdopters(SymfonyStyle $io, string|null $only): array|null
+    {
+        if (null === $only) {
+            return $this->adopters->all();
+        }
+
+        if (!$this->locator->isTranslatableEntity($only)) {
+            $io->error(\sprintf('"%s" is not a known translatable entity.', $only));
+
+            return null;
+        }
+
+        $adopter = $this->adopters->adopterFor($only);
+
+        if (null === $adopter) {
+            $io->error(\sprintf('"%s" declares no translation root: no tmi_translation.root_adopter serves it or any of its ancestors.', $only));
+
+            return null;
+        }
+
+        return [$adopter];
+    }
+
+    /**
+     * One adopter's hierarchy: classify (pass 1), adopt in write mode when nothing
+     * blocks (pass 2), then the roots-without-rows table. `violated` feeds --check's
+     * verdict, `aborted` write mode's refusal, `adopted` the closing count.
+     *
+     * @return array{violated: bool, aborted: bool, adopted: int}
+     */
+    private function processAdopter(SymfonyStyle $io, RootAdopterInterface $adopter, RunMode $mode): array
+    {
+        $class = $this->entityManager->getClassMetadata($adopter->getTranslatableClass())->rootEntityName;
+
+        $io->section($class);
+
+        $tally = $this->classifyClass($io, $adopter, $class);
+
+        $blocking = array_sum(array_intersect_key($tally, array_flip(self::BLOCKING))) > 0;
+        $pending  = $tally[self::KIND_NEW] + $tally[self::KIND_PARTIAL];
+        $aborted  = false;
+        $adopted  = 0;
+
+        if ($mode->writes()) {
+            if ($blocking) {
+                $io->error('Mismatched, drifted or ambiguous groups present -- aborting before the first write. Resolve them by hand, then re-run.');
+                $aborted = true;
+            } elseif ($pending > 0) {
+                $adopted = $this->adoptClass($adopter, $class);
+                $io->writeln(\sprintf('<info>%d group(s) adopted.</info>', $adopted));
+            }
+        }
+
+        $rootsWithoutRows = $this->reportRootsWithoutRows($io, $class);
+
+        return ['violated' => $blocking || $pending > 0 || $rootsWithoutRows, 'aborted' => $aborted, 'adopted' => $adopted];
     }
 
     /**
@@ -230,6 +259,7 @@ final class AdoptRootCommand extends Command
 
         /** @var array<string, list<Classification>> $listed */
         $listed = [];
+        $batch  = new GroupBatch($this->entityManager, false);
 
         foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
             $classification = $this->classify($adopter, $group);
@@ -241,10 +271,11 @@ final class AdoptRootCommand extends Command
                 $listed[$kind][] = $classification;
             }
 
-            foreach ($group as $row) {
-                $this->entityManager->detach($row);
-            }
+            $batch->settle($group);
+            $batch->tick();
         }
+
+        $batch->finish();
 
         $io->table(
             ['Classification', 'Groups'],
@@ -280,35 +311,25 @@ final class AdoptRootCommand extends Command
      */
     private function adoptClass(RootAdopterInterface $adopter, string $class): int
     {
-        $adopted       = 0;
-        $groupsInBatch = 0;
-
-        /** @var list<object> $settled */
-        $settled = [];
+        $adopted = 0;
+        $batch   = new GroupBatch($this->entityManager, true);
 
         foreach ($this->finder->streamGroupedByTuuid($class) as $group) {
             $kind = $this->classify($adopter, $group)['kind'];
 
             if (self::KIND_NEW === $kind) {
-                $settled[] = $this->adoptNewGroup($adopter, $group);
+                $batch->settle([$this->adoptNewGroup($adopter, $group)]);
                 ++$adopted;
             } elseif (self::KIND_PARTIAL === $kind) {
                 $this->healPartialGroup($adopter, $group);
                 ++$adopted;
             }
 
-            foreach ($group as $row) {
-                $settled[] = $row;
-            }
-
-            if (++$groupsInBatch >= self::ADOPT_BATCH_SIZE) {
-                $this->flushBatch($settled);
-                $settled       = [];
-                $groupsInBatch = 0;
-            }
+            $batch->settle($group);
+            $batch->tick();
         }
 
-        $this->flushBatch($settled);
+        $batch->finish();
 
         return $adopted;
     }
@@ -357,18 +378,6 @@ final class AdoptRootCommand extends Command
             if (null === $adopter->getRoot($row)) {
                 $adopter->attach($row, $root);
             }
-        }
-    }
-
-    /**
-     * @param list<object> $settled
-     */
-    private function flushBatch(array $settled): void
-    {
-        $this->entityManager->flush();
-
-        foreach ($settled as $entity) {
-            $this->entityManager->detach($entity);
         }
     }
 
@@ -547,23 +556,5 @@ final class AdoptRootCommand extends Command
         }
 
         return array_values($references);
-    }
-
-    /**
-     * Whether --entity names a real, mapped, translatable entity -- checked against
-     * Doctrine's metadata, as the two other commands do, so a concrete subclass is accepted.
-     *
-     * @phpstan-assert-if-true class-string $class
-     */
-    private function isTranslatableEntity(string $class): bool
-    {
-        if (!class_exists($class) || $this->entityManager->getMetadataFactory()->isTransient($class)) {
-            return false;
-        }
-
-        $metadata = $this->entityManager->getClassMetadata($class);
-
-        return !$metadata->isMappedSuperclass
-            && $metadata->getReflectionClass()->implementsInterface(TranslatableInterface::class);
     }
 }

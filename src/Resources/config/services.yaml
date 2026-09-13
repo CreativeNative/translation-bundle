@@ -278,7 +278,9 @@ services:
         arguments:
             $entityManager: '@doctrine.orm.entity_manager'
             $locator: '@Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator'
+            $finder: '@Tmi\TranslationBundle\Doctrine\LocaleVariantFinder'
             $locales: '%kernel.enabled_locales%'
+            $defaultLocale: '%tmi_translation.default_locale%'
         tags: [ { name: console.command } ]
 
     Tmi\TranslationBundle\Command\SyncSharedTranslationsCommand:
@@ -314,4 +316,5 @@ services:
             $adopters: '@Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry'
             $checks: '@Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator'
             $attributeHelper: '@tmi_translation.utils.attribute_helper'
+            $locator: '@Tmi\TranslationBundle\Doctrine\TranslatableEntityLocator'
         tags: [ { name: console.command } ]

@@ -213,8 +213,8 @@ cross-check requires them.
   classifies only, `--check` is the CI gate on the root invariant, `--entity=<FQCN>` restricts
   to one hierarchy.
 - `php bin/console tmi:translation:doctor` — scans translatable tables for broken linkage:
-  standalone / incomplete translations, duplicate `(tuuid, locale)` pairs, and
-  `null-tuuid` rows (a literal DB `NULL` in the `tuuid` column — only reachable via a write
+  orphan translations (a non-default-locale row without its source), duplicate `(tuuid, locale)`
+  pairs, and `null-tuuid` rows (a literal DB `NULL` in the `tuuid` column — only reachable via a write
   outside the entity layer, since the column is `NOT NULL`); `--entity=<FQCN>`
   restricts the scan to one entity, checked against Doctrine's metadata so a concrete
   subclass is accepted; exits non-zero.

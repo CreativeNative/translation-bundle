@@ -408,14 +408,16 @@ final class QueryBudgetTest extends IntegrationTestCase
         $command = new TranslationDoctorCommand(
             $this->entityManager(),
             new TranslatableEntityLocator($this->entityManager()),
+            new LocaleVariantFinder($this->entityManager()),
             ['en_US', 'de_DE', 'it_IT'],
+            'en_US',
         );
         $tester = new CommandTester($command);
 
         // --entity restricts the scan to exactly one root class, so the
         // count below is the per-class budget itself, independent of how
         // many translatable fixtures the test suite happens to declare: one
-        // grouped query covering the standalone/incomplete/duplicate anomaly
+        // grouped query covering the untranslated/orphan/incomplete/duplicate
         // classes together (TranslationDoctorCommand::inspect(), a single
         // GROUP BY tuuid, locale) plus inspectNullTuuid()'s own query.
         $this->counter()->reset();
