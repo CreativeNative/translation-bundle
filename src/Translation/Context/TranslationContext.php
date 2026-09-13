@@ -36,6 +36,8 @@ abstract class TranslationContext
 
     private bool $empty = false;
 
+    private bool $backReference = false;
+
     protected function __construct(string|null $sourceLocale, string|null $targetLocale)
     {
         $this->sourceLocale = $sourceLocale;
@@ -163,6 +165,25 @@ abstract class TranslationContext
     public function setEmpty(bool $empty): static
     {
         $this->empty = $empty;
+
+        return $this;
+    }
+
+    /**
+     * Whether this context resolves a child's own to-one field pointing BACK at the
+     * parent that is being translated -- set by BidirectionalOneToManyHandler on the
+     * sub-context it builds per child. The ManyToOne handler tells its two forms apart
+     * by this flag and never by mapping shape: on a self-referential tree the direct
+     * form and the back-reference form look identical to the mapping.
+     */
+    public function isBackReference(): bool
+    {
+        return $this->backReference;
+    }
+
+    public function setBackReference(bool $backReference): static
+    {
+        $this->backReference = $backReference;
 
         return $this;
     }

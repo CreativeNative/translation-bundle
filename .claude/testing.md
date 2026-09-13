@@ -62,6 +62,13 @@ Two rules learned the hard way:
   output (`Property` collided with the `Property | Tuuids | Rows` table header in
   `SyncSharedTranslationsCommandTest`; the root fixture is `Estate`).
 
+`tests/Fixtures/Entity/Bughunt/` holds the fixtures the 5.2 bug hunt produced, each one the
+smallest shape that reproduced a bug proven red on 5.1 (`ValueObjectAndSelfReferenceTest`):
+`Stamp` (value objects under `#[EmptyOnTranslate]`), `SeededStamp` (value objects under
+`copy_source: false`), `Node` (self-referential bidirectional ManyToOne tree), `Link`
+(self-referential bidirectional OneToOne chain), `RowRoot`/`RootedRow` (the SPEC § 4 root
+reference with `inversedBy`; its adopter is `tests/Support/Root/RootedRowAdopter`).
+
 Data providers run before coverage collection starts, and `#[CoversClass]` restricts what a
 test is credited for: an exception class exercised only through other tests' `CoversClass`
 scopes reports 0 % — yield closures from the provider and call them inside the test.

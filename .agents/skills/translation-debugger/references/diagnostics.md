@@ -150,9 +150,14 @@ private ?Category $category = null;
 - `float` -> `0.0`
 - `bool` -> `false`
 
+**Nullable value objects** (`DateTimeImmutable`, enums, uids, any object Doctrine has no mapping
+for) are emptied to `null` like any nullable field — `ScalarHandler` claims them. Symptom on a
+bundle before 5.2: the date or enum kept its value on the new translation while the string next
+to it was emptied.
+
 **Still invalid:**
 ```php
-// INVALID - LogicException (non-nullable object)
+// INVALID - fails the container compile (non-nullable object)
 #[EmptyOnTranslate]
 #[ORM\Column(type: Types::DATETIME_MUTABLE)]
 private \DateTime $publishedAt;  // Object type, not scalar!
@@ -160,7 +165,7 @@ private \DateTime $publishedAt;  // Object type, not scalar!
 
 **If found (non-nullable object with EmptyOnTranslate):**
 - **Severity:** ERROR
-- **Error:** `LogicException: Property X is a non-nullable object and cannot have a type-safe default`
+- **Error:** `EmptyOnTranslateTypeException: X::$publishedAt carries #[EmptyOnTranslate] but is a non-nullable DateTime, which has no empty value to translate to` (at `cache:clear`, from `AttributeValidationPass`)
 - **Fix options:**
   1. Make property nullable: `private ?\DateTime $publishedAt = null;`
   2. Remove `#[EmptyOnTranslate]` attribute
@@ -201,7 +206,7 @@ These checks verify handler compatibility with field types.
 | Priority | Handler | Supports |
 |----------|---------|----------|
 | 100 | PrimaryKeyHandler | `#[ORM\Id]` fields |
-| 90 | ScalarHandler | string, int, float, bool, DateTime |
+| 90 | ScalarHandler | string, int, float, bool, arrays, and every value object (dates, enums, uids — any transient object); not Collections or embeddables |
 | 80 | EmbeddedHandler | `#[ORM\Embedded]` fields |
 | 70 | BidirectionalManyToOneHandler | ManyToOne with `inversedBy` |
 | 60 | BidirectionalOneToManyHandler | OneToMany with `mappedBy` |
@@ -211,7 +216,11 @@ These checks verify handler compatibility with field types.
 | 20 | TranslatableEntityHandler | Entities implementing TranslatableInterface |
 | 10 | DoctrineObjectHandler | Any Doctrine-managed object (fallback) |
 
-**What to check:** Verify each field's Doctrine mapping matches expected handler.
+**What to check:** Verify each field's Doctrine mapping matches expected handler. A self-referential
+tree (`Node::$parent` with `inversedBy: 'children'`) is handled: the ManyToOne handler tells the
+back-reference form apart by the flag the OneToMany handler sets on the child's context
+(`TranslationContext::isBackReference()`), never by mapping shape. Symptom before 5.2: the translated
+root pointed at its own child as parent, and an existing root translation's `parent_id` was overwritten.
 
 **If unexpected handler processes field:**
 - **Severity:** WARNING

@@ -10,14 +10,17 @@ use Doctrine\ORM\Mapping\OneToOne;
 use Doctrine\ORM\Mapping\OwningSideMapping;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
 
 /**
- * Handles translation of one-to-one bidirectional association.
- *
- * Was renamed from BidirectionalAssociationHandler
+ * Translates a bidirectional OneToOne association: the related entity goes through the
+ * entity pipeline and its field pointing back at the parent is repointed at the
+ * parent's clone. The back-reference field is found by NAME (`inversedBy` / `mappedBy`
+ * naming the parent's property), which is unambiguous on a self-referential class too
+ * (`$next` inversedBy `previous`, `$previous` mappedBy `next`).
  */
 final readonly class BidirectionalOneToOneHandler implements TranslationHandlerInterface
 {
@@ -53,24 +56,20 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
     }
 
     /**
-     * @throws \RuntimeException
+     * @throws SharedAssociationException
      */
     #[\Override]
     public function translate(TranslationContext $context): mixed
     {
         \assert($context instanceof EntityTranslationContext);
 
+        $property = $context->getProperty();
+        \assert(null !== $property);
+
+        // The target is itself translatable: "the identical instance on every locale"
+        // would leave the relation's ownership ambiguous across variants.
         if ($context->isShared()) {
-            $property = $context->getProperty();
-            if (null !== $property && $this->attributeHelper->isOneToOne($property)) {
-                $message = '%class%::%prop% is a Bidirectional OneToOne, it cannot be shared '.
-                    'amongst translations. Either remove the @SharedAmongstTranslation '.
-                    'annotation or choose another association type.';
-
-                throw new \RuntimeException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => $property->name]));
-            }
-
-            return $context->getEntity();
+            throw SharedAssociationException::forAssociation('bidirectional OneToOne', $context->getEntity()::class, $property->name);
         }
 
         if ($context->isEmpty()) {
@@ -78,9 +77,6 @@ final readonly class BidirectionalOneToOneHandler implements TranslationHandlerI
         }
 
         $data = $context->getEntity();
-
-        $property = $context->getProperty();
-        \assert(null !== $property);
 
         // Delegate the clone itself to the entity pipeline: translateProperties() over the
         // related entity's own fields (shared/empty/translatable, not just the

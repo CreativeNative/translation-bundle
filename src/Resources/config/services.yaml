@@ -152,6 +152,9 @@ services:
         tags: [ { name: tmi_translation.translation_handler, priority: 100 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\ScalarHandler:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $attributeHelper: '@tmi_translation.utils.attribute_helper'
         tags: [ { name: tmi_translation.translation_handler, priority: 90 } ]
 
     Tmi\TranslationBundle\Translation\Handlers\EmbeddedHandler:
@@ -164,7 +167,6 @@ services:
     Tmi\TranslationBundle\Translation\Handlers\BidirectionalManyToOneHandler:
         arguments:
             - '@tmi_translation.utils.attribute_helper'
-            - '@doctrine.orm.entity_manager'
             - '@property_accessor'
             - '@Tmi\TranslationBundle\Translation\Handlers\TranslatableEntityHandler'
         tags: [ { name: tmi_translation.translation_handler, priority: 70 } ]

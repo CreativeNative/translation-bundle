@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test\Translation\Handlers;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\OneToOneOwningSideMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToOneBidirectionalParent;
@@ -75,20 +76,23 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
         $entity  = new TranslatableOneToOneBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'sharedChild');
 
-        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(true);
-
         $context = $this->entityContext($entity, $prop)->setShared(true);
 
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessageMatches('/::sharedChild is a Bidirectional OneToOne/');
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessageMatches('/::\$sharedChild is a bidirectional OneToOne association/');
 
         $handler->translate($context);
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function testTranslateReturnsNullWhenEmpty(): void
     {
         $handler = $this->createHandler();
-        $context = $this->entityContext(new TranslatableOneToOneBidirectionalParent())->setEmpty(true);
+        $entity  = new TranslatableOneToOneBidirectionalParent();
+        $prop    = new \ReflectionProperty($entity, 'simpleChild');
+        $context = $this->entityContext($entity, $prop)->setEmpty(true);
 
         $result = $handler->translate($context);
 
@@ -96,21 +100,24 @@ final class BidirectionalOneToOneHandlerTest extends UnitTestCase
     }
 
     /**
+     * supports() already guaranteed the property is a OneToOne by the time translate()
+     * runs, so the shared refusal does not ask the helper again: it is unconditional.
+     *
      * @throws \ReflectionException
      */
-    public function testTranslateSharedReturnsDataIfNotOneToOne(): void
+    public function testTranslateSharedThrowsWithoutAskingTheHelperAgain(): void
     {
         $handler = $this->createHandler();
         $entity  = new TranslatableOneToOneBidirectionalParent();
         $prop    = new \ReflectionProperty($entity, 'simpleChild');
 
-        $this->attributeHelper()->method('isOneToOne')->with($prop)->willReturn(false);
+        $this->attributeHelper()->expects(self::never())->method('isOneToOne');
 
         $context = $this->entityContext($entity, $prop)->setShared(true);
 
-        $result = $handler->translate($context);
+        self::expectException(SharedAssociationException::class);
 
-        self::assertSame($entity, $result);
+        $handler->translate($context);
     }
 
     /** ------------------------- Translate -------------------------.

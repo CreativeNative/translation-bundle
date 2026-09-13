@@ -11,8 +11,8 @@ use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\MappingException;
 use Doctrine\ORM\Mapping\OwningSideMapping;
-use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
@@ -68,9 +68,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
-     * $context->isShared(): SharedAmongstTranslations is not supported for bidirectional
-     * ManyToMany collections -- throws, unless the property turns out not to actually
-     * carry the attribute (defensive; the translator only sets isShared() when it does).
+     * $context->isShared(): the target is itself translatable, so sharing is refused.
      *
      * $context->isEmpty(): clears the target collection on the translated parent
      * (best-effort) and returns a fresh empty collection.
@@ -89,26 +87,10 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         $collection = $context->getValue();
 
         if ($context->isShared()) {
-            if (!$collection instanceof Collection) {
-                throw new \RuntimeException('BidirectionalManyToManyHandler::translate() expects a Collection.');
-            }
+            $prop  = $context->getProperty();
+            $owner = $context->getTranslatedParent();
 
-            $prop = $context->getProperty();
-            if (null === $prop) {
-                return $collection;
-            }
-
-            // Check for SharedAmongstTranslations attribute
-            $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-            if (\count($sharedAttrs) > 0) {
-                $owner      = $context->getTranslatedParent();
-                $ownerClass = null !== $owner ? $owner::class : $prop->getDeclaringClass()->getName();
-
-                throw new \RuntimeException(\sprintf('SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), $ownerClass));
-            }
-
-            // If we reach here, no shared attribute exists - proceed with normal translation
-            return $this->translateCollection($context);
+            throw SharedAssociationException::forAssociation('bidirectional ManyToMany', null !== $owner ? $owner::class : (null !== $prop ? $prop->class : 'unknown'), null !== $prop ? $prop->name : 'unknown');
         }
 
         if ($context->isEmpty()) {
@@ -135,11 +117,6 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
     }
 
     /**
-     * The whole collection is handed to {@see EntityTranslatorInterface::preload()} once,
-     * before the loop below: one batched lookup query per item class rather than one per
-     * item, since each item is otherwise its own translate() call with its own internal
-     * single-entity preload().
-     *
      * @throws \ReflectionException
      * @throws MappingException
      *
@@ -167,14 +144,7 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
         $newCollection = new ArrayCollection();
         $targetLocale  = $context->getTargetLocale();
 
-        // One batched lookup for the whole collection instead of leaving each item's own
-        // translate() call to query for itself: preload() groups translatable items by
-        // class and issues one LocaleVariantFinder query per class, ignoring
-        // non-translatable items and anything already cached. A collection of K
-        // translatable items of one class then costs one query total here, not K.
-        if (\is_string($targetLocale)) {
-            $this->translator->preload($collection, $targetLocale);
-        }
+        CollectionTranslationSupport::preload($this->translator, $collection, $targetLocale);
 
         foreach ($collection as $item) {
             if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {
@@ -182,45 +152,50 @@ final readonly class BidirectionalManyToManyHandler implements TranslationHandle
                 continue;
             }
 
-            // Detach the back-reference for the duration of the translation only. It stops
-            // the recursion from walking back into $newOwner's own collection (which would
-            // rewrite the SOURCE parent), and it leaves the clone with an empty collection of
-            // its own. The source item gets its collection back either way.
-            $rp            = ReflectionHelper::getProperty($item::class, $mappedBy);
-            $sourceBackRef = $rp->getValue($item);
-            $rp->setValue($item, new ArrayCollection());
+            $itemTrans = $this->translateItem($item, $mappedBy, $newOwner, $targetLocale);
 
-            try {
-                $itemTrans = $this->translator->translate($item, $targetLocale);
-            } finally {
-                $rp->setValue($item, $sourceBackRef);
+            if (null !== $itemTrans) {
+                $newCollection->add($itemTrans);
             }
-
-            // Cycle-guard fallback: the detach above only protects against $item's own
-            // back-reference walking straight back into $newOwner's collection. A second,
-            // independent path through the graph can still leave $item's own tuuid marked
-            // in-progress by the time translate() reaches it here, in which case it hands
-            // back $item itself, untranslated. addBackReference() below writes to $item's
-            // own field, and the owning side of that write is a persisted join row --
-            // exactly the mutation of the SOURCE entity this guard exists to prevent, so
-            // skip both the back-reference write and the add. The translated owner's
-            // collection is simply missing this item until a reload: the join table is
-            // never written from this collection when $item is the owning side (Doctrine
-            // writes it from $item's own field), and Doctrine does not retroactively
-            // complete an inverse collection either, so a reload of either side always
-            // shows the complete, correct set. An instance handed back unchanged but
-            // already carrying the target locale is not this fallback -- it is a genuine
-            // existing translation -- and keeps today's behaviour below.
-            if ($itemTrans === $item && $item->getLocale() !== $targetLocale) {
-                continue;
-            }
-
-            self::addBackReference($itemTrans, $mappedBy, $newOwner);
-
-            $newCollection->add($itemTrans);
         }
 
         return $newCollection;
+    }
+
+    /**
+     * One item: translated through the entity pipeline with its back-reference detached
+     * for the duration, then pointed at the translated owner. Null when the cycle guard
+     * handed the source item back -- the detach only protects against $item's own
+     * back-reference walking straight back into $newOwner's collection; a second,
+     * independent path through the graph can still leave $item's tuuid in progress, and
+     * addBackReference() would then write to the SOURCE item's field, whose owning side
+     * is a persisted join row.
+     *
+     * @throws \ReflectionException
+     */
+    private function translateItem(TranslatableInterface $item, string $mappedBy, object $newOwner, string $targetLocale): TranslatableInterface|null
+    {
+        // Detach the back-reference for the duration of the translation only. It stops
+        // the recursion from walking back into $newOwner's own collection (which would
+        // rewrite the SOURCE parent), and it leaves the clone with an empty collection of
+        // its own. The source item gets its collection back either way.
+        $rp            = ReflectionHelper::getProperty($item::class, $mappedBy);
+        $sourceBackRef = $rp->getValue($item);
+        $rp->setValue($item, new ArrayCollection());
+
+        try {
+            $itemTrans = $this->translator->translate($item, $targetLocale);
+        } finally {
+            $rp->setValue($item, $sourceBackRef);
+        }
+
+        if (CollectionTranslationSupport::isCycleGuardFallback($itemTrans, $item, $targetLocale)) {
+            return null;
+        }
+
+        self::addBackReference($itemTrans, $mappedBy, $newOwner);
+
+        return $itemTrans;
     }
 
     /**

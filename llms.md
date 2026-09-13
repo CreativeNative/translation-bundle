@@ -18,7 +18,7 @@ guide behaviour.
 - **Verified quality.** 100% **line** coverage is a CI gate (`composer test`), not a
   snapshot; PHPStan runs at **level max** with the strict-rules/doctrine/symfony/phpunit
   extensions; PHPUnit runs in strict mode (`failOnWarning`/`failOnNotice`/`failOnRisky`/
-  `failOnDeprecation`). As of this release: **952 tests, 8,611 assertions**, all green.
+  `failOnDeprecation`). As of this release: **970 tests, 8,748 assertions**, all green.
   Every bug fix ships with a negative-proof test -- demonstrably red against the old code,
   not merely green after the fix -- visible directly in the commit history.
 
@@ -160,7 +160,7 @@ The handler chain uses **priority-based routing** where higher numbers are check
 
 **100 - PrimaryKeyHandler**: Must run first to ensure entity IDs are never translated. IDs are database-generated identifiers that must remain null for new translations.
 
-**90 - ScalarHandler**: Catches simple values (strings, integers, booleans, DateTime) before relationship handlers. This prevents scalars from being misinterpreted as relations.
+**90 - ScalarHandler**: Catches simple values (strings, integers, booleans) and value objects (dates, enums, uids — any transient object) before relationship handlers. This prevents scalars from being misinterpreted as relations; a `Collection` and an embeddable are explicitly left to their own handlers.
 
 **80 - EmbeddedHandler**: Processes embedded value objects (like Address, Money) before relationship handlers, since embedded objects use different metadata than relations.
 
@@ -203,7 +203,8 @@ If handlers were out of order, critical issues would occur. For example, if Doct
 - For nullable fields, values are set to null.
 - For non-nullable scalar fields, type-safe defaults are used: string='', int=0, float=0.0, bool=false (via TypeDefaultResolver).
 - Collection properties are emptied by their handler (a fresh, empty collection). `TypeDefaultResolver` is not consulted for them.
-- Every other non-nullable type without a zero-value — objects, enums, `iterable`, intersection types — throws LogicException with guidance to make it nullable or use #[SharedAmongstTranslations].
+- A nullable value object — `DateTimeImmutable`, an enum, a uid, any object Doctrine has no mapping for — is emptied to null like any other nullable field: `ScalarHandler` claims every transient object, so the attribute cascade runs for it (before 5.2 only `\DateTime` reached a handler and the rest was silently copied).
+- Every other non-nullable type without a zero-value — objects, enums, `iterable`, intersection types — is a compile-time error (`EmptyOnTranslateTypeException` from `AttributeValidationPass`, and again at translate time) with guidance to make it nullable or use #[SharedAmongstTranslations].
 - Embedded objects are replaced with a new, empty instance (or null for nullable embeddables).
 - #[SharedAmongstTranslations] and #[EmptyOnTranslate] on the **same** property is a configuration error, not a precedence question: `AttributeValidationPass` rejects it at compile time with an `AttributeConflictException`.
 - #[EmptyOnTranslate] on a `readonly` property is rejected the same way (`ReadonlyPropertyException`) — a readonly property cannot be re-assigned after hydration.
@@ -258,16 +259,16 @@ All handlers implement [`TranslationHandlerInterface`](src/Translation/Handlers/
 ---
 
 #### [ScalarHandler](src/Translation/Handlers/ScalarHandler.php)
-- **Purpose:** Handles **scalar values** and `DateTime`.
+- **Purpose:** Handles **scalar values** and **value objects** — every property value that is neither a Doctrine-mapped object, nor an embeddable, nor a `Collection`: `DateTimeInterface`, enums, uids, `Money`, any transient class.
 - **Priority:** 90
-- **Dependencies:** None.
+- **Dependencies:** `EntityManagerInterface` (`isTransient()`), `AttributeHelper` (`isEmbedded()` — an embeddable is transient to Doctrine's driver too and belongs to `EmbeddedHandler`, which runs after this one).
 - **Methods:**
-  - `supports()` — Returns true if value is scalar or `DateTime`.
+  - `supports()` — Returns true for a non-object, and for an object that is not a `Collection`, not on an `#[ORM\Embedded]` property, and transient to Doctrine.
   - `translate()`:
     - `isShared()` — Returns original value (falls through, same as the default case below).
     - `isEmpty()` — Returns `null` for nullable fields; non-nullable fields never reach the handler here — `EntityTranslator` resolves them to type-safe defaults (string='', int=0, float=0.0, bool=false) via `TypeDefaultResolver` before dispatch.
-    - Otherwise — Returns original value.
-- **Notes:** Leaf handler in the translation pipeline; no delegation required.
+    - Otherwise — Returns the original value; a mutable `\DateTime` is cloned so an edit through one variant cannot bleed into its siblings.
+- **Notes:** Leaf handler in the translation pipeline; no delegation required. Claiming value objects is what makes `#[EmptyOnTranslate]` and `copy_source: false` apply to them — the attribute cascade in `EntityTranslator::runHandlers()` only runs inside a supporting handler. A custom handler for a specific value-object class registers with a priority above 90.
 
 ---
 
@@ -874,7 +875,7 @@ Now decide, for each field, which of three behaviours it needs.
 - **Category:** `Category` is itself `TranslatableInterface`. A direct `ManyToOne`/`OneToOne` to a translatable target is translated through the same pipeline as a top-level entity — `$frenchProduct->getCategory()` ends up pointing at `Category`'s own 'fr' variant (same Tuuid, different row), not the English one. This is the default for *any* such association; nothing needs to be marked for it.
 
 **Why this distinction matters:**
-The handler chain processes each field during translation. By default, `ScalarHandler` (priority 90) copies scalar values, and `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` (etc.) translate an association to a translatable target via the same get-or-create pipeline. `#[SharedAmongstTranslations]` overrides either default, making every translation reference the exact same instance instead — but it is **not** available on any association whose target is itself translatable, bidirectional (one declared with `inversedBy`/`mappedBy`, like `$category` below) or unidirectional: every handler that can reach one rejects the attribute with a `RuntimeException`, since sharing it would leave the relation's ownership ambiguous across locale variants. Scalar columns have no such restriction, and neither does an association to a target that is not itself translatable.
+The handler chain processes each field during translation. By default, `ScalarHandler` (priority 90) copies scalar values, and `BidirectionalManyToOneHandler`/`BidirectionalOneToOneHandler` (etc.) translate an association to a translatable target via the same get-or-create pipeline. `#[SharedAmongstTranslations]` overrides either default, making every translation reference the exact same instance instead — but it is **not** available on any association whose target is itself translatable, bidirectional (one declared with `inversedBy`/`mappedBy`, like `$category` below) or unidirectional: every handler that can reach one rejects the attribute with a `SharedAssociationException` (a `RuntimeException`), since sharing it would leave the relation's ownership ambiguous across locale variants. Scalar columns have no such restriction, and neither does an association to a target that is not itself translatable.
 
 ### Step 3: Apply SharedAmongstTranslations Attribute
 

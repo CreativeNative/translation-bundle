@@ -72,27 +72,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         }
 
         if ($context->isEmpty()) {
-            $parentProperty = $context->getProperty();
-            if (null !== $parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
-                return null;
-            }
-
-            $clone      = clone $embeddable;
-            $reflection = new \ReflectionClass($clone);
-            $changed    = false;
-
-            foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
-                if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
-                    continue;
-                }
-
-                if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
-                    $this->clearProperty($clone, $prop);
-                    $changed = true;
-                }
-            }
-
-            return $changed ? $clone : $embeddable;
+            return $this->emptyEmbeddable($context, $embeddable);
         }
 
         $reflection = new \ReflectionClass($embeddable);
@@ -103,18 +83,7 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         // Detect class-level attributes
         $classShared = $this->attributeHelper->classHasSharedAmongstTranslations($reflection);
         $classEmpty  = $this->attributeHelper->classHasEmptyOnTranslate($reflection);
-
-        if ($classShared) {
-            $this->logDebug('Class-level attribute detected: SharedAmongstTranslations', [
-                'class' => $reflection->getName(),
-            ]);
-        }
-
-        if ($classEmpty) {
-            $this->logDebug('Class-level attribute detected: EmptyOnTranslate', [
-                'class' => $reflection->getName(),
-            ]);
-        }
+        $this->logClassLevelAttributes($reflection, $classShared, $classEmpty);
 
         // Clone the embedded object for selective modification
         $clone = clone $embeddable;
@@ -153,6 +122,55 @@ final class EmbeddedHandler implements TranslationHandlerInterface
         }
 
         return $clone;
+    }
+
+    /**
+     * The #[EmptyOnTranslate] resolution: null when the outer property itself carries the
+     * attribute (the caller drops the whole value), otherwise a clone with every inner
+     * property that carries its own #[EmptyOnTranslate] cleared -- or the untouched source
+     * instance when no inner property does.
+     */
+    private function emptyEmbeddable(TranslationContext $context, object $embeddable): object|null
+    {
+        $parentProperty = $context->getProperty();
+        if (null !== $parentProperty && $this->attributeHelper->isEmptyOnTranslate($parentProperty)) {
+            return null;
+        }
+
+        $clone      = clone $embeddable;
+        $reflection = new \ReflectionClass($clone);
+        $changed    = false;
+
+        foreach (ReflectionHelper::getHierarchyProperties($reflection) as $prop) {
+            if ($this->attributeHelper->isSharedAmongstTranslations($prop)) {
+                continue;
+            }
+
+            if ($this->attributeHelper->isEmptyOnTranslate($prop)) {
+                $this->clearProperty($clone, $prop);
+                $changed = true;
+            }
+        }
+
+        return $changed ? $clone : $embeddable;
+    }
+
+    /**
+     * @param \ReflectionClass<object> $reflection
+     */
+    private function logClassLevelAttributes(\ReflectionClass $reflection, bool $classShared, bool $classEmpty): void
+    {
+        if ($classShared) {
+            $this->logDebug('Class-level attribute detected: SharedAmongstTranslations', [
+                'class' => $reflection->getName(),
+            ]);
+        }
+
+        if ($classEmpty) {
+            $this->logDebug('Class-level attribute detected: EmptyOnTranslate', [
+                'class' => $reflection->getName(),
+            ]);
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tmi\TranslationBundle\Utils;
 
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -13,6 +14,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslationRootInterface;
 use Tmi\TranslationBundle\Exception\AttributeConflictException;
 use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
+use Tmi\TranslationBundle\Exception\EmptyOnTranslateTypeException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Exception\TranslationRootContractException;
 use Tmi\TranslationBundle\Exception\ValidationException;
@@ -362,6 +364,24 @@ class AttributeHelper
     }
 
     /**
+     * The declared type name when the property is a non-nullable object type that has
+     * no empty value: not a builtin, not a Collection (a to-many association empties to
+     * a fresh empty collection). Null for every type #[EmptyOnTranslate] can clear.
+     */
+    private static function nonNullableObjectType(\ReflectionProperty $property): string|null
+    {
+        $type = $property->getType();
+
+        if (!$type instanceof \ReflectionNamedType || $type->isBuiltin() || $type->allowsNull()) {
+            return null;
+        }
+
+        $name = $type->getName();
+
+        return is_a($name, Collection::class, true) ? null : $name;
+    }
+
+    /**
      * Generic attribute check with consistent configuration.
      */
     private function hasAttribute(\ReflectionProperty $property, string $attributeClass): bool
@@ -393,6 +413,12 @@ class AttributeHelper
                 $property->class,
                 $property->name,
             );
+        }
+
+        $emptyType = $this->isEmptyOnTranslate($property) ? self::nonNullableObjectType($property) : null;
+
+        if (null !== $emptyType) {
+            $errors[] = EmptyOnTranslateTypeException::forNonNullableObject($property->class, $property->name, $emptyType);
         }
 
         foreach ($this->collectTranslationRootErrors($property) as $error) {

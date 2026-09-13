@@ -77,6 +77,21 @@ final class ReflectionHelper
     }
 
     /**
+     * The mapped class of an instance: the entity class itself, or the parent class of
+     * a classic Doctrine proxy subclass. Metadata lookups, attribute reads and cache
+     * keys all need the real class -- PHP attributes are never inherited by the
+     * generated subclass, and Doctrine keys its metadata by the real name.
+     *
+     * @return class-string
+     */
+    public static function realClass(object $instance): string
+    {
+        $parentClass = $instance instanceof Proxy ? get_parent_class($instance) : false;
+
+        return \is_string($parentClass) ? $parentClass : $instance::class;
+    }
+
+    /**
      * A single named property, found by walking the hierarchy the same way
      * getHierarchyProperties() does.
      *

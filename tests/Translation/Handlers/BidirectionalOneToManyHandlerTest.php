@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\OneToManyAssociationMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToOneBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableOneToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Reflection\OneToMany\InheritedBackReferenceChild;
@@ -104,8 +105,8 @@ final class BidirectionalOneToManyHandlerTest extends UnitTestCase
 
         $context = $this->propertyContext($entity->getSimpleChildren(), $prop)->setShared(true);
 
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessageMatches('/::simpleChildren is a Bidirectional OneToMany/');
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessageMatches('/::\$simpleChildren is a bidirectional OneToMany association/');
 
         $handler->translate($context);
     }

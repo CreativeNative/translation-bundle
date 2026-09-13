@@ -16,6 +16,16 @@ and their notes in the GitHub releases.
 
 ### Added
 
+- `SharedAssociationException` (a `\RuntimeException`): the one exception, with one message, every
+  handler throws for `#[SharedAmongstTranslations]` on an association to a translatable entity.
+- `EmptyOnTranslateTypeException`: `#[EmptyOnTranslate]` on a non-nullable object type is a
+  compile-time error (`AttributeValidationPass`) with the resolver's way out, instead of a runtime
+  `LogicException` for `\DateTime` and silence for every other object type.
+- `TranslationContext::isBackReference()` / `setBackReference()`: the flag
+  `BidirectionalOneToManyHandler` sets on a child's context; `BidirectionalManyToOneHandler` reads it.
+- `CollectionTranslationSupport` (`Translation\Handlers`): the batched `preload()` and the
+  cycle-guard test the three collection handlers share — a building block for custom collection handlers.
+- `ReflectionHelper::realClass()`: an instance's mapped class, proxies unwrapped.
 - `tmi:translation:doctor --strict`: counts untranslated and incomplete records as anomalies
   (the pre-5.2 verdict).
 - `TranslatableEntityLocator::isTranslatableEntity()`: the `--entity` test the three commands
@@ -27,6 +37,10 @@ and their notes in the GitHub releases.
 
 ### Changed
 
+- `ScalarHandler` claims every value object (any transient object that is neither a `Collection`
+  nor on an `#[ORM\Embedded]` property) and takes `EntityManagerInterface` + `AttributeHelper`;
+  a mutable `\DateTime` is cloned. `BidirectionalManyToOneHandler` no longer takes the
+  `EntityManagerInterface`.
 - `tmi:translation:doctor` no longer fails on a record that exists in the default locale only:
   it is listed as *untranslated*, the normal state of a pending translation, and the former
   *standalone* class is split — a non-default-locale-only row is an *orphan* (a translation
@@ -54,6 +68,13 @@ and their notes in the GitHub releases.
 
 ### Fixed
 
+- `#[EmptyOnTranslate]` and `copy_source: false` apply to value objects — `DateTimeImmutable`,
+  enums, uids, any object Doctrine has no mapping for. Before, only `\DateTime` reached a
+  handler; every other object value was silently copied whatever its attributes said (#53).
+- A self-referential bidirectional ManyToOne (`Node::$parent`, `targetEntity: self`) no longer
+  hands the translated root its own child as parent: the two forms of the ManyToOne handler are
+  told apart by an explicit flag, not by mapping shape. On 5.1 an existing root translation's FK
+  was overwritten on flush (#54).
 - `SharedValuePropagationListener` no longer writes onto a sibling that the same flush removes.
   The sibling lookup hydrates a removed row (it stays in the identity map until the deletions
   run) but Doctrine no longer manages it, so `recomputeSingleEntityChangeSet()` threw

@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\InverseSideMapping;
 use Doctrine\ORM\Mapping\OneToMany;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
@@ -29,8 +30,8 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * If translation is possible -> build a new collection with translated children.
  *
  * Before iterating, the whole collection is handed to {@see EntityTranslatorInterface::preload()}
- * once: one batched lookup query per child class rather than one per child, since each
- * child is otherwise its own translate() call with its own internal single-entity preload().
+ * once ({@see CollectionTranslationSupport::preload()}); a child the cycle guard handed back
+ * untranslated is skipped ({@see CollectionTranslationSupport::isCycleGuardFallback()}).
  */
 final readonly class BidirectionalOneToManyHandler implements TranslationHandlerInterface
 {
@@ -66,7 +67,7 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
     }
 
     /**
-     * @throws \RuntimeException
+     * @throws SharedAssociationException
      * @throws \ReflectionException
      *
      * @return Collection<int, mixed>
@@ -77,13 +78,9 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
         \assert($context instanceof PropertyTranslationContext);
 
         if ($context->isShared()) {
-            $data     = $context->getValue();
             $property = $context->getProperty();
-            $message  = '%class%::%prop% is a Bidirectional OneToMany, it cannot be shared '.
-                'amongst translations. Either remove the SharedAmongstTranslation '.
-                'attribute or choose another association type.';
 
-            throw new \RuntimeException(strtr($message, ['%class%' => \is_object($data) ? $data::class : 'unknown', '%prop%' => null !== $property ? $property->name : 'unknown']));
+            throw SharedAssociationException::forAssociation('bidirectional OneToMany', null !== $property ? $property->class : 'unknown', null !== $property ? $property->name : 'unknown');
         }
 
         if ($context->isEmpty()) {
@@ -110,15 +107,8 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
             return $children; // not a valid relation -> return original
         }
 
-        // One batched lookup for the whole collection instead of leaving each child's
-        // own translate() call to query for itself: preload() groups translatable
-        // children by class and issues one LocaleVariantFinder query per class,
-        // ignoring non-translatable items and anything already cached. A collection of
-        // K translatable children of one class then costs one query total here, not K.
         $targetLocale = $context->getTargetLocale();
-        if (\is_string($targetLocale)) {
-            $this->translator->preload($children, $targetLocale);
-        }
+        CollectionTranslationSupport::preload($this->translator, $children, $targetLocale);
 
         $newCollection = new ArrayCollection();
 
@@ -129,33 +119,17 @@ final readonly class BidirectionalOneToManyHandler implements TranslationHandler
                 continue;
             }
 
+            // The child's context carries the parent's clone and names the child's own FK
+            // field; the flag is what BidirectionalManyToOneHandler reads to know it is
+            // repairing a back-reference and not translating a direct association.
             $subContext = new EntityTranslationContext($child, $context->getSourceLocale(), $context->getTargetLocale())
                 ->setTranslatedParent($translatedParent)
-                ->setProperty(ReflectionHelper::getProperty($child::class, $mappedBy));
+                ->setProperty(ReflectionHelper::getProperty($child::class, $mappedBy))
+                ->setBackReference(true);
 
             $translatedChild = $this->translator->processTranslation($subContext);
 
-            // Cycle-guard fallback: EntityTranslator::processTranslation() hands back
-            // $child itself, untranslated, when (childTuuid, targetLocale) is already
-            // marked in-progress higher up this very call -- reachable in the most
-            // ordinary shape since the ManyToOne/OneToMany clones started running the
-            // full entity pipeline: translating a child recurses into its own ManyToOne
-            // parent (BidirectionalManyToOneHandler), which recurses into the parent's
-            // clone, which lands right back here at the SAME child, still mid-translation.
-            // Adding it here would put the SOURCE entity into the translated parent's
-            // collection, and the back-reference write below would repoint the SOURCE's
-            // own FK at the translated parent -- mutating an entity the caller is still
-            // holding a live reference to, for a flush neither of them asked for. Skip it
-            // outright instead. The translated parent's inverse-side collection is simply
-            // missing this child until a reload: that collection is never persisted on its
-            // own (Doctrine writes the owning ManyToOne side, i.e. the child's own FK, not
-            // this collection), and Doctrine does not retroactively complete an inverse
-            // collection from a FK write that went through a *different* entity instance --
-            // so a reload of either side always shows the complete, correct set. An
-            // instance handed back unchanged but already carrying the target locale is not
-            // this fallback -- it is a genuine existing translation -- and keeps today's
-            // behaviour below.
-            if ($translatedChild === $child && $child->getLocale() !== $targetLocale) {
+            if (CollectionTranslationSupport::isCycleGuardFallback($translatedChild, $child, $targetLocale)) {
                 continue;
             }
 

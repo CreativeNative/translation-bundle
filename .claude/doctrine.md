@@ -244,10 +244,13 @@ cross-check requires them.
    shape whose target is itself translatable — `OneToMany`, `ManyToMany` (both directions), a
    bidirectional `ManyToOne`/`OneToOne` in the **direct form**, and a unidirectional
    `ManyToOne`/`OneToOne` (no `inversedBy`/`mappedBy`, rejected by `TranslatableEntityHandler`)
-   — sharing would leave the relation's ownership ambiguous across locale variants. Share the
-   related entity's own scalar columns instead. Unaffected: sharing an association whose target
-   is *not* translatable (a `GeoPlace`/`Owner`/`User`-style reference) still returns the
-   identical instance. **Exception since 5.1:** a `#[SharedAmongstTranslations]` `ManyToOne`
+   — sharing would leave the relation's ownership ambiguous across locale variants; every
+   handler throws `SharedAssociationException` (a `\RuntimeException`) in the same words. Share
+   the related entity's own scalar columns instead. Unaffected: sharing an association whose
+   target is *not* translatable (a `GeoPlace`/`Owner`/`User`-style reference) still returns the
+   identical instance. Self-referential trees and chains (`Node::$parent` / `$children`,
+   `Link::$next` / `$previous`) translate correctly: the ManyToOne handler tells its
+   back-reference form apart by the flag the OneToMany handler sets, never by mapping shape. **Exception since 5.1:** a `#[SharedAmongstTranslations]` `ManyToOne`
    **back-reference** reached through its parent's `OneToMany` (the child's own FK to the parent
    being translated) is not rejected — `BidirectionalManyToOneHandler` consumes the flag and the
    child's clone points at the parent's clone, the non-shared outcome. Known gap kept: that

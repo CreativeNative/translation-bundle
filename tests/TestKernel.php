@@ -20,11 +20,13 @@ use Tmi\TranslationBundle\Doctrine\Filter\LocaleFilter;
 use Tmi\TranslationBundle\Doctrine\Root\RootAdopterRegistry;
 use Tmi\TranslationBundle\Doctrine\Root\RootCheckAggregator;
 use Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer;
+use Tmi\TranslationBundle\Fixtures\Entity\Bughunt\RootedRow;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Article;
 use Tmi\TranslationBundle\Fixtures\Entity\Root\Estate;
 use Tmi\TranslationBundle\Test\Support\QueryCounter;
 use Tmi\TranslationBundle\Test\Support\Root\ArticleRootAdopter;
 use Tmi\TranslationBundle\Test\Support\Root\EstateRootAdopter;
+use Tmi\TranslationBundle\Test\Support\Root\RootedRowAdopter;
 use Tmi\TranslationBundle\TmiTranslationBundle;
 use Tmi\TranslationBundle\Translation\Cache\TranslationCacheInterface;
 use Tmi\TranslationBundle\Translation\EntityTranslator;
@@ -186,7 +188,7 @@ final class TestKernel extends BaseKernel
 
         // Translation roots (5.1): the compile-time cross-check in RootAdopterPass
         // requires exactly one tmi_translation.root_adopter per translatable class
-        // that declares a root reference -- the two Root fixtures each get theirs.
+        // that declares a root reference -- the three root fixtures each get theirs.
         // The tag's `class` attribute is what the pass reads; the registry refuses
         // an adopter whose getTranslatableClass() disagrees with it.
         $container->services()
@@ -196,6 +198,10 @@ final class TestKernel extends BaseKernel
         $container->services()
             ->set(ArticleRootAdopter::class)
             ->tag(RootAdopterPass::TAG, ['class' => Article::class]);
+
+        $container->services()
+            ->set(RootedRowAdopter::class)
+            ->tag(RootAdopterPass::TAG, ['class' => RootedRow::class]);
 
         // The adopt-root command and its two registries are private in services.yaml
         // and anchored only by the command's console.command tag; the command test

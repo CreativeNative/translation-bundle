@@ -13,9 +13,9 @@ Translation uses a priority-based handler chain. Each handler implements `Transl
 | Priority | Handler | Purpose |
 |----------|---------|---------|
 | 100 | PrimaryKeyHandler | ID fields |
-| 90 | ScalarHandler | Primitives, DateTime |
+| 90 | ScalarHandler | Primitives and value objects (any transient object: dates, enums, uids); not Collections, not embeddables |
 | 80 | EmbeddedHandler | Embedded objects |
-| 70 | BidirectionalManyToOneHandler | ManyToOne relations |
+| 70 | BidirectionalManyToOneHandler | ManyToOne relations — direct form, or the back-reference form flagged by `TranslationContext::isBackReference()` (set by the OneToMany handler; never guessed from mapping shape) |
 | 60 | BidirectionalOneToManyHandler | OneToMany relations |
 | 50 | BidirectionalOneToOneHandler | OneToOne relations |
 | 40 | BidirectionalManyToManyHandler | ManyToMany relations |

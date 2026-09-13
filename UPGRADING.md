@@ -41,7 +41,42 @@ no configuration key is introduced.
 
 ## Behavioural Changes (5.2)
 
-### 1. `tmi:translation:doctor` no longer fails on untranslated or incomplete records
+### 1. Value objects follow `#[EmptyOnTranslate]` and `copy_source: false`
+
+`ScalarHandler` now claims every value object — `DateTimeImmutable`, enums, uids, any object
+Doctrine has no mapping for — so the attribute cascade runs for them. Before 5.2 only `\DateTime`
+reached a handler and every other object value was silently copied onto a new translation.
+
+What changes on a new locale variant:
+
+| Property | Before 5.2 | 5.2 |
+|---|---|---|
+| nullable value object with `#[EmptyOnTranslate]` | copied | `null` |
+| nullable value object, no attribute, under `copy_source: false` | copied | `null` |
+| non-nullable value object under `copy_source: false` | copied | copied (the documented safety fallback) |
+| `#[SharedAmongstTranslations]` value object | copied | copied |
+| a mutable `\DateTime` | the same instance | a clone |
+
+**Audit before the bump** if you run `copy_source: false`: every nullable `DateTimeImmutable`,
+enum or uid property on a translatable entity that is *not* shared is seeded empty from now on.
+Add `#[SharedAmongstTranslations]` where the value belongs to the object (a `publishedAt`,
+an `expiresAt`), or accept the empty seed where it belongs to the language.
+
+`#[EmptyOnTranslate]` on a **non-nullable** object type is now a compile-time error
+(`EmptyOnTranslateTypeException`, from `AttributeValidationPass`) — it used to be a runtime
+`LogicException` for `\DateTime` and silence for everything else. Make the property nullable,
+remove the attribute, or share it.
+
+### 2. A self-referential bidirectional `ManyToOne` translates correctly
+
+On a tree (`Node::$parent` with `inversedBy: 'children'`, `targetEntity: self`) the translated
+root received its own child as parent, and an existing root translation's `parent_id` was
+overwritten on flush. The ManyToOne handler now reads an explicit back-reference flag
+(`TranslationContext::isBackReference()`, set by the OneToMany handler) instead of guessing from
+the mapping. A custom collection handler that dispatches children to the ManyToOne handler sets
+`->setBackReference(true)` on the child's context.
+
+### 3. `tmi:translation:doctor` no longer fails on untranslated or incomplete records
 
 A record that exists in the default locale only was reported as a "standalone" anomaly and
 failed the run — which made the doctor unusable as a gate on any database with one pending
@@ -54,7 +89,7 @@ If you gated on the old verdict, pass `--strict`: it counts untranslated and inc
 records again. The doctor's constructor takes `LocaleVariantFinder` and the default locale
 (relevant only to a hand-built instance).
 
-### 2. `enable_logging: false` now silences `EmbeddedHandler` too
+### 4. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
@@ -72,7 +107,22 @@ The logger is a constructor dependency with a `NullLogger` default; the setters 
 `LoggerInterface` (default `new NullLogger()`) instead of `LoggerInterface|null`. A hand-built
 instance passes a logger to the constructor; a container-built one is unaffected.
 
-### 2. `symfony/translation-contracts` is no longer a bundle requirement
+### 2. Shared-association refusals throw `SharedAssociationException`
+
+Every handler that refuses `#[SharedAmongstTranslations]` on an association to a translatable
+entity throws `SharedAssociationException`, with one message, instead of a bare
+`\RuntimeException` with six wordings. It extends `\RuntimeException`, so the documented
+`catch (\RuntimeException)` keeps working; a test that matched the old message text
+("cannot be shared amongst translations", "SharedAmongstTranslations is not allowed on") matches
+the new one on the exception class.
+
+### 3. Handler constructors
+
+`ScalarHandler` takes `EntityManagerInterface` and `AttributeHelper`; `BidirectionalManyToOneHandler`
+no longer takes `EntityManagerInterface`. Relevant only to a hand-built instance — the container
+wires both.
+
+### 4. `symfony/translation-contracts` is no longer a bundle requirement
 
 The bundle never imported it. An application gets it from `symfony/translation`,
 `symfony/validator` or `symfony/form`; one that relied on the bundle pulling it in adds it to
@@ -84,6 +134,9 @@ its own `composer.json`.
 2. Grep for `->setLogger(` on bundle services — pass the logger to the constructor instead.
 3. If `enable_logging` is off and you relied on `EmbeddedHandler` debug output, turn it on.
 4. A CI step that ran `tmi:translation:doctor` as a full-coverage gate adds `--strict`.
+5. Under `copy_source: false`: audit every nullable value-object property on a translatable
+   entity — share it or accept the empty seed (Behavioural Changes 1).
+6. `#[EmptyOnTranslate]` on a non-nullable object type fails `cache:clear` now — make it nullable.
 
 ---
 

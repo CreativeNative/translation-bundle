@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Translation\Handlers;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\Proxy;
 use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -45,9 +44,8 @@ final readonly class DoctrineObjectHandler implements TranslationHandlerInterfac
             return false;
         }
 
-        // If proxy, use parent class name for metadata lookup
-        $parentClass = $data instanceof Proxy ? get_parent_class($data) : false;
-        $className   = \is_string($parentClass) ? $parentClass : $data::class;
+        // A proxy's metadata lives under its real (parent) class name.
+        $className = ReflectionHelper::realClass($data);
 
         try {
             return !$this->entityManager->getMetadataFactory()->isTransient($className);

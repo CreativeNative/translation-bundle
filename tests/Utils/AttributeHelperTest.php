@@ -13,6 +13,7 @@ use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Attribute\Translatable;
 use Tmi\TranslationBundle\Exception\AttributeConflictException;
 use Tmi\TranslationBundle\Exception\ClassLevelAttributeConflictException;
+use Tmi\TranslationBundle\Exception\EmptyOnTranslateTypeException;
 use Tmi\TranslationBundle\Exception\ReadonlyPropertyException;
 use Tmi\TranslationBundle\Exception\ValidationException;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -63,6 +64,52 @@ final class AttributeHelperTest extends TestCase
             self::assertInstanceOf(AttributeConflictException::class, $errors[0]);
 
             throw $e;
+        }
+    }
+
+    /**
+     * #[EmptyOnTranslate] on a non-nullable object type has no value to empty to: before
+     * 5.2 a \DateTime failed at translate time (TypeDefaultResolver) and every other
+     * object type was silently copied; now it is a compile-time error with the same way
+     * out the resolver names. A nullable object, a scalar and a Collection are fine.
+     */
+    public function testValidatePropertyRejectsEmptyOnTranslateOnANonNullableObjectType(): void
+    {
+        $class = new class {
+            #[EmptyOnTranslate]
+            public \DateTimeImmutable $publishedAt;
+
+            #[EmptyOnTranslate]
+            public \DateTimeImmutable|null $nullable = null;
+
+            #[EmptyOnTranslate]
+            public string $scalar = '';
+
+            /** @var \Doctrine\Common\Collections\Collection<int, object> */
+            #[EmptyOnTranslate]
+            public \Doctrine\Common\Collections\Collection $children;
+
+            public function __construct()
+            {
+                $this->publishedAt = new \DateTimeImmutable();
+                $this->children    = new \Doctrine\Common\Collections\ArrayCollection();
+            }
+        };
+
+        foreach (['nullable', 'scalar', 'children'] as $fine) {
+            $this->attributeHelper->validateProperty(new \ReflectionProperty($class, $fine));
+        }
+        $this->addToAssertionCount(3);
+
+        try {
+            $this->attributeHelper->validateProperty(new \ReflectionProperty($class, 'publishedAt'));
+            self::fail('expected a ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            self::assertCount(1, $errors);
+            self::assertInstanceOf(EmptyOnTranslateTypeException::class, $errors[0]);
+            self::assertStringContainsString('$publishedAt carries #[EmptyOnTranslate] but is a non-nullable DateTimeImmutable', $errors[0]->getMessage());
+            self::assertStringContainsString('Solution: make the property nullable', $errors[0]->getMessage());
         }
     }
 

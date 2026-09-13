@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableTrait;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyOwningChild;
@@ -408,15 +409,8 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
         $context->setTranslatedParent($entity);
         $context->setShared(true);
 
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage(
-            \sprintf(
-                'SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations. '
-                .'Property "%s" of class "%s" is invalid.',
-                'sharedChildren',
-                $entity::class,
-            ),
-        );
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage(\sprintf('%s::$sharedChildren is a bidirectional ManyToMany association to a translatable entity', $entity::class));
 
         $this->handler->translate($context);
     }
@@ -737,52 +731,37 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
     // ---------------------------------------------------
 
     /**
-     * Normal shared translation: items processed, inverse set.
+     * The flag is authoritative: EntityTranslator sets it only for a property that
+     * carries #[SharedAmongstTranslations], so the handler does not re-read the
+     * attribute -- a shared bidirectional ManyToMany is refused, full stop.
      */
-    public function testTranslateSharedProcessesItemsAndSetsInverse(): void
+    public function testTranslateSharedThrowsWhateverTheAttributeSays(): void
     {
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $child  = new TranslatableManyToManyBidirectionalChild()->setLocale('en_US');
         $parent->addSharedChild($child);
         $child->addSharedParents($parent);
 
-        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
-
-        $context = $this->propertyContext($parent->getSharedChildren());
+        $context = $this->propertyContext($parent->getSharedChildren(), new \ReflectionProperty($parent, 'simpleChildren'));
         $context->setTranslatedParent($parent);
         $context->setShared(true);
-        $result = $this->handler->translate($context);
 
-        self::assertCount(1, $result);
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('::$simpleChildren is a bidirectional ManyToMany association');
 
-        $translatedChild = $result->first();
-        self::assertInstanceOf(TranslatableManyToManyBidirectionalChild::class, $translatedChild);
-        self::assertSame('en_US', $translatedChild->getLocale());
-        self::assertTrue($translatedChild->getSharedParents()->contains($parent));
-    }
-
-    /**
-     * Not a collection -> exception.
-     */
-    public function testTranslateSharedThrowsIfNotCollection(): void
-    {
-        $context = $this->propertyContext('not-a-collection')->setShared(true);
-
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage('BidirectionalManyToManyHandler::translate() expects a Collection.');
         $this->handler->translate($context);
     }
 
     /**
-     * No owner or property -> returns empty.
+     * No owner and no property: the refusal still fires, naming what it cannot know.
      */
-    public function testTranslateSharedReturnsEmptyIfNoOwnerOrProperty(): void
+    public function testTranslateSharedWithoutOwnerOrPropertyStillThrows(): void
     {
         $context = $this->propertyContext(new ArrayCollection())->setShared(true);
-        $result  = $this->handler->translate($context);
 
-        self::assertInstanceOf(ArrayCollection::class, $result);
-        self::assertCount(0, $result);
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('unknown::$unknown is a bidirectional ManyToMany association');
+        $this->handler->translate($context);
     }
 
     /**
@@ -790,7 +769,7 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
      *
      * @throws \ReflectionException|MappingException
      */
-    public function testTranslateSharedThrowsWhenMappedByMissing(): void
+    public function testTranslateThrowsWhenMappedByMissing(): void
     {
         $parent = new class {
             /** @var Collection<int, mixed> */
@@ -811,7 +790,6 @@ final class BidirectionalManyToManyHandlerTest extends UnitTestCase
 
         $context = $this->propertyContext($parent->items, $prop);
         $context->setTranslatedParent($parent);
-        $context->setShared(true);
 
         self::expectException(\RuntimeException::class);
         self::expectExceptionMessage('is not a bidirectional ManyToMany');

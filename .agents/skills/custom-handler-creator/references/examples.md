@@ -98,9 +98,9 @@ public function translate(TranslationContext $context): mixed
 
 **Field Type**: Objects from external libraries (e.g., Carbon dates, Ramsey UUIDs, Brick Math numbers)
 
-**Why Custom Handler Needed**: External library objects may need special cloning or serialization. ScalarHandler won't match them, and DoctrineObjectHandler may not handle them correctly.
+**Why Custom Handler Needed**: External library objects may need special cloning or serialization. ScalarHandler matches every transient object and hands it over by identity (only a mutable `\DateTime` is cloned), so a handler that must clone or re-create the value has to run BEFORE it.
 
-**Suggested Priority**: 75 (before relationship handlers)
+**Suggested Priority**: 95 (before ScalarHandler at 90)
 
 **Key Implementation Notes**:
 ```php

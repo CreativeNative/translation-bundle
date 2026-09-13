@@ -7,6 +7,7 @@ namespace Tmi\TranslationBundle\Test;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\OptimisticLockException;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalChild;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
@@ -222,10 +223,9 @@ final class TranslatableManyToManyBidirectionalTest extends IntegrationTestCase
         $parent = new TranslatableManyToManyBidirectionalParent()->setLocale('en_US');
         $parent->addSharedChild($child);
 
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage(
-            'SharedAmongstTranslations is not allowed on bidirectional ManyToMany associations',
-        );
+        // SharedAssociationException extends \RuntimeException: the documented catch keeps working.
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('::$sharedChildren is a bidirectional ManyToMany association to a translatable entity');
 
         $this->translator()->translate($parent, self::TARGET_LOCALE);
     }

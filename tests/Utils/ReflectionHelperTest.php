@@ -89,6 +89,29 @@ final class ReflectionHelperTest extends TestCase
      * EntityTranslator::resolveCopySource() and DoctrineObjectHandler::
      * supports() apply (WP7 #16).
      */
+    public function testRealClassIsTheInstancesOwnClassForAPlainObject(): void
+    {
+        self::assertSame(Scalar::class, ReflectionHelper::realClass(new Scalar()));
+    }
+
+    public function testRealClassUnwrapsAProxyToItsParentClass(): void
+    {
+        $proxy = new class extends Scalar implements Proxy {
+            #[\Override]
+            public function __load(): void
+            {
+            }
+
+            #[\Override]
+            public function __isInitialized(): bool
+            {
+                return true;
+            }
+        };
+
+        self::assertSame(Scalar::class, ReflectionHelper::realClass($proxy));
+    }
+
     public function testGetHierarchyPropertiesUnwrapsAProxyToTheRealClasssCacheEntry(): void
     {
         $proxy = new class extends Scalar implements Proxy {

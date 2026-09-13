@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Translation\Handlers;
 
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
@@ -54,7 +55,7 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
 
     /**
      * @throws \ReflectionException
-     * @throws \RuntimeException
+     * @throws SharedAssociationException
      */
     #[\Override]
     public function translate(TranslationContext $context): TranslatableInterface|null
@@ -72,11 +73,8 @@ final readonly class TranslatableEntityHandler implements TranslationHandlerInte
         // unidirectional path.
         if ($context->isShared()) {
             $property = $context->getProperty();
-            $message  = '#[SharedAmongstTranslations] is not supported on an association to a translatable '.
-                'entity. Property "%prop%" of class "%class%" points at a translatable target -- share the '.
-                'related entity\'s own columns instead of the association.';
 
-            throw new \RuntimeException(strtr($message, ['%class%' => $context->getEntity()::class, '%prop%' => null !== $property ? $property->name : 'unknown']));
+            throw SharedAssociationException::forAssociation('unidirectional to-one', $context->getEntity()::class, null !== $property ? $property->name : 'unknown');
         }
 
         // Reached only for the direct (unidirectional) association form: the

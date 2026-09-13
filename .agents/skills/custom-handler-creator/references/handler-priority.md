@@ -5,7 +5,7 @@
 | Priority | Handler | Matches |
 |----------|---------|---------|
 | 100 | PrimaryKeyHandler | `#[ORM\Id]` properties |
-| 90 | ScalarHandler | Scalars and DateTime |
+| 90 | ScalarHandler | Scalars and value objects (any transient object: dates, enums, uids); not Collections or embeddables |
 | 80 | EmbeddedHandler | `#[ORM\Embedded]` objects |
 | 70 | BidirectionalManyToOneHandler | ManyToOne with `inversedBy` |
 | 60 | BidirectionalOneToManyHandler | OneToMany with `mappedBy` |

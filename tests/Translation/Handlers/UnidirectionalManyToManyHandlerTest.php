@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping\ManyToManyInverseSideMapping;
 use Doctrine\ORM\Mapping\ManyToManyOwningSideMapping;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Fixtures\Entity\Scalar\Scalar;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyBidirectionalParent;
 use Tmi\TranslationBundle\Fixtures\Entity\Translatable\TranslatableManyToManyUnidirectionalChild;
@@ -335,16 +336,19 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         self::assertCount(2, $result);
     }
 
-    public function testTranslateSharedReturnsOriginalWhenNoProperty(): void
+    /**
+     * No property: the refusal still fires, naming what it cannot know.
+     */
+    public function testTranslateSharedWithoutAPropertyStillThrows(): void
     {
         $handler = $this->createHandler();
 
         $context = $this->propertyContext(new ArrayCollection())->setShared(true);
 
-        $result = $handler->translate($context);
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('unknown::$unknown is a unidirectional ManyToMany association');
 
-        self::assertInstanceOf(ArrayCollection::class, $result);
-        self::assertCount(0, $result);
+        $handler->translate($context);
     }
 
     /**
@@ -361,52 +365,34 @@ final class UnidirectionalManyToManyHandlerTest extends UnitTestCase
         $context->setTranslatedParent($entity);
         $context->setShared(true);
 
-        self::expectException(\RuntimeException::class);
-        self::expectExceptionMessage('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations');
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('::$sharedChildren is a unidirectional ManyToMany association to a translatable entity');
 
         $handler->translate($context);
     }
 
     /**
+     * The flag is authoritative: EntityTranslator sets it only for a property that
+     * carries #[SharedAmongstTranslations], so the handler does not re-read the
+     * attribute -- a shared unidirectional ManyToMany is refused, full stop.
+     *
      * @throws \ReflectionException
      */
-    public function testTranslateSharedFallsBackToNormalTranslate(): void
+    public function testTranslateSharedThrowsWhateverTheAttributeSays(): void
     {
         $handler = $this->createHandler();
 
-        // Already at the target locale -- see the comment on
-        // testTranslateReturnsAFreshCollectionWithoutTouchingTheOwnerField() above.
         $parent = new TranslatableManyToManyUnidirectionalParent();
-        $child  = new TranslatableManyToManyUnidirectionalChild();
-        $child->setLocale('de_DE');
-        $parent->addSimpleChild($child);
-
-        $prop = new \ReflectionProperty($parent::class, 'simpleChildren');
-
-        $mapping = new ManyToManyOwningSideMapping(
-            fieldName: 'simpleChildren',
-            sourceEntity: TranslatableManyToManyUnidirectionalParent::class,
-            targetEntity: TranslatableManyToManyUnidirectionalChild::class,
-        );
-        $meta = $this->createMock(ClassMetadata::class);
-        $meta->method('getAssociationMappings')->willReturn([
-            'simpleChildren' => $mapping,
-        ]);
-        $this->entityManager()->method('getClassMetadata')->with($parent::class)->willReturn($meta);
-
-        $this->attributeHelper()->method('isManyToMany')->willReturn(true);
+        $prop   = new \ReflectionProperty($parent::class, 'simpleChildren');
 
         $context = $this->propertyContext($parent->getSimpleChildren(), $prop);
         $context->setTranslatedParent($parent);
         $context->setShared(true);
 
-        $result = $handler->translate($context);
+        self::expectException(SharedAssociationException::class);
+        self::expectExceptionMessage('::$simpleChildren is a unidirectional ManyToMany association');
 
-        self::assertCount(1, $result);
-
-        // A fresh collection, not the source one -- the source association stays intact
-        self::assertNotSame($result, $parent->getSimpleChildren());
-        self::assertCount(1, $parent->getSimpleChildren());
+        $handler->translate($context);
     }
 
     /**

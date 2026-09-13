@@ -7,7 +7,6 @@ namespace Tmi\TranslationBundle\Translation;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\UnitOfWork;
-use Doctrine\Persistence\Proxy;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -22,6 +21,7 @@ use Tmi\TranslationBundle\Translation\Context\EntityTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\Handlers\TranslationHandlerInterface;
 use Tmi\TranslationBundle\Utils\AttributeHelper;
+use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 final class EntityTranslator implements EntityTranslatorInterface, ResetInterface
 {
@@ -493,15 +493,11 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
      * A lazily-loaded association can arrive here as a classic Doctrine proxy
      * subclass -- reflecting it directly finds nothing, because PHP attributes are
      * never inherited by a generated subclass, and #[Translatable] lives on the
-     * real class. Same proxy-unwrapping pattern DoctrineObjectHandler::supports()
-     * already uses for the same reason.
+     * real class ({@see ReflectionHelper::realClass()}).
      */
     private function resolveCopySource(object $entity): bool
     {
-        $parentClass = $entity instanceof Proxy ? get_parent_class($entity) : false;
-        $className   = \is_string($parentClass) ? $parentClass : $entity::class;
-
-        $attribute = $this->attributeHelper->getTranslatableAttribute(new \ReflectionClass($className));
+        $attribute = $this->attributeHelper->getTranslatableAttribute(new \ReflectionClass(ReflectionHelper::realClass($entity)));
         if (null !== $attribute && null !== $attribute->copySource) {
             return $attribute->copySource;
         }

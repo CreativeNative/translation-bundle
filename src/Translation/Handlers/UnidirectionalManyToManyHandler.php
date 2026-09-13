@@ -8,8 +8,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
-use Tmi\TranslationBundle\Doctrine\Attribute\SharedAmongstTranslations;
 use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
+use Tmi\TranslationBundle\Exception\SharedAssociationException;
 use Tmi\TranslationBundle\Translation\Context\PropertyTranslationContext;
 use Tmi\TranslationBundle\Translation\Context\TranslationContext;
 use Tmi\TranslationBundle\Translation\EntityTranslatorInterface;
@@ -53,9 +53,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     }
 
     /**
-     * $context->isShared(): SharedAmongstTranslations is not supported for unidirectional
-     * ManyToMany collections -- throws, unless the property turns out not to actually
-     * carry the attribute (defensive; the translator only sets isShared() when it does).
+     * $context->isShared(): the target is itself translatable, so sharing is refused.
      *
      * $context->isEmpty(): returns a fresh empty collection.
      *
@@ -71,19 +69,8 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
         if ($context->isShared()) {
             $prop = $context->getProperty();
-            if (null === $prop) {
-                return new ArrayCollection();
-            }
 
-            // Check for SharedAmongstTranslations attribute
-            $sharedAttrs = $prop->getAttributes(SharedAmongstTranslations::class);
-            if (\count($sharedAttrs) > 0) {
-                $data = $context->getValue();
-
-                throw new \RuntimeException(\sprintf('SharedAmongstTranslations is not allowed on unidirectional ManyToMany associations. Property "%s" of class "%s" is invalid.', $prop->getName(), \is_object($data) ? $data::class : 'unknown'));
-            }
-
-            return $this->translateCollection($context);
+            throw SharedAssociationException::forAssociation('unidirectional ManyToMany', null !== $prop ? $prop->class : 'unknown', null !== $prop ? $prop->name : 'unknown');
         }
 
         if ($context->isEmpty()) {
@@ -94,13 +81,6 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
     }
 
     /**
-     * The whole collection is handed to {@see EntityTranslatorInterface::preload()} once,
-     * before the loop below: one batched lookup query per item class rather than one per
-     * item, since each item is otherwise its own translate() call with its own internal
-     * single-entity preload(). preload() ignores non-translatable items on its own, so the
-     * mixed translatable/non-translatable collections this handler supports are safe to
-     * hand it whole.
-     *
      * @return Collection<int, mixed>
      */
     private function translateCollection(PropertyTranslationContext $context): Collection
@@ -155,15 +135,7 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
         $translatedItems = new ArrayCollection();
 
         $targetLocale = $context->getTargetLocale();
-
-        // One batched lookup for the whole collection instead of leaving each item's own
-        // translate() call to query for itself: preload() groups translatable items by
-        // class and issues one LocaleVariantFinder query per class, ignoring
-        // non-translatable items and anything already cached. A collection of K
-        // translatable items of one class then costs one query total here, not K.
-        if (\is_string($targetLocale)) {
-            $this->translator->preload($itemsToTranslate, $targetLocale);
-        }
+        CollectionTranslationSupport::preload($this->translator, $itemsToTranslate, $targetLocale);
 
         foreach ($itemsToTranslate as $item) {
             if (!$item instanceof TranslatableInterface || !\is_string($targetLocale)) {
@@ -179,20 +151,9 @@ final readonly class UnidirectionalManyToManyHandler implements TranslationHandl
 
             $translated = $this->translator->translate($item, $targetLocale);
 
-            // Cycle-guard fallback: EntityTranslator::processTranslation() hands back
-            // $item itself, untranslated, when (itemTuuid, targetLocale) is already
-            // marked in-progress higher up this very call -- reachable when $item is
-            // reachable again through some other path in the graph while its own
-            // translation is still on the call stack. There is no back-reference to
-            // touch on a unidirectional association, but adding $item here would still
-            // put the SOURCE entity into $newOwner's owning-side collection, persisting a
-            // join row that crosses locales. Skip it outright. $newOwner's collection is
-            // simply missing this item until a reload; the item is later reachable in its
-            // own right once its own translation completes and gets persisted on its own
-            // terms. An instance handed back unchanged but already carrying the target
-            // locale is not this fallback -- it is a genuine existing translation -- and
-            // keeps today's behaviour below.
-            if ($translated === $item && $item->getLocale() !== $targetLocale) {
+            // No back-reference to touch on a unidirectional association, but adding the
+            // source item would still persist a join row that crosses locales.
+            if (CollectionTranslationSupport::isCycleGuardFallback($translated, $item, $targetLocale)) {
                 continue;
             }
 
