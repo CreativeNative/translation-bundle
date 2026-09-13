@@ -25,7 +25,7 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
 
 /**
  * Creates translation roots for the Tuuid groups that already exist, and proves the
- * root invariant for CI (5.1).
+ * root invariant for CI.
  *
  * A translation row's root reference (a ManyToOne typed to a TranslationRootInterface,
  * see AttributeHelper::isTranslationRootReference()) is filled for new objects by the

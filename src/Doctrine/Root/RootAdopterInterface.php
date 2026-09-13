@@ -8,7 +8,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
 use Tmi\TranslationBundle\Doctrine\Model\TranslationRootInterface;
 
 /**
- * The application's side of `tmi:translation:adopt-root` (5.1): the bundle knows how
+ * The application's side of `tmi:translation:adopt-root`: the bundle knows how
  * to stream a table in Tuuid groups, classify each group and adopt an identity, but
  * only the application knows WHICH concrete root class a group needs (a SINGLE_TABLE
  * discriminator, say), how to build one, and how to attach it to a row that was

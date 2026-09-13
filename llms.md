@@ -1021,6 +1021,7 @@ When you call `$entityTranslator->translate($product, 'fr')`:
 
 ### A. Shared Embeddable (Address)  
 Suppose you have an entity `Rental` which embeds an `Address` object, and you want the address to be identical across locale variants.
+Sharing is honoured one level deep: an embeddable nested inside `Address` is copied at `translate()` time, but a `#[SharedAmongstTranslations]` declared on that inner embeddable is not propagated on flush -- declare sharing on the entity's own embedded property.
 
 ```php
 #[ORM\Entity]

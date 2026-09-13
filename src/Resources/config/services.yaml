@@ -10,6 +10,13 @@ services:
     # explicit `public:` inherits _defaults.public), so
     # tmi_translation.translation.entity_translator and its siblings are
     # private too.
+    #
+    # Service ids: a service a consumer may autowire by type is defined under its
+    # FQCN. The snake_case aliases (tmi_translation.utils.attribute_helper,
+    # .translation.entity_translator, .doctrine.translatable_remover,
+    # .doctrine.shared_value_synchronizer, .doctrine.shared_drift_scanner,
+    # .translation.locale_completeness_resolver) exist for #[Autowire(service:)]
+    # by name and for the documented fan-out services; everything else is FQCN-only.
     _defaults:
         autowire: true
         autoconfigure: true
@@ -18,13 +25,12 @@ services:
     # ----------------------------
     # Utility Services
     # ----------------------------
-    tmi_translation.utils.attribute_helper:
-        class: Tmi\TranslationBundle\Utils\AttributeHelper
+    Tmi\TranslationBundle\Utils\AttributeHelper: ~
 
-    # Class-name alias (v4.1) so a consumer service can type-hint AttributeHelper
-    # and be autowired, instead of naming the snake-case id in an #[Autowire].
-    Tmi\TranslationBundle\Utils\AttributeHelper:
-        alias: tmi_translation.utils.attribute_helper
+    # snake_case alias for #[Autowire(service:)] by name (a consumer's test base
+    # class fetches it this way); type-hinting AttributeHelper autowires the FQCN.
+    tmi_translation.utils.attribute_helper:
+        alias: Tmi\TranslationBundle\Utils\AttributeHelper
 
     # ----------------------------
     # Cache Service
@@ -94,7 +100,7 @@ services:
         alias: Tmi\TranslationBundle\Doctrine\TranslatableRemover
 
     # ----------------------------
-    # Shared-Value Synchronizer (v4.1)
+    # Shared-Value Synchronizer
     # ----------------------------
     # The one discovery + copy of #[SharedAmongstTranslations] values, with the
     # EDITED row as source. Used by the opt-in flush listener below and by
@@ -317,7 +323,7 @@ services:
         tags: [ { name: console.command } ]
 
     # ----------------------------
-    # Translation Roots (v5.1)
+    # Translation Roots
     # ----------------------------
     # The two extension points of tmi:translation:adopt-root, filled by
     # RootAdopterPass / TuuidOrphanCounterPass from their tags

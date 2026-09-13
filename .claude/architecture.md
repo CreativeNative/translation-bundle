@@ -40,6 +40,8 @@ two bidirectional handlers, repair its back-reference). All three check, right
 before that add/back-reference write, whether the result is `===` the item they handed in *and*
 that item's own locale is still the source locale — if so, it is the cycle-guard fallback and is
 skipped outright, rather than mutating the source entity's own FK or back-reference collection.
+That check and the batched `preload()` live in `Translation/Handlers/CollectionTranslationSupport`
+(`isCycleGuardFallback()`, `preload()`), the building block a custom collection handler reuses.
 An item returned unchanged because it *already* carries the target locale is a genuine existing
 translation, not the guard, and is still added/re-pointed as before. See
 [UPGRADING.md § 8](../UPGRADING.md#8-a-cycle-guard-fallback-never-mutates-the-source-entity).

@@ -358,7 +358,7 @@ final class EntityTranslator implements EntityTranslatorInterface, ResetInterfac
         $this->attributeHelper->validateProperty($property, $this->logger);
 
         // 1. Shared (always copies from source) -- by attribute OR by being a translation
-        // root reference (5.1): the root is reaffirmed to the identical instance on every
+        // root reference: the root is reaffirmed to the identical instance on every
         // walk of the clone.
         if ($this->attributeHelper->isEffectivelyShared($property)) {
             $this->logDebug('Attribute detected: SharedAmongstTranslations', [

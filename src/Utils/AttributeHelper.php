@@ -97,7 +97,7 @@ class AttributeHelper
     }
 
     /**
-     * The structural test for a translation row's root reference (5.1): a
+     * The structural test for a translation row's root reference: a
      * `#[ORM\ManyToOne]` whose declared type implements {@see TranslationRootInterface}.
      *
      * ManyToOne only -- a root has two or more rows by construction, so OneToOne's
@@ -432,7 +432,7 @@ class AttributeHelper
     }
 
     /**
-     * The per-property half of the root contract (5.1). The per-class half -- at most
+     * The per-property half of the root contract. The per-class half -- at most
      * one root reference, the constructor rule for a non-nullable one -- needs the
      * whole class and lives in AttributeValidationPass.
      *

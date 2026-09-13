@@ -90,6 +90,13 @@ For complete handler chain architecture, priority order, and decision tree, see 
 - **EntityTranslator** receives `TranslationCacheInterface` for cache delegation
 - Custom handlers can inject `TypeDefaultResolver` to resolve type-safe defaults for the `translate()` `isEmpty()` branch
 - Custom handlers can inject `TranslationCacheInterface` to check/store translations
+- A handler that logs takes a non-nullable `Psr\Log\LoggerInterface $logger = new NullLogger()`
+  constructor parameter; `enable_logging: false` injects the bundle's `tmi_translation.null_logger`
+  into the four bundled logging services, and a custom handler follows the same contract
+  (no `setLogger()`, no null checks)
+- A handler that meets `#[SharedAmongstTranslations]` on an association to a translatable
+  target throws `Tmi\TranslationBundle\Exception\SharedAssociationException::forAssociation($kind, $class, $property)`
+  — the one exception, with one message, every bundled handler uses for that refusal
 
 ### Three Reusable Building Blocks Instead of Hand-Rolling
 
@@ -119,7 +126,18 @@ If the custom handler needs any of these, delegate — don't reimplement:
   translates each item — never inside it. `preload()` groups translatable items by class,
   issues one `LocaleVariantFinder` query per class, ignores non-translatable items and cached
   hits, and remembers misses, so K items of one class cost one lookup instead of K. The
-  bundled `BidirectionalOneToManyHandler` and both ManyToMany handlers do exactly this.
+  bundled `BidirectionalOneToManyHandler` and both ManyToMany handlers do exactly this through
+  `Tmi\TranslationBundle\Translation\Handlers\CollectionTranslationSupport` — inject it:
+  `preload($translator, $collection, $targetLocale)` before the loop, and
+  `isCycleGuardFallback($result, $item, $targetLocale)` before adding a translated item, which
+  tells the cycle-guard fallback (the translator handed the source item itself back because its
+  (tuuid, locale) is already mid-translation higher up the call) apart from a genuine existing
+  translation. Skip such an item; never write its back-reference.
+- **A value object property (a `DateTimeImmutable`, an enum, a uid, any transient object).**
+  `ScalarHandler` (priority 90) claims every value that is not a `Collection`, not on an
+  `#[ORM\Embedded]` property and not a mapped entity, and applies `#[EmptyOnTranslate]` /
+  `copy_source: false` to it. A custom handler for such a type registers above 90 (95 is the
+  convention) or `ScalarHandler` wins.
 
 ## Quick Reference: TranslationHandlerInterface
 

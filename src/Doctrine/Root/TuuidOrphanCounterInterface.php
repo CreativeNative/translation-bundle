@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tmi\TranslationBundle\Doctrine\Root;
 
 /**
- * An application-contributed count for `tmi:translation:adopt-root --check` (5.1):
+ * An application-contributed count for `tmi:translation:adopt-root --check`:
  * rows in a table the bundle does not know that reference a Tuuid no translation row
  * carries any more -- a photo store keyed by a bare `tuuid` column, a review table
  * keyed by `(entity_class, tuuid)`.

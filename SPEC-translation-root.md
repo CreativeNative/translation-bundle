@@ -563,4 +563,5 @@ per test), not the code. The application's stage 1 is separately scoped in its o
   whose rows span two leaves must be seen whole, otherwise a leaf-scoped run mints a root for its
   own rows and turns the sibling into an *ambiguous* group on the next full run.
 - Whether to keep `#[TranslationRoot]` at all once the structural test exists — proposal: keep it,
-  it is the one line a reader of `Property` sees.
+  it is the one line a reader of `Property` sees. **(Decided in 5.2: it stays** — optional,
+  additive, the one visible line; the structural test remains the contract.**)**

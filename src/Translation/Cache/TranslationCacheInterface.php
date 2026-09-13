@@ -15,9 +15,7 @@ use Tmi\TranslationBundle\Doctrine\Model\TranslatableInterface;
  * There is deliberately no has(): on a persistent backend key presence proves nothing --
  * a row deleted since it was cached, or an entry written in an older format, leaves the
  * key behind while a load fails. The only reliable existence
- * check is `get() !== null`, which also costs one round-trip instead of two. A has() the
- * bundle shipped up to v3.3.0 answered exactly that unreliable question and was removed in
- * v3.4.0 before any consumer adopted it (see UPGRADING.md).
+ * check is `get() !== null`, which also costs one round-trip instead of two.
  */
 interface TranslationCacheInterface
 {

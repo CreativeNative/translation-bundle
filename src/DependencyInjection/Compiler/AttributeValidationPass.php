@@ -20,7 +20,7 @@ use Tmi\TranslationBundle\Utils\ReflectionHelper;
  * - Class-level attribute conflicts (Shared + Empty)
  * - Property-level attribute conflicts (Shared + Empty, readonly + Empty)
  * - Missing locale property
- * - The translation root contract (5.1): the per-property checks through
+ * - The translation root contract: the per-property checks through
  *   AttributeHelper::validateProperty(), plus the two per-class rules only the whole
  *   class can answer -- at most one root reference, and, once that reference is
  *   non-nullable (the "migration is done" switch), a constructor that requires the root.
@@ -285,7 +285,7 @@ final class AttributeValidationPass implements CompilerPassInterface
     }
 
     /**
-     * The per-class half of the translation root contract (5.1). Returns whether the
+     * The per-class half of the translation root contract. Returns whether the
      * concrete class declares a root reference at all.
      *
      * A NULLABLE root reference is phase 1 of the rollout: the FK column is nullable,

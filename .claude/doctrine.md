@@ -267,7 +267,12 @@ cross-check requires them.
 2. **Unique constraints**: A single-column `unique: true` on a translatable field fails the
    moment the mapping is loaded (`UniqueConstraintListener`) — use a composite
    `field + locale` constraint.
-3. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to
+3. **Nested embeddables**: an embeddable inside an embeddable is copied at translate time like
+   any value, but a `#[SharedAmongstTranslations]` on the *inner* embeddable (or one of its
+   properties) is not propagated on flush — `SharedValueSynchronizer::sharedProperties()` walks one
+   level, and the UnitOfWork change-set keys of a nested embeddable would not match its paths.
+   Declare sharing on the outer entity property (the whole embeddable) or flatten the embeddable.
+4. **Row-per-locale**: every locale variant is a full row; *N* configured locales means up to
    *N*× the rows for a translatable entity, paid regardless of how many locales are actually
    filled in.
 

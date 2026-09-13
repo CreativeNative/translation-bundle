@@ -9,7 +9,7 @@ namespace Tmi\TranslationBundle\ValueObject;
  * which shared property paths differed and were (or, for a comparison,
  * would be) written, which differed but cannot be written because the
  * property is readonly, and which differed but must NOT be written because
- * the property is a translation root reference (5.1).
+ * the property is a translation root reference.
  *
  * Produced by {@see \Tmi\TranslationBundle\Doctrine\SharedValueSynchronizer}.
  * Paths use the notation of `tmi:translation:sync-shared`'s drift table:

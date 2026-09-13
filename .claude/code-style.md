@@ -67,6 +67,12 @@ public function __construct(
 )
 ```
 
+Service ids in `services.yaml`: a service a consumer may autowire by type is defined under
+its FQCN; the snake_case ids (`tmi_translation.utils.attribute_helper`, `.translation.entity_translator`,
+`.doctrine.translatable_remover`, `.doctrine.shared_value_synchronizer`, `.doctrine.shared_drift_scanner`,
+`.translation.locale_completeness_resolver`) are aliases for `#[Autowire(service:)]` by name;
+everything else is FQCN-only.
+
 ## Error Handling
 
 | Exception | Use Case |
@@ -92,5 +98,13 @@ reads structured fields off an exception.
 
 - **Pre-commit**: Run `docker exec php composer check` (cs-fix + stan + test) before every commit
 - **PHP-CS-Fixer**: Coding standards, runs automatically via `composer check`
-- **PHPStan**: Level max, 0 errors required, runs automatically via `composer check`
+- **PHPStan**: Level max with strict-rules and eight extra strictness options
+  (`checkMissingOverrideMethodAttribute`, `checkBenevolentUnionTypes`, `checkMissingCallableSignature`,
+  `checkImplicitMixed`, `checkExplicitMixed`, `reportUnmatchedIgnoredErrors`, `treatPhpDocTypesAsCertain`,
+  `checkTooWideReturnTypesInProtectedAndPublicMethods`), 0 errors required, runs automatically via
+  `composer check`. Consequences: every overriding method carries `#[\Override]`; a PHPDoc type is
+  certain, so a literal class string handed to a `@phpstan-assert-if-true` method is "always true"
+  (feed it through a data provider or a non-literal variable in tests); closures get full signatures.
+- **php-cs-fixer**: `native_function_invocation` for the compiler-optimised set (`\count()`, `\sprintf()`,
+  `\is_object()`, …), `php_unit_set_up_tear_down_visibility`; run `composer cs-fix`, never fix by hand
 - **PHPUnit**: 100% line coverage required, runs automatically via `composer check`

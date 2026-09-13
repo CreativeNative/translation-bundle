@@ -42,7 +42,7 @@ use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
  * - a single-valued association whose target is NOT itself translatable,
  *   shared as the identical instance -- the bundle's own semantics for such a
  *   relation. An association to a translatable target is rejected at
- *   translate time (RuntimeException, v4.0) and is never propagated here;
+ *   translate time (SharedAssociationException) and is never propagated here;
  *   collections are never shared at all.
  *
  * Every entry carries two path shapes. `path` is the property path
@@ -53,9 +53,7 @@ use Tmi\TranslationBundle\ValueObject\SharedValueSyncReport;
  * per mapped inner column (`embedded.street`, `embedded.city`, ...), which is
  * what lets the flush listener intersect a change set with this list.
  *
- * Value handling, identical to what the two former copies of this logic did
- * (the command's `syncSibling()` and TMI's app-side `SharedFieldFanOut`):
- * scalars are assigned; value objects are CLONED so two rows never share one
+ * Value handling: scalars are assigned; value objects are CLONED so two rows never share one
  * mutable instance; enums are immutable singletons and are never cloned;
  * associations are the identical instance; a readonly property that differs
  * is reported, not written; an uninitialized typed property on the source is
@@ -305,7 +303,7 @@ final class SharedValueSynchronizer
                 continue;
             }
 
-            // Shared by attribute, or a translation root reference (5.1) -- the latter is
+            // Shared by attribute, or a translation root reference -- the latter is
             // shared by its type alone and compared by identity like any shared
             // association, but flagged so reconcile() reports instead of writes it.
             if (!$this->attributeHelper->isEffectivelyShared($property)) {

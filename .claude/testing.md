@@ -48,6 +48,13 @@ docker exec php vendor/bin/phpunit                     # Without coverage
 docker exec php vendor/bin/phpunit --filter MethodName # Single test
 ```
 
+Targeted runs need `--no-coverage` (phpunit.xml configures coverage reports; without
+`XDEBUG_MODE=coverage` PHPUnit stops with "No tests executed"). A test that fails inside the
+first kernel boot (a compiler pass throwing, a fixture without its adopter) leaves Symfony's
+container `flock()` held by the PHPUnit process and every later boot in that run blocks
+forever: kill the stray `php vendor/bin/phpunit` process and remove `var/cache/test/*.lock`
+before running again.
+
 ## Test Fixtures
 
 Test entities live in `tests/Fixtures/Entity/`. Create specific fixtures for each relationship type being tested.
@@ -87,6 +94,11 @@ PHPUnit runs in strict mode — `failOnWarning`, `failOnNotice`, and `failOnRisk
 
 - **Target**: 100% line coverage (enforced in CI)
 - Coverage report: `var/clover.xml`
+- `#[CoversClass]` (or `#[CoversTrait]`) on every test with one system under test; it restricts
+  what the test is credited for, so a helper the test exercises incidentally needs its own test.
+  End-to-end scenario tests (`tests/*Test.php`, `QueryBudgetTest`, `DocumentationReferencesTest`,
+  `TranslateEventSeedingIntegrationTest`) carry none on purpose — never `#[CoversNothing]`,
+  which would drop their credit entirely.
 
 ## Writing Tests
 
@@ -129,6 +141,23 @@ public function testTranslateCreatesNewEntityWithCorrectLocale(): void
     self::assertSame($entity->getTuuid(), $translated->getTuuid());
 }
 ```
+
+`IntegrationTestCase` registers nothing by hand: `TranslatableEventSubscriber` and every
+listener reach Doctrine through the bundle's own `services.yaml` (autoconfigured
+`#[AsDoctrineListener]` plus explicit tags), and `TranslatableEventSubscriberRegistrationTest`
+asserts exactly one container instance serves its three events. A test that needs a
+differently configured subscriber (a spy logger, `strictOrphanCheck: true`) builds its own and
+adds it with `addEventListener([Events::prePersist, Events::postLoad, Events::onFlush], $subscriber)`
+— the hooks are idempotent, a second instance is harmless.
+
+Command tests execute with `['interactive' => false]` (the `run_()` helpers do): the
+whole-table write of `sync-shared` asks `Continue?` on an interactive input and a
+`CommandTester` without `setInputs()` would answer the default, no. Tests of the prompt
+itself call `setInputs(['yes'])`/`['no']` on a tester built by `tester()`.
+
+A streaming command must leave nothing managed behind: `AdoptRootCommandTest` asserts
+`$em->getUnitOfWork()->size() === 0` after a run, rows and roots included — the proof that
+`GroupBatch` detached every settled entity.
 
 ### Query-Budget Tests
 

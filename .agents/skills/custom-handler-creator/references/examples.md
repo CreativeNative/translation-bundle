@@ -159,8 +159,14 @@ public function supports(TranslationContext $context): bool
 public function translate(TranslationContext $context): mixed
 {
     if ($context->isShared()) {
-        // Caches should NOT be shared across locales
-        throw new \RuntimeException('Cached properties cannot be shared across translations');
+        // Caches should NOT be shared across locales. The bundle's own handlers throw
+        // SharedAssociationException for a shared association; a custom refusal follows the
+        // same idiom -- one paragraph naming class and property, ending in a "Solution:".
+        throw new \RuntimeException(\sprintf(
+            '%s::$%s is a cached value and cannot be shared amongst translations. Solution: remove #[SharedAmongstTranslations] from the property.',
+            $context->getProperty()?->class ?? 'unknown',
+            $context->getProperty()?->name ?? 'unknown',
+        ));
     }
 
     // Invalidate cache by returning null -- isEmpty() and the ordinary (neither

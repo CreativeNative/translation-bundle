@@ -148,7 +148,14 @@ answering no prints `Aborted, nothing written.` and exits 0. A cron job or deplo
 would change), `<tuuid> <locale> <path>: <old> → <new>`, so the decision can be an informed one:
 run `--dry-run -v` first. **Action:** add `-n` to any scripted whole-table write.
 
-### 10. `enable_logging: false` now silences `EmbeddedHandler` too
+### 10. Flush-time propagation skips a sibling the same flush removes
+
+Editing a shared value on one locale and removing another locale's row in the same flush threw
+`ORMInvalidArgumentException` from `SharedValuePropagationListener` (the sibling lookup hydrated
+the removed row, which Doctrine no longer manages). A row about to disappear now receives
+nothing. **Action:** none.
+
+### 11. `enable_logging: false` now silences `EmbeddedHandler` too
 
 `EmbeddedHandler` never received the `$logger` argument its service definition meant for it.
 With Monolog installed, autowiring handed it the application's real logger regardless of
