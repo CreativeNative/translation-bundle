@@ -12,7 +12,16 @@ Only the 4.x line and later is supported. Entries for 1.x–3.x are deliberately
 migration paths are kept in [`UPGRADING.md`](UPGRADING.md#archive--unsupported-upgrade-paths)
 and their notes in the GitHub releases.
 
-## [Unreleased]
+## [5.2.0] — 2026-09-14
+
+A hardening release: the audit and the bug hunt that followed 5.1, built out. Five proven bug
+fixes — two of them data-corrupting (a self-referential tree handed its translated root the wrong
+parent, a removed translation came back from the cache) — the unique-constraint gate moved onto a
+path that always runs, a confirmation before `sync-shared`'s whole-table write, and the API
+clean-ups both consumers were checked against before each removal. No default changes and no new
+configuration key. One behavioural change needs an audit before the bump if you run
+`copy_source: false`. Migration:
+[`UPGRADING.md` § UPGRADE FROM 5.1 to 5.2](UPGRADING.md#upgrade-from-51-to-52).
 
 ### Added
 
@@ -457,6 +466,8 @@ every console command's name and most of its options. Migration:
 migration paths are kept in full under
 [`UPGRADING.md` § Archive](UPGRADING.md#archive--unsupported-upgrade-paths).
 
+[5.2.0]: https://github.com/CreativeNative/translation-bundle/compare/v5.1.0...v5.2.0
+[5.1.0]: https://github.com/CreativeNative/translation-bundle/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/CreativeNative/translation-bundle/compare/v4.1.1...v5.0.0
 [4.1.1]: https://github.com/CreativeNative/translation-bundle/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/CreativeNative/translation-bundle/compare/v4.0.0...v4.1.0
