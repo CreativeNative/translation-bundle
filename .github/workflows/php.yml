@@ -94,7 +94,7 @@ jobs:
       # never committed -- the checkout is discarded with the runner.
       - name: Pin doctrine/orm to the floor
         if: matrix.deps == 'orm-floor'
-        run: composer require --no-update --no-interaction doctrine/orm:3.5.7
+        run: composer require --no-update --no-interaction doctrine/orm:3.5.8
 
       - name: Pin Symfony version
         run: |

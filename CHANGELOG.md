@@ -128,9 +128,17 @@ configuration key. One behavioural change needs an audit before the bump if you 
   `doctrine/persistence`, `doctrine/collections`, `doctrine/dbal`, `symfony/http-kernel`,
   `symfony/event-dispatcher`, `symfony/config`, `symfony/dependency-injection`) instead of
   relying on transitive resolution; `ext-mbstring` is a dev requirement now (one test uses it).
-- CI: a PHP 8.5 leg and a `doctrine/orm` floor leg (`3.5.7`) next to the Symfony floor leg.
+- CI: a PHP 8.5 leg and a `doctrine/orm` floor leg (`3.5.8`) next to the Symfony floor leg. The
+  floor leg found its first defect immediately: the advertised minimum was `3.5.7`, and that one
+  release requires `symfony/console ^5.4 || ^6.0 || ^7.0` — it dropped Symfony 8 support, which
+  `3.5.8` restored — so the minimum this bundle advertised could not be installed next to the
+  `symfony/console ^8.0` it also requires. The floor is `^3.5.8` now.
 
 ### Fixed
+
+- `SharedValuePropagationListener` uses `SplObjectStorage::offsetExists()` instead of
+  `contains()`, which PHP 8.5 deprecates. The suite runs with `failOnDeprecation`, so the new
+  8.5 leg turned it into a build failure on its first run.
 
 - `#[EmptyOnTranslate]` and `copy_source: false` apply to value objects — `DateTimeImmutable`,
   enums, uids, any object Doctrine has no mapping for. Before, only `\DateTime` reached a

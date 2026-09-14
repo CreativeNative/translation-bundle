@@ -251,7 +251,7 @@ final class SharedValuePropagationListener
      */
     private static function receivedPaths(\SplObjectStorage $received, object $entity): array
     {
-        return $received->contains($entity) ? $received[$entity] : [];
+        return $received->offsetExists($entity) ? $received[$entity] : [];
     }
 
     /**
